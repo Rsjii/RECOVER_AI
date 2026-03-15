@@ -84,3 +84,19 @@ temp/
 # Misc
 .turbo/
 dist-ssr/
+
+# Documentation & Planning (dev only)
+docs/
+FINAL_SUMMARY.txt
+QUICK_STATUS.txt
+REAL_PLAN_TODO.txt
+SETUP_AND_TESTING.txt
+test_demo_flow.sh
+
+# Scratch folders
+z_companies/
+z_test_data/
+AI_FINAL_MODEL/
+
+# Dev files
+.env.example
