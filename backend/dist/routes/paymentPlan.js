@@ -1,0 +1,14 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const auth_1 = require("../middleware/auth");
+const tenantScope_1 = require("../middleware/tenantScope");
+const paymentPlanController_1 = require("../controllers/paymentPlanController");
+const router = (0, express_1.Router)();
+router.use(auth_1.authMiddleware);
+router.use(tenantScope_1.tenantScopeGuard);
+router.post('/', paymentPlanController_1.createPlan);
+router.get('/', paymentPlanController_1.getPlan);
+router.get('/list', paymentPlanController_1.listPlans);
+router.patch('/:planId/status', paymentPlanController_1.updatePlanStatus);
+exports.default = router;

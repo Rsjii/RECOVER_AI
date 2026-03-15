@@ -1,0 +1,55 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.config = void 0;
+exports.config = {
+    nodeEnv: process.env.NODE_ENV || 'development',
+    port: parseInt(process.env.PORT || '3000'),
+    databaseUrl: process.env.DATABASE_URL,
+    redisUrl: process.env.REDIS_URL,
+    jwtSecret: process.env.JWT_SECRET,
+    refreshTokenSecret: process.env.REFRESH_TOKEN_SECRET,
+    encryptionKey: process.env.ENCRYPTION_KEY,
+    adminSecret: process.env.ADMIN_SECRET,
+    frontendUrl: process.env.FRONTEND_URL,
+    stripe: {
+        apiKey: process.env.STRIPE_API_KEY,
+        clientId: process.env.STRIPE_CLIENT_ID,
+        clientSecret: process.env.STRIPE_CLIENT_SECRET,
+        webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
+    },
+    quickbooks: {
+        clientId: process.env.QB_CLIENT_ID,
+        clientSecret: process.env.QB_CLIENT_SECRET,
+        environment: (process.env.QB_ENVIRONMENT || 'sandbox'),
+    },
+    resend: {
+        apiKey: process.env.RESEND_API_KEY,
+        fromEmail: process.env.RESEND_FROM_EMAIL || 'noreply@recoverai.com',
+    },
+    lemonSqueezy: {
+        apiKey: process.env.LEMON_SQUEEZY_API_KEY,
+        storeId: process.env.LEMON_SQUEEZY_STORE_ID,
+        webhookSecret: process.env.LEMON_SQUEEZY_WEBHOOK_SECRET,
+    },
+    sendgrid: {
+        apiKey: process.env.SENDGRID_API_KEY,
+        fromEmail: process.env.SENDGRID_FROM_EMAIL || 'noreply@recoverai.com',
+        fromName: process.env.SENDGRID_FROM_NAME || 'RecoverAI',
+    },
+    anthropic: {
+        apiKey: process.env.ANTHROPIC_API_KEY,
+        model: process.env.ANTHROPIC_MODEL || 'claude-opus-4-1',
+    },
+    openai: {
+        apiKey: process.env.OPENAI_API_KEY,
+        model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+    },
+    google: {
+        clientId: process.env.GOOGLE_CLIENT_ID,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    },
+    slack: {
+        webhookUrl: process.env.SLACK_WEBHOOK_URL,
+    },
+    baseUrl: process.env.BASE_URL || 'http://localhost:3000',
+};

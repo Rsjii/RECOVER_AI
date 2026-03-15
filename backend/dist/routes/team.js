@@ -1,0 +1,17 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const auth_1 = require("../middleware/auth");
+const rbac_1 = require("../middleware/rbac");
+const tenantScope_1 = require("../middleware/tenantScope");
+const teamController_1 = require("../controllers/teamController");
+const router = (0, express_1.Router)();
+router.get('/invitation/validate', teamController_1.validateInvitation);
+router.use(auth_1.authMiddleware);
+router.use(tenantScope_1.tenantScopeGuard);
+router.get('/members', teamController_1.listTeamMembers);
+router.post('/invite', (0, rbac_1.requireRole)('admin'), teamController_1.inviteMember);
+router.put('/members/:userId/role', (0, rbac_1.requireRole)('admin'), teamController_1.updateMemberRole);
+router.delete('/members/:userId', (0, rbac_1.requireRole)('admin'), teamController_1.revokeMember);
+router.post('/invitation/accept', teamController_1.acceptInvitation);
+exports.default = router;

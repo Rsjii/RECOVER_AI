@@ -1,0 +1,15 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const auth_1 = require("../middleware/auth");
+const rbac_1 = require("../middleware/rbac");
+const tenantScope_1 = require("../middleware/tenantScope");
+const settingsController_1 = require("../controllers/settingsController");
+const router = (0, express_1.Router)();
+router.use(auth_1.authMiddleware);
+router.use(tenantScope_1.tenantScopeGuard);
+router.get('/', settingsController_1.getSettings);
+router.put('/dunning', (0, rbac_1.requireRole)('admin'), settingsController_1.updateDunningSettings);
+router.put('/slack', (0, rbac_1.requireRole)('admin'), settingsController_1.updateSlackSettings);
+router.put('/general', (0, rbac_1.requireRole)('admin'), settingsController_1.updateGeneralSettings);
+exports.default = router;
