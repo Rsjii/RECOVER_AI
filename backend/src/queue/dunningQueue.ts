@@ -232,7 +232,7 @@ export function startDunningWorker(): Worker<DunningEmailJob> {
     },
     {
       connection: getRedisConnection(),
-      concurrency: 5,
+      concurrency: 1,  // Respect Resend's 2 requests/sec rate limit
     }
   );
 
@@ -260,7 +260,7 @@ export function startDunningWorker(): Worker<DunningEmailJob> {
     logWarn(LOG_MODULE, 'worker', 'Worker connection issue', { error: err.message });
   });
 
-  logInfo(LOG_MODULE, 'startDunningWorker', 'Worker started', { concurrency: 5 });
+  logInfo(LOG_MODULE, 'startDunningWorker', 'Worker started', { concurrency: 1 });
   return dunningWorker;
 }
 

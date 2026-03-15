@@ -4,6 +4,275 @@ import { authService } from '../services/authService';
 import { config } from '../config/env';
 import { logInfo, logError } from '../utils/logger';
 import { runDecisionEngineDryRun } from '../queue/agentLoop';
+import { redisClient } from '../config/redis';
+
+// Pre-crafted personalized emails for each demo invoice (by invSpec index)
+// Keyed by [custIdx, emailType] → {subject, body, tone}
+// custIdx: 0=Sarah Chen, 1=Mike Johnson, 2=David Park, 3=Priya Mehta, 4=Jason Torres, 5=Emma Williams, 6=Ryan Lee, 7=Nina Patel
+const DEMO_EMAILS: Record<string, { subject: string; body: string; tone: string }> = {
+  // dunning_5 — Escalation (60+ days overdue)
+  '2:dunning_5': {
+    subject: 'Final Notice: $14,500 Invoice — Immediate Action Required',
+    tone: 'urgent',
+    body: `Hi David,
+
+I'm reaching out one final time regarding TechWave Co's outstanding invoice of $14,500, which is now 65 days past due.
+
+Despite our previous attempts to resolve this, we have not received payment. This invoice has been escalated within our collections process.
+
+To avoid this being referred to our collections team, please arrange payment immediately by replying to this email or calling us directly.
+
+If you're experiencing financial difficulties, we're open to discussing a structured payment arrangement before this goes further.
+
+This is our final notice before escalation.
+
+Best regards,
+Acme SaaS`,
+  },
+  '4:dunning_5': {
+    subject: 'Final Notice: $22,000 Invoice #INV-00042 — CloudGate Inc',
+    tone: 'urgent',
+    body: `Hi Jason,
+
+This is a final notice regarding CloudGate Inc's balance of $22,000, now 70 days overdue.
+
+We've attempted to reach you multiple times over the past two months. Our records indicate this invoice remains unpaid and has not been disputed.
+
+Continuing non-payment will result in this account being forwarded to our external collections partner, which may affect your credit standing.
+
+To resolve this now:
+• Pay in full: reply for payment link
+• Payment plan: we can split this into 3–4 installments
+
+Please respond within 48 hours.
+
+Regards,
+Acme SaaS Collections`,
+  },
+  // dunning_4 — Formal notice (30-60 days overdue)
+  '7:dunning_4': {
+    subject: 'Formal Payment Notice: Invoice $8,600 — 40 Days Overdue',
+    tone: 'firm',
+    body: `Hi Nina,
+
+I'm following up on DevFirst's overdue invoice of $8,600, now 40 days past due.
+
+We've sent prior reminders but have not received payment or a response. At this stage, we need to formally request immediate resolution.
+
+If there's a billing dispute or an issue with the invoice, please let us know so we can address it. Otherwise, please process payment at your earliest convenience.
+
+As an alternative, we can offer a payment plan to help spread the balance.
+
+Please respond within 7 days to avoid further escalation.
+
+Thank you,
+Acme SaaS`,
+  },
+  '1:dunning_4': {
+    subject: 'Payment Required: $6,300 Invoice — BuildRight LLC (30 Days Overdue)',
+    tone: 'firm',
+    body: `Hi Mike,
+
+This is a formal follow-up regarding BuildRight LLC's outstanding invoice of $6,300, which reached 30 days overdue today.
+
+At this stage, we're requesting that you arrange payment or contact us to discuss options. We value our relationship with BuildRight and would like to resolve this without escalation.
+
+Options available to you:
+1. Pay the full balance now (reply for payment link)
+2. Set up a payment plan (3 monthly installments)
+
+Please respond within 5 business days.
+
+Best,
+Acme SaaS`,
+  },
+  // dunning_3 — Payment plan offer (14-30 days)
+  '2:dunning_3': {
+    subject: 'Invoice Update: $9,100 Now 25 Days Overdue — Let\'s Resolve This',
+    tone: 'friendly',
+    body: `Hi David,
+
+I wanted to check in regarding TechWave Co's invoice of $9,100, which is now 25 days past due.
+
+I understand things can get busy — if there's been an oversight or you'd prefer to pay in installments, just let me know. We're happy to set up a flexible payment arrangement.
+
+To pay now or discuss options, simply reply to this email.
+
+Thanks,
+Acme SaaS`,
+  },
+  '4:dunning_3': {
+    subject: 'Following Up: $18,000 Invoice — 20 Days Overdue',
+    tone: 'friendly',
+    body: `Hi Jason,
+
+Following up on CloudGate Inc's invoice of $18,000, now 20 days past due.
+
+If you've already sent payment, please disregard this message. If not, we'd love to help find a solution — whether that's a payment plan or resolving any disputes.
+
+Reply here or click the payment link below to settle this.
+
+Best,
+Acme SaaS`,
+  },
+  '7:dunning_3': {
+    subject: 'Invoice Reminder: $11,200 — DevFirst (35 Days Past Due)',
+    tone: 'firm',
+    body: `Hi Nina,
+
+Your invoice of $11,200 is now 35 days overdue. This is our third reminder.
+
+We'd like to resolve this amicably. If there's an issue with the invoice or your account, please let us know immediately so we can address it.
+
+If you're finding the balance difficult to pay at once, we can arrange monthly installments.
+
+Please reply by end of week.
+
+Best regards,
+Acme SaaS`,
+  },
+  '0:dunning_3': {
+    subject: 'Gentle Reminder: $3,500 Invoice — 25 Days Overdue',
+    tone: 'friendly',
+    body: `Hi Sarah,
+
+Just a friendly reminder that Nexflow's invoice of $3,500 is now 25 days past due.
+
+Given your excellent payment history with us, I'm sure this is just an oversight. If you have any questions or would like to pay in installments, feel free to reach out.
+
+Click here to pay or simply reply to this email.
+
+Thanks,
+Acme SaaS`,
+  },
+  '3:dunning_3': {
+    subject: 'Invoice Follow-Up: $5,600 — HealthSync (27 Days Overdue)',
+    tone: 'friendly',
+    body: `Hi Priya,
+
+Following up on HealthSync's invoice of $5,600, now 27 days past due.
+
+If this has slipped through the cracks, no worries — it happens! Please arrange payment at your convenience or let me know if you'd prefer a payment plan.
+
+Happy to help resolve this quickly.
+
+Best,
+Acme SaaS`,
+  },
+  '5:dunning_3': {
+    subject: 'Payment Reminder: $4,200 Invoice — DataCore AI (26 Days)',
+    tone: 'friendly',
+    body: `Hi Emma,
+
+Just checking in on DataCore AI's outstanding invoice of $4,200 (26 days overdue).
+
+If there's been any issue with the invoice, please let me know and we'll sort it right away. Otherwise, a quick payment would be greatly appreciated!
+
+Reply here or use the payment link.
+
+Thanks,
+Acme SaaS`,
+  },
+  '6:dunning_3': {
+    subject: 'Action Needed: $2,100 Invoice — Swiftly Inc (28 Days Overdue)',
+    tone: 'friendly',
+    body: `Hi Ryan,
+
+A quick follow-up on Swiftly Inc's invoice of $2,100, which is now 28 days past due.
+
+Could you take a moment to process this when you get a chance? If you'd prefer to split into two payments, we can accommodate that.
+
+Thanks for your continued partnership!
+
+Best,
+Acme SaaS`,
+  },
+  // dunning_2 — Getting overdue (7-14 days)
+  '1:dunning_2': {
+    subject: 'Invoice #INV-00089 Overdue — $4,500 (BuildRight LLC)',
+    tone: 'friendly',
+    body: `Hi Mike,
+
+Your invoice of $4,500 is now 10 days past due. Just wanted to make sure this didn't slip through.
+
+If you have any questions about the invoice or need an alternative payment arrangement, I'm happy to help.
+
+Pay now or reach out if you need anything.
+
+Thanks,
+Acme SaaS`,
+  },
+  '5:dunning_2': {
+    subject: 'Reminder: $7,800 Invoice Now Overdue — DataCore AI',
+    tone: 'friendly',
+    body: `Hi Emma,
+
+DataCore AI's invoice of $7,800 is now 15 days past due.
+
+This is our second reminder. Please arrange payment when you have a moment, or let us know if there's anything preventing it — we're happy to discuss options.
+
+Best,
+Acme SaaS`,
+  },
+  '0:dunning_2': {
+    subject: 'Second Reminder: Invoice $6,100 — Nexflow Inc',
+    tone: 'friendly',
+    body: `Hi Sarah,
+
+Following up on Nexflow Inc's invoice of $6,100 (now 8 days overdue).
+
+Given your great track record, I'm sure this is just an oversight. Please arrange payment at your earliest convenience.
+
+Let me know if anything needs clarification.
+
+Thanks,
+Acme SaaS`,
+  },
+  // dunning_1 — First reminder (1-7 days)
+  '3:dunning_1': {
+    subject: 'Payment Due: Invoice $2,900 — HealthSync',
+    tone: 'friendly',
+    body: `Hi Priya,
+
+This is a friendly reminder that HealthSync's invoice of $2,900 was due 5 days ago.
+
+If you've already sent payment, please disregard this. Otherwise, we'd appreciate a quick resolution.
+
+Thanks for your continued business!
+
+Best,
+Acme SaaS`,
+  },
+  '6:dunning_1': {
+    subject: 'Quick Reminder: $1,800 Invoice — Swiftly Inc',
+    tone: 'friendly',
+    body: `Hi Ryan,
+
+Just a quick heads-up that Swiftly Inc's invoice of $1,800 was due 2 days ago.
+
+No rush — whenever you get a chance to process this would be great!
+
+Thanks,
+Acme SaaS`,
+  },
+  // payment_plan_offer (used for multiple customers)
+  'payment_plan_offer': {
+    subject: 'Flexible Payment Plan Available for Your Outstanding Invoice',
+    tone: 'friendly',
+    body: `Hi there,
+
+We understand that cash flow can sometimes be challenging, and we'd like to help.
+
+We're offering a flexible payment plan for your outstanding balance — spread it over 3 equal monthly installments with no additional fees.
+
+To accept this offer or discuss terms, simply reply to this email within 7 days.
+
+We value your business and want to make this as easy as possible for you.
+
+Best regards,
+Acme SaaS`,
+  },
+};
 
 const LOG_MODULE = 'demoController';
 
@@ -12,17 +281,20 @@ const DEMO_PASSWORD = 'Demo1234!';
 const DEMO_COMPANY = 'Acme SaaS (Demo)';
 
 // Set cookies identical to auth controller
+// Local dev: sameSite='lax' (same-domain), Prod: sameSite='none' (cross-domain)
 const setCookies = (res: Response, accessToken: string, refreshToken: string) => {
+  const sameSitePolicy = config.nodeEnv === 'production' ? 'none' : 'lax';
+
   res.cookie('access_token', accessToken, {
     httpOnly: true,
     secure: config.nodeEnv === 'production',
-    sameSite: 'none',
+    sameSite: sameSitePolicy as any,
     maxAge: 60 * 60 * 1000,
   });
   res.cookie('refresh_token', refreshToken, {
     httpOnly: true,
     secure: config.nodeEnv === 'production',
-    sameSite: 'none',
+    sameSite: sameSitePolicy as any,
     maxAge: 7 * 24 * 60 * 60 * 1000,
     path: '/api/auth/refresh',
   });
@@ -259,7 +531,43 @@ export const demoLogin = async (req: Request, res: Response): Promise<void> => {
       timelineDays: 30,
     });
 
-    // ---- 8. Log in and return cookies ----
+    // ---- 8. Cache pre-crafted email previews in Redis (instant "View" clicks, no LLM) ----
+    try {
+      const cachePromises: Promise<any>[] = [];
+      for (const inv of invRows) {
+        // Determine email type the agent would assign
+        const daysOverdue = inv.daysAgoDue;
+        let emailType: string | null = null;
+        if (daysOverdue >= 60) emailType = 'dunning_5';
+        else if (daysOverdue >= 30) emailType = 'dunning_4';
+        else if (daysOverdue >= 14) emailType = 'dunning_3';
+        else if (daysOverdue >= 7) emailType = 'dunning_2';
+        else if (daysOverdue >= 1) emailType = 'dunning_1';
+
+        if (!emailType || inv.status === 'paid') continue;
+
+        const custKey = `${inv.custIdx}:${emailType}`;
+        const emailContent = DEMO_EMAILS[custKey] || (emailType === 'payment_plan_offer' ? DEMO_EMAILS['payment_plan_offer'] : null);
+
+        if (emailContent) {
+          const redisKey = `email_preview:${inv.id}:${emailType}`;
+          cachePromises.push(redisClient.setEx(redisKey, 86400, JSON.stringify(emailContent))); // 24h TTL
+        }
+
+        // Cache payment plan offer for qualifying invoices (15+ days overdue)
+        if (daysOverdue >= 15) {
+          const planContent = DEMO_EMAILS['payment_plan_offer'];
+          const planKey = `email_preview:${inv.id}:payment_plan_offer`;
+          cachePromises.push(redisClient.setEx(planKey, 86400, JSON.stringify(planContent)));
+        }
+      }
+      await Promise.all(cachePromises);
+      logInfo(LOG_MODULE, handler, 'Email previews cached in Redis', { count: cachePromises.length });
+    } catch (cacheErr) {
+      logError(LOG_MODULE, handler, 'Failed to cache demo email previews (non-fatal)', cacheErr);
+    }
+
+    // ---- 10. Log in and return cookies ----
     const loginResult = await authService.login({ email: DEMO_EMAIL, password: DEMO_PASSWORD });
     setCookies(res, loginResult.tokens.accessToken, loginResult.tokens.refreshToken);
 

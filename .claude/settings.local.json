@@ -14,7 +14,9 @@
       "Bash(grep -rn \"md:\\\\|lg:\\\\|sm:\\\\|xl:\\\\|2xl:\" /c/dev/AGENTIC_AR/frontend/src/pages/*.tsx)",
       "Bash(npx tsc --noEmit --pretty)",
       "Bash(node -r dotenv/config test/run-all.js)",
-      "Bash(node -r dotenv/config test/suites/MASTER_TEST_SUITE.js)"
+      "Bash(node -r dotenv/config test/suites/MASTER_TEST_SUITE.js)",
+      "Bash(INVOICE_ID=\"56433e52-cabe-411f-972a-eac4bedb73ca\" curl -s -X POST http://localhost:3000/api/dashboard/agent/trigger-single -H \"Content-Type: application/json\" -b /tmp/cookies.txt -d \"{\"\"invoiceId\"\": \"\"$INVOICE_ID\"\"}\")",
+      "Bash(INVOICE_ID=\"cf14644d-3cfa-4c42-942d-67c97254277e\" curl -s -X POST http://localhost:3000/api/dashboard/agent/trigger-single -H \"Content-Type: application/json\" -b /tmp/cookies.txt -d \"{\"\"invoiceId\"\": \"\"$INVOICE_ID\"\", \"\"emailOverride\"\": \"\"override@example.com\"\"}\")"
     ]
   }
 }

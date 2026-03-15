@@ -102,8 +102,18 @@ async function runDecisionEngine(): Promise<{
   const method = 'runDecisionEngine';
   logInfo(LOG_MODULE, method, 'Agent decision engine starting');
 
-  const invoices = await getOverdueInvoicesForProcessing();
-  logInfo(LOG_MODULE, method, `Processing ${invoices.length} unpaid overdue invoices`);
+  const allInvoices = await getOverdueInvoicesForProcessing();
+
+  // Filter out demo company from actual agent loop (but keep for preview)
+  const demoCompanyId = await pool.query(
+    `SELECT id FROM companies WHERE name = 'Acme SaaS (Demo)' LIMIT 1`
+  );
+  const demoCompId = demoCompanyId.rows[0]?.id;
+  const invoices = demoCompId
+    ? allInvoices.filter(inv => inv.company_id !== demoCompId)
+    : allInvoices;
+
+  logInfo(LOG_MODULE, method, `Processing ${invoices.length} unpaid overdue invoices (skipped ${allInvoices.length - invoices.length} demo invoices)`);
 
   let emailsQueued = 0;
   let planOffersQueued = 0;

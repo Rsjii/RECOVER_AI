@@ -7,8 +7,57 @@ import { SendGridWebhookEvent, DunningEmailType } from '../types/email';
 import { logError, logInfo, logWarn } from '../utils/logger';
 import { sendErrorResponse, parseError } from '../utils/errorHandler';
 import crypto from 'crypto';
+import { redisClient } from '../config/redis';
 
 const LOG_MODULE = 'emailController';
+
+// In-memory cache for email previews (stores key: "invoiceId:emailType" → preview data)
+const emailPreviewCache = new Map<string, { subject: string; body: string; tone: string }>();
+
+// Helper to cache preview in memory + Redis
+async function cacheEmailPreview(
+  invoiceId: string,
+  emailType: string,
+  preview: { subject: string; body: string; tone: string }
+): Promise<void> {
+  const key = `${invoiceId}:${emailType}`;
+  emailPreviewCache.set(key, preview);
+
+  try {
+    await redisClient.setEx(`email_preview:${key}`, 3600, JSON.stringify(preview)); // 1 hour TTL
+  } catch (err) {
+    logWarn(LOG_MODULE, 'cacheEmailPreview', 'Redis cache failed', { invoiceId, emailType });
+  }
+}
+
+async function getCachedEmailPreview(
+  invoiceId: string,
+  emailType: string
+): Promise<{ subject: string; body: string; tone: string } | null> {
+  const key = `${invoiceId}:${emailType}`;
+
+  // Memory cache first (fastest)
+  const cached = emailPreviewCache.get(key);
+  if (cached) {
+    logInfo(LOG_MODULE, 'getCachedEmailPreview', 'Cache hit (memory)', { invoiceId, emailType });
+    return cached;
+  }
+
+  // Redis cache (persists across restarts)
+  try {
+    const redisData = await redisClient.get(`email_preview:${key}`);
+    if (redisData) {
+      const preview = JSON.parse(redisData);
+      emailPreviewCache.set(key, preview); // Warm memory cache
+      logInfo(LOG_MODULE, 'getCachedEmailPreview', 'Cache hit (redis)', { invoiceId, emailType });
+      return preview;
+    }
+  } catch (err) {
+    logWarn(LOG_MODULE, 'getCachedEmailPreview', 'Redis lookup failed', { invoiceId, emailType });
+  }
+
+  return null;
+}
 
 /**
  * Schedule all dunning emails for an invoice
@@ -207,7 +256,7 @@ export const sendgridWebhook = async (req: Request, res: Response): Promise<void
  * Get queue stats (jobs waiting, active, completed, failed)
  * GET /api/email/queue/stats
  */
-export const getQueueStats = async (req: Request, res: Response): Promise<void> => {
+export const getQueueStats = async (_req: Request, res: Response): Promise<void> => {
   const handler = 'getQueueStats';
 
   try {
@@ -246,11 +295,31 @@ export const previewEmail = async (req: Request, res: Response): Promise<void> =
       return;
     }
 
+    // Check cache first (avoid LLM call if already generated)
+    const cached = await getCachedEmailPreview(invoiceId as string, (emailType as string) || 'dunning_1');
+    if (cached) {
+      res.status(200).json({
+        data: {
+          ...cached,
+          invoiceId,
+          emailType: emailType || 'dunning_1',
+        },
+      });
+      return;
+    }
+
     const invoice = await findInvoiceById(invoiceId as string, companyId);
     if (!invoice) {
       sendErrorResponse(res, 404, 'Invoice not found');
       return;
     }
+
+    // Fetch company name for personalization
+    const companyRes = await (await import('../config/database')).pool.query(
+      'SELECT name FROM companies WHERE id = $1',
+      [companyId]
+    );
+    const companyName = companyRes.rows[0]?.name || 'Your Company';
 
     // Use AI service to generate preview (same as agent would generate)
     const aiService = (await import('../services/aiService')).default;
@@ -260,21 +329,27 @@ export const previewEmail = async (req: Request, res: Response): Promise<void> =
       customerId: invoice.customer_id,
       invoiceId: invoice.id,
       customerName: invoice.customer_name || 'Valued Customer',
-      companyName: 'Your Company',
+      companyName,
       invoiceAmount: parseFloat(invoice.amount),
       dueDate: invoice.due_date,
       daysOverdue,
       riskScore: invoice.risk_score || 50,
     });
 
-    logInfo(LOG_MODULE, handler, 'Preview generated', { invoiceId, emailType });
+    const preview = {
+      subject: generated.subject,
+      body: generated.bodyText,
+      tone: generated.tone,
+    };
+
+    // Cache for future requests
+    await cacheEmailPreview(invoiceId as string, (emailType as string) || 'dunning_1', preview);
+
+    logInfo(LOG_MODULE, handler, 'Preview generated and cached', { invoiceId, emailType });
 
     res.status(200).json({
       data: {
-        subject: generated.subject,
-        bodyText: generated.bodyText,
-        bodyHtml: generated.bodyHtml,
-        tone: generated.tone,
+        ...preview,
         invoiceId,
         emailType: emailType || 'dunning_1',
       },

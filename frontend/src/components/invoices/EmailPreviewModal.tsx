@@ -42,20 +42,29 @@ export const EmailPreviewModal: React.FC<EmailPreviewModalProps> = ({
   const [error, setError] = useState('');
 
   useEffect(() => {
+    const controller = new AbortController();
+    let cancelled = false;
+
     const load = async () => {
       setLoading(true);
       setError('');
       setPreview(null);
       try {
-        const res = await api.get<{ data: any }>(API_ENDPOINTS.email.preview(invoiceId, selectedType));
-        setPreview(res.data);
+        const res = await api.get<{ data: any }>(
+          API_ENDPOINTS.email.preview(invoiceId, selectedType),
+          { signal: controller.signal }
+        );
+        if (!cancelled) setPreview(res.data);
       } catch (err: any) {
-        setError(err.message || 'Failed to generate preview');
+        if (!cancelled && err?.code !== 'ERR_CANCELED') {
+          setError(err.message || 'Failed to generate preview');
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
     load();
+    return () => { cancelled = true; controller.abort(); };
   }, [invoiceId, selectedType]);
 
   const handleApprove = async () => {

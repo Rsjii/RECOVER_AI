@@ -19,18 +19,21 @@ function logError(handler: string, msg: string, error?: unknown): void {
 
 // ============ Cookie Helpers ============
 const setCookies = (res: Response, accessToken: string, refreshToken: string) => {
+  // Local dev: sameSite='lax' (same-domain), Prod: sameSite='none' (cross-domain)
+  const sameSitePolicy = config.nodeEnv === 'production' ? 'none' : 'lax';
+
   res.cookie('access_token', accessToken, {
     httpOnly: true,
     secure: config.nodeEnv === 'production',
-    sameSite: 'none',
-    maxAge: 60 * 60 * 1000, // 1 hour (changed from 7 days)
+    sameSite: sameSitePolicy as any,
+    maxAge: 60 * 60 * 1000, // 1 hour
   });
 
   res.cookie('refresh_token', refreshToken, {
     httpOnly: true,
     secure: config.nodeEnv === 'production',
-    sameSite: 'none',
-    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days (changed from 30 days)
+    sameSite: sameSitePolicy as any,
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     path: '/api/auth/refresh', // Only sent to refresh endpoint
   });
 };

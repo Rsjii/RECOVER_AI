@@ -49,6 +49,8 @@ const DemoLaunch: React.FC = () => {
     setStep('loading');
     try {
       await api.post('/api/demo/login');
+      // Mark as demo in localStorage so Dashboard can detect it even after re-renders
+      localStorage.setItem('isDemo', 'true');
       // Then load preview so they see what agent would do
       const res = await api.post<DemoPreview>('/api/demo/preview');
       setPreview(res);

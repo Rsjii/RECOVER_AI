@@ -9,6 +9,7 @@ import { StatsCard } from '../components/dashboard/StatsCard';
 import { RecoveryChart } from '../components/dashboard/RecoveryChart';
 import { RiskBreakdownChart } from '../components/dashboard/RiskBreakdownChart';
 import { TopCustomersTable } from '../components/dashboard/TopCustomersTable';
+import { EmailPreviewModal } from '../components/invoices/EmailPreviewModal';
 import type { DashboardStats, InvoicePipeline, CustomerRisk } from '../types';
 
 interface AgentPreview {
@@ -18,7 +19,9 @@ interface AgentPreview {
   estimatedRecoveryUsd: number;
   previews: Array<{
     invoiceId: string;
+    customerId: string;
     customerName: string;
+    recipientEmail: string;
     amount: number;
     daysOverdue: number;
     emailType: string;
@@ -46,9 +49,33 @@ const Dashboard: React.FC = () => {
   const [agentMsg, setAgentMsg] = useState<string | null>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [agentPreview, setAgentPreview] = useState<AgentPreview | null>(null);
+  const [expandAll, setExpandAll] = useState(false);
+  const [selectedEmailForModal, setSelectedEmailForModal] = useState<AgentPreview['previews'][0] | null>(null);
+  const [isDemo, setIsDemo] = useState(false);
+  const [emailOverrides, setEmailOverrides] = useState<Record<string, string>>({}); // invoiceId → email
+  const [editingEmail, setEditingEmail] = useState<string | null>(null); // which invoiceId is being edited
+  const [sendingIndividual, setSendingIndividual] = useState<string | null>(null); // which invoiceId is sending
 
   useEffect(() => {
     document.title = 'Dashboard — RecoverAI';
+    // Check localStorage first (set during demo login) — works even if token expired
+    if (localStorage.getItem('isDemo') === 'true') {
+      setIsDemo(true);
+      return;
+    }
+    // Fallback: check from API
+    const detectDemo = async () => {
+      try {
+        const user = await api.get<{ user: { email: string } }>('/api/auth/me');
+        if (user.user?.email === 'demo@recoverai.com') {
+          setIsDemo(true);
+          localStorage.setItem('isDemo', 'true');
+        }
+      } catch {
+        // not demo, stay false
+      }
+    };
+    detectDemo();
   }, []);
 
   useEffect(() => {
@@ -96,13 +123,38 @@ const Dashboard: React.FC = () => {
     }
   };
 
+  const handleSendIndividual = async (invoiceId: string, originalEmail: string) => {
+    setSendingIndividual(invoiceId);
+    try {
+      const email = emailOverrides[invoiceId] || originalEmail;
+      const res = await api.post<{ message: string; recipientEmail: string }>(`/api/dashboard/agent/trigger-single`, { invoiceId, emailOverride: email });
+      setAgentMsg(`Email queued for ${res.recipientEmail} ✓`);
+      setTimeout(() => setAgentMsg(null), 5000);
+    } catch (err: any) {
+      setAgentMsg(`Failed to send: ${err.message}`);
+    } finally {
+      setSendingIndividual(null);
+    }
+  };
+
   const handlePreviewAgent = async () => {
     setLoadingPreview(true);
     setAgentPreview(null);
     setAgentMsg(null);
     try {
       const res = await api.post<AgentPreview>('/api/dashboard/agent/preview');
-      setAgentPreview(res);
+      // Deduplicate: for each customer, keep only the highest-risk dunning email
+      // (payment_plan_offer shown separately, not as a duplicate row)
+      const seen = new Map<string, AgentPreview['previews'][0]>();
+      for (const item of res.previews) {
+        if (item.emailType === 'payment_plan_offer') continue; // skip plan offers from main list
+        const existing = seen.get(item.customerId);
+        if (!existing || item.riskScore > existing.riskScore) {
+          seen.set(item.customerId, item);
+        }
+      }
+      const dedupedPreviews = Array.from(seen.values()).sort((a, b) => b.riskScore - a.riskScore);
+      setAgentPreview({ ...res, previews: dedupedPreviews });
     } catch (err: any) {
       setAgentMsg(err.message || 'Failed to load preview');
       setTimeout(() => setAgentMsg(null), 6000);
@@ -137,12 +189,14 @@ const Dashboard: React.FC = () => {
             </svg>
             Preview Agent
           </Button>
-          <Button variant="secondary" size="sm" onClick={handleTriggerAgent} loading={triggeringAgent}>
-            <svg className="w-4 h-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
-            Run Agent Now
-          </Button>
+          {!isDemo && (
+            <Button variant="secondary" size="sm" onClick={handleTriggerAgent} loading={triggeringAgent}>
+              <svg className="w-4 h-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+              Run Agent Now
+            </Button>
+          )}
           <p className="text-sm text-gray-500 dark:text-gray-400 hidden sm:block">
             {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
           </p>
@@ -186,40 +240,103 @@ const Dashboard: React.FC = () => {
           {agentPreview.previews.length > 0 && (
             <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 mb-4 overflow-hidden">
               <div className="divide-y divide-gray-100 dark:divide-gray-700">
-                {agentPreview.previews.slice(0, 5).map((item) => (
-                  <div key={`${item.invoiceId}-${item.emailType}`} className="px-4 py-2.5 flex items-center justify-between gap-3 text-sm">
-                    <span className="font-medium text-gray-900 dark:text-white truncate">{item.customerName}</span>
-                    <div className="flex items-center gap-2 flex-shrink-0 text-xs">
-                      <span className="text-gray-500">{item.daysOverdue}d overdue</span>
-                      <span className="font-medium text-gray-700 dark:text-gray-300">${item.amount.toLocaleString()}</span>
-                      <span className={`px-1.5 py-0.5 rounded font-medium ${item.riskScore >= 80 ? 'bg-red-100 text-red-700' : item.riskScore >= 50 ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}`}>
-                        {item.riskScore}
-                      </span>
-                      <span className="bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-1.5 py-0.5 rounded">
-                        {EMAIL_TYPE_SHORT[item.emailType] || item.emailType}
-                      </span>
+                {agentPreview.previews.slice(0, expandAll ? undefined : 5).map((item) => {
+                  const isEditing = editingEmail === item.invoiceId;
+                  const isSending = sendingIndividual === item.invoiceId;
+                  const overrideEmail = emailOverrides[item.invoiceId];
+                  return (
+                    <div key={`${item.invoiceId}-${item.emailType}`} className="px-4 py-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium text-gray-900 dark:text-white">{item.customerName}</span>
+                        <div className="flex items-center gap-2 flex-shrink-0 text-xs">
+                          <span className="text-gray-500">{item.daysOverdue}d</span>
+                          <span className="font-medium text-gray-700 dark:text-gray-300">${item.amount.toLocaleString()}</span>
+                          <span className={`px-1.5 py-0.5 rounded font-medium ${item.riskScore >= 80 ? 'bg-red-100 text-red-700' : item.riskScore >= 50 ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}`}>
+                            {item.riskScore}
+                          </span>
+                          <span className="bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-1.5 py-0.5 rounded">
+                            {EMAIL_TYPE_SHORT[item.emailType] || item.emailType}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="text-gray-500 flex-shrink-0">Email:</span>
+                        {isEditing ? (
+                          <input
+                            type="email"
+                            value={overrideEmail || item.recipientEmail}
+                            onChange={(e) => setEmailOverrides({ ...emailOverrides, [item.invoiceId]: e.target.value })}
+                            onBlur={() => setEditingEmail(null)}
+                            autoFocus
+                            className="flex-1 px-2 py-1 border border-blue-400 dark:border-blue-500 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-xs focus:outline-none"
+                          />
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setEditingEmail(item.invoiceId)}
+                            className="flex items-center gap-1 flex-1 min-w-0 px-2 py-1 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white rounded transition-colors group"
+                          >
+                            <span className="truncate">{overrideEmail || item.recipientEmail}</span>
+                            <svg className="w-3 h-3 flex-shrink-0 opacity-0 group-hover:opacity-60 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                          </button>
+                        )}
+                        <button
+                          onClick={() => setSelectedEmailForModal(item)}
+                          className="px-2 py-1 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors flex-shrink-0"
+                        >
+                          View
+                        </button>
+                        {!isDemo && (
+                          <button
+                            onClick={() => handleSendIndividual(item.invoiceId, item.recipientEmail)}
+                            disabled={isSending}
+                            className="px-2 py-1 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {isSending ? 'Sending...' : 'Send →'}
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
-                {agentPreview.previews.length > 5 && (
-                  <div className="px-4 py-2 text-xs text-gray-500 text-center">
+                  );
+                })}
+                {agentPreview.previews.length > 5 && !expandAll && (
+                  <button
+                    onClick={() => setExpandAll(true)}
+                    className="w-full px-4 py-2 text-xs text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-center transition-colors"
+                  >
                     +{agentPreview.previews.length - 5} more
-                  </div>
+                  </button>
+                )}
+                {expandAll && agentPreview.previews.length > 5 && (
+                  <button
+                    onClick={() => setExpandAll(false)}
+                    className="w-full px-4 py-2 text-xs text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-center transition-colors"
+                  >
+                    Show less
+                  </button>
                 )}
               </div>
             </div>
           )}
-          <div className="flex gap-3">
-            <Button size="sm" onClick={handleTriggerAgent} loading={triggeringAgent}>
-              <svg className="w-4 h-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-              Approve & Send {agentPreview.emailsWouldQueue} Email{agentPreview.emailsWouldQueue !== 1 ? 's' : ''}
-            </Button>
-            <Button variant="secondary" size="sm" onClick={() => setAgentPreview(null)}>
-              Skip This Batch
-            </Button>
-          </div>
+          {isDemo ? (
+            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg px-3 py-2 text-xs text-amber-800 dark:text-amber-400">
+              📌 Demo mode: Emails not sent. Click individual "Send →" buttons above to test, or <a href="/demo" className="underline font-medium">Try with your real data</a>.
+            </div>
+          ) : (
+            <div className="flex gap-3">
+              <Button size="sm" onClick={handleTriggerAgent} loading={triggeringAgent}>
+                <svg className="w-4 h-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                Approve & Send {agentPreview.emailsWouldQueue} Email{agentPreview.emailsWouldQueue !== 1 ? 's' : ''}
+              </Button>
+              <Button variant="secondary" size="sm" onClick={() => setAgentPreview(null)}>
+                Skip This Batch
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
@@ -289,6 +406,16 @@ const Dashboard: React.FC = () => {
       {/* Top At-Risk Customers */}
       <TopCustomersTable customers={riskList}
         onCustomerClick={(id) => navigate(`/customers?id=${id}`)} />
+
+      {/* Email Preview Modal */}
+      {selectedEmailForModal && (
+        <EmailPreviewModal
+          invoiceId={selectedEmailForModal.invoiceId}
+          emailType={selectedEmailForModal.emailType}
+          riskScore={selectedEmailForModal.riskScore}
+          onClose={() => setSelectedEmailForModal(null)}
+        />
+      )}
     </div>
   );
 };

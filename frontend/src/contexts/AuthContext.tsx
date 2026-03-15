@@ -113,6 +113,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = useCallback(async () => {
     dispatch({ type: 'SET_LOADING', payload: true });
     try { await api.post(API_ENDPOINTS.auth.logout); } catch {}
+    localStorage.removeItem('isDemo');
     dispatch({ type: 'LOGOUT_SUCCESS' });
     dispatch({ type: 'SET_LOADING', payload: false });
   }, []);
