@@ -1,0 +1,95 @@
+import axios from 'axios';
+import type { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+
+const instance: AxiosInstance = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: 30000,
+  withCredentials: true,
+});
+
+// Auto-refresh token logic
+let isRefreshing = false;
+let failedQueue: Array<{ resolve: (v: any) => void; reject: (e: any) => void }> = [];
+
+const processQueue = (error: any) => {
+  failedQueue.forEach((prom) => {
+    if (error) prom.reject(error);
+    else prom.resolve(undefined);
+  });
+  failedQueue = [];
+};
+
+instance.interceptors.response.use(
+  (response) => response,
+  async (error: AxiosError) => {
+    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+
+    // If 401 and not already retrying → try refresh
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      const path = originalRequest.url || '';
+      // Don't retry refresh/login/signup themselves
+      if (path.includes('/auth/refresh') || path.includes('/auth/login') || path.includes('/auth/signup')) {
+        return Promise.reject(error);
+      }
+
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        }).then(() => instance(originalRequest));
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      try {
+        await instance.post('/api/auth/refresh');
+        processQueue(null);
+        return instance(originalRequest);
+      } catch (refreshErr) {
+        processQueue(refreshErr);
+        // Redirect to login
+        const currentPath = window.location.pathname;
+        if (!currentPath.startsWith('/login') && !currentPath.startsWith('/signup')) {
+          window.location.href = '/login';
+        }
+        return Promise.reject(refreshErr);
+      } finally {
+        isRefreshing = false;
+      }
+    }
+
+    const data = error.response?.data as Record<string, any> | undefined;
+    return Promise.reject({
+      status: error.response?.status || 500,
+      message: data?.['error'] || data?.['message'] || error.message || 'An error occurred',
+      details: data?.['details'],
+    });
+  }
+);
+
+export const api = {
+  get: async <T = any>(url: string, config?: any): Promise<T> => {
+    const response = await instance.get<T>(url, config);
+    return response.data;
+  },
+  post: async <T = any>(url: string, data?: any, config?: any): Promise<T> => {
+    const response = await instance.post<T>(url, data, config);
+    return response.data;
+  },
+  put: async <T = any>(url: string, data?: any, config?: any): Promise<T> => {
+    const response = await instance.put<T>(url, data, config);
+    return response.data;
+  },
+  patch: async <T = any>(url: string, data?: any, config?: any): Promise<T> => {
+    const response = await instance.patch<T>(url, data, config);
+    return response.data;
+  },
+  delete: async <T = any>(url: string, config?: any): Promise<T> => {
+    const response = await instance.delete<T>(url, config);
+    return response.data;
+  },
+};
+
+export default instance;

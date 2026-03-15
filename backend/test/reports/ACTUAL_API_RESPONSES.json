@@ -1,0 +1,2295 @@
+[
+  {
+    "test": "Health check",
+    "method": "GET",
+    "route": "/health",
+    "status": 200,
+    "expected": 200,
+    "passed": true,
+    "body": {
+      "status": "ok",
+      "timestamp": "2026-03-07T11:01:01.572Z",
+      "env": "development"
+    }
+  },
+  {
+    "test": "Readiness probe",
+    "method": "GET",
+    "route": "/ready",
+    "status": 200,
+    "expected": 200,
+    "passed": true,
+    "body": {
+      "status": "ready",
+      "timestamp": "2026-03-07T11:01:01.574Z",
+      "env": "development"
+    }
+  },
+  {
+    "test": "Liveness probe",
+    "method": "GET",
+    "route": "/live",
+    "status": 200,
+    "expected": 200,
+    "passed": true,
+    "body": {
+      "status": "live",
+      "timestamp": "2026-03-07T11:01:01.575Z"
+    }
+  },
+  {
+    "test": "404 on unknown route",
+    "method": "GET",
+    "route": "/api/unknown-endpoint",
+    "status": 404,
+    "expected": 404,
+    "passed": true,
+    "body": {
+      "code": "NOT_FOUND",
+      "error": "Not found",
+      "requestId": "cb1d5fcc-b877-4ba3-ae73-03f1ef5b73b5"
+    }
+  },
+  {
+    "test": "Signup (new user)",
+    "method": "POST",
+    "route": "/api/auth/signup",
+    "status": 201,
+    "expected": "201/400",
+    "passed": true,
+    "body": {
+      "message": "Signup successful",
+      "user": {
+        "id": "7e2f0d36-f287-4f59-8dc1-385b598bee52",
+        "email": "test_1772881261579@example.com",
+        "firstName": "Test",
+        "lastName": "User",
+        "role": "owner"
+      },
+      "company": {
+        "id": "2be2bef3-e040-427c-8b96-3db12438944d",
+        "name": "Test Company 1772881261579",
+        "timezone": "UTC",
+        "preferredCurrency": "USD"
+      }
+    }
+  },
+  {
+    "test": "Login",
+    "method": "POST",
+    "route": "/api/auth/login",
+    "status": 200,
+    "expected": 200,
+    "passed": true,
+    "body": {
+      "message": "Login successful",
+      "user": {
+        "id": "7a81f894-4a6b-43eb-ae51-0e14a4107c14",
+        "email": "demo@recoverai.com",
+        "firstName": "Demo",
+        "lastName": "User",
+        "role": "owner"
+      },
+      "company": {
+        "id": "910804f5-6557-44e1-b814-236dc1491ac9",
+        "name": "Acme SaaS (Demo)",
+        "timezone": "UTC",
+        "preferredCurrency": "USD"
+      }
+    }
+  },
+  {
+    "test": "Get current user (auth required)",
+    "method": "GET",
+    "route": "/api/auth/me",
+    "status": 200,
+    "expected": 200,
+    "passed": true,
+    "body": {
+      "user": {
+        "id": "7a81f894-4a6b-43eb-ae51-0e14a4107c14",
+        "email": "demo@recoverai.com",
+        "firstName": "Demo",
+        "lastName": "User",
+        "role": "owner"
+      },
+      "company": {
+        "id": "910804f5-6557-44e1-b814-236dc1491ac9",
+        "name": "Acme SaaS (Demo)",
+        "timezone": "UTC",
+        "preferredCurrency": "USD"
+      }
+    }
+  },
+  {
+    "test": "Refresh token",
+    "method": "POST",
+    "route": "/api/auth/refresh",
+    "status": 401,
+    "expected": "200/401",
+    "passed": true,
+    "body": {
+      "code": "REQUEST_ERROR",
+      "error": "Session revoked or expired",
+      "requestId": "f35c2cda-14ae-4944-9e7e-dd6191823213"
+    }
+  },
+  {
+    "test": "Logout",
+    "method": "POST",
+    "route": "/api/auth/logout",
+    "status": 200,
+    "expected": 200,
+    "passed": true,
+    "body": {
+      "message": "Logout successful"
+    }
+  },
+  {
+    "test": "Get sessions",
+    "method": "GET",
+    "route": "/api/auth/sessions",
+    "status": 200,
+    "expected": 200,
+    "passed": true,
+    "body": {
+      "data": [
+        {
+          "id": "72bf66c7-9ff4-4bd3-b217-1d9c852856c7",
+          "user_id": "7a81f894-4a6b-43eb-ae51-0e14a4107c14",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "user_agent": null,
+          "ip_address": "::1/128",
+          "created_at": "2026-03-07T11:01:03.727Z",
+          "expires_at": "2026-03-14T11:01:03.363Z",
+          "revoked_at": null
+        }
+      ]
+    }
+  },
+  {
+    "test": "Forgot password",
+    "method": "POST",
+    "route": "/api/auth/forgot-password",
+    "status": 200,
+    "expected": 200,
+    "passed": true,
+    "body": {
+      "message": "If the email exists, a reset link has been sent."
+    }
+  },
+  {
+    "test": "List customers",
+    "method": "GET",
+    "route": "/api/customers?limit=10",
+    "status": 200,
+    "expected": 200,
+    "passed": true,
+    "body": {
+      "data": [
+        {
+          "id": "d159e8cb-86e5-48d9-bd98-6f3c8b2219e5",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "name": "Nina Patel",
+          "email": "nina@devfirst.io",
+          "company_name": "DevFirst",
+          "phone": null,
+          "payment_history": {
+            "total_paid": 4500,
+            "on_time_rate": 30,
+            "avg_days_late": 45,
+            "total_invoices": 3
+          },
+          "industry": "DevTools",
+          "notes": null,
+          "created_at": "2026-01-11T11:00:50.543Z",
+          "updated_at": "2026-03-07T11:00:50.907Z"
+        },
+        {
+          "id": "6aa58e78-8a2d-4ff5-b44c-b9d1ddc03766",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "name": "Ryan Lee",
+          "email": "ryan@swiftly.app",
+          "company_name": "Swiftly Inc",
+          "phone": null,
+          "payment_history": {
+            "total_paid": 6200,
+            "on_time_rate": 88,
+            "avg_days_late": 3,
+            "total_invoices": 5
+          },
+          "industry": "Logistics",
+          "notes": null,
+          "created_at": "2026-01-06T11:00:50.543Z",
+          "updated_at": "2026-03-07T11:00:50.907Z"
+        },
+        {
+          "id": "5c7c89fe-cb49-4cb5-b5cb-05f4f773a26d",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "name": "Emma Williams",
+          "email": "emma@datacore.ai",
+          "company_name": "DataCore AI",
+          "phone": null,
+          "payment_history": {
+            "total_paid": 15600,
+            "on_time_rate": 75,
+            "avg_days_late": 8,
+            "total_invoices": 7
+          },
+          "industry": "Analytics",
+          "notes": null,
+          "created_at": "2026-01-01T11:00:50.543Z",
+          "updated_at": "2026-03-07T11:00:50.907Z"
+        },
+        {
+          "id": "19aa6f7d-9280-4e20-9617-e5dafa94a9d5",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "name": "Jason Torres",
+          "email": "jason.torres@cloudgate.com",
+          "company_name": "CloudGate Inc",
+          "phone": null,
+          "payment_history": {
+            "total_paid": 31000,
+            "on_time_rate": 55,
+            "avg_days_late": 22,
+            "total_invoices": 12
+          },
+          "industry": "Cloud",
+          "notes": null,
+          "created_at": "2025-12-27T11:00:50.543Z",
+          "updated_at": "2026-03-07T11:00:50.907Z"
+        },
+        {
+          "id": "81dd7542-90ac-45aa-9842-120c8ef178af",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "name": "Priya Mehta",
+          "email": "priya@healthsync.io",
+          "company_name": "HealthSync",
+          "phone": null,
+          "payment_history": {
+            "total_paid": 8400,
+            "on_time_rate": 80,
+            "avg_days_late": 5,
+            "total_invoices": 4
+          },
+          "industry": "HealthTech",
+          "notes": null,
+          "created_at": "2025-12-22T11:00:50.543Z",
+          "updated_at": "2026-03-07T11:00:50.907Z"
+        },
+        {
+          "id": "f737e707-1913-47cb-aa05-b61e5fdc8d12",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "name": "David Park",
+          "email": "david@techwave.co",
+          "company_name": "TechWave Co",
+          "phone": null,
+          "payment_history": {
+            "total_paid": 9500,
+            "on_time_rate": 40,
+            "avg_days_late": 28,
+            "total_invoices": 6
+          },
+          "industry": "SaaS",
+          "notes": null,
+          "created_at": "2025-12-17T11:00:50.543Z",
+          "updated_at": "2026-03-07T11:00:50.907Z"
+        },
+        {
+          "id": "c2275d6e-5b1d-4952-babe-b3a98cf74d6c",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "name": "Mike Johnson",
+          "email": "mike@buildright.com",
+          "company_name": "BuildRight LLC",
+          "phone": null,
+          "payment_history": {
+            "total_paid": 18900,
+            "on_time_rate": 65,
+            "avg_days_late": 12,
+            "total_invoices": 9
+          },
+          "industry": "Construction",
+          "notes": null,
+          "created_at": "2025-12-12T11:00:50.543Z",
+          "updated_at": "2026-03-07T11:00:50.907Z"
+        },
+        {
+          "id": "2f830cd8-5413-460f-88b2-69b988e6ae9b",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "name": "Sarah Chen",
+          "email": "sarah.chen@nexflow.io",
+          "company_name": "Nexflow Inc",
+          "phone": null,
+          "payment_history": {
+            "total_paid": 41200,
+            "on_time_rate": 92,
+            "avg_days_late": 2,
+            "total_invoices": 18
+          },
+          "industry": "SaaS",
+          "notes": null,
+          "created_at": "2025-12-07T11:00:50.543Z",
+          "updated_at": "2026-03-07T11:00:50.907Z"
+        }
+      ],
+      "total": 8,
+      "page": 1,
+      "limit": 10,
+      "totalPages": 1
+    }
+  },
+  {
+    "test": "Get customer detail",
+    "method": "GET",
+    "route": "/api/customers/d159e8cb-86e5-48d9-bd98-6f3c8b2219e5",
+    "status": 200,
+    "expected": 200,
+    "passed": true,
+    "body": {
+      "data": {
+        "customer": {
+          "id": "d159e8cb-86e5-48d9-bd98-6f3c8b2219e5",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "name": "Nina Patel",
+          "email": "nina@devfirst.io",
+          "company_name": "DevFirst",
+          "phone": null,
+          "payment_history": {
+            "total_paid": 4500,
+            "on_time_rate": 30,
+            "avg_days_late": 45,
+            "total_invoices": 3
+          },
+          "industry": "DevTools",
+          "notes": null,
+          "created_at": "2026-01-11T11:00:50.543Z",
+          "updated_at": "2026-03-07T11:00:50.907Z"
+        },
+        "invoices": [
+          {
+            "id": "4090cb3c-c4de-49da-a3ae-0804fe9dee61",
+            "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+            "customer_id": "d159e8cb-86e5-48d9-bd98-6f3c8b2219e5",
+            "amount": "8600.00",
+            "currency": "USD",
+            "due_date": "2026-01-26T11:00:50.543Z",
+            "issued_date": "2025-12-27T11:00:50.543Z",
+            "status": "arranged",
+            "risk_score": 85,
+            "source": "manual",
+            "source_id": "demo-manual-1772881252510-f3nt7",
+            "notes": null,
+            "created_at": "2025-12-27T11:00:50.543Z",
+            "updated_at": "2026-03-07T11:00:50.907Z",
+            "customer_name": "Nina Patel",
+            "customer_email": "nina@devfirst.io"
+          },
+          {
+            "id": "25a30dee-43b6-40f6-91d2-786d039ca1a0",
+            "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+            "customer_id": "d159e8cb-86e5-48d9-bd98-6f3c8b2219e5",
+            "amount": "11200.00",
+            "currency": "USD",
+            "due_date": "2026-01-31T11:00:50.543Z",
+            "issued_date": "2026-01-01T11:00:50.543Z",
+            "status": "unpaid",
+            "risk_score": 95,
+            "source": "manual",
+            "source_id": "demo-manual-1772881252921-56ih1",
+            "notes": null,
+            "created_at": "2026-01-01T11:00:50.543Z",
+            "updated_at": "2026-03-07T11:00:50.907Z",
+            "customer_name": "Nina Patel",
+            "customer_email": "nina@devfirst.io"
+          }
+        ],
+        "totalInvoices": 2
+      }
+    }
+  },
+  {
+    "test": "List invoices",
+    "method": "GET",
+    "route": "/api/invoices?limit=10&status=unpaid",
+    "status": 200,
+    "expected": 200,
+    "passed": true,
+    "body": {
+      "data": [
+        {
+          "id": "25a30dee-43b6-40f6-91d2-786d039ca1a0",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "customer_id": "d159e8cb-86e5-48d9-bd98-6f3c8b2219e5",
+          "amount": "11200.00",
+          "currency": "USD",
+          "due_date": "2026-01-31T11:00:50.543Z",
+          "issued_date": "2026-01-01T11:00:50.543Z",
+          "status": "unpaid",
+          "risk_score": 95,
+          "source": "manual",
+          "source_id": "demo-manual-1772881252921-56ih1",
+          "notes": null,
+          "created_at": "2026-01-01T11:00:50.543Z",
+          "updated_at": "2026-03-07T11:00:50.907Z",
+          "customer_name": "Nina Patel",
+          "customer_email": "nina@devfirst.io"
+        },
+        {
+          "id": "8f3c4f2a-0985-4ae5-b595-3966bc70493e",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "customer_id": "6aa58e78-8a2d-4ff5-b44c-b9d1ddc03766",
+          "amount": "2100.00",
+          "currency": "USD",
+          "due_date": "2026-02-07T11:00:50.543Z",
+          "issued_date": "2026-03-05T11:00:50.543Z",
+          "status": "unpaid",
+          "risk_score": 3,
+          "source": "stripe",
+          "source_id": "demo-stripe-1772881253848-tcoqc",
+          "notes": null,
+          "created_at": "2026-03-05T11:00:50.543Z",
+          "updated_at": "2026-03-07T11:00:50.907Z",
+          "customer_name": "Ryan Lee",
+          "customer_email": "ryan@swiftly.app"
+        },
+        {
+          "id": "b7e7bc15-c74c-4f2b-8554-3e0da3adb110",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "customer_id": "81dd7542-90ac-45aa-9842-120c8ef178af",
+          "amount": "5600.00",
+          "currency": "USD",
+          "due_date": "2026-02-08T11:00:50.543Z",
+          "issued_date": "2026-03-04T11:00:50.543Z",
+          "status": "unpaid",
+          "risk_score": 8,
+          "source": "stripe",
+          "source_id": "demo-stripe-1772881253641-zy9ew",
+          "notes": null,
+          "created_at": "2026-03-04T11:00:50.543Z",
+          "updated_at": "2026-03-07T11:00:50.907Z",
+          "customer_name": "Priya Mehta",
+          "customer_email": "priya@healthsync.io"
+        },
+        {
+          "id": "df6728ce-d5ae-4039-99fa-94a1c625d1af",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "customer_id": "5c7c89fe-cb49-4cb5-b5cb-05f4f773a26d",
+          "amount": "4200.00",
+          "currency": "USD",
+          "due_date": "2026-02-09T11:00:50.543Z",
+          "issued_date": "2026-03-03T11:00:50.543Z",
+          "status": "unpaid",
+          "risk_score": 6,
+          "source": "manual",
+          "source_id": "demo-manual-1772881253742-zfllr",
+          "notes": null,
+          "created_at": "2026-03-03T11:00:50.543Z",
+          "updated_at": "2026-03-07T11:00:50.907Z",
+          "customer_name": "Emma Williams",
+          "customer_email": "emma@datacore.ai"
+        },
+        {
+          "id": "6732bab5-9eba-4c5d-97ce-997244b63b0c",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "customer_id": "f737e707-1913-47cb-aa05-b61e5fdc8d12",
+          "amount": "9100.00",
+          "currency": "USD",
+          "due_date": "2026-02-10T11:00:50.543Z",
+          "issued_date": "2026-01-11T11:00:50.543Z",
+          "status": "unpaid",
+          "risk_score": 92,
+          "source": "stripe",
+          "source_id": "demo-stripe-1772881252715-hlkp9",
+          "notes": null,
+          "created_at": "2026-01-11T11:00:50.543Z",
+          "updated_at": "2026-03-07T11:00:50.907Z",
+          "customer_name": "David Park",
+          "customer_email": "david@techwave.co"
+        },
+        {
+          "id": "0e84cd1d-52ad-4725-9fbe-6491258acd8f",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "customer_id": "2f830cd8-5413-460f-88b2-69b988e6ae9b",
+          "amount": "3500.00",
+          "currency": "USD",
+          "due_date": "2026-02-10T11:00:50.543Z",
+          "issued_date": "2026-03-02T11:00:50.543Z",
+          "status": "unpaid",
+          "risk_score": 5,
+          "source": "stripe",
+          "source_id": "demo-stripe-1772881253537-ws8fc",
+          "notes": null,
+          "created_at": "2026-03-02T11:00:50.543Z",
+          "updated_at": "2026-03-07T11:00:50.907Z",
+          "customer_name": "Sarah Chen",
+          "customer_email": "sarah.chen@nexflow.io"
+        },
+        {
+          "id": "c7501184-f829-4bc1-9b1f-3d635ab50387",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "customer_id": "19aa6f7d-9280-4e20-9617-e5dafa94a9d5",
+          "amount": "18000.00",
+          "currency": "USD",
+          "due_date": "2026-02-15T11:00:50.543Z",
+          "issued_date": "2026-01-16T11:00:50.543Z",
+          "status": "unpaid",
+          "risk_score": 87,
+          "source": "quickbooks",
+          "source_id": "demo-quickbooks-1772881252817-at1vv",
+          "notes": null,
+          "created_at": "2026-01-16T11:00:50.543Z",
+          "updated_at": "2026-03-07T11:00:50.907Z",
+          "customer_name": "Jason Torres",
+          "customer_email": "jason.torres@cloudgate.com"
+        },
+        {
+          "id": "de6c9617-c43c-4dea-bbba-b7c7f4d4a1af",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "customer_id": "5c7c89fe-cb49-4cb5-b5cb-05f4f773a26d",
+          "amount": "7800.00",
+          "currency": "USD",
+          "due_date": "2026-02-20T11:00:50.543Z",
+          "issued_date": "2026-01-21T11:00:50.543Z",
+          "status": "unpaid",
+          "risk_score": 70,
+          "source": "stripe",
+          "source_id": "demo-stripe-1772881253126-l3szo",
+          "notes": null,
+          "created_at": "2026-01-21T11:00:50.543Z",
+          "updated_at": "2026-03-07T11:00:50.907Z",
+          "customer_name": "Emma Williams",
+          "customer_email": "emma@datacore.ai"
+        },
+        {
+          "id": "062ad607-71d7-49e5-9f7d-056e3dd21549",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "customer_id": "c2275d6e-5b1d-4952-babe-b3a98cf74d6c",
+          "amount": "4500.00",
+          "currency": "USD",
+          "due_date": "2026-02-25T11:00:50.543Z",
+          "issued_date": "2026-02-05T11:00:50.543Z",
+          "status": "unpaid",
+          "risk_score": 62,
+          "source": "stripe",
+          "source_id": "demo-stripe-1772881253024-zh4xx",
+          "notes": null,
+          "created_at": "2026-02-05T11:00:50.543Z",
+          "updated_at": "2026-03-07T11:00:50.907Z",
+          "customer_name": "Mike Johnson",
+          "customer_email": "mike@buildright.com"
+        },
+        {
+          "id": "41c1deb9-9b8f-4969-9051-86f340fa3b05",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "customer_id": "2f830cd8-5413-460f-88b2-69b988e6ae9b",
+          "amount": "6100.00",
+          "currency": "USD",
+          "due_date": "2026-02-27T11:00:50.543Z",
+          "issued_date": "2026-02-10T11:00:50.543Z",
+          "status": "unpaid",
+          "risk_score": 42,
+          "source": "stripe",
+          "source_id": "demo-stripe-1772881253333-1fb2f",
+          "notes": null,
+          "created_at": "2026-02-10T11:00:50.543Z",
+          "updated_at": "2026-03-07T11:00:50.907Z",
+          "customer_name": "Sarah Chen",
+          "customer_email": "sarah.chen@nexflow.io"
+        }
+      ],
+      "total": 12,
+      "page": 1,
+      "limit": 10,
+      "totalPages": 2
+    }
+  },
+  {
+    "test": "Get invoice detail",
+    "method": "GET",
+    "route": "/api/invoices/25a30dee-43b6-40f6-91d2-786d039ca1a0",
+    "status": 200,
+    "expected": 200,
+    "passed": true,
+    "body": {
+      "id": "25a30dee-43b6-40f6-91d2-786d039ca1a0",
+      "data": {
+        "id": "25a30dee-43b6-40f6-91d2-786d039ca1a0",
+        "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+        "customer_id": "d159e8cb-86e5-48d9-bd98-6f3c8b2219e5",
+        "amount": "11200.00",
+        "currency": "USD",
+        "due_date": "2026-01-31T11:00:50.543Z",
+        "issued_date": "2026-01-01T11:00:50.543Z",
+        "status": "unpaid",
+        "risk_score": 95,
+        "source": "manual",
+        "source_id": "demo-manual-1772881252921-56ih1",
+        "notes": null,
+        "created_at": "2026-01-01T11:00:50.543Z",
+        "updated_at": "2026-03-07T11:00:50.907Z",
+        "customer_name": "Nina Patel",
+        "customer_email": "nina@devfirst.io"
+      }
+    }
+  },
+  {
+    "test": "Get invoice full detail",
+    "method": "GET",
+    "route": "/api/invoices/25a30dee-43b6-40f6-91d2-786d039ca1a0/detail",
+    "status": 200,
+    "expected": 200,
+    "passed": true,
+    "body": {
+      "data": {
+        "invoice": {
+          "id": "25a30dee-43b6-40f6-91d2-786d039ca1a0",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "customer_id": "d159e8cb-86e5-48d9-bd98-6f3c8b2219e5",
+          "amount": "11200.00",
+          "currency": "USD",
+          "due_date": "2026-01-31T11:00:50.543Z",
+          "issued_date": "2026-01-01T11:00:50.543Z",
+          "status": "unpaid",
+          "risk_score": 95,
+          "source": "manual",
+          "source_id": "demo-manual-1772881252921-56ih1",
+          "notes": null,
+          "created_at": "2026-01-01T11:00:50.543Z",
+          "updated_at": "2026-03-07T11:00:50.907Z",
+          "customer_name": "Nina Patel",
+          "customer_email": "nina@devfirst.io"
+        },
+        "payments": [],
+        "emailLogs": [
+          {
+            "id": "7ddaf70a-9588-408a-9a6f-3f5bc54a9f2d",
+            "invoice_id": "25a30dee-43b6-40f6-91d2-786d039ca1a0",
+            "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+            "email_type": "dunning_3",
+            "recipient_email": "nina@devfirst.io",
+            "subject": "Let's resolve Invoice #1037 together",
+            "body": "Dear Nina Patel,\n\nThis is a reminder regarding your outstanding invoice of $11,200.\n\nPlease arrange payment at your earliest convenience.\n\nBest regards,\nRecoverAI",
+            "sent_at": "2026-02-15T11:00:50.543Z",
+            "opened_at": null,
+            "clicked_at": null,
+            "status": "delivered",
+            "sendgrid_message_id": "msg_demo_25a30dee_2"
+          },
+          {
+            "id": "b4cf679f-5a3f-4c52-b8f1-9d3bcc5e02bc",
+            "invoice_id": "25a30dee-43b6-40f6-91d2-786d039ca1a0",
+            "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+            "email_type": "dunning_2",
+            "recipient_email": "nina@devfirst.io",
+            "subject": "Invoice #1036 is now past due",
+            "body": "Dear Nina Patel,\n\nThis is a reminder regarding your outstanding invoice of $11,200.\n\nPlease arrange payment at your earliest convenience.\n\nBest regards,\nRecoverAI",
+            "sent_at": "2026-02-08T11:00:50.543Z",
+            "opened_at": null,
+            "clicked_at": null,
+            "status": "delivered",
+            "sendgrid_message_id": "msg_demo_25a30dee_1"
+          },
+          {
+            "id": "aa671cd9-5b8a-4542-94ec-2d6eb874e139",
+            "invoice_id": "25a30dee-43b6-40f6-91d2-786d039ca1a0",
+            "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+            "email_type": "dunning_1",
+            "recipient_email": "nina@devfirst.io",
+            "subject": "Friendly reminder about your balance",
+            "body": "Dear Nina Patel,\n\nThis is a reminder regarding your outstanding invoice of $11,200.\n\nPlease arrange payment at your earliest convenience.\n\nBest regards,\nRecoverAI",
+            "sent_at": "2026-02-01T11:00:50.543Z",
+            "opened_at": "2026-02-01T06:12:50.543Z",
+            "clicked_at": "2026-02-01T01:24:50.543Z",
+            "status": "clicked",
+            "sendgrid_message_id": "msg_demo_25a30dee_0"
+          }
+        ],
+        "paymentPlan": null
+      }
+    }
+  },
+  {
+    "test": "Create manual invoice",
+    "method": "POST",
+    "route": "/api/invoices/manual",
+    "status": 400,
+    "expected": "201/400/422",
+    "passed": true,
+    "body": {
+      "code": "REQUEST_ERROR",
+      "error": "Missing required fields: customerId, dueDate, issuedDate",
+      "requestId": "6fd91cdb-9d89-49e8-91c1-73fcad3f979d"
+    }
+  },
+  {
+    "test": "Update invoice status",
+    "method": "PUT",
+    "route": "/api/invoices/25a30dee-43b6-40f6-91d2-786d039ca1a0/status",
+    "status": 200,
+    "expected": "200/400",
+    "passed": true,
+    "body": {
+      "data": {
+        "id": "25a30dee-43b6-40f6-91d2-786d039ca1a0",
+        "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+        "customer_id": "d159e8cb-86e5-48d9-bd98-6f3c8b2219e5",
+        "amount": "11200.00",
+        "currency": "USD",
+        "due_date": "2026-01-31T11:00:50.543Z",
+        "issued_date": "2026-01-01T11:00:50.543Z",
+        "status": "paid",
+        "risk_score": 95,
+        "source": "manual",
+        "source_id": "demo-manual-1772881252921-56ih1",
+        "notes": null,
+        "created_at": "2026-01-01T11:00:50.543Z",
+        "updated_at": "2026-03-07T11:01:06.169Z"
+      }
+    }
+  },
+  {
+    "test": "Calculate risk score",
+    "method": "POST",
+    "route": "/api/ai/risk-score",
+    "status": 200,
+    "expected": 200,
+    "passed": true,
+    "body": {
+      "message": "Risk score calculated successfully",
+      "data": {
+        "customerId": "d159e8cb-86e5-48d9-bd98-6f3c8b2219e5",
+        "riskScore": 85,
+        "riskLevel": "HIGH",
+        "reasoning": "The customer has a high outstanding balance with no on-time payments and a late payment history, indicating a significant risk of default.",
+        "paymentHistory": {
+          "totalInvoices": 2,
+          "totalPaid": 11200,
+          "totalOutstanding": 8600,
+          "onTimePayments": 0,
+          "latePayments": 1,
+          "averageDaysLate": 5,
+          "onTimeRate": 0,
+          "lastPaymentDate": "2026-01-31 11:00:50.543+00",
+          "avgPaymentDays": 35
+        },
+        "recommendations": [
+          "Consider requiring upfront payment for future transactions",
+          "Monitor the customer's payment behavior closely"
+        ],
+        "confidenceScore": 90
+      }
+    }
+  },
+  {
+    "test": "Generate dunning email",
+    "method": "POST",
+    "route": "/api/ai/generate-email",
+    "status": 400,
+    "expected": 200,
+    "passed": false,
+    "body": {
+      "code": "REQUEST_ERROR",
+      "error": "Missing required fields: customerId, customerName, invoiceAmount, dueDate, daysOverdue",
+      "requestId": "30dab82d-8c2e-4caf-93cb-e982c2c84b9c"
+    }
+  },
+  {
+    "test": "Recommend payment plan",
+    "method": "POST",
+    "route": "/api/ai/recommend-plan",
+    "status": 400,
+    "expected": 200,
+    "passed": false,
+    "body": {
+      "code": "REQUEST_ERROR",
+      "error": "Missing required fields: customerId, invoiceAmount, daysOverdue",
+      "requestId": "a7819734-c4ad-41fd-9abc-7d74ff8e7ff6"
+    }
+  },
+  {
+    "test": "Get queue stats",
+    "method": "GET",
+    "route": "/api/email/queue/stats",
+    "status": 200,
+    "expected": 200,
+    "passed": true,
+    "body": {
+      "data": {
+        "waiting": 0,
+        "active": 0,
+        "completed": 18,
+        "failed": 10,
+        "delayed": 3
+      }
+    }
+  },
+  {
+    "test": "Get email logs",
+    "method": "GET",
+    "route": "/api/email/logs?limit=5",
+    "status": 200,
+    "expected": 200,
+    "passed": true,
+    "body": {
+      "data": [
+        {
+          "id": "314181b0-6424-4661-9296-31c1c96d4a44",
+          "invoice_id": "41c1deb9-9b8f-4969-9051-86f340fa3b05",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "email_type": "dunning_1",
+          "recipient_email": "sarah.chen@nexflow.io",
+          "subject": "Invoice #1040 — due today",
+          "body": "Dear Sarah Chen,\n\nThis is a reminder regarding your outstanding invoice of $6,100.\n\nPlease arrange payment at your earliest convenience.\n\nBest regards,\nRecoverAI",
+          "sent_at": "2026-02-28T11:00:50.543Z",
+          "opened_at": "2026-02-28T06:12:50.543Z",
+          "clicked_at": null,
+          "status": "opened",
+          "sendgrid_message_id": "msg_demo_41c1deb9_0"
+        },
+        {
+          "id": "6db4cb54-71ca-40d6-9453-db084e8da6d3",
+          "invoice_id": "9a1f47ec-31af-42a2-89c7-fe931cad8201",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "email_type": "dunning_1",
+          "recipient_email": "ryan@swiftly.app",
+          "subject": "Quick reminder: Invoice #1017 is due",
+          "body": "Dear Ryan Lee,\n\nThis is a reminder regarding your outstanding invoice of $3,200.\n\nPlease arrange payment at your earliest convenience.\n\nBest regards,\nRecoverAI",
+          "sent_at": "2026-02-26T11:00:50.543Z",
+          "opened_at": null,
+          "clicked_at": null,
+          "status": "delivered",
+          "sendgrid_message_id": "msg_demo_9a1f47ec_0"
+        },
+        {
+          "id": "39ccb0cf-7bae-4825-9894-eee5baa7d0ed",
+          "invoice_id": "062ad607-71d7-49e5-9f7d-056e3dd21549",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "email_type": "dunning_1",
+          "recipient_email": "mike@buildright.com",
+          "subject": "Invoice #1038 — due today",
+          "body": "Dear Mike Johnson,\n\nThis is a reminder regarding your outstanding invoice of $4,500.\n\nPlease arrange payment at your earliest convenience.\n\nBest regards,\nRecoverAI",
+          "sent_at": "2026-02-26T11:00:50.543Z",
+          "opened_at": "2026-02-26T06:12:50.543Z",
+          "clicked_at": null,
+          "status": "opened",
+          "sendgrid_message_id": "msg_demo_062ad607_0"
+        },
+        {
+          "id": "492e88d9-bc22-40be-a3c1-643e6c53e162",
+          "invoice_id": "4210c9aa-1f72-42f0-8a45-59a669fde525",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "email_type": "dunning_2",
+          "recipient_email": "priya@healthsync.io",
+          "subject": "Action needed: Invoice #1012",
+          "body": "Dear Priya Mehta,\n\nThis is a reminder regarding your outstanding invoice of $4,100.\n\nPlease arrange payment at your earliest convenience.\n\nBest regards,\nRecoverAI",
+          "sent_at": "2026-02-23T11:00:50.543Z",
+          "opened_at": null,
+          "clicked_at": null,
+          "status": "delivered",
+          "sendgrid_message_id": "msg_demo_4210c9aa_1"
+        },
+        {
+          "id": "2e8f5c84-c4e0-4a42-b45a-ed3ecd5c88ca",
+          "invoice_id": "c7501184-f829-4bc1-9b1f-3d635ab50387",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "email_type": "dunning_2",
+          "recipient_email": "jason.torres@cloudgate.com",
+          "subject": "Action needed: Invoice #1034",
+          "body": "Dear Jason Torres,\n\nThis is a reminder regarding your outstanding invoice of $18,000.\n\nPlease arrange payment at your earliest convenience.\n\nBest regards,\nRecoverAI",
+          "sent_at": "2026-02-23T11:00:50.543Z",
+          "opened_at": "2026-02-23T06:12:50.543Z",
+          "clicked_at": "2026-02-23T01:24:50.543Z",
+          "status": "clicked",
+          "sendgrid_message_id": "msg_demo_c7501184_1"
+        },
+        {
+          "id": "92137d26-2738-4311-92f8-2c93c1b82b50",
+          "invoice_id": "8d567c58-832e-44ad-b7e3-3b230fb498f1",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "email_type": "dunning_1",
+          "recipient_email": "emma@datacore.ai",
+          "subject": "Friendly reminder about your balance",
+          "body": "Dear Emma Williams,\n\nThis is a reminder regarding your outstanding invoice of $4,400.\n\nPlease arrange payment at your earliest convenience.\n\nBest regards,\nRecoverAI",
+          "sent_at": "2026-02-21T11:00:50.543Z",
+          "opened_at": "2026-02-21T06:12:50.543Z",
+          "clicked_at": "2026-02-21T01:24:50.543Z",
+          "status": "clicked",
+          "sendgrid_message_id": "msg_demo_8d567c58_0"
+        },
+        {
+          "id": "ca2d2a2b-d21d-4465-bcce-692181602c92",
+          "invoice_id": "de6c9617-c43c-4dea-bbba-b7c7f4d4a1af",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "email_type": "dunning_1",
+          "recipient_email": "emma@datacore.ai",
+          "subject": "Invoice #1039 — due today",
+          "body": "Dear Emma Williams,\n\nThis is a reminder regarding your outstanding invoice of $7,800.\n\nPlease arrange payment at your earliest convenience.\n\nBest regards,\nRecoverAI",
+          "sent_at": "2026-02-21T11:00:50.543Z",
+          "opened_at": "2026-02-21T06:12:50.543Z",
+          "clicked_at": null,
+          "status": "opened",
+          "sendgrid_message_id": "msg_demo_de6c9617_0"
+        },
+        {
+          "id": "afa438b8-fe6b-431a-84d5-a716b7701a1f",
+          "invoice_id": "6732bab5-9eba-4c5d-97ce-997244b63b0c",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "email_type": "dunning_2",
+          "recipient_email": "david@techwave.co",
+          "subject": "Action needed: Invoice #1032",
+          "body": "Dear David Park,\n\nThis is a reminder regarding your outstanding invoice of $9,100.\n\nPlease arrange payment at your earliest convenience.\n\nBest regards,\nRecoverAI",
+          "sent_at": "2026-02-18T11:00:50.543Z",
+          "opened_at": null,
+          "clicked_at": null,
+          "status": "delivered",
+          "sendgrid_message_id": "msg_demo_6732bab5_1"
+        },
+        {
+          "id": "be8a8f7b-5fc9-4d39-94e8-a19a272348eb",
+          "invoice_id": "0e84cd1d-52ad-4725-9fbe-6491258acd8f",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "email_type": "dunning_2",
+          "recipient_email": "sarah.chen@nexflow.io",
+          "subject": "Invoice #1042 is now past due",
+          "body": "Dear Sarah Chen,\n\nThis is a reminder regarding your outstanding invoice of $3,500.\n\nPlease arrange payment at your earliest convenience.\n\nBest regards,\nRecoverAI",
+          "sent_at": "2026-02-18T11:00:50.543Z",
+          "opened_at": "2026-02-18T06:12:50.543Z",
+          "clicked_at": "2026-02-18T01:24:50.543Z",
+          "status": "clicked",
+          "sendgrid_message_id": "msg_demo_0e84cd1d_1"
+        },
+        {
+          "id": "8d407bc4-a176-4b61-bc64-41551ebfc02e",
+          "invoice_id": "df6728ce-d5ae-4039-99fa-94a1c625d1af",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "email_type": "dunning_2",
+          "recipient_email": "emma@datacore.ai",
+          "subject": "Following up on overdue invoice #1046",
+          "body": "Dear Emma Williams,\n\nThis is a reminder regarding your outstanding invoice of $4,200.\n\nPlease arrange payment at your earliest convenience.\n\nBest regards,\nRecoverAI",
+          "sent_at": "2026-02-17T11:00:50.543Z",
+          "opened_at": "2026-02-17T06:12:50.543Z",
+          "clicked_at": null,
+          "status": "opened",
+          "sendgrid_message_id": "msg_demo_df6728ce_1"
+        },
+        {
+          "id": "9b449ad9-78a5-42b1-b9e5-3421f09f9b4f",
+          "invoice_id": "4210c9aa-1f72-42f0-8a45-59a669fde525",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "email_type": "dunning_1",
+          "recipient_email": "priya@healthsync.io",
+          "subject": "Invoice #1011 — due today",
+          "body": "Dear Priya Mehta,\n\nThis is a reminder regarding your outstanding invoice of $4,100.\n\nPlease arrange payment at your earliest convenience.\n\nBest regards,\nRecoverAI",
+          "sent_at": "2026-02-16T11:00:50.543Z",
+          "opened_at": "2026-02-16T06:12:50.543Z",
+          "clicked_at": "2026-02-16T01:24:50.543Z",
+          "status": "clicked",
+          "sendgrid_message_id": "msg_demo_4210c9aa_0"
+        },
+        {
+          "id": "f6ab1d30-4f73-4889-b96c-ebed50415741",
+          "invoice_id": "c7501184-f829-4bc1-9b1f-3d635ab50387",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "email_type": "dunning_1",
+          "recipient_email": "jason.torres@cloudgate.com",
+          "subject": "Friendly reminder about your balance",
+          "body": "Dear Jason Torres,\n\nThis is a reminder regarding your outstanding invoice of $18,000.\n\nPlease arrange payment at your earliest convenience.\n\nBest regards,\nRecoverAI",
+          "sent_at": "2026-02-16T11:00:50.543Z",
+          "opened_at": "2026-02-16T06:12:50.543Z",
+          "clicked_at": "2026-02-16T01:24:50.543Z",
+          "status": "clicked",
+          "sendgrid_message_id": "msg_demo_c7501184_0"
+        },
+        {
+          "id": "2d4950d2-0a58-446e-8fd3-04e2727bb2aa",
+          "invoice_id": "b7e7bc15-c74c-4f2b-8554-3e0da3adb110",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "email_type": "dunning_2",
+          "recipient_email": "priya@healthsync.io",
+          "subject": "Following up on overdue invoice #1044",
+          "body": "Dear Priya Mehta,\n\nThis is a reminder regarding your outstanding invoice of $5,600.\n\nPlease arrange payment at your earliest convenience.\n\nBest regards,\nRecoverAI",
+          "sent_at": "2026-02-16T11:00:50.543Z",
+          "opened_at": null,
+          "clicked_at": null,
+          "status": "delivered",
+          "sendgrid_message_id": "msg_demo_b7e7bc15_1"
+        },
+        {
+          "id": "7ddaf70a-9588-408a-9a6f-3f5bc54a9f2d",
+          "invoice_id": "25a30dee-43b6-40f6-91d2-786d039ca1a0",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "email_type": "dunning_3",
+          "recipient_email": "nina@devfirst.io",
+          "subject": "Let's resolve Invoice #1037 together",
+          "body": "Dear Nina Patel,\n\nThis is a reminder regarding your outstanding invoice of $11,200.\n\nPlease arrange payment at your earliest convenience.\n\nBest regards,\nRecoverAI",
+          "sent_at": "2026-02-15T11:00:50.543Z",
+          "opened_at": null,
+          "clicked_at": null,
+          "status": "delivered",
+          "sendgrid_message_id": "msg_demo_25a30dee_2"
+        },
+        {
+          "id": "47b52cad-c674-44b7-94f9-043490521235",
+          "invoice_id": "8f3c4f2a-0985-4ae5-b595-3966bc70493e",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "email_type": "dunning_2",
+          "recipient_email": "ryan@swiftly.app",
+          "subject": "Following up on overdue invoice #1048",
+          "body": "Dear Ryan Lee,\n\nThis is a reminder regarding your outstanding invoice of $2,100.\n\nPlease arrange payment at your earliest convenience.\n\nBest regards,\nRecoverAI",
+          "sent_at": "2026-02-15T11:00:50.543Z",
+          "opened_at": "2026-02-15T06:12:50.543Z",
+          "clicked_at": null,
+          "status": "opened",
+          "sendgrid_message_id": "msg_demo_8f3c4f2a_1"
+        },
+        {
+          "id": "e829e12b-3485-434a-a7c1-5e3ebb09519a",
+          "invoice_id": "c017a507-5e61-47cd-bedd-16348d080b39",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "email_type": "dunning_2",
+          "recipient_email": "sarah.chen@nexflow.io",
+          "subject": "Action needed: Invoice #1004",
+          "body": "Dear Sarah Chen,\n\nThis is a reminder regarding your outstanding invoice of $3,800.\n\nPlease arrange payment at your earliest convenience.\n\nBest regards,\nRecoverAI",
+          "sent_at": "2026-02-13T11:00:50.543Z",
+          "opened_at": "2026-02-13T06:12:50.543Z",
+          "clicked_at": "2026-02-13T01:24:50.543Z",
+          "status": "clicked",
+          "sendgrid_message_id": "msg_demo_c017a507_1"
+        },
+        {
+          "id": "ee0444c5-c42a-4b4f-93c7-81ea6aaacc47",
+          "invoice_id": "85e44b1a-9c01-46d8-8a49-177c533904bd",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "email_type": "dunning_2",
+          "recipient_email": "mike@buildright.com",
+          "subject": "Action needed: Invoice #1030",
+          "body": "Dear Mike Johnson,\n\nThis is a reminder regarding your outstanding invoice of $6,300.\n\nPlease arrange payment at your earliest convenience.\n\nBest regards,\nRecoverAI",
+          "sent_at": "2026-02-13T11:00:50.543Z",
+          "opened_at": "2026-02-13T06:12:50.543Z",
+          "clicked_at": "2026-02-13T01:24:50.543Z",
+          "status": "clicked",
+          "sendgrid_message_id": "msg_demo_85e44b1a_1"
+        },
+        {
+          "id": "5a0dab49-639e-4dad-b9c9-d1cece32abf4",
+          "invoice_id": "6732bab5-9eba-4c5d-97ce-997244b63b0c",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "email_type": "dunning_1",
+          "recipient_email": "david@techwave.co",
+          "subject": "Quick reminder: Invoice #1031 is due",
+          "body": "Dear David Park,\n\nThis is a reminder regarding your outstanding invoice of $9,100.\n\nPlease arrange payment at your earliest convenience.\n\nBest regards,\nRecoverAI",
+          "sent_at": "2026-02-11T11:00:50.543Z",
+          "opened_at": "2026-02-11T06:12:50.543Z",
+          "clicked_at": null,
+          "status": "opened",
+          "sendgrid_message_id": "msg_demo_6732bab5_0"
+        },
+        {
+          "id": "429f0838-4a2a-4328-8ef9-50c82ce4a5e6",
+          "invoice_id": "0e84cd1d-52ad-4725-9fbe-6491258acd8f",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "email_type": "dunning_1",
+          "recipient_email": "sarah.chen@nexflow.io",
+          "subject": "Invoice #1041 — due today",
+          "body": "Dear Sarah Chen,\n\nThis is a reminder regarding your outstanding invoice of $3,500.\n\nPlease arrange payment at your earliest convenience.\n\nBest regards,\nRecoverAI",
+          "sent_at": "2026-02-11T11:00:50.543Z",
+          "opened_at": "2026-02-11T06:12:50.543Z",
+          "clicked_at": null,
+          "status": "opened",
+          "sendgrid_message_id": "msg_demo_0e84cd1d_0"
+        },
+        {
+          "id": "6f92fc3c-a8d0-438b-96ac-2805efb44d07",
+          "invoice_id": "4090cb3c-c4de-49da-a3ae-0804fe9dee61",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "email_type": "dunning_3",
+          "recipient_email": "nina@devfirst.io",
+          "subject": "Flexible payment options for your balance",
+          "body": "Dear Nina Patel,\n\nThis is a reminder regarding your outstanding invoice of $8,600.\n\nPlease arrange payment at your earliest convenience.\n\nBest regards,\nRecoverAI",
+          "sent_at": "2026-02-10T11:00:50.543Z",
+          "opened_at": "2026-02-10T06:12:50.543Z",
+          "clicked_at": null,
+          "status": "opened",
+          "sendgrid_message_id": "msg_demo_4090cb3c_2"
+        },
+        {
+          "id": "4b12988f-0ce5-439a-8e9d-ea7f220fc2aa",
+          "invoice_id": "df6728ce-d5ae-4039-99fa-94a1c625d1af",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "email_type": "dunning_1",
+          "recipient_email": "emma@datacore.ai",
+          "subject": "Friendly reminder about your balance",
+          "body": "Dear Emma Williams,\n\nThis is a reminder regarding your outstanding invoice of $4,200.\n\nPlease arrange payment at your earliest convenience.\n\nBest regards,\nRecoverAI",
+          "sent_at": "2026-02-10T11:00:50.543Z",
+          "opened_at": "2026-02-10T06:12:50.543Z",
+          "clicked_at": "2026-02-10T01:24:50.543Z",
+          "status": "clicked",
+          "sendgrid_message_id": "msg_demo_df6728ce_0"
+        },
+        {
+          "id": "e5f3660e-642c-48b8-8fa6-28d0a3e8a16b",
+          "invoice_id": "b7e7bc15-c74c-4f2b-8554-3e0da3adb110",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "email_type": "dunning_1",
+          "recipient_email": "priya@healthsync.io",
+          "subject": "Quick reminder: Invoice #1043 is due",
+          "body": "Dear Priya Mehta,\n\nThis is a reminder regarding your outstanding invoice of $5,600.\n\nPlease arrange payment at your earliest convenience.\n\nBest regards,\nRecoverAI",
+          "sent_at": "2026-02-09T11:00:50.543Z",
+          "opened_at": null,
+          "clicked_at": null,
+          "status": "delivered",
+          "sendgrid_message_id": "msg_demo_b7e7bc15_0"
+        },
+        {
+          "id": "b4cf679f-5a3f-4c52-b8f1-9d3bcc5e02bc",
+          "invoice_id": "25a30dee-43b6-40f6-91d2-786d039ca1a0",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "email_type": "dunning_2",
+          "recipient_email": "nina@devfirst.io",
+          "subject": "Invoice #1036 is now past due",
+          "body": "Dear Nina Patel,\n\nThis is a reminder regarding your outstanding invoice of $11,200.\n\nPlease arrange payment at your earliest convenience.\n\nBest regards,\nRecoverAI",
+          "sent_at": "2026-02-08T11:00:50.543Z",
+          "opened_at": null,
+          "clicked_at": null,
+          "status": "delivered",
+          "sendgrid_message_id": "msg_demo_25a30dee_1"
+        },
+        {
+          "id": "cfdf7de9-d22f-44f2-aed5-c2ce39790135",
+          "invoice_id": "8f3c4f2a-0985-4ae5-b595-3966bc70493e",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "email_type": "dunning_1",
+          "recipient_email": "ryan@swiftly.app",
+          "subject": "Quick reminder: Invoice #1047 is due",
+          "body": "Dear Ryan Lee,\n\nThis is a reminder regarding your outstanding invoice of $2,100.\n\nPlease arrange payment at your earliest convenience.\n\nBest regards,\nRecoverAI",
+          "sent_at": "2026-02-08T11:00:50.543Z",
+          "opened_at": "2026-02-08T06:12:50.543Z",
+          "clicked_at": null,
+          "status": "opened",
+          "sendgrid_message_id": "msg_demo_8f3c4f2a_0"
+        },
+        {
+          "id": "fb627ddd-7233-4f0a-9898-25710383800c",
+          "invoice_id": "c017a507-5e61-47cd-bedd-16348d080b39",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "email_type": "dunning_1",
+          "recipient_email": "sarah.chen@nexflow.io",
+          "subject": "Friendly reminder about your balance",
+          "body": "Dear Sarah Chen,\n\nThis is a reminder regarding your outstanding invoice of $3,800.\n\nPlease arrange payment at your earliest convenience.\n\nBest regards,\nRecoverAI",
+          "sent_at": "2026-02-06T11:00:50.543Z",
+          "opened_at": "2026-02-06T06:12:50.543Z",
+          "clicked_at": null,
+          "status": "opened",
+          "sendgrid_message_id": "msg_demo_c017a507_0"
+        },
+        {
+          "id": "e750582b-8b0e-47fc-84ee-eebbef92975e",
+          "invoice_id": "85e44b1a-9c01-46d8-8a49-177c533904bd",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "email_type": "dunning_1",
+          "recipient_email": "mike@buildright.com",
+          "subject": "Invoice #1029 — due today",
+          "body": "Dear Mike Johnson,\n\nThis is a reminder regarding your outstanding invoice of $6,300.\n\nPlease arrange payment at your earliest convenience.\n\nBest regards,\nRecoverAI",
+          "sent_at": "2026-02-06T11:00:50.543Z",
+          "opened_at": "2026-02-06T06:12:50.543Z",
+          "clicked_at": "2026-02-06T01:24:50.543Z",
+          "status": "clicked",
+          "sendgrid_message_id": "msg_demo_85e44b1a_0"
+        },
+        {
+          "id": "5d1e48a8-1d03-481e-82e9-2254b53ba50a",
+          "invoice_id": "a7961a8f-e305-4c57-bf1e-2be96f125395",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "email_type": "dunning_3",
+          "recipient_email": "mike@buildright.com",
+          "subject": "Flexible payment options for your balance",
+          "body": "Dear Mike Johnson,\n\nThis is a reminder regarding your outstanding invoice of $8,500.\n\nPlease arrange payment at your earliest convenience.\n\nBest regards,\nRecoverAI",
+          "sent_at": "2026-02-05T11:00:50.543Z",
+          "opened_at": "2026-02-05T06:12:50.543Z",
+          "clicked_at": "2026-02-05T01:24:50.543Z",
+          "status": "clicked",
+          "sendgrid_message_id": "msg_demo_a7961a8f_2"
+        },
+        {
+          "id": "6d96085c-a233-4fe6-8db4-b1bce82a26da",
+          "invoice_id": "4090cb3c-c4de-49da-a3ae-0804fe9dee61",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "email_type": "dunning_2",
+          "recipient_email": "nina@devfirst.io",
+          "subject": "Following up on overdue invoice #1027",
+          "body": "Dear Nina Patel,\n\nThis is a reminder regarding your outstanding invoice of $8,600.\n\nPlease arrange payment at your earliest convenience.\n\nBest regards,\nRecoverAI",
+          "sent_at": "2026-02-03T11:00:50.543Z",
+          "opened_at": "2026-02-03T06:12:50.543Z",
+          "clicked_at": null,
+          "status": "opened",
+          "sendgrid_message_id": "msg_demo_4090cb3c_1"
+        },
+        {
+          "id": "aa671cd9-5b8a-4542-94ec-2d6eb874e139",
+          "invoice_id": "25a30dee-43b6-40f6-91d2-786d039ca1a0",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "email_type": "dunning_1",
+          "recipient_email": "nina@devfirst.io",
+          "subject": "Friendly reminder about your balance",
+          "body": "Dear Nina Patel,\n\nThis is a reminder regarding your outstanding invoice of $11,200.\n\nPlease arrange payment at your earliest convenience.\n\nBest regards,\nRecoverAI",
+          "sent_at": "2026-02-01T11:00:50.543Z",
+          "opened_at": "2026-02-01T06:12:50.543Z",
+          "clicked_at": "2026-02-01T01:24:50.543Z",
+          "status": "clicked",
+          "sendgrid_message_id": "msg_demo_25a30dee_0"
+        },
+        {
+          "id": "599460fd-9773-4ba5-b97c-e59a68aebdfb",
+          "invoice_id": "89db9228-19f9-43e6-9182-e867c96f19a3",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "email_type": "dunning_3",
+          "recipient_email": "david@techwave.co",
+          "subject": "Let's resolve Invoice #1010 together",
+          "body": "Dear David Park,\n\nThis is a reminder regarding your outstanding invoice of $6,200.\n\nPlease arrange payment at your earliest convenience.\n\nBest regards,\nRecoverAI",
+          "sent_at": "2026-01-31T11:00:50.543Z",
+          "opened_at": "2026-01-31T06:12:50.543Z",
+          "clicked_at": null,
+          "status": "opened",
+          "sendgrid_message_id": "msg_demo_89db9228_2"
+        },
+        {
+          "id": "eba2558f-3afa-47d5-9f88-8daeb24ed973",
+          "invoice_id": "a7961a8f-e305-4c57-bf1e-2be96f125395",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "email_type": "dunning_2",
+          "recipient_email": "mike@buildright.com",
+          "subject": "Invoice #1006 is now past due",
+          "body": "Dear Mike Johnson,\n\nThis is a reminder regarding your outstanding invoice of $8,500.\n\nPlease arrange payment at your earliest convenience.\n\nBest regards,\nRecoverAI",
+          "sent_at": "2026-01-29T11:00:50.543Z",
+          "opened_at": "2026-01-29T06:12:50.543Z",
+          "clicked_at": "2026-01-29T01:24:50.543Z",
+          "status": "clicked",
+          "sendgrid_message_id": "msg_demo_a7961a8f_1"
+        },
+        {
+          "id": "c8d27b48-c1fb-4a2f-ab24-faf9f094d98f",
+          "invoice_id": "4090cb3c-c4de-49da-a3ae-0804fe9dee61",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "email_type": "dunning_1",
+          "recipient_email": "nina@devfirst.io",
+          "subject": "Quick reminder: Invoice #1026 is due",
+          "body": "Dear Nina Patel,\n\nThis is a reminder regarding your outstanding invoice of $8,600.\n\nPlease arrange payment at your earliest convenience.\n\nBest regards,\nRecoverAI",
+          "sent_at": "2026-01-27T11:00:50.543Z",
+          "opened_at": "2026-01-27T06:12:50.543Z",
+          "clicked_at": null,
+          "status": "opened",
+          "sendgrid_message_id": "msg_demo_4090cb3c_0"
+        },
+        {
+          "id": "4da6a4a0-3846-4b9c-834f-6098e30e4df1",
+          "invoice_id": "9f2adc5c-dcbb-4b98-91c4-73766403ec86",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "email_type": "dunning_3",
+          "recipient_email": "jason.torres@cloudgate.com",
+          "subject": "Payment arrangement available for Invoice #1015",
+          "body": "Dear Jason Torres,\n\nThis is a reminder regarding your outstanding invoice of $9,800.\n\nPlease arrange payment at your earliest convenience.\n\nBest regards,\nRecoverAI",
+          "sent_at": "2026-01-26T11:00:50.543Z",
+          "opened_at": "2026-01-26T06:12:50.543Z",
+          "clicked_at": null,
+          "status": "opened",
+          "sendgrid_message_id": "msg_demo_9f2adc5c_2"
+        },
+        {
+          "id": "123f2a3a-3730-40d2-94e1-cf8a2778bde1",
+          "invoice_id": "89db9228-19f9-43e6-9182-e867c96f19a3",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "email_type": "dunning_2",
+          "recipient_email": "david@techwave.co",
+          "subject": "Following up on overdue invoice #1009",
+          "body": "Dear David Park,\n\nThis is a reminder regarding your outstanding invoice of $6,200.\n\nPlease arrange payment at your earliest convenience.\n\nBest regards,\nRecoverAI",
+          "sent_at": "2026-01-24T11:00:50.543Z",
+          "opened_at": "2026-01-24T06:12:50.543Z",
+          "clicked_at": null,
+          "status": "opened",
+          "sendgrid_message_id": "msg_demo_89db9228_1"
+        },
+        {
+          "id": "fce32dea-9ab2-4c7a-9d20-bc5f837c1064",
+          "invoice_id": "70177d5d-9366-49e0-8028-a676c379327b",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "email_type": "dunning_4",
+          "recipient_email": "david@techwave.co",
+          "subject": "Final notice: Invoice #1021",
+          "body": "Dear David Park,\n\nThis is a reminder regarding your outstanding invoice of $14,500.\n\nPlease arrange payment at your earliest convenience.\n\nBest regards,\nRecoverAI",
+          "sent_at": "2026-01-23T11:00:50.543Z",
+          "opened_at": "2026-01-23T06:12:50.543Z",
+          "clicked_at": "2026-01-23T01:24:50.543Z",
+          "status": "clicked",
+          "sendgrid_message_id": "msg_demo_70177d5d_3"
+        },
+        {
+          "id": "3af41017-6de1-40c1-aeb1-07677b5255bb",
+          "invoice_id": "a7961a8f-e305-4c57-bf1e-2be96f125395",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "email_type": "dunning_1",
+          "recipient_email": "mike@buildright.com",
+          "subject": "Quick reminder: Invoice #1005 is due",
+          "body": "Dear Mike Johnson,\n\nThis is a reminder regarding your outstanding invoice of $8,500.\n\nPlease arrange payment at your earliest convenience.\n\nBest regards,\nRecoverAI",
+          "sent_at": "2026-01-22T11:00:50.543Z",
+          "opened_at": "2026-01-22T06:12:50.543Z",
+          "clicked_at": "2026-01-22T01:24:50.543Z",
+          "status": "clicked",
+          "sendgrid_message_id": "msg_demo_a7961a8f_0"
+        },
+        {
+          "id": "424070f2-854c-4a11-b3e5-f80a346375d9",
+          "invoice_id": "29e89796-530a-4355-8ef5-987e44dc1294",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "email_type": "dunning_3",
+          "recipient_email": "sarah.chen@nexflow.io",
+          "subject": "Payment arrangement available for Invoice #1002",
+          "body": "Dear Sarah Chen,\n\nThis is a reminder regarding your outstanding invoice of $5,200.\n\nPlease arrange payment at your earliest convenience.\n\nBest regards,\nRecoverAI",
+          "sent_at": "2026-01-21T11:00:50.543Z",
+          "opened_at": null,
+          "clicked_at": null,
+          "status": "delivered",
+          "sendgrid_message_id": "msg_demo_29e89796_2"
+        },
+        {
+          "id": "ac9fa0dd-7b2f-46c3-bdc4-ffbbc088240b",
+          "invoice_id": "9f2adc5c-dcbb-4b98-91c4-73766403ec86",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "email_type": "dunning_2",
+          "recipient_email": "jason.torres@cloudgate.com",
+          "subject": "Action needed: Invoice #1014",
+          "body": "Dear Jason Torres,\n\nThis is a reminder regarding your outstanding invoice of $9,800.\n\nPlease arrange payment at your earliest convenience.\n\nBest regards,\nRecoverAI",
+          "sent_at": "2026-01-19T11:00:50.543Z",
+          "opened_at": null,
+          "clicked_at": null,
+          "status": "delivered",
+          "sendgrid_message_id": "msg_demo_9f2adc5c_1"
+        },
+        {
+          "id": "16a70dae-5cd1-4676-88c8-7fe418b63283",
+          "invoice_id": "ae1abf5d-a16f-40ea-92bf-f47ddfa2985f",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "email_type": "dunning_4",
+          "recipient_email": "jason.torres@cloudgate.com",
+          "subject": "Urgent: Invoice #1025 requires immediate attention",
+          "body": "Dear Jason Torres,\n\nThis is a reminder regarding your outstanding invoice of $22,000.\n\nPlease arrange payment at your earliest convenience.\n\nBest regards,\nRecoverAI",
+          "sent_at": "2026-01-18T11:00:50.543Z",
+          "opened_at": null,
+          "clicked_at": null,
+          "status": "delivered",
+          "sendgrid_message_id": "msg_demo_ae1abf5d_3"
+        },
+        {
+          "id": "b9bffbb3-ca6f-46f6-8b38-f131c42f886b",
+          "invoice_id": "89db9228-19f9-43e6-9182-e867c96f19a3",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "email_type": "dunning_1",
+          "recipient_email": "david@techwave.co",
+          "subject": "Invoice #1008 — due today",
+          "body": "Dear David Park,\n\nThis is a reminder regarding your outstanding invoice of $6,200.\n\nPlease arrange payment at your earliest convenience.\n\nBest regards,\nRecoverAI",
+          "sent_at": "2026-01-17T11:00:50.543Z",
+          "opened_at": "2026-01-17T06:12:50.543Z",
+          "clicked_at": null,
+          "status": "opened",
+          "sendgrid_message_id": "msg_demo_89db9228_0"
+        },
+        {
+          "id": "ab69280f-e11a-4027-9321-2d7fac85bae2",
+          "invoice_id": "70177d5d-9366-49e0-8028-a676c379327b",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "email_type": "dunning_3",
+          "recipient_email": "david@techwave.co",
+          "subject": "Payment arrangement available for Invoice #1020",
+          "body": "Dear David Park,\n\nThis is a reminder regarding your outstanding invoice of $14,500.\n\nPlease arrange payment at your earliest convenience.\n\nBest regards,\nRecoverAI",
+          "sent_at": "2026-01-16T11:00:50.543Z",
+          "opened_at": null,
+          "clicked_at": null,
+          "status": "delivered",
+          "sendgrid_message_id": "msg_demo_70177d5d_2"
+        },
+        {
+          "id": "0cc96811-1d9f-4882-be0c-d7e9dff1131f",
+          "invoice_id": "29e89796-530a-4355-8ef5-987e44dc1294",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "email_type": "dunning_2",
+          "recipient_email": "sarah.chen@nexflow.io",
+          "subject": "Following up on overdue invoice #1001",
+          "body": "Dear Sarah Chen,\n\nThis is a reminder regarding your outstanding invoice of $5,200.\n\nPlease arrange payment at your earliest convenience.\n\nBest regards,\nRecoverAI",
+          "sent_at": "2026-01-14T11:00:50.543Z",
+          "opened_at": "2026-01-14T06:12:50.543Z",
+          "clicked_at": "2026-01-14T01:24:50.543Z",
+          "status": "clicked",
+          "sendgrid_message_id": "msg_demo_29e89796_1"
+        },
+        {
+          "id": "a8f4f4c8-3236-4725-999a-fb2df526e70a",
+          "invoice_id": "9f2adc5c-dcbb-4b98-91c4-73766403ec86",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "email_type": "dunning_1",
+          "recipient_email": "jason.torres@cloudgate.com",
+          "subject": "Quick reminder: Invoice #1013 is due",
+          "body": "Dear Jason Torres,\n\nThis is a reminder regarding your outstanding invoice of $9,800.\n\nPlease arrange payment at your earliest convenience.\n\nBest regards,\nRecoverAI",
+          "sent_at": "2026-01-12T11:00:50.543Z",
+          "opened_at": "2026-01-12T06:12:50.543Z",
+          "clicked_at": "2026-01-12T01:24:50.543Z",
+          "status": "clicked",
+          "sendgrid_message_id": "msg_demo_9f2adc5c_0"
+        },
+        {
+          "id": "31e3f6b2-667a-41c8-9a78-879e19131065",
+          "invoice_id": "ae1abf5d-a16f-40ea-92bf-f47ddfa2985f",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "email_type": "dunning_3",
+          "recipient_email": "jason.torres@cloudgate.com",
+          "subject": "Payment arrangement available for Invoice #1024",
+          "body": "Dear Jason Torres,\n\nThis is a reminder regarding your outstanding invoice of $22,000.\n\nPlease arrange payment at your earliest convenience.\n\nBest regards,\nRecoverAI",
+          "sent_at": "2026-01-11T11:00:50.543Z",
+          "opened_at": "2026-01-11T06:12:50.543Z",
+          "clicked_at": "2026-01-11T01:24:50.543Z",
+          "status": "clicked",
+          "sendgrid_message_id": "msg_demo_ae1abf5d_2"
+        },
+        {
+          "id": "f1b13285-c178-453e-b200-c13a916335a4",
+          "invoice_id": "70177d5d-9366-49e0-8028-a676c379327b",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "email_type": "dunning_2",
+          "recipient_email": "david@techwave.co",
+          "subject": "Following up on overdue invoice #1019",
+          "body": "Dear David Park,\n\nThis is a reminder regarding your outstanding invoice of $14,500.\n\nPlease arrange payment at your earliest convenience.\n\nBest regards,\nRecoverAI",
+          "sent_at": "2026-01-09T11:00:50.543Z",
+          "opened_at": "2026-01-09T06:12:50.543Z",
+          "clicked_at": "2026-01-09T01:24:50.543Z",
+          "status": "clicked",
+          "sendgrid_message_id": "msg_demo_70177d5d_1"
+        },
+        {
+          "id": "d4768dc6-8bc9-41e0-9e9c-d9f978618019",
+          "invoice_id": "29e89796-530a-4355-8ef5-987e44dc1294",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "email_type": "dunning_1",
+          "recipient_email": "sarah.chen@nexflow.io",
+          "subject": "Quick reminder: Invoice #1000 is due",
+          "body": "Dear Sarah Chen,\n\nThis is a reminder regarding your outstanding invoice of $5,200.\n\nPlease arrange payment at your earliest convenience.\n\nBest regards,\nRecoverAI",
+          "sent_at": "2026-01-07T11:00:50.543Z",
+          "opened_at": null,
+          "clicked_at": null,
+          "status": "delivered",
+          "sendgrid_message_id": "msg_demo_29e89796_0"
+        },
+        {
+          "id": "e058a4c8-8195-4371-a243-90fb43e92ce4",
+          "invoice_id": "ae1abf5d-a16f-40ea-92bf-f47ddfa2985f",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "email_type": "dunning_2",
+          "recipient_email": "jason.torres@cloudgate.com",
+          "subject": "Following up on overdue invoice #1023",
+          "body": "Dear Jason Torres,\n\nThis is a reminder regarding your outstanding invoice of $22,000.\n\nPlease arrange payment at your earliest convenience.\n\nBest regards,\nRecoverAI",
+          "sent_at": "2026-01-04T11:00:50.543Z",
+          "opened_at": null,
+          "clicked_at": null,
+          "status": "delivered",
+          "sendgrid_message_id": "msg_demo_ae1abf5d_1"
+        },
+        {
+          "id": "6d642f09-66ab-429b-942b-455e4df17172",
+          "invoice_id": "70177d5d-9366-49e0-8028-a676c379327b",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "email_type": "dunning_1",
+          "recipient_email": "david@techwave.co",
+          "subject": "Invoice #1018 — due today",
+          "body": "Dear David Park,\n\nThis is a reminder regarding your outstanding invoice of $14,500.\n\nPlease arrange payment at your earliest convenience.\n\nBest regards,\nRecoverAI",
+          "sent_at": "2026-01-02T11:00:50.543Z",
+          "opened_at": null,
+          "clicked_at": null,
+          "status": "delivered",
+          "sendgrid_message_id": "msg_demo_70177d5d_0"
+        },
+        {
+          "id": "57576a8d-d718-4468-8661-4863e4ac2462",
+          "invoice_id": "ae1abf5d-a16f-40ea-92bf-f47ddfa2985f",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "email_type": "dunning_1",
+          "recipient_email": "jason.torres@cloudgate.com",
+          "subject": "Quick reminder: Invoice #1022 is due",
+          "body": "Dear Jason Torres,\n\nThis is a reminder regarding your outstanding invoice of $22,000.\n\nPlease arrange payment at your earliest convenience.\n\nBest regards,\nRecoverAI",
+          "sent_at": "2025-12-28T11:00:50.543Z",
+          "opened_at": null,
+          "clicked_at": null,
+          "status": "delivered",
+          "sendgrid_message_id": "msg_demo_ae1abf5d_0"
+        }
+      ],
+      "total": 49
+    }
+  },
+  {
+    "test": "Send email now",
+    "method": "POST",
+    "route": "/api/email/send-now",
+    "status": 200,
+    "expected": "200/201/400",
+    "passed": true,
+    "body": {
+      "message": "Email queued for immediate delivery",
+      "data": {
+        "invoiceId": "25a30dee-43b6-40f6-91d2-786d039ca1a0",
+        "jobId": "25a30dee-43b6-40f6-91d2-786d039ca1a0-dunning_1-1772881269893"
+      }
+    }
+  },
+  {
+    "test": "Schedule dunning emails",
+    "method": "POST",
+    "route": "/api/email/schedule",
+    "status": 400,
+    "expected": "200/201/400",
+    "passed": true,
+    "body": {
+      "code": "REQUEST_ERROR",
+      "error": "Cannot schedule emails for a paid invoice",
+      "requestId": "195517c9-7728-486d-ab4b-2fccef5386a9"
+    }
+  },
+  {
+    "test": "Email webhook (Resend)",
+    "method": "POST",
+    "route": "/api/email/webhook/resend",
+    "status": 401,
+    "expected": 200,
+    "passed": false,
+    "body": {
+      "code": "REQUEST_ERROR",
+      "error": "No access token",
+      "requestId": "89121cdb-ceb0-48b7-9a82-d89296e1a52d"
+    }
+  },
+  {
+    "test": "Dashboard stats",
+    "method": "GET",
+    "route": "/api/dashboard/stats",
+    "status": 200,
+    "expected": 200,
+    "passed": true,
+    "body": {
+      "data": {
+        "totalInvoices": 24,
+        "totalOwed": 117000,
+        "totalRecovered": 56400,
+        "recoveryRate": 33,
+        "avgDaysToCollect": 34,
+        "overdueCount": 15,
+        "overdueAmount": 117000
+      }
+    }
+  },
+  {
+    "test": "Dashboard pipeline",
+    "method": "GET",
+    "route": "/api/dashboard/pipeline",
+    "status": 200,
+    "expected": 200,
+    "passed": true,
+    "body": {
+      "data": {
+        "unpaid": 11,
+        "arranged": 4,
+        "disputed": 0,
+        "uncollectable": 0,
+        "paid": 9,
+        "unpaidAmount": 65600,
+        "arrangedAmount": 51400
+      }
+    }
+  },
+  {
+    "test": "Risk list",
+    "method": "GET",
+    "route": "/api/dashboard/risk-list?limit=10",
+    "status": 200,
+    "expected": 200,
+    "passed": true,
+    "body": {
+      "data": [
+        {
+          "customerId": "f737e707-1913-47cb-aa05-b61e5fdc8d12",
+          "customerName": "David Park",
+          "customerEmail": "david@techwave.co",
+          "unpaidInvoices": 2,
+          "totalOwed": 23600,
+          "maxRiskScore": 92,
+          "oldestDueDays": 65
+        },
+        {
+          "customerId": "19aa6f7d-9280-4e20-9617-e5dafa94a9d5",
+          "customerName": "Jason Torres",
+          "customerEmail": "jason.torres@cloudgate.com",
+          "unpaidInvoices": 2,
+          "totalOwed": 40000,
+          "maxRiskScore": 91,
+          "oldestDueDays": 70
+        },
+        {
+          "customerId": "d159e8cb-86e5-48d9-bd98-6f3c8b2219e5",
+          "customerName": "Nina Patel",
+          "customerEmail": "nina@devfirst.io",
+          "unpaidInvoices": 1,
+          "totalOwed": 8600,
+          "maxRiskScore": 85,
+          "oldestDueDays": 40
+        },
+        {
+          "customerId": "c2275d6e-5b1d-4952-babe-b3a98cf74d6c",
+          "customerName": "Mike Johnson",
+          "customerEmail": "mike@buildright.com",
+          "unpaidInvoices": 2,
+          "totalOwed": 10800,
+          "maxRiskScore": 78,
+          "oldestDueDays": 30
+        },
+        {
+          "customerId": "5c7c89fe-cb49-4cb5-b5cb-05f4f773a26d",
+          "customerName": "Emma Williams",
+          "customerEmail": "emma@datacore.ai",
+          "unpaidInvoices": 2,
+          "totalOwed": 12000,
+          "maxRiskScore": 70,
+          "oldestDueDays": 26
+        },
+        {
+          "customerId": "2f830cd8-5413-460f-88b2-69b988e6ae9b",
+          "customerName": "Sarah Chen",
+          "customerEmail": "sarah.chen@nexflow.io",
+          "unpaidInvoices": 2,
+          "totalOwed": 9600,
+          "maxRiskScore": 42,
+          "oldestDueDays": 25
+        },
+        {
+          "customerId": "81dd7542-90ac-45aa-9842-120c8ef178af",
+          "customerName": "Priya Mehta",
+          "customerEmail": "priya@healthsync.io",
+          "unpaidInvoices": 2,
+          "totalOwed": 8500,
+          "maxRiskScore": 35,
+          "oldestDueDays": 27
+        },
+        {
+          "customerId": "6aa58e78-8a2d-4ff5-b44c-b9d1ddc03766",
+          "customerName": "Ryan Lee",
+          "customerEmail": "ryan@swiftly.app",
+          "unpaidInvoices": 2,
+          "totalOwed": 3900,
+          "maxRiskScore": 22,
+          "oldestDueDays": 28
+        }
+      ],
+      "total": 8
+    }
+  },
+  {
+    "test": "List payment plans",
+    "method": "GET",
+    "route": "/api/payment-plans/list",
+    "status": 200,
+    "expected": 200,
+    "passed": true,
+    "body": {
+      "data": [
+        {
+          "id": "7afde086-9bcd-46a5-8104-dead5dcc1ade",
+          "invoice_id": "ae1abf5d-a16f-40ea-92bf-f47ddfa2985f",
+          "status": "active",
+          "installments": [
+            {
+              "paid": true,
+              "amount": 7333.33,
+              "due_date": "2026-01-01T11:00:50.543Z",
+              "stripe_payment_intent_id": "pi_demo_1_ae1abf"
+            },
+            {
+              "paid": false,
+              "amount": 7333.33,
+              "due_date": "2026-01-31T11:00:50.543Z",
+              "stripe_payment_intent_id": null
+            },
+            {
+              "paid": false,
+              "amount": 7333.34,
+              "due_date": "2026-03-02T11:00:50.543Z",
+              "stripe_payment_intent_id": null
+            }
+          ],
+          "total_amount": "22000.00",
+          "created_at": "2026-03-07T11:00:50.907Z",
+          "updated_at": "2026-03-07T11:00:50.907Z"
+        },
+        {
+          "id": "530c976e-e3e1-4787-8dca-902c2ae138d5",
+          "invoice_id": "70177d5d-9366-49e0-8028-a676c379327b",
+          "status": "active",
+          "installments": [
+            {
+              "paid": true,
+              "amount": 4833.33,
+              "due_date": "2026-01-06T11:00:50.543Z",
+              "stripe_payment_intent_id": "pi_demo_1_70177d"
+            },
+            {
+              "paid": false,
+              "amount": 4833.33,
+              "due_date": "2026-02-05T11:00:50.543Z",
+              "stripe_payment_intent_id": null
+            },
+            {
+              "paid": false,
+              "amount": 4833.34,
+              "due_date": "2026-03-07T11:00:50.543Z",
+              "stripe_payment_intent_id": null
+            }
+          ],
+          "total_amount": "14500.00",
+          "created_at": "2026-03-07T11:00:50.907Z",
+          "updated_at": "2026-03-07T11:00:50.907Z"
+        },
+        {
+          "id": "1fb24a0f-512b-4811-8bae-92481b819d4f",
+          "invoice_id": "4090cb3c-c4de-49da-a3ae-0804fe9dee61",
+          "status": "active",
+          "installments": [
+            {
+              "paid": true,
+              "amount": 2866.67,
+              "due_date": "2026-01-31T11:00:50.543Z",
+              "stripe_payment_intent_id": "pi_demo_1_4090cb"
+            },
+            {
+              "paid": false,
+              "amount": 2866.67,
+              "due_date": "2026-03-02T11:00:50.543Z",
+              "stripe_payment_intent_id": null
+            },
+            {
+              "paid": false,
+              "amount": 2866.66,
+              "due_date": "2026-04-01T11:00:50.543Z",
+              "stripe_payment_intent_id": null
+            }
+          ],
+          "total_amount": "8600.00",
+          "created_at": "2026-03-07T11:00:50.907Z",
+          "updated_at": "2026-03-07T11:00:50.907Z"
+        },
+        {
+          "id": "e415ddee-4528-444d-a13c-0ca7aa7cb58a",
+          "invoice_id": "85e44b1a-9c01-46d8-8a49-177c533904bd",
+          "status": "active",
+          "installments": [
+            {
+              "paid": true,
+              "amount": 2100,
+              "due_date": "2026-02-10T11:00:50.543Z",
+              "stripe_payment_intent_id": "pi_demo_1_85e44b"
+            },
+            {
+              "paid": false,
+              "amount": 2100,
+              "due_date": "2026-03-12T11:00:50.543Z",
+              "stripe_payment_intent_id": null
+            },
+            {
+              "paid": false,
+              "amount": 2100,
+              "due_date": "2026-04-11T11:00:50.543Z",
+              "stripe_payment_intent_id": null
+            }
+          ],
+          "total_amount": "6300.00",
+          "created_at": "2026-03-07T11:00:50.907Z",
+          "updated_at": "2026-03-07T11:00:50.907Z"
+        }
+      ],
+      "total": 4
+    }
+  },
+  {
+    "test": "Get payment plans for invoice",
+    "method": "GET",
+    "route": "/api/payment-plans?invoiceId=25a30dee-43b6-40f6-91d2-786d039ca1a0",
+    "status": 404,
+    "expected": "200/400",
+    "passed": false,
+    "body": {
+      "code": "REQUEST_ERROR",
+      "error": "No payment plan found for this invoice",
+      "requestId": "bc3e9956-146a-472f-89d3-fd2e610de079"
+    }
+  },
+  {
+    "test": "Create payment plan",
+    "method": "POST",
+    "route": "/api/payment-plans",
+    "status": 500,
+    "expected": "201/400",
+    "passed": false,
+    "body": {
+      "code": "INTERNAL_ERROR",
+      "error": "An error occurred",
+      "requestId": "3cf729cf-9d28-4bee-a9e4-294d193e6e5f"
+    }
+  },
+  {
+    "test": "Get settings",
+    "method": "GET",
+    "route": "/api/settings",
+    "status": 200,
+    "expected": 200,
+    "passed": true,
+    "body": {
+      "data": {
+        "companyId": "910804f5-6557-44e1-b814-236dc1491ac9",
+        "companyName": "Acme SaaS (Demo)",
+        "timezone": "UTC",
+        "preferredCurrency": "USD",
+        "dunningStrategy": {
+          "num_emails": 5,
+          "days_between": 7,
+          "approval_required": false
+        },
+        "integrations": {
+          "stripe": false,
+          "slack": false,
+          "quickbooks": false,
+          "chargebee": false
+        }
+      }
+    }
+  },
+  {
+    "test": "Update dunning strategy",
+    "method": "PUT",
+    "route": "/api/settings/dunning",
+    "status": 400,
+    "expected": "200/400",
+    "passed": true,
+    "body": {
+      "code": "REQUEST_ERROR",
+      "error": "No valid fields provided",
+      "requestId": "e9ef92e1-79c2-4218-93e3-aa3c74767a64"
+    }
+  },
+  {
+    "test": "Update general settings",
+    "method": "PUT",
+    "route": "/api/settings/general",
+    "status": 200,
+    "expected": "200/400",
+    "passed": true,
+    "body": {
+      "data": {
+        "timezone": "America/New_York",
+        "preferredCurrency": "USD"
+      }
+    }
+  },
+  {
+    "test": "Update Slack webhook",
+    "method": "PUT",
+    "route": "/api/settings/slack",
+    "status": 200,
+    "expected": "200/400",
+    "passed": true,
+    "body": {
+      "message": "Slack webhook URL saved"
+    }
+  },
+  {
+    "test": "List billing plans",
+    "method": "GET",
+    "route": "/api/billing/plans",
+    "status": 200,
+    "expected": 200,
+    "passed": true,
+    "body": {
+      "data": [
+        {
+          "id": "1531b428-7c80-4c2f-8569-842f5241414e",
+          "code": "starter",
+          "name": "Starter",
+          "base_price_usd": "1500.00",
+          "success_fee_percent": "1.00",
+          "billing_interval": "monthly",
+          "features": {
+            "billing": true
+          },
+          "limits": {
+            "users": 5
+          },
+          "is_active": true
+        },
+        {
+          "id": "a4a2dc5e-7c0e-414e-baf6-c7f4f0df90a0",
+          "code": "growth",
+          "name": "Growth",
+          "base_price_usd": "2500.00",
+          "success_fee_percent": "1.00",
+          "billing_interval": "monthly",
+          "features": {
+            "billing": true,
+            "api_access": true
+          },
+          "limits": {
+            "users": 25
+          },
+          "is_active": true
+        },
+        {
+          "id": "2d018951-2a43-4600-b23f-d759dfd20166",
+          "code": "enterprise",
+          "name": "Enterprise",
+          "base_price_usd": "5000.00",
+          "success_fee_percent": "0.75",
+          "billing_interval": "monthly",
+          "features": {
+            "sso": true,
+            "billing": true,
+            "api_access": true
+          },
+          "limits": {
+            "users": 1000
+          },
+          "is_active": true
+        }
+      ]
+    }
+  },
+  {
+    "test": "Get current subscription",
+    "method": "GET",
+    "route": "/api/billing/subscription",
+    "status": 200,
+    "expected": "200/404",
+    "passed": true,
+    "body": {
+      "data": {
+        "id": "0edaa14e-1a1f-40db-a211-829b85922768",
+        "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+        "plan_id": "1531b428-7c80-4c2f-8569-842f5241414e",
+        "status": "trialing",
+        "stripe_customer_id": null,
+        "stripe_subscription_id": null,
+        "current_period_start": "2026-03-07T11:00:49.427Z",
+        "current_period_end": "2026-03-21T11:00:49.427Z",
+        "trial_ends_at": "2026-03-21T11:00:49.427Z",
+        "plan_code": "starter",
+        "plan_name": "Starter"
+      }
+    }
+  },
+  {
+    "test": "Get usage metrics",
+    "method": "GET",
+    "route": "/api/billing/usage",
+    "status": 200,
+    "expected": 200,
+    "passed": true,
+    "body": {
+      "data": [],
+      "periodMonth": "2026-03-01"
+    }
+  },
+  {
+    "test": "Create checkout session",
+    "method": "POST",
+    "route": "/api/billing/checkout",
+    "status": 400,
+    "expected": "200/400",
+    "passed": true,
+    "body": {
+      "code": "REQUEST_ERROR",
+      "error": "Invalid plan",
+      "requestId": "a9726b7e-6b52-4af5-a5ae-a922d35ac3c5"
+    }
+  },
+  {
+    "test": "LemonSqueezy webhook",
+    "method": "POST",
+    "route": "/api/billing/webhook/lemonsqueezy",
+    "status": 401,
+    "expected": 200,
+    "passed": false,
+    "body": {
+      "code": "REQUEST_ERROR",
+      "error": "No access token",
+      "requestId": "dcdf352f-5044-4d84-8dd4-41b64e5a85f5"
+    }
+  },
+  {
+    "test": "Get Stripe OAuth authorize URL",
+    "method": "GET",
+    "route": "/api/stripe/oauth/authorize",
+    "status": 302,
+    "expected": "200/400",
+    "passed": false,
+    "body": "Found. Redirecting to https://connect.stripe.com/oauth/authorize?client_id=ca_Tw6t1oWUuwO8nr77PBaDrCr9eZ5mDNDS&state=910804f5-6557-44e1-b814-236dc1491ac9&scope=read_write&redirect_uri=http%3A%2F%2Flocalhost%3A3000%2Fapi%2Fstripe%2Foauth%2Fcallback"
+  },
+  {
+    "test": "Stripe OAuth callback",
+    "method": "GET",
+    "route": "/api/stripe/oauth/callback?code=test&state=test",
+    "status": 302,
+    "expected": "400/200",
+    "passed": false,
+    "body": "Found. Redirecting to http://localhost:5173/setup?error=stripe_connection_failed"
+  },
+  {
+    "test": "Sync Stripe invoices",
+    "method": "POST",
+    "route": "/api/stripe/sync",
+    "status": 400,
+    "expected": "200/400",
+    "passed": true,
+    "body": {
+      "code": "REQUEST_ERROR",
+      "error": "Stripe not connected for this company",
+      "requestId": "0f742315-556e-4647-bdd3-6dcaa754d97b"
+    }
+  },
+  {
+    "test": "List Stripe invoices",
+    "method": "GET",
+    "route": "/api/stripe/invoices?limit=10",
+    "status": 200,
+    "expected": "200/400",
+    "passed": true,
+    "body": {
+      "data": [
+        {
+          "id": "ae1abf5d-a16f-40ea-92bf-f47ddfa2985f",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "customer_id": "19aa6f7d-9280-4e20-9617-e5dafa94a9d5",
+          "amount": "22000.00",
+          "currency": "USD",
+          "due_date": "2025-12-27T11:00:50.543Z",
+          "issued_date": "2025-11-27T11:00:50.543Z",
+          "status": "arranged",
+          "risk_score": 91,
+          "source": "quickbooks",
+          "source_id": "demo-quickbooks-1772881252407-ahoxx",
+          "notes": null,
+          "created_at": "2025-11-27T11:00:50.543Z",
+          "updated_at": "2026-03-07T11:00:50.907Z",
+          "customer_name": "Jason Torres",
+          "customer_email": "jason.torres@cloudgate.com"
+        },
+        {
+          "id": "70177d5d-9366-49e0-8028-a676c379327b",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "customer_id": "f737e707-1913-47cb-aa05-b61e5fdc8d12",
+          "amount": "14500.00",
+          "currency": "USD",
+          "due_date": "2026-01-01T11:00:50.543Z",
+          "issued_date": "2025-12-02T11:00:50.543Z",
+          "status": "arranged",
+          "risk_score": 88,
+          "source": "stripe",
+          "source_id": "demo-stripe-1772881252305-j3wdq",
+          "notes": null,
+          "created_at": "2025-12-02T11:00:50.543Z",
+          "updated_at": "2026-03-07T11:00:50.907Z",
+          "customer_name": "David Park",
+          "customer_email": "david@techwave.co"
+        },
+        {
+          "id": "29e89796-530a-4355-8ef5-987e44dc1294",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "customer_id": "2f830cd8-5413-460f-88b2-69b988e6ae9b",
+          "amount": "5200.00",
+          "currency": "USD",
+          "due_date": "2026-01-06T11:00:50.543Z",
+          "issued_date": "2025-12-07T11:00:50.543Z",
+          "status": "paid",
+          "risk_score": 15,
+          "source": "stripe",
+          "source_id": "demo-stripe-1772881251473-aeekm",
+          "notes": null,
+          "created_at": "2025-12-07T11:00:50.543Z",
+          "updated_at": "2026-03-07T11:00:50.907Z",
+          "customer_name": "Sarah Chen",
+          "customer_email": "sarah.chen@nexflow.io"
+        },
+        {
+          "id": "9f2adc5c-dcbb-4b98-91c4-73766403ec86",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "customer_id": "19aa6f7d-9280-4e20-9617-e5dafa94a9d5",
+          "amount": "9800.00",
+          "currency": "USD",
+          "due_date": "2026-01-11T11:00:50.543Z",
+          "issued_date": "2025-12-12T11:00:50.543Z",
+          "status": "paid",
+          "risk_score": 60,
+          "source": "stripe",
+          "source_id": "demo-stripe-1772881251995-mb81i",
+          "notes": null,
+          "created_at": "2025-12-12T11:00:50.543Z",
+          "updated_at": "2026-03-07T11:00:50.907Z",
+          "customer_name": "Jason Torres",
+          "customer_email": "jason.torres@cloudgate.com"
+        },
+        {
+          "id": "89db9228-19f9-43e6-9182-e867c96f19a3",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "customer_id": "f737e707-1913-47cb-aa05-b61e5fdc8d12",
+          "amount": "6200.00",
+          "currency": "USD",
+          "due_date": "2026-01-16T11:00:50.543Z",
+          "issued_date": "2025-12-17T11:00:50.543Z",
+          "status": "paid",
+          "risk_score": 72,
+          "source": "manual",
+          "source_id": "demo-manual-1772881251786-41lbb",
+          "notes": null,
+          "created_at": "2025-12-17T11:00:50.543Z",
+          "updated_at": "2026-03-07T11:00:50.907Z",
+          "customer_name": "David Park",
+          "customer_email": "david@techwave.co"
+        },
+        {
+          "id": "a7961a8f-e305-4c57-bf1e-2be96f125395",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "customer_id": "c2275d6e-5b1d-4952-babe-b3a98cf74d6c",
+          "amount": "8500.00",
+          "currency": "USD",
+          "due_date": "2026-01-21T11:00:50.543Z",
+          "issued_date": "2025-12-22T11:00:50.543Z",
+          "status": "paid",
+          "risk_score": 55,
+          "source": "quickbooks",
+          "source_id": "demo-quickbooks-1772881251683-fok6g",
+          "notes": null,
+          "created_at": "2025-12-22T11:00:50.543Z",
+          "updated_at": "2026-03-07T11:00:50.907Z",
+          "customer_name": "Mike Johnson",
+          "customer_email": "mike@buildright.com"
+        },
+        {
+          "id": "4090cb3c-c4de-49da-a3ae-0804fe9dee61",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "customer_id": "d159e8cb-86e5-48d9-bd98-6f3c8b2219e5",
+          "amount": "8600.00",
+          "currency": "USD",
+          "due_date": "2026-01-26T11:00:50.543Z",
+          "issued_date": "2025-12-27T11:00:50.543Z",
+          "status": "arranged",
+          "risk_score": 85,
+          "source": "manual",
+          "source_id": "demo-manual-1772881252510-f3nt7",
+          "notes": null,
+          "created_at": "2025-12-27T11:00:50.543Z",
+          "updated_at": "2026-03-07T11:00:50.907Z",
+          "customer_name": "Nina Patel",
+          "customer_email": "nina@devfirst.io"
+        },
+        {
+          "id": "25a30dee-43b6-40f6-91d2-786d039ca1a0",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "customer_id": "d159e8cb-86e5-48d9-bd98-6f3c8b2219e5",
+          "amount": "11200.00",
+          "currency": "USD",
+          "due_date": "2026-01-31T11:00:50.543Z",
+          "issued_date": "2026-01-01T11:00:50.543Z",
+          "status": "paid",
+          "risk_score": 95,
+          "source": "manual",
+          "source_id": "demo-manual-1772881252921-56ih1",
+          "notes": null,
+          "created_at": "2026-01-01T11:00:50.543Z",
+          "updated_at": "2026-03-07T11:01:06.169Z",
+          "customer_name": "Nina Patel",
+          "customer_email": "nina@devfirst.io"
+        },
+        {
+          "id": "c017a507-5e61-47cd-bedd-16348d080b39",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "customer_id": "2f830cd8-5413-460f-88b2-69b988e6ae9b",
+          "amount": "3800.00",
+          "currency": "USD",
+          "due_date": "2026-02-05T11:00:50.543Z",
+          "issued_date": "2026-01-06T11:00:50.543Z",
+          "status": "paid",
+          "risk_score": 10,
+          "source": "stripe",
+          "source_id": "demo-stripe-1772881251579-24qui",
+          "notes": null,
+          "created_at": "2026-01-06T11:00:50.543Z",
+          "updated_at": "2026-03-07T11:00:50.907Z",
+          "customer_name": "Sarah Chen",
+          "customer_email": "sarah.chen@nexflow.io"
+        },
+        {
+          "id": "85e44b1a-9c01-46d8-8a49-177c533904bd",
+          "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+          "customer_id": "c2275d6e-5b1d-4952-babe-b3a98cf74d6c",
+          "amount": "6300.00",
+          "currency": "USD",
+          "due_date": "2026-02-05T11:00:50.543Z",
+          "issued_date": "2026-01-06T11:00:50.543Z",
+          "status": "arranged",
+          "risk_score": 78,
+          "source": "stripe",
+          "source_id": "demo-stripe-1772881252613-tk64i",
+          "notes": null,
+          "created_at": "2026-01-06T11:00:50.543Z",
+          "updated_at": "2026-03-07T11:00:50.907Z",
+          "customer_name": "Mike Johnson",
+          "customer_email": "mike@buildright.com"
+        }
+      ],
+      "total": 24,
+      "page": 1,
+      "limit": 10,
+      "totalPages": 3
+    }
+  },
+  {
+    "test": "Get Stripe invoice detail",
+    "method": "GET",
+    "route": "/api/stripe/invoices/25a30dee-43b6-40f6-91d2-786d039ca1a0",
+    "status": 200,
+    "expected": "200/404",
+    "passed": true,
+    "body": {
+      "id": "25a30dee-43b6-40f6-91d2-786d039ca1a0",
+      "data": {
+        "id": "25a30dee-43b6-40f6-91d2-786d039ca1a0",
+        "company_id": "910804f5-6557-44e1-b814-236dc1491ac9",
+        "customer_id": "d159e8cb-86e5-48d9-bd98-6f3c8b2219e5",
+        "amount": "11200.00",
+        "currency": "USD",
+        "due_date": "2026-01-31T11:00:50.543Z",
+        "issued_date": "2026-01-01T11:00:50.543Z",
+        "status": "paid",
+        "risk_score": 95,
+        "source": "manual",
+        "source_id": "demo-manual-1772881252921-56ih1",
+        "notes": null,
+        "created_at": "2026-01-01T11:00:50.543Z",
+        "updated_at": "2026-03-07T11:01:06.169Z",
+        "customer_name": "Nina Patel",
+        "customer_email": "nina@devfirst.io"
+      }
+    }
+  },
+  {
+    "test": "Stripe webhook",
+    "method": "POST",
+    "route": "/api/stripe/webhook",
+    "status": 400,
+    "expected": 400,
+    "passed": true,
+    "body": {
+      "code": "REQUEST_ERROR",
+      "error": "Invalid webhook signature",
+      "requestId": "e95733db-1c40-4e2b-ad6a-25a504df5bda"
+    }
+  }
+]

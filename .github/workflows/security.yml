@@ -1,0 +1,50 @@
+name: Security Checks
+
+on:
+  pull_request:
+  schedule:
+    - cron: '0 3 * * 1'
+
+jobs:
+  npm-audit:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        dir: [backend, frontend]
+    defaults:
+      run:
+        working-directory: ${{ matrix.dir }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: ${{ matrix.dir }}/package-lock.json
+      - run: npm ci
+      - run: npm audit --audit-level=high
+
+  sbom:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npx --yes @cyclonedx/cyclonedx-npm --output-file sbom-backend.xml --spec-version 1.5 --ignore-npm-errors
+        working-directory: backend
+      - run: npx --yes @cyclonedx/cyclonedx-npm --output-file sbom-frontend.xml --spec-version 1.5 --ignore-npm-errors
+        working-directory: frontend
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: |
+            backend/sbom-backend.xml
+            frontend/sbom-frontend.xml
+
+
+
+
+
+
+

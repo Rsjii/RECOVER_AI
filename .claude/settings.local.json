@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s -X GET http://localhost:3000/api/auth/me -b /tmp/cookies.txt)",
+      "Bash(node -r ts-node/register -e \":*)",
+      "Bash(curl -s http://localhost:3000/api/)",
+      "Bash(npm list @anthropic-ai/sdk)",
+      "Bash(netstat -ano)",
+      "Bash(rm -rf dist)",
+      "Bash(npm run build)",
+      "Bash(curl -s -X POST http://localhost:3000/api/auth/login -H \"Content-Type: application/json\" -d '{\"\"email\"\":\"\"test@example.com\"\",\"\"password\"\":\"\"wrongpass\"\"}')",
+      "Bash(curl -s -X GET http://localhost:3000/api/invoices -H \"Authorization: Bearer invalid_token\")",
+      "Bash(npm run typecheck)",
+      "Bash(grep -rn \"md:\\\\|lg:\\\\|sm:\\\\|xl:\\\\|2xl:\" /c/dev/AGENTIC_AR/frontend/src/pages/*.tsx)",
+      "Bash(npx tsc --noEmit --pretty)",
+      "Bash(node -r dotenv/config test/run-all.js)",
+      "Bash(node -r dotenv/config test/suites/MASTER_TEST_SUITE.js)"
+    ]
+  }
+}

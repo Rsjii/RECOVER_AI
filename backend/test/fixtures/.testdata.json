@@ -1,0 +1,75 @@
+{
+  "_createdAt": "2026-03-06T11:39:07.418Z",
+  "_description": "RecoverAI test seed data — do not commit to git",
+  "port": 3000,
+  "userId": "77fefc81-a1f5-4cd9-9b7f-dcf96b1b6570",
+  "companyId": "217f2f65-3619-4b0c-8f27-43a5a8818242",
+  "email": "recoverai_test@example.com",
+  "password": "TestPass123!",
+  "companyName": "RecoverAI Test Co",
+  "cookie": "access_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI3N2ZlZmM4MS1hMWY1LTRjZDktOWI3Zi1kY2Y5NmIxYjY1NzAiLCJjb21wYW55SWQiOiIyMTdmMmY2NS0zNjE5LTRiMGMtOGYyNy00M2E1YTg4MTgyNDIiLCJlbWFpbCI6InJlY292ZXJhaV90ZXN0QGV4YW1wbGUuY29tIiwiaWF0IjoxNzcyNzk3MTQ5LCJleHAiOjE3NzI4MDA3NDl9.HFBsb60Uu5fPzpBXqHHctJu98kOUewz0Gb_6RpK5Nxg; refresh_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI3N2ZlZmM4MS1hMWY1LTRjZDktOWI3Zi1kY2Y5NmIxYjY1NzAiLCJjb21wYW55SWQiOiIyMTdmMmY2NS0zNjE5LTRiMGMtOGYyNy00M2E1YTg4MTgyNDIiLCJlbWFpbCI6InJlY292ZXJhaV90ZXN0QGV4YW1wbGUuY29tIiwiaWF0IjoxNzcyNzk3MTQ5LCJleHAiOjE3NzM0MDE5NDl9.QxkD3_gWAyY6P7cZyjECaH-bp5cVQ6cPWN4vGQKbCwI",
+  "customers": [
+    {
+      "id": "24d4c14b-3af9-44cc-85e3-de3c75e3a1f1",
+      "name": "Alice Johnson",
+      "email": "alice@goodpayer.com",
+      "type": "good_payer"
+    },
+    {
+      "id": "9716ed1a-eb14-40ae-bf4e-c3e4f3c87419",
+      "name": "Bob Smith",
+      "email": "bob@latepayer.com",
+      "type": "late_payer"
+    },
+    {
+      "id": "79a6947a-aa1e-448d-b5f9-2e0728da9d4c",
+      "name": "Charlie Brown",
+      "email": "charlie@newcustomer.com",
+      "type": "new_customer"
+    }
+  ],
+  "invoices": [
+    {
+      "id": "375877d5-a961-4265-9be3-e847541cc3b7",
+      "customer": "Alice",
+      "amount": 500,
+      "status": "paid"
+    },
+    {
+      "id": "8d6eb53d-fc45-4efb-a138-02a557442180",
+      "customer": "Alice",
+      "amount": 750,
+      "status": "paid"
+    },
+    {
+      "id": "e40f36ff-fa21-48bd-9667-e2026cdd2762",
+      "customer": "Alice",
+      "amount": 1200,
+      "status": "unpaid"
+    },
+    {
+      "id": "f31de3c2-bebc-4f11-b682-d4513683f77b",
+      "customer": "Bob",
+      "amount": 3000,
+      "status": "paid"
+    },
+    {
+      "id": "e25b1052-0a3a-46a3-b7eb-f174724183af",
+      "customer": "Bob",
+      "amount": 2500,
+      "status": "unpaid"
+    },
+    {
+      "id": "32b6d9d4-ca6a-43f3-8d6d-f2a63b07b33f",
+      "customer": "Bob",
+      "amount": 1800,
+      "status": "unpaid"
+    },
+    {
+      "id": "fce0b1b3-c394-4c5d-9806-efe7a4875663",
+      "customer": "Charlie",
+      "amount": 950,
+      "status": "unpaid"
+    }
+  ]
+}

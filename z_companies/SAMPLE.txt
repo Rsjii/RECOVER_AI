@@ -1,0 +1,2909 @@
+CasetextSan Francisco, CA, USA
+We make the world's laws free and understandable.
+Summer 2013
+B2B
+Legal
+
+CognitoPalo Alto, CA, USA
+Frictionless, modern identity verification that starts with just a…
+Summer 2014
+B2B
+Engineering, Product and Design
+
+MioAustin, TX, USA
+Mio powers seamless communication between workplace chat apps.
+Winter 2016
+B2B
+Engineering, Product and Design
+
+Font AwesomeBentonville, AR, USA
+Icons and social logos for your website.
+Summer 2015
+B2B
+Engineering, Product and Design
+
+ClerkyPalo Alto, CA, USA
+Makes legal paperwork easy for startups and their attorneys.
+Summer 2011
+B2B
+Legal
+
+Confident LIMSPalo Alto, CA, USA
+Laboratory Information Management System (LIMS) serving…
+Summer 2015
+B2B
+Operations
+
+SnapMagicSan Francisco, CA, USA
+AI copilot for electronics design
+Summer 2015
+B2B
+Engineering, Product and Design
+
+AssemblySouth San Francisco, CA, USA
+Advanced manufacturing and distribution solutions (for China-based…
+Summer 2015
+B2B
+Supply Chain and Logistics
+
+GemnoteSan Leandro, CA, USA
+Gemnote is the easiest way to design, create and send custom products.
+Summer 2015
+B2B
+Office Management
+
+Tara AISan Jose, CA, USA
+Meet Tara AI, your new engineering efficiency co-pilot.
+Winter 2015
+B2B
+Productivity
+
+MeadowSan Francisco, CA, USA
+Point of Sale and Compliance SaaS for Cannabis Dispensaries
+Winter 2015
+B2B
+Retail
+
+eBrandvalueMountain View, CA, USA
+Real-time Nielsen ratings for Brands.Accelerate marketing and product…
+Winter 2015
+B2B
+Marketing
+
+MakrwatchNew York, NY, USA
+Scale new user acquisition with YouTube Creators
+Winter 2015
+B2B
+Marketing
+
+TenjinSan Francisco, CA, USA
+Mobile marketing analytics and infrastructure
+Summer 2014
+B2B
+Marketing
+
+DyspatchVictoria, BC, Canada
+Two products to help everyone email better. Dyspatch.io - Email…
+Winter 2014
+B2B
+Marketing
+
+ZincSan Francisco, CA, USA
+The secret backbone of e-commerce.
+Winter 2014
+B2B
+Retail
+
+PiinPointKitchener, ON, Canada
+PiinPoint helps businesses find the best locations for growth
+Winter 2014
+B2B
+Office Management
+
+EtleapSan Francisco, CA, USA
+Etleap is an ETL solution for creating perfect data pipelines.
+Winter 2013
+B2B
+Infrastructure
+
+Double RoboticsBurlingame, CA, USA
+Telepresence robots
+Summer 2012
+B2B
+Productivity
+
+FlightfoxBoulder, CO, USA
+A platform to plan, book and manage global and group travel.
+Summer 2012
+B2B
+Operations
+
+BackerKitSan Francisco, CA, USA
+The only end-to-end crowdfunding platform built for today’s creators
+Summer 2012
+B2B
+Sales
+
+UpwaveSan Francisco, CA, USA
+Marketing analytics for the world's biggest brand marketers
+Summer 2012
+B2B
+Operations
+
+ZentailColumbia, MD, USA
+We're making ecommerce simple connecting brands with sales channels
+Summer 2012
+B2B
+Supply Chain and Logistics
+
+Mth SenseSan Jose, CA, USA
+We're a mobile on-device profiling and ad-serving platform initially…
+Summer 2012
+B2B
+Marketing
+
+RainforestSan Francisco, CA, USA
+no-code end-to-end testing that integrates with any CI/CD pipeline
+Summer 2012
+B2B
+Engineering, Product and Design
+
+DiditSan Francisco, CA, USA
+All-in-one identity platform for fast human verification.
+Winter 2026
+B2B
+Infrastructure
+
+MOVEdotSan Francisco, CA, USA
+AI Agents for Hardware Engineering
+Fall 2025
+B2B
+Engineering, Product and Design
+
+F2New York, NY, USA
+The AI platform for private markets investors
+Summer 2025
+B2B
+Engineering, Product and Design
+
+ReacherSan Francisco, CA, USA
+We automate creator marketing for the world's largest brands
+Summer 2025
+B2B
+
+
+MetisSan Francisco, CA, USA
+Infrastructure to build reliable agents
+Summer 2025
+B2B
+Infrastructure
+
+IdlerSan Francisco, CA, USA
+Reinforcement learning environments.
+Summer 2025
+B2B
+Engineering, Product and Design
+
+GETASAPSan Francisco, CA, USA
+8-hour Produce Distribution for Retailers of Any Size
+Summer 2025
+B2B
+Supply Chain and Logistics
+
+QualGentSan Francisco, CA, USA
+AI Mobile App Quality Assurance Tester
+Spring 2025
+B2B
+
+
+AuctorNew York, NY, USA
+The agentic operating system for modern system integrators.
+Spring 2025
+B2B
+
+
+RescueTimeSeattle, WA, USA
+Take Back Control of your Time
+Winter 2008
+B2B
+Productivity
+
+AfterQuerySan Francisco, CA, USA
+Research lab investigating the boundaries of AI capabilities.
+Winter 2025
+B2B
+Infrastructure
+
+AthenaHQSan Francisco, CA, USA
+Be the Answer in AI Search - AI SEO across SEO, GEO & AEO
+Winter 2025
+B2B
+Marketing
+
+SalesPatriotSan Francisco, CA, USA
+We help defense firms win more contracts with the Pentagon
+Winter 2025
+B2B
+Operations
+
+ContrarioSan Francisco, CA, USA
+Fill critical roles faster with AI-empowered recruiters
+Winter 2025
+B2B
+Recruiting and Talent
+
+OrigamiSan Francisco, CA, USA
+Find your perfect leads with one prompt
+Fall 2024
+B2B
+Sales
+
+CekuraSan Francisco, CA, USA
+Voice AI and Chat AI agents: Testing and Observability
+Fall 2024
+B2B
+Engineering, Product and Design
+
+DelineateBoston, MA, USA
+Agents for Accelerated Clinical Trial Design
+Winter 2025
+B2B
+Engineering, Product and Design
+
+Merlin AILos Angeles, CA, USA
+AI powered ERP for Construction
+Summer 2024
+B2B
+
+
+Capitol AIWashington, DC, USA
+Model-agnostic AI for enterprises: governed, embedded, decision-grade.
+Summer 2024
+B2B
+Productivity
+
+PipeshiftSan Francisco, CA, USA
+Inference for real-time production workloads
+Summer 2024
+B2B
+Infrastructure
+
+OwaySan Francisco, CA, USA
+AI Infrastructure for America’s Empty Truck Space
+Summer 2024
+B2B
+Infrastructure
+
+&AISan Francisco, CA, USA
+Collaborative workspace for patent litigators
+Summer 2024
+B2B
+Legal
+
+CartageSan Francisco, CA, USA
+Autonomous freight coordination
+Summer 2024
+B2B
+Supply Chain and Logistics
+
+Simple AISan Francisco, CA, USA
+AI voice that sells
+Summer 2024
+B2B
+Sales
+
+IntrycSan Francisco, CA, USA
+Intryc uses AI to automate quality assurance for customer support
+Summer 2024
+B2B
+Operations
+
+DistroPalo Alto, CA, USA
+The AI co-pilot for sales reps at industrial wholesale distributors.
+Summer 2024
+B2B
+Supply Chain and Logistics
+
+DrillbitAustin, TX, USA
+Automating Office Work for Residential Contractors.
+Summer 2024
+B2B
+Operations
+
+Clearly AISeattle, WA, USA
+Automate security and privacy reviews
+Summer 2024
+B2B
+Security
+
+TaxGPTSan Francisco, CA, USA
+AI tax assistant for professionals and businesses
+Summer 2024
+B2B
+Finance and Accounting
+
+WordwareSan Francisco, CA, USA
+AI agents you can rely on
+Summer 2024
+B2B
+Infrastructure
+
+Codes HealthNew York, NY, USA
+Medical Record Retrieval with Zero Human Error
+Summer 2024
+B2B
+
+
+Domu Technology Inc.San Francisco, CA, USA
+AI Agents for collections
+Summer 2024
+B2B
+Engineering, Product and Design
+
+ReformSan Francisco, CA, USA
+Workflow automation. Built for logistics.
+Winter 2024
+B2B
+Supply Chain and Logistics
+
+RyseNew York, NY, USA
+The secondary market for real estate leases
+Winter 2024
+B2B
+
+
+ProSightsNew York, NY, USA
+ProSights is an AI-native data extraction tool for financial…
+Winter 2024
+B2B
+Productivity
+
+OffDealNew York, NY, USA
+AI-native investment bank for small businesses
+Winter 2024
+B2B
+
+
+DelveSan Francisco, CA, USA
+AI that makes compliance effortless
+Winter 2024
+B2B
+Security
+
+ConduitSan Francisco, CA, USA
+Conversational AI agents for Customer Service.
+Winter 2024
+B2B
+
+
+TomaSan Francisco, CA, USA
+AI for Underserved Industries
+Winter 2024
+B2B
+Operations
+
+CarmaSan Francisco, CA, USA
+The AI Operating System For Modern Fleets.
+Winter 2024
+B2B
+Operations
+
+CodeAnt AISan Francisco, CA, USA
+AI Code Health Platform
+Winter 2024
+B2B
+Engineering, Product and Design
+
+sync.San Francisco, CA, USA
+AI lipsync tool for video content creators
+Winter 2024
+B2B
+
+
+CentralSan Francisco, CA, USA
+Payroll, benefits, state compliance & other bullsh*t for startups
+Summer 2024
+B2B
+Human Resources
+
+RespanSan Francisco, CA, USA
+Self-driving observability, evals, and gateway for AI agents
+Winter 2024
+B2B
+Infrastructure
+
+ZaymoLehi, UT, USA
+Interactive email builder for ecommerce brands
+Winter 2024
+B2B
+Marketing
+
+ArtisanSan Francisco, CA, USA
+AI employees called Artisans, starting with an AI BDR
+Winter 2024
+B2B
+
+
+PointOneNew York, NY, USA
+AI Time Platform for Law Firms
+Winter 2024
+B2B
+Infrastructure
+
+GarageNew York, NY, USA
+Building the marketplace that powers America’s most essential assets
+Winter 2024
+B2B
+
+
+AlexSan Francisco, CA, USA
+Your AI recruiter for interviewing and identifying the best talent
+Winter 2024
+B2B
+Recruiting and Talent
+
+MomenticSan Francisco, CA, USA
+The AI-native automated testing platform
+Winter 2024
+B2B
+Engineering, Product and Design
+
+ReductoSan Francisco, CA, USA
+The most accurate API to parse documents
+Winter 2024
+B2B
+Engineering, Product and Design
+
+GreptileSan Francisco, CA, USA
+AI code review agent with complete context of your codebase
+Winter 2024
+B2B
+Engineering, Product and Design
+
+GumloopSan Francisco, CA, USA
+A no-code platform for creating agents and automating workflows with…
+Winter 2024
+B2B
+
+
+DriverAustin, TX, USA
+Context for Codebases
+Winter 2024
+B2B
+
+
+OnyxSan Francisco, CA, USA
+Open Source AI Chat
+Winter 2024
+B2B
+Productivity
+
+GigaSan Francisco, CA, USA
+AI Support Agent for Enterprises.
+Summer 2023
+B2B
+Engineering, Product and Design
+
+StradaSan Francisco, CA, USA
+Phone AI agents for insurance
+Summer 2023
+B2B
+
+
+SantéNew York, NY, USA
+All-in-one POS for liquor stores
+Summer 2023
+B2B
+Retail
+
+Inventive AIMountain View, CA, USA
+AI Agents For RFP and Questionnaire Response Automation
+Summer 2023
+B2B
+Sales
+
+SendblueNew York, NY, USA
+iMessage for Sales
+Summer 2023
+B2B
+Sales
+
+SafetyKitSan Francisco, CA, USA
+AI agents for risk, compliance, and safety
+Summer 2023
+B2B
+
+
+Letter AIChicago, IL, USA
+Empowering B2B sellers with AI-powered training, coaching, and content
+Summer 2023
+B2B
+Productivity
+
+Maven BioBoston, MA, USA
+The AI Platform for Life Sciences Intelligence
+Summer 2023
+B2B
+
+
+refineSan Francisco, CA, USA
+Open-source Retool for enterprise
+Summer 2023
+B2B
+Engineering, Product and Design
+
+VetRecSeattle, WA, USA
+AI Scribe for veterinarians. Saving time and improving patient care.
+Summer 2023
+B2B
+
+
+FleetWorksSan Francisco, CA, USA
+AI enabled marketplace matching trucks with jobs
+Summer 2023
+B2B
+Supply Chain and Logistics
+
+OutsetSan Francisco, CA, USA
+AI-powered user interviews
+Summer 2023
+B2B
+Analytics
+
+TerminalToronto, ON, Canada
+Plaid for Telematics Data in Commercial Trucking
+Summer 2023
+B2B
+Supply Chain and Logistics
+
+CampfireSan Francisco, CA, USA
+A modern version of NetSuite
+Summer 2023
+B2B
+Finance and Accounting
+
+AlgunaSan Francisco, CA, USA
+AI-Native CPQ & Billing for Modern Pricing Models
+Summer 2023
+B2B
+Finance and Accounting
+
+HyperboundSan Francisco, CA, USA
+Revenue Activation Platform
+Summer 2023
+B2B
+Sales
+
+TwentySan Francisco, CA, USA
+Open Source CRM
+Summer 2023
+B2B
+
+
+ArtieSan Francisco, CA, USA
+Software that streams data from databases to warehouses in real-time
+Summer 2023
+B2B
+Infrastructure
+
+MetalLos Angeles, CA, USA
+Metal is an AI-driven operating system for fundraising
+Winter 2023
+B2B
+
+
+Yuma AIBoston, MA, USA
+The AI Support Agent for Ecommerce
+Winter 2023
+B2B
+Operations
+
+PierreSan Francisco, CA, USA
+Pierre is a new, opinionated, git platform.
+Winter 2023
+B2B
+Engineering, Product and Design
+
+WarpNew York, NY, USA
+AI-native Employee Management Platform for High-Growth Companies
+Winter 2023
+B2B
+
+
+EscapeNew York, NY, USA
+The only DAST that works with modern stack and tests business logic
+Winter 2023
+B2B
+Security
+
+MetalNew York, NY, USA
+Institutional Intelligence for Private Equity
+Winter 2023
+B2B
+Finance and Accounting
+
+VectorBoston, MA, USA
+Advertising for the new internet
+Winter 2023
+B2B
+Marketing
+
+VellumNew York, NY, USA
+The AI Product Development Platform
+Winter 2023
+B2B
+Engineering, Product and Design
+
+inBuildWilmington, DE, USA
+Workflow Automation for Construction Finance
+Winter 2023
+B2B
+
+
+Odigos Technologies Inc.Boston, MA, USA
+Enterprise-Grade OpenTelemetry
+Winter 2023
+B2B
+Infrastructure
+
+1stCollabSan Francisco, CA, USA
+Performance-Optimized Influencer Marketing at Scale
+Winter 2023
+B2B
+Marketing
+
+TruewindSan Francisco, CA, USA
+AI-Powered Accounting
+Winter 2023
+B2B
+Finance and Accounting
+
+InkeepSan Francisco, CA, USA
+Build AI Agent teammates and automations in code or no-code
+Winter 2023
+B2B
+Engineering, Product and Design
+
+FloworksSan Francisco, CA, USA
+Hire the best AI Sales employees | AI SDR | AI RevOps | AI EA
+Winter 2023
+B2B
+Sales
+
+ExtendNew York, NY, USA
+Production-ready document processing
+Winter 2023
+B2B
+
+
+SugerSan Francisco, CA, USA
+Salesforce for Cloud marketplaces on AWS, Azure, GCP
+Winter 2023
+B2B
+Sales
+
+PirrosLos Angeles, CA, USA
+Github for Construction
+Winter 2023
+B2B
+Engineering, Product and Design
+
+OmnistrateRedwood City, CA, USA
+Transform any software to multi-cloud SaaS in minutes not years
+Winter 2023
+B2B
+
+
+SalientSan Francisco, CA, USA
+AI Servicing for Auto Lenders
+Winter 2023
+B2B
+
+
+HammrSan Francisco, CA, USA
+Rippling for the Construction Industry
+Winter 2023
+B2B
+Human Resources
+
+RollstackNew York, NY, USA
+Automate data-driven slide decks and documents with AI
+Winter 2023
+B2B
+Analytics
+
+Credal.aiNew York, NY, USA
+Connect AI to every tool. Enterprise security built in.
+Winter 2023
+B2B
+Productivity
+
+ReflexSan Francisco, CA, USA
+The operating system for building mission-critical enterprise apps.
+Winter 2023
+B2B
+Infrastructure
+
+MiddlewareSan Francisco, CA, USA
+AI-based full stack observability platform
+Winter 2023
+B2B
+Infrastructure
+
+InfisicalSan Francisco, CA, USA
+Unified platform for secrets, certs, and privileged access management
+Winter 2023
+B2B
+Security
+
+FirecrawlSan Francisco, CA, USA
+The web data API for AI
+Summer 2022
+B2B
+
+
+EkhoNew York, NY, USA
+Shopify for vehicles
+Summer 2022
+B2B
+Supply Chain and Logistics
+
+QuindarDenver, CO, USA
+The platform to monitor and automate satellite operations
+Summer 2022
+B2B
+
+
+VolantioAtlanta, GA, USA
+Post-booking revenue and capacity optimization for airlines…
+Winter 2009
+B2B
+Marketing
+
+AurelianSeattle, WA, USA
+Automating non-emergency calls for 911 centers
+Summer 2022
+B2B
+
+
+DiversionSan Francisco, CA, USA
+A scalable, cloud-native Perforce and Git alternative
+Summer 2022
+B2B
+Engineering, Product and Design
+
+CorisSan Francisco, CA, USA
+AI risk and ops platform for Payment Processors, Banks, SaaS…
+Summer 2022
+B2B
+Infrastructure
+
+Peoplebox.aiSan Francisco, CA, USA
+AI talent platform to hire, manage, and grow your people
+Summer 2022
+B2B
+Human Resources
+
+TheraNew York, NY, USA
+AI-Native Finance OS
+Summer 2022
+B2B
+
+
+ProvisionToronto, ON, Canada
+Ironclad for construction
+Summer 2022
+B2B
+Infrastructure
+
+JuiceboxSan Francisco, CA, USA
+AI-powered talent sourcing for recruiters
+Summer 2022
+B2B
+Recruiting and Talent
+
+ActivepiecesSan Francisco, CA, USA
+Open-source, AI-first and no-code business automation tool
+Summer 2022
+B2B
+Engineering, Product and Design
+
+DiscloAustin, TX, USA
+Health disclosure and accommodation management platform
+Summer 2022
+B2B
+Human Resources
+
+BoostlyLehi, UT, USA
+Premier growth platform for restaurants
+Summer 2022
+B2B
+Marketing
+
+Two DotsSan Francisco, CA, USA
+AI fraud prevention and underwriting agent
+Summer 2022
+B2B
+
+
+JuliusSan Francisco, CA, USA
+AI Data Scientist
+Summer 2022
+B2B
+
+
+LayerupSan Francisco, CA, USA
+Agentic AI OS for Financial Services and Insurance
+Summer 2022
+B2B
+
+
+MassdriverLos Angeles, CA, USA
+Deploy secure, scalable cloud infrastructure in minutes not days
+Winter 2022
+B2B
+Engineering, Product and Design
+
+EventualSan Francisco, CA, USA
+Building the AI data engine for any modality and scale
+Winter 2022
+B2B
+Infrastructure
+
+CofactrNew York, NY, USA
+Cloud pre-factory logistics and procurement for electronics
+Winter 2022
+B2B
+Supply Chain and Logistics
+
+Rally UXRNew York, NY, USA
+User Research CRM
+Winter 2022
+B2B
+Engineering, Product and Design
+
+ShapedNew York, NY, USA
+The real-time retrieval engine for search, feeds, and agents.
+Winter 2022
+B2B
+Infrastructure
+
+ngrow.aiSan Francisco, CA, USA
+Low-code SaaS for marketing in push notifications
+Winter 2022
+B2B
+Marketing
+
+UnsaddlNew York, NY, USA
+education benefits and leave of absence management
+Winter 2022
+B2B
+Human Resources
+
+TheneoSan Francisco, CA, USA
+Stripe-like API Docs in just a few clicks
+Winter 2022
+B2B
+Engineering, Product and Design
+
+Broccoli AISan Francisco, CA, USA
+AI-native operating system for home service businesses
+Winter 2022
+B2B
+Engineering, Product and Design
+
+VimmerseSan Jose, CA, USA
+Bring your photos to life with Vimmerse
+Winter 2022
+B2B
+Engineering, Product and Design
+
+BotCitySan Francisco, CA, USA
+Observability and Governance for AI-Generated Python scripts.
+Winter 2022
+B2B
+Engineering, Product and Design
+
+CinderNew York, NY, USA
+Cinder | Responsible AI, Trust & Safety, and Data Labeling At Scale
+Winter 2022
+B2B
+Security
+
+SpadeWorksSan Francisco, CA, USA
+AI agents that turn every call into revenue for trade businesses
+Winter 2022
+B2B
+Operations
+
+CogramNew York, NY, USA
+The AI Platform for Architects, Builders, and Engineers
+Winter 2022
+B2B
+Productivity
+
+VeltSan Francisco, CA, USA
+Add powerful collaboration features to your product ridiculously fast.
+Winter 2022
+B2B
+Productivity
+
+MintlifySan Francisco, CA, USA
+The intelligent documentation platform
+Winter 2022
+B2B
+Engineering, Product and Design
+
+IOMETEMountain View, CA, USA
+Self-hosted data lakehouse platform
+Winter 2022
+B2B
+Infrastructure
+
+RedBrick AIClaymont, DE, USA
+Rapid medical data annotation
+Winter 2022
+B2B
+
+
+FlagrightSan Francisco, CA, USA
+AI-native AML compliance platform for fintechs & banks
+Winter 2022
+B2B
+
+
+AxisNew York, NY, USA
+Knowledge base for corporate affairs teams
+Winter 2022
+B2B
+Productivity
+
+HOKALISan Francisco, CA, USA
+After School & Enrichment Activities Marketplace
+Winter 2022
+B2B
+Marketing
+
+DartSan Francisco, CA, USA
+The only truly AI-native project management tool
+Winter 2022
+B2B
+Productivity
+
+Armilla AIToronto, ON, Canada
+AI/LLM Assessment & Warranty Solutions
+Winter 2022
+B2B
+Analytics
+
+LanceDBSan Francisco, CA, USA
+Open-source, serverless vectordb for production-scale generative AI
+Winter 2022
+B2B
+Infrastructure
+
+AgentnoonToronto, ON, Canada
+Org design and workforce planning platform to drive org transformation
+Winter 2022
+B2B
+Human Resources
+
+UnlayerSan Francisco, CA, USA
+Unlayer makes embeddable email and web editing software.
+Winter 2022
+B2B
+Productivity
+
+AtlasSan Francisco, CA, USA
+Modern customer support platform replacement for Intercom and Zendesk
+Winter 2022
+B2B
+Operations
+
+Dynamo AISan Francisco, CA, USA
+Compliant-Ready AI for the Enterprise
+Winter 2022
+B2B
+
+
+TeamOutLos Angeles, CA, USA
+Online marketplace for team retreat venues
+Winter 2022
+B2B
+
+
+BlazeSan Francisco, CA, USA
+Marketing automation for the modern world
+Winter 2022
+B2B
+
+
+SieveSan Francisco, CA, USA
+Video datasets for frontier AI
+Winter 2022
+B2B
+Infrastructure
+
+AgaveSan Francisco, CA, USA
+Financial Operations Platform for Construction
+Winter 2022
+B2B
+
+
+GrowthBookPalo Alto, CA, USA
+Open source feature flagging and A/B testing
+Winter 2022
+B2B
+Analytics
+
+Sully.aiSan Francisco, CA, USA
+Autonomous team of AI agents that runs the entire hospital operations
+Summer 2021
+B2B
+Productivity
+
+OlarkAnn Arbor, MI, USA
+The best live chat software on the planet. We help you build…
+Summer 2009
+B2B
+Retail
+
+NashSan Francisco, CA, USA
+Nash is the digital logistics infrastructure for commerce
+Summer 2021
+B2B
+Supply Chain and Logistics
+
+PlaiLos Angeles, CA, USA
+Create, launch, and optimize Facebook ads and ads on 10+ platforms
+Summer 2021
+B2B
+Marketing
+
+ContraForceMcKinney, TX, USA
+Security Delivery Platform to orchestrate AI agents for Service…
+Summer 2021
+B2B
+Security
+
+StorylaneSanta Clara, CA, USA
+Build Interactive Product Demo in 10 mins for SaaS companies
+Summer 2021
+B2B
+
+
+idemeumPalo Alto, CA, USA
+AI-powered Application Control
+Summer 2021
+B2B
+Security
+
+ZumaSan Francisco, CA, USA
+We help businesses convert leads into sales in minutes using text
+Summer 2021
+B2B
+
+
+GenuityChicago, IL, USA
+SaaS Platform to manage IT and buy business software
+Summer 2021
+B2B
+
+
+TelmaiSan Francisco, CA, USA
+Automated data observability and quality for Data Lake
+Summer 2021
+B2B
+
+
+Mach9San Francisco, CA, USA
+The Fastest Tool for Automating Geospatial Production
+Summer 2021
+B2B
+Engineering, Product and Design
+
+CoastNew York, NY, USA
+Demo Platform for API-First Companies
+Summer 2021
+B2B
+
+
+WritesonicSan Francisco, CA, USA
+Track & Boost Your Brand’s Visibility in AI Search
+Summer 2021
+B2B
+Marketing
+
+ZensorsSan Francisco, CA, USA
+AI to understand and automates the physical world
+Summer 2021
+B2B
+
+
+AlephNew York, NY, USA
+One source of truth for financial data.
+Summer 2021
+B2B
+Finance and Accounting
+
+OneSchemaSan Francisco, CA, USA
+Automate CSV & PDF workflows with AI
+Summer 2021
+B2B
+Operations
+
+ScispotKitchener, ON, Canada
+The Best Data Infrastructure for Biotechs
+Summer 2021
+B2B
+
+
+TrackChainSan Francisco, CA, USA
+AI-native logistics OS for autonomous freight execution
+Summer 2021
+B2B
+Supply Chain and Logistics
+
+testRigorSan Francisco, CA, USA
+Executable specifications in English for test automation
+Summer 2021
+B2B
+Engineering, Product and Design
+
+SecodaToronto, ON, Canada
+Secoda is the AI layer for your Analytics
+Summer 2021
+B2B
+Analytics
+
+KodexBoston, MA, USA
+Easiest way for companies to process data requests from governments
+Summer 2021
+B2B
+Legal
+
+BriteSalt Lake City, UT, USA
+Software that helps employees pick their employee benefits.
+Summer 2021
+B2B
+Human Resources
+
+TavusSan Francisco, CA, USA
+Building the human layer of AI
+Summer 2021
+B2B
+
+
+DailyBotRemote, OR, USA
+AI Assistant and Chat Add-ons for Work
+Summer 2021
+B2B
+Productivity
+
+Bite NinjaMemphis, TN, USA
+Remote labor for restaurants
+Summer 2021
+B2B
+
+
+MobileBoostSan Francisco, CA, USA
+AI native mobile testing.
+Summer 2021
+B2B
+Engineering, Product and Design
+
+ConfidoNew York, NY, USA
+AI-enabled financial automation and intelligence for CPG Brands
+Summer 2021
+B2B
+Finance and Accounting
+
+DeedNew York, NY, USA
+Making it easy for employees to donate and volunteer with good causes.
+Summer 2021
+B2B
+Human Resources
+
+Affogato AISan Francisco, CA, USA
+Affogato AI — Your Agent for instant TikToks, Reels, and ads.
+Summer 2021
+B2B
+Engineering, Product and Design
+
+ReploSan Francisco, CA, USA
+Sell anything
+Summer 2021
+B2B
+Engineering, Product and Design
+
+CustomilySt. Louis, MO, USA
+Making it easy to sell personalized products online.
+Summer 2021
+B2B
+Engineering, Product and Design
+
+SuperwallNew York, NY, USA
+Remotely configure every aspect of your mobile app's paywall
+Summer 2021
+B2B
+Engineering, Product and Design
+
+hotglueWashington, DC, USA
+Native user-facing SaaS integrations for your customers
+Summer 2021
+B2B
+Engineering, Product and Design
+
+Epsilon3Los Angeles, CA, USA
+AI-Powered ERP, MES, and Test Software for Complex Operations
+Summer 2021
+B2B
+Operations
+
+OpenlayerSan Francisco, CA, USA
+The fastest way to ship airtight AI
+Summer 2021
+B2B
+Engineering, Product and Design
+
+AXAR AIMountain View, CA, USA
+Multi-agent orchestration platform
+Winter 2021
+B2B
+Engineering, Product and Design
+
+SwiftSkuNew York, NY, USA
+Management and analytics software for convenience stores
+Winter 2021
+B2B
+Retail
+
+MayanLas Vegas, NV, USA
+A growth automation platform for Amazon sellers
+Winter 2021
+B2B
+Operations
+
+WaydevMenlo Park, CA, USA
+The Engineering Intelligence Platform | DORA, SPACE, DX, CORE 4
+Winter 2021
+B2B
+Productivity
+
+NavatticNew York, NY, USA
+Interactive product demos
+Winter 2021
+B2B
+Marketing
+
+SplineReston, VA, USA
+Design and collaborate in multiple dimensions.
+Winter 2021
+B2B
+Productivity
+
+SvixSan Francisco, CA, USA
+Enterprise ready webhooks service, open-source and in the cloud
+Winter 2021
+B2B
+Infrastructure
+
+StayflexiSan Francisco, CA, USA
+Operating System for Hotels and Vacation Rentals
+Winter 2021
+B2B
+
+
+SorabanTempe, AZ, USA
+AI assistant for accounting firms
+Winter 2021
+B2B
+Finance and Accounting
+
+ManaraBerkeley, CA, USA
+Connecting top Middle East talent to global tech jobs
+Winter 2021
+B2B
+Recruiting and Talent
+
+Feroot SecurityToronto, ON, Canada
+AI-powered Compliance Platform for PCI 4, CCPA, HIPAA, CIPA, 50+ laws
+Winter 2021
+B2B
+Security
+
+ResquaredPhiladelphia, PA, USA
+Marketing automation platform for selling to local businesses.
+Winter 2021
+B2B
+Marketing
+
+Topline ProNew York, NY, USA
+Generative AI powered Shopify for home service professionals
+Winter 2021
+B2B
+Operations
+
+Great QuestionOakland, CA, USA
+User research on autopilot.
+Winter 2021
+B2B
+Engineering, Product and Design
+
+HuduFort Collins, CO, USA
+The Most-Loved IT Documentation Platform
+Winter 2021
+B2B
+Operations
+
+FathomSan Francisco, CA, USA
+Never take notes again with the #1 AI Meeting Assistant
+Winter 2021
+B2B
+Productivity
+
+TopkeySan Francisco, CA, USA
+Winter 2021
+B2B
+Finance and Accounting
+
+
+VapiSan Francisco, CA, USA
+Voice AI for developers.
+Winter 2021
+B2B
+Engineering, Product and Design
+
+Per DiemNew York, NY, USA
+The AI operating system for restaurants
+Winter 2021
+B2B
+Marketing
+
+Firstbase.ioNew York, NY, USA
+The all-in-one startup operating system
+Winter 2021
+B2B
+Operations
+
+Expent IncFremont, CA, USA
+Procure the right software 5x faster
+Winter 2021
+B2B
+Operations
+
+ModernLoopSan Mateo, CA, USA
+ModernLoop helps teams automate and streamline recruiting operations
+Winter 2021
+B2B
+Recruiting and Talent
+
+arnataSan Francisco, CA, USA
+AI workers for the logistics industry.
+Winter 2021
+B2B
+Supply Chain and Logistics
+
+SigNozSan Francisco, CA, USA
+Open source alternative to DataDog
+Winter 2021
+B2B
+Infrastructure
+
+SpoknNew York, NY, USA
+AI-powered video platform for Internal Comms and HR teams
+Winter 2021
+B2B
+Operations
+
+authzedNew York, NY, USA
+Cloud Infrastructure for Authorization
+Winter 2021
+B2B
+Engineering, Product and Design
+
+GaiiaRemote, OR, USA
+all-in-one operating system (OS) for telcos
+Winter 2021
+B2B
+Operations
+
+OwnLocalAustin, TX, USA
+OwnLocal automates marketing for over 129,000 SMBs through 3,300…
+Winter 2010
+B2B
+Marketing
+
+RunwayNew York, NY, USA
+Easier and more reliable mobile app releases for teams.
+Winter 2021
+B2B
+Engineering, Product and Design
+
+Mozart DataSan Francisco, CA, USA
+The easiest way to set up a modern data stack
+Summer 2020
+B2B
+Infrastructure
+
+GlimpseNew York, NY, USA
+Glimpse is the system of action for CPG retail operations
+Summer 2020
+B2B
+Retail
+
+DraftwiseNew York, NY, USA
+Contract and negotiation AI built for lawyers
+Summer 2020
+B2B
+Legal
+
+LayloLos Angeles, CA, USA
+The CRM powering iconic musicians and events
+Summer 2020
+B2B
+Marketing
+
+FormalSan Francisco, CA, USA
+Take control of your data in real-time.
+Summer 2020
+B2B
+
+
+AwtomicSeattle, WA, USA
+Dollar Shave Club as a platform.
+Summer 2020
+B2B
+Retail
+
+TyltGOKitchener, ON, Canada
+TyltGO powers retailers with same-day delivery.
+Summer 2020
+B2B
+Supply Chain and Logistics
+
+NotabeneNew York, NY, USA
+The Notabene platform is the trust layer for global money movement.
+Summer 2020
+B2B
+Security
+
+MeshSan Jose, CA, USA
+Performance management platform that fits the way you work
+Summer 2020
+B2B
+Human Resources
+
+AtomicSan Francisco, CA, USA
+API that lets companies embed investment accounts into their services
+Summer 2020
+B2B
+Retail
+
+doolaNew York, NY, USA
+Business-in-a-Box™ for LLCs
+Summer 2020
+B2B
+Productivity
+
+AristNew York, NY, USA
+Deliver effective learning at scale
+Summer 2020
+B2B
+
+
+Swif.aiSunnyvale, CA, USA
+The guardrail for AI on every device
+Summer 2020
+B2B
+Security
+
+Hypotenuse AISan Francisco, CA, USA
+Manage, create & optimize your ecommerce product content using AI
+Summer 2020
+B2B
+
+
+SeamSan Francisco, CA, USA
+API for IoT Devices
+Summer 2020
+B2B
+Engineering, Product and Design
+
+Blue OnionNew York, NY, USA
+Financial data layer for AI-powered finance and accounting
+Summer 2020
+B2B
+Finance and Accounting
+
+DatafoldNew York, NY, USA
+Automating manual and repetitive data engineering tasks with AI
+Summer 2020
+B2B
+Analytics
+
+SuperTokensSan Francisco, CA, USA
+Open source alternative to Auth0 / AWS Cognito / Firebase Auth
+Summer 2020
+B2B
+Security
+
+LuminaiSan Francisco, CA, USA
+Luminai helps automate repetitive manual work away from your mission…
+Summer 2020
+B2B
+Engineering, Product and Design
+
+SPATENew York, NY, USA
+Trends prediction for marketers
+Summer 2018
+B2B
+Retail
+
+MutinyNew York, NY, USA
+AI for Enterprise GTM
+Summer 2018
+B2B
+Marketing
+
+NestorSan Jose, CA, USA
+Skills-based talent management solutions for a dynamic workforce.
+Summer 2018
+B2B
+Human Resources
+
+Names & FacesPalo Alto, CA, USA
+Technology to create fast, visual indexes of people and organizations.
+Summer 2018
+B2B
+Human Resources
+
+BlueCargoLos Angeles, CA, USA
+The automated solution for complex freight transactions.
+Summer 2018
+B2B
+Supply Chain and Logistics
+
+Tall PoppySan Francisco, CA, USA
+Protecting your employees against online harassment
+Summer 2018
+B2B
+Human Resources
+
+Anima AppNew York, NY, USA
+Design to Code & On-brand Vibe-coding
+Summer 2018
+B2B
+Engineering, Product and Design
+
+EmbeddablesSan Francisco, CA, USA
+The funnel builder built for health & wellness brands.
+Summer 2018
+B2B
+Productivity
+
+InscribeSan Francisco, CA, USA
+Risk Ops Automation
+Summer 2018
+B2B
+Infrastructure
+
+ActiveloopMountain View, CA, USA
+Database for AI
+Summer 2018
+B2B
+Infrastructure
+
+SwayableNew York, NY, USA
+Swayable predicts consumer opinion and the impact of content
+Winter 2018
+B2B
+Marketing
+
+DemandSphereColumbus, OH, USA
+SEO & Content Marketing Intelligence
+Summer 2010
+B2B
+Marketing
+
+Cognition IPSan Francisco, CA, USA
+Flat-fee patent & trademark counsel with top firm results
+Winter 2018
+B2B
+Legal
+
+SourcifySan Diego, CA, USA
+Sourcify helps brands manufacture products in Asia.
+Winter 2018
+B2B
+Retail
+
+DraftbitChicago, IL, USA
+Build mobile apps visually. Source-code included.
+Winter 2018
+B2B
+Engineering, Product and Design
+
+Glowing.ioLas Vegas, NV, USA
+Unified, enterprise messaging platform for leading brands of the world
+Winter 2018
+B2B
+
+
+AssemblyNew York, NY, USA
+Create remarkable client experiences
+Winter 2018
+B2B
+Productivity
+
+SourceressSan Francisco, CA, USA
+Summer 2017
+B2B
+Engineering, Product and Design
+
+
+FlowspaceLos Angeles, CA, USA
+The operating system powering ecommerce fulfillment
+Summer 2017
+B2B
+Supply Chain and Logistics
+
+UpfortSan Francisco, CA, USA
+Turnkey security & hassle-free cyber insurance from leading insurers
+Summer 2017
+B2B
+Security
+
+PlaneSan Francisco, CA, USA
+#1 easiest-to-use payroll for startups
+Winter 2017
+B2B
+Human Resources
+
+RankScienceNew York, NY, USA
+Automated SEO for Startups
+Winter 2017
+B2B
+Marketing
+
+VoiceopsNew York, NY, USA
+We help B2C companies learn from every customer interaction
+Winter 2017
+B2B
+Sales
+
+HumanlyBellevue, WA, USA
+We empower the world’s hiring teams to grow engaged, high-performing…
+Winter 2020
+B2B
+Recruiting and Talent
+
+Recall.aiSan Francisco, CA, USA
+The API to get recordings, transcripts, and metadata from meetings
+Winter 2020
+B2B
+Engineering, Product and Design
+
+StableSan Francisco, CA, USA
+A virtual address + mailbox for business
+Winter 2020
+B2B
+Office Management
+
+HandlSan Francisco, CA, USA
+Handl converts documents (invoices, income stabs, custom forms, etc.)…
+Winter 2020
+B2B
+Operations
+
+ExpoPalo Alto, CA, USA
+Expo brings together the best of web and native app development
+Summer 2016
+B2B
+Infrastructure
+
+HireSweetSan Francisco, CA, USA
+A talent acquisition software built for data-driven recruiting teams.
+Winter 2020
+B2B
+Recruiting and Talent
+
+Zeo Route PlannerSan Francisco, CA, USA
+Route Optimisation platform for SMB in delivery & home services.
+Winter 2020
+B2B
+Supply Chain and Logistics
+
+DeepSourceSan Francisco, CA, USA
+Unified DevSecOps platform, helping developers ship good code.
+Winter 2020
+B2B
+Engineering, Product and Design
+
+RecurrencySan Francisco, CA, USA
+Automated ERP for distributors.
+Summer 2020
+B2B
+Sales
+
+SkypherNew York, NY, USA
+AI agent for Compliance Questionnaires Automation
+Winter 2020
+B2B
+Security
+
+Alloy AutomationNew York, NY, USA
+Alloy is a platform for building and managing SaaS integrations
+Winter 2020
+B2B
+Engineering, Product and Design
+
+VoriEast Palo Alto, CA, USA
+Vori is a modern operating system for supermarkets
+Winter 2020
+B2B
+Retail
+
+BuildBuddyPalo Alto, CA, USA
+BuildBuddy provides enterprise features for Bazel — the open source…
+Winter 2020
+B2B
+Infrastructure
+
+ReleaseLos Angeles, CA, USA
+Environments as a service
+Winter 2020
+B2B
+Engineering, Product and Design
+
+BenepassNew York, NY, USA
+Fintech for corporate compensation
+Winter 2020
+B2B
+Human Resources
+
+EzeSan Francisco, CA, USA
+The easiest way to track, buy, and sell your company’s tech — all in…
+Winter 2020
+B2B
+Retail
+
+NextmvPhiladelphia, PA, USA
+A DecisionOps platform that accelerates optimization AI teams
+Winter 2020
+B2B
+Engineering, Product and Design
+
+DittoSan Francisco, CA, USA
+Manage the words across your team’s product from design to production.
+Winter 2020
+B2B
+Engineering, Product and Design
+
+TaivWinnipeg, MB, Canada
+Taiv uses AI to make businesses TVs more entertaining & valuable.
+Winter 2020
+B2B
+Marketing
+
+LetterdropNew York, NY, USA
+Book more meetings with conversational intent
+Winter 2020
+B2B
+Sales
+
+ExploSan Francisco, CA, USA
+Embedded Analytics and Data Sharing Platform
+Winter 2020
+B2B
+Analytics
+
+MindsDBSan Francisco, CA, USA
+Connect, Unify, Respond to any data, anywhere with human-level…
+Winter 2020
+B2B
+Infrastructure
+
+PorterNew York, NY, USA
+Easiest way to deploy on AWS/GCP/Azure
+Summer 2020
+B2B
+Infrastructure
+
+ParagonLos Angeles, CA, USA
+The embedded integration platform for SaaS apps.
+Winter 2020
+B2B
+Engineering, Product and Design
+
+AccordSan Francisco, CA, USA
+The Revenue Excellence Platform
+Winter 2020
+B2B
+Sales
+
+VendrBoston, MA, USA
+The AI negotiation agent to help you save money on SaaS.
+Summer 2019
+B2B
+Operations
+
+GitStartSan Francisco, CA, USA
+Pull Requests as a Service
+Summer 2019
+B2B
+Engineering, Product and Design
+
+CircaSanta Fe, NM, USA
+Event marketing CRM
+Summer 2016
+B2B
+Marketing
+
+TaskadeSan Francisco, CA, USA
+One prompt. One app. One living workspace for teams.
+Summer 2019
+B2B
+Productivity
+
+treble.aiSão Paulo, SP, Brazil
+We help companies scale marketing campaigns through WhatsApp
+Summer 2019
+B2B
+Marketing
+
+TracesMountain View, CA, USA
+Transform your video monitoring with AI
+Summer 2019
+B2B
+Security
+
+WasmerSan Francisco, CA, USA
+The Operating System for Edge Computing
+Summer 2019
+B2B
+Infrastructure
+
+RutterNew York, NY, USA
+The Unified API for Business Financial Data
+Summer 2019
+B2B
+Engineering, Product and Design
+
+Flo RecruitAustin, TX, USA
+We help law firms hire the best legal talent faster
+Summer 2019
+B2B
+Recruiting and Talent
+
+CanixSan Francisco, CA, USA
+Canix makes it easy to get and stay compliant as a cannabis business.
+Summer 2019
+B2B
+Security
+
+CourierSan Francisco, CA, USA
+The fastest way for developers to build notifications for their app.
+Summer 2019
+B2B
+Engineering, Product and Design
+
+FIRSTPhiladelphia, PA, USA
+The best way for any business to offer delivery.
+Winter 2019
+B2B
+Operations
+
+GlideSan Francisco, CA, USA
+Glide turns spreadsheets into beautiful, intelligent apps.
+Winter 2019
+B2B
+Engineering, Product and Design
+
+DoverNew York, NY, USA
+Your startup's all-in-one recruiting solution
+Summer 2019
+B2B
+Recruiting and Talent
+
+DaggerSan Francisco, CA, USA
+Develop your CI/CD pipelines as code and run them anywhere
+Winter 2019
+B2B
+Engineering, Product and Design
+
+LandedSan Francisco, CA, USA
+Generative AI for frontline worker hiring
+Winter 2019
+B2B
+Recruiting and Talent
+
+MobotNew York, NY, USA
+Mobot is a QA-as-a-service platform using actual mechanical robots
+Winter 2019
+B2B
+Engineering, Product and Design
+
+SuperorderNew York, NY, USA
+AI customer reputation & performance management for restaurant chains.
+Summer 2019
+B2B
+
+
+OktetoSan Francisco, CA, USA
+Cloud Development Environments with one click
+Winter 2019
+B2B
+Infrastructure
+
+SwitchboardVancouver, BC, Canada
+Technology for Trucking
+Winter 2019
+B2B
+Supply Chain and Logistics
+
+AvoSan Francisco, CA, USA
+Fixing data quality in product analytics.
+Winter 2019
+B2B
+Analytics
+
+Sorting RoboticsLos Angeles, CA, USA
+We create automation technology for the cannabis industry.
+Winter 2019
+B2B
+Supply Chain and Logistics
+
+ConvictionalToronto, ON, Canada
+Convictional is reinventing business operations
+Winter 2019
+B2B
+Operations
+
+Spire LawOrlando, FL, USA
+Tech enabled business and employment litigation law firm.
+Winter 2019
+B2B
+Legal
+
+FlockjaySan Francisco, CA, USA
+AI-driven learning, content, and coaching for sales teams
+Winter 2019
+B2B
+Sales
+
+NuCypher (aka Threshold Network)Austin, TX, USA
+Network for decentralized threshold cryptography and end-to-end…
+Summer 2016
+B2B
+
+
+ImgixSan Francisco, CA, USA
+The platform for your visual media.
+Summer 2011
+B2B
+Infrastructure
+
+VideopixieSan Francisco, CA, USA
+Marketplace for Video Production Services. We help you hire the best…
+Summer 2011
+B2B
+Marketing
+
+MixRankSan Francisco, CA, USA
+Data products for sales, marketing, finance, recruiting, and more.
+Summer 2011
+B2B
+
+
+NetBeezPittsburgh, PA, USA
+Network monitoring from the end-user perspective
+Winter 2016
+B2B
+Infrastructure
+
+LeadGeniusBerkeley, CA, USA
+LeadGenius is an account-based marketing and lead generation…
+Summer 2011
+B2B
+Sales
+
+ThunkableSan Francisco, CA, USA
+Thunkable is the no-code platform to build powerful native mobile apps
+Winter 2016
+B2B
+Marketing
+
+CastleSan Francisco, CA, USA
+Block bots & bad behavior
+Winter 2016
+B2B
+Security
+
+RevlSan Francisco, CA, USA
+AI edited video souvenirs as a service
+Winter 2016
+B2B
+Marketing
+
+PocketSuiteSan Francisco, CA, USA
+PocketSuite makes it easy for your clients to book and pay you
+Winter 2016
+B2B
+Productivity
+
+GigwellLos Angeles, CA, USA
+Building the Future of Live Event Bookings.
+Winter 2016
+B2B
+Productivity
+
+CopiaSan Francisco, CA, USA
+Copia's a for-profit technology company that solves food waste &…
+Winter 2016
+B2B
+Office Management
+
+PageleverSan Francisco, CA, USA
+Facebook analytics. Acquired by Unified in January 2013.
+Summer 2011
+B2B
+Analytics
+
+FoxpassSan Francisco, CA, USA
+Making enterprise security practices available for all companies.
+Summer 2015
+B2B
+Security
+
+EdenSan Francisco, CA, USA
+Workplace software for people-centric companies.
+Summer 2015
+B2B
+Human Resources
+
+Citus DataSan Francisco, CA, USA
+Real-time. Big data. PostgreSQL
+Summer 2011
+B2B
+Infrastructure
+
+JopwellNew York, NY, USA
+Career advancement for Black, Latinx & Native American professionals.
+Summer 2015
+B2B
+Recruiting and Talent
+
+SigOptSan Francisco, CA, USA
+SigOpt is an Optimization-as-a-Service platform that seamlessly tunes…
+Winter 2015
+B2B
+Engineering, Product and Design
+
+Popular PaysChicago, IL, USA
+Software for collaborating with content creators and influencers
+Winter 2015
+B2B
+Marketing
+
+MoltinBoston, MA, USA
+eCommerce building blocks through simple APIs for websites & apps.…
+Winter 2015
+B2B
+Retail
+
+NexTravelSan Francisco, CA, USA
+NexTravel is a centralized travel booking platform that helps…
+Winter 2015
+B2B
+Finance and Accounting
+
+YhatNY, USA
+End-to-end data science lifecycle management platform.
+Winter 2015
+B2B
+Engineering, Product and Design
+
+MobydishAustin, TX, USA
+MobyDish, a tech-enabled service, allowing anyone to place a catering…
+Winter 2015
+B2B
+Retail
+
+SmarkingSan Francisco, CA, USA
+Digitize $655B parking industry
+Winter 2015
+B2B
+Analytics
+
+PaperspaceNY, USA
+Paperspace is a cloud platform for building and scaling AI…
+Winter 2015
+B2B
+Engineering, Product and Design
+
+HigherMeToronto, ON, Canada
+Helping restaurant employers find & hire better employees faster
+Winter 2015
+B2B
+Recruiting and Talent
+
+SmyteSan Francisco, CA, USA
+Smyte stops bad actors on social networks and marketplaces.
+Winter 2015
+B2B
+Security
+
+ReplenishSan Leandro, CA, USA
+Keurig machine for smoothies.
+Summer 2014
+B2B
+Office Management
+
+PersistIQSan Mateo, CA, USA
+PersistIQ is a free email automation platform to send a small batch…
+Summer 2014
+B2B
+Sales
+
+Clara LabsSan Francisco, CA, USA
+Clara is a human-in-the-loop assistant that helps automate repetitive…
+Summer 2014
+B2B
+Productivity
+
+AptibleSan Francisco, CA, USA
+The No Infrastructure Platform as a Service
+Summer 2014
+B2B
+Infrastructure
+
+AvametricSan Francisco, CA, USA
+Simulate clothes on your body.
+Winter 2014
+B2B
+Engineering, Product and Design
+
+Wit.aiPalo Alto, CA, USA
+Natural Language for Developers --Wit is an API that makes it easy…
+Winter 2014
+B2B
+Engineering, Product and Design
+
+SketchDeckSan Francisco, CA, USA
+Operating system for creative agencies
+Winter 2014
+B2B
+Productivity
+
+RickshawSan Francisco, CA, USA
+Same day local delivery, via API. Currently operating in SF.
+Winter 2014
+B2B
+Supply Chain and Logistics
+
+LiftigniterSan Francisco, CA, USA
+Machine Learning personalization for dynamic digital properties -…
+Winter 2014
+B2B
+Marketing
+
+Next CallerNew York, NY, USA
+Next Caller creates a positive customer experience through real-time…
+Winter 2014
+B2B
+Sales
+
+Kimono LabsSan Francisco, CA, USA
+Create APIs where they don't exist. With kimono you can quickly…
+Winter 2014
+B2B
+Engineering, Product and Design
+
+ChargehoundOakland, CA, USA
+Automate your chargeback dispute process. (Acquired by PayPal)
+Winter 2014
+B2B
+Finance and Accounting
+
+Two TapSan Francisco, CA, USA
+Two Tap connects retailers to companies that want to sell their…
+Winter 2014
+B2B
+Retail
+
+BoostableSan Francisco, CA, USA
+Advertising platform tools for marketplace sellers.
+Winter 2014
+B2B
+Marketing
+
+AbacusNew York, NY, USA
+Making expense reports obsolete
+Winter 2014
+B2B
+Finance and Accounting
+
+DatarankFayetteville, AR, USA
+Making sense of social data. (Acquired by SimplyMeasured.)
+Summer 2013
+B2B
+Marketing
+
+HackermeterSan Francisco, CA, USA
+Replacing resume screening with code challenges.
+Summer 2013
+B2B
+Recruiting and Talent
+
+ApptimizeSan Francisco, CA, USA
+Apptimize lets mobile teams innovate faster to create an amazing user…
+Summer 2013
+B2B
+Engineering, Product and Design
+
+URXSan Francisco, CA, USA
+Mobile ads that users like. Acquired by Pinterest in May 2016.
+Summer 2013
+B2B
+Engineering, Product and Design
+
+Semantics3San Francisco, CA, USA
+Data and AI platform for Ecommerce & Cross-Border Logistics
+Winter 2013
+B2B
+Retail
+
+MattermarkSan Francisco, CA, USA
+Big Data Meets Startup Investing The best tool for tracking and…
+Summer 2012
+B2B
+Sales
+
+SwiftypeSan Francisco, CA, USA
+Smart search for the modern team.
+Winter 2012
+B2B
+Engineering, Product and Design
+
+NateroMountain View, CA, USA
+Data-driven customer success platform for B2B SaaS.
+Summer 2012
+B2B
+Operations
+
+OmniVirtSan Francisco, CA, USA
+OmniVirt is the leading VR Advertising platform for brands and…
+Summer 2012
+B2B
+Marketing
+
+PixatePalo Alto, CA, USA
+Mobile application prototyping. Now part of Google.
+Summer 2012
+B2B
+Infrastructure
+
+ClickfactsSan Francisco, CA, USA
+Summer 2005
+B2B
+Security
+
+
+WufooTampa, FL, USA
+Online form builder.
+Winter 2006
+B2B
+Marketing
+
+InklingChicago, IL, USA
+Winter 2006
+B2B
+Finance and Accounting
+XobniSan Francisco, CA, USA
+
+Summer 2006
+B2B
+Productivity
+ClickpassSan Francisco, CA, USA
+Summer 2007
+
+B2B
+Engineering, Product and Design
+
+
+
+
+ZumoDriveBurlingame, CA, USA
+Media in the cloud
+Summer 2007
+B2B
+Productivity
+
+DisqusSan Francisco, CA, USA
+Add comments to your website.
+Summer 2007
+B2B
+Engineering, Product and Design
+
+280 NorthSan Francisco, CA, USA
+Winter 2008
+B2B
+Engineering, Product and Design
+
+
+Sepal AISan Francisco, CA, USA
+Data Development for Advanced AI
+Summer 2024
+B2B
+ChuteSan Francisco, CA, USA
+
+Discover the photos and videos people are taking of your brand or…
+Winter 2012
+B2B
+Marketing
+
+
+FernNew York, NY, USA
+Instantly offer SDKs and API Docs
+Winter 2023
+B2B
+Engineering, Product and Design
+
+PlayAIMountain View, CA, USA
+Our mission is to make Voice AI accessible and useful to all.
+Winter 2023
+B2B
+CloudkickSan Francisco, CA, USA
+
+Winter 2009
+B2B
+Infrastructure
+
+
+
+TruvaSan Francisco, CA, USA
+Sell more. Grind less with AI agents.
+Summer 2022
+B2B
+Marketing
+
+HOAiSan Francisco, CA, USA
+AI agent for community management
+Winter 2022
+B2B
+Operations
+
+RequestlySan Francisco, CA, USA
+Open-Source Postman alternative
+Winter 2022
+B2B
+Engineering, Product and Design
+
+SkyLinkNew York, NY, USA
+Travel Management Meets AI
+Winter 2022
+B2B
+
+
+ProperSan Francisco, CA, USA
+Reconciliation and financial operations platform
+Winter 2022
+B2B
+Finance and Accounting
+
+RethinkDBSan Francisco, CA, USA
+The open source database for the realtime web.
+Summer 2009
+B2B
+Infrastructure
+
+Breadcrumbs.ioSan Francisco, CA, USA
+No-code scoring engine identifying your most engaged upsell opps
+Summer 2021
+B2B
+Sales
+
+TarsalNew York, NY, USA
+Data pipeline for your security data lake.
+Summer 2021
+B2B
+Security
+
+GoodkindToronto, ON, Canada
+Student communications platform for higher education
+Summer 2021
+B2B
+Sales
+
+UiflowSan Francisco, CA, USA
+No-code platform for enterprise software companies
+Winter 2021
+B2B
+Engineering, Product and Design
+
+Enable UsSan Francisco, CA, USA
+Digital Sales Rooms (Acquired by MindTickle)
+Winter 2021
+B2B
+Sales
+
+TrendpopSan Francisco, CA, USA
+Discover trends as they happen
+Winter 2021
+B2B
+Analytics
+
+Promoted.aiSan Francisco, CA, USA
+Dramatically better search and ads for marketplaces
+Winter 2021
+B2B
+ZencoderSan Francisco, CA, USA
+
+Video Encoding API, Open source video player (video.js)
+Winter 2010
+B2B
+Infrastructure
+
+
+Aquarium LearningSan Francisco, CA, USA
+We help ML teams improve their models by improving their datasets
+Summer 2020
+B2B
+Infrastructure
+
+HumanloopSan Francisco, CA, USA
+Humanloop is the LLM evals platform for enterprises.
+Summer 2020
+B2B
+Engineering, Product and Design
+
+FinmarkRaleigh, NC, USA
+Financial planning software for startups
+Summer 2020
+B2B
+Finance and Accounting
+
+Command AISan Francisco, CA, USA
+AI-powered user assistance platform
+Summer 2020
+B2B
+Engineering, Product and Design
+
+All ScreenSanta Monica, CA, USA
+Connecting users with engaging video content across the web.…
+Winter 2010
+B2B
+Marketing
+
+Shelf EngineSeattle, WA, USA
+Transforms how grocery stores buy highly perishable foods.
+Summer 2018
+B2B
+Retail
+
+BerbixSan Francisco, CA, USA
+Convert more verified users. Instantly & accurately validate user IDs.
+Summer 2018
+B2B
+Engineering, Product and Design
+
+SearchlightSan Francisco, CA, USA
+Talent AI improving quality of hire
+Winter 2019
+B2B
+Recruiting and Talent
+
+ZyperSan Francisco, CA, USA
+Recreating social networks for brands.
+Winter 2018
+B2B
+Marketing
+
+YouTeamMountain View, CA, USA
+We make it easy for startups to hire engineers.
+Winter 2018
+B2B
+Recruiting and Talent
+
+AeroFSPalo Alto, CA, USA
+Secure Enterprise Collaboration.
+Summer 2010
+B2B
+Infrastructure
+
+LawyawSan Francisco, CA, USA
+Automating document-based workflows
+Winter 2018
+B2B
+Legal
+
+CodeStreamNew York, NY, USA
+CodeStream is a Developer Collaboration Platform designed to…
+Winter 2018
+B2B
+Engineering, Product and Design
+
+ChartioSan Francisco, CA, USA
+Chartio is changing how companies work by building the best…
+Summer 2010
+B2B
+Analytics
+
+ClearBrainSan Francisco, CA, USA
+Causal Analytics for Growth Teams
+Winter 2018
+B2B
+Marketing
+
+PulseSan Francisco, CA, USA
+We're crowdsourced Gartner so IT executives can learn directly from…
+Winter 2018
+B2B
+Productivity
+
+PullRequestAustin, TX, USA
+Code review as a service - combining automation with a network of…
+Summer 2017
+B2B
+Engineering, Product and Design
+
+TemplarbitSan Francisco, CA, USA
+Protecting applications from malicious activity
+Summer 2017
+B2B
+Security
+
+LyrebirdMontreal, QC, Canada
+Our tech speaks for itself.
+Summer 2017
+B2B
+Engineering, Product and Design
+
+Peer5Palo Alto, CA, USA
+P2P delivery network that enables high quality video streaming
+Winter 2017
+B2B
+Infrastructure
+
+BulletinNew York, NY, USA
+Helping retailers discover and shop the best brands on the planet
+Winter 2017
+B2B
+Retail
+
+CustoraNew York, NY, USA
+Custora is a predictive analytics platform for e-commerce marketing…
+Winter 2011
+B2B
+Analytics
+
+EarbitsLos Angeles, CA, USA
+Google AdWords for music. Allowing bands and labels to bid for…
+Winter 2011
+B2B
+Marketing
+
+UpverterToronto, ON, Canada
+The future of hardware design. A marketplace for hardware engineering…
+Winter 2011
+B2B
+Engineering, Product and Design
+
+MetaplaneBoston, MA, USA
+Data observability for modern data teams
+Winter 2020
+B2B
+Engineering, Product and Design
+
+ReplicateSan Francisco, CA, USA
+Run machine learning models in the cloud
+Winter 2020
+B2B
+Infrastructure
+
+Factored QualityNew York, NY, USA
+Helping 100+ brands bring all quality and compliance operations…
+Winter 2020
+B2B
+Supply Chain and Logistics
+
+CrowdAISan Francisco, CA, USA
+CrowdAI is the world's leading no-code platform for vision AI
+Summer 2016
+B2B
+
+
+Chaos GeniusSan Francisco, CA, USA
+DataOps Observability Platform for Snowflake
+Winter 2020
+B2B
+Analytics
+
+ParseMenlo Park, CA, USA
+Parse is the easiest way to build apps.
+Summer 2011
+B2B
+Engineering, Product and Design
+
+CubohVictoria, BC, Canada
+We help restaurants manage their online orders.
+Summer 2019
+B2B
+Retail
+
+PopSQLSan Francisco, CA, USA
+SQL editor for teams
+Summer 2019
+B2B
+Engineering, Product and Design
+
+BunSan Francisco, CA, USA
+Bun is an incredibly fast all-in-one JavaScript toolkit
+Summer 2019
+B2B
+Infrastructure
+
+SympleSan Francisco, CA, USA
+Last mile logistics for delivery & service teams. We bring real-time…
+Summer 2016
+B2B
+Finance and Accounting
+
+Together SoftwareToronto, ON, Canada
+Learn from the experts at your company.
+Summer 2019
+B2B
+Human Resources
+
+Perfect AudienceSan Francisco, CA, USA
+Self-service display advertising for SaaS and online retail.
+Summer 2011
+B2B
+Marketing
+
+Allure SystemsNew York, NY, USA
+A.I. to create stunning fashion images for eCommerce.
+Winter 2019
+B2B
+Retail
+
+AskdataSan Francisco, CA, USA
+Frictionless Data
+Winter 2019
+B2B
+Analytics
+
+AscenBoston, MA, USA
+EOR for the staffing industry
+Winter 2019
+B2B
+Recruiting and Talent
+
+GeositePalo Alto, CA, USA
+Geosite is an enterprise SaaS platform for spatial data.
+Winter 2019
+B2B
+Operations
+
+flexEngageOrlando, FL, USA
+Dynamic transactional communications for physical stores to help…
+Winter 2016
+B2B
+Retail
+
+BonsaiBoulder, CO, USA
+The all-in-one solution for small businesses and self-employed.
+Winter 2016
+B2B
+Finance and Accounting
+
+NovaSan Francisco, CA, USA
+Nova puts the power of AI to work for you, enabling a more continuous…
+Winter 2016
+B2B
+Sales
+
+PlatoSan Francisco, CA, USA
+Plato is the mentorship platform for engineering leaders
+Winter 2016
+B2B
+Productivity
+
+GoodybagAustin, TX, USA
+An online tool for companies to order food from restaurants and…
+Winter 2016
+B2B
+Office Management
+
+PulpixNew York, NY, USA
+Binge-watching technology for video platforms.
+Winter 2016
+B2B
+Marketing
+
+CompgunSan Francisco, CA, USA
+Sales commission software that grows revenue.
+Winter 2016
+B2B
+Human Resources
+
+LocentSanta Monica, CA, USA
+Locent is an automated messaging platform for companies
+Summer 2015
+B2B
+Marketing
+
+HickoryNew York, NY, USA
+Hickory turns your employees into experts.
+Summer 2015
+B2B
+Human Resources
+
+ROSS IntelligenceSan Francisco, CA, USA
+ROSS is an AI-powered legal research platform that can read and…
+Summer 2015
+B2B
+Legal
+
+ThinAirPalo Alto, CA, USA
+Intelligent data security for teams
+Winter 2015
+B2B
+Security
+
+Neptune.ioSan Mateo, CA, USA
+A self-healing platform to enrich and fix server alerts automatically
+Summer 2014
+B2B
+Infrastructure
+
+HumSan Francisco, CA, USA
+A chat program that integrates with email, with presence.
+Summer 2013
+B2B
+Productivity
+
+TeleborderSan Francisco, CA, USA
+Dashboard for companies to manage immigration for their employees.
+Summer 2013
+B2B
+Human Resources
+
+CelerySan Francisco, CA, USA
+Celery is a platform for pre-orders (www.trycelery.com). Accept…
+Summer 2012
+B2B
+Retail
+
+PartneredSan Francisco, CA, USA
+Partnered is a digital platform automating business development…
+Summer 2012
+B2B
+Sales
+
+FileStackSan Antonio, TX, USA
+Acquired by Xenon Ventures.We enable website developers to hook into…
+Summer 2012
+B2B
+Productivity
+
+DataNitroNew York, NY, USA
+We speed up Excel.
+Summer 2012
+B2B
+Engineering, Product and Design
+
+Canopy LabsNew York, NY, USA
+Canopy Labs automates customer analytics for small and medium-sized…
+Summer 2012
+B2B
+Analytics
+
+TriggerSan Francisco, CA, USA
+Better PhoneGap.
+Winter 2008
+B2B
+Engineering, Product and Design
+
+WingbackSan Francisco, CA, USA
+Wingback provides tools and APIs for SaaS pricing and packaging.
+Winter 2022
+B2B
+Infrastructure
+
+FanchatterMinneapolis, MN, USA
+FanChatter aggregates, amplifies and empowers fan content on every…
+Summer 2009
+B2B
+Marketing
+
+HypercontextToronto, ON, Canada
+Meeting agendas, notes, & goals that tie back to your OKRs
+Summer 2021
+B2B
+Productivity
+
+DataheraldLos Angeles, CA, USA
+Embed NL-to-SQL into your Product 📈
+Winter 2021
+B2B
+
+
+AI.FashionLos Angeles, CA, USA
+AI.Fashion is the AI creative suite for the fashion industry.
+Summer 2020
+B2B
+Marketing
+
+TydoLos Angeles, CA, USA
+Turn your data into intelligence
+Summer 2020
+B2B
+Analytics
+
+Optilly/InstallmonetizerSan Jose, CA, USA
+Fb ad optimization platform
+Winter 2012
+B2B
+Marketing
+
+InokyoSan Francisco, CA, USA
+We bring physical stores to the digital age with cashierless checkout.
+Summer 2018
+B2B
+Retail
+
+FiboSan Francisco, CA, USA
+SaaS calendar and messaging for SMBs
+Winter 2017
+B2B
+Productivity
+
+PrelaySan Francisco, CA, USA
+Team Selling Platform
+Winter 2020
+B2B
+Sales
+
+WelcomeSan Francisco, CA, USA
+Create jaw dropping virtual events
+Winter 2020
+B2B
+Operations
+
+TandemSan Francisco, CA, USA
+Tandem is a virtual office for remote and distributed teams.
+Summer 2019
+B2B
+Productivity
+
+SixaSan Francisco, CA, USA
+Personal computer in the cloud
+Summer 2016
+B2B
+Engineering, Product and Design
+
+ModalSan Francisco, CA, USA
+digital commerce for the world’s largest auto retailers and brands.
+Winter 2016
+B2B
+Retail
+
+PathmindSan Francisco, CA, USA
+Pathmind helps industrial engineers and simulation modelers achieve…
+Winter 2016
+B2B
+Engineering, Product and Design
+
+Georgette PackagingKitchener, ON, Canada
+Carbon neutral packaging for ambitious businesses.
+Winter 2016
+B2B
+Supply Chain and Logistics
+
+ElucifySan Francisco, CA, USA
+Elucify is an API that plugs into your CRM which automatically cleans…
+Winter 2016
+B2B
+Sales

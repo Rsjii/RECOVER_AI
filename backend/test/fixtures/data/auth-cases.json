@@ -1,0 +1,71 @@
+[
+  {
+    "name": "signup_missing_fields",
+    "method": "POST",
+    "path": "/api/auth/signup",
+    "body": { "email": "x@x.com" },
+    "expectedStatus": 400
+  },
+  {
+    "name": "signup_conflict",
+    "method": "POST",
+    "path": "/api/auth/signup",
+    "bodyRef": "signupConflictBody",
+    "expectedStatus": 409
+  },
+  {
+    "name": "login_success",
+    "method": "POST",
+    "path": "/api/auth/login",
+    "bodyRef": "loginBody",
+    "expectedStatus": 200
+  },
+  {
+    "name": "login_invalid_password",
+    "method": "POST",
+    "path": "/api/auth/login",
+    "bodyRef": "badLoginBody",
+    "expectedStatus": 401
+  },
+  {
+    "name": "me_authenticated",
+    "method": "GET",
+    "path": "/api/auth/me",
+    "auth": true,
+    "expectedStatus": 200
+  },
+  {
+    "name": "me_no_auth",
+    "method": "GET",
+    "path": "/api/auth/me",
+    "expectedStatus": 401
+  },
+  {
+    "name": "refresh_with_auth",
+    "method": "POST",
+    "path": "/api/auth/refresh",
+    "auth": true,
+    "expectedStatus": 200
+  },
+  {
+    "name": "refresh_no_auth",
+    "method": "POST",
+    "path": "/api/auth/refresh",
+    "expectedStatus": 401
+  },
+  {
+    "name": "logout_with_auth",
+    "method": "POST",
+    "path": "/api/auth/logout",
+    "auth": true,
+    "expectedStatus": 200
+  },
+  {
+    "name": "oauth_missing_code",
+    "method": "POST",
+    "path": "/api/auth/oauth/google/callback",
+    "body": {},
+    "expectedStatus": 400
+  }
+]
+

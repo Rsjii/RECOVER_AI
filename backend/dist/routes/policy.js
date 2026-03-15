@@ -1,0 +1,16 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const auth_1 = require("../middleware/auth");
+const rbac_1 = require("../middleware/rbac");
+const tenantScope_1 = require("../middleware/tenantScope");
+const policyController_1 = require("../controllers/policyController");
+const router = (0, express_1.Router)();
+router.use(auth_1.authMiddleware);
+router.use(tenantScope_1.tenantScopeGuard);
+router.get('/', policyController_1.getPolicySettings);
+router.put('/', (0, rbac_1.requireRole)('admin'), policyController_1.updatePolicySettings);
+router.post('/simulate', (0, rbac_1.requireRole)('admin'), policyController_1.simulatePolicyDecision);
+router.get('/approvals', (0, rbac_1.requireRole)('admin'), policyController_1.listApprovalQueue);
+router.post('/approvals/:approvalId/decision', (0, rbac_1.requireRole)('admin'), policyController_1.decideApprovalQueueItem);
+exports.default = router;

@@ -1,0 +1,242 @@
+import React from 'react';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import ProtectedRoute from './components/ProtectedRoute';
+import { Layout } from './components/layout/Layout';
+import { ToastContainer } from './components/ui/Toast';
+import { useNotification } from './hooks/useNotification';
+import { useAuth } from './hooks/useAuth';
+
+// Pages (lazy loaded)
+import Login from './pages/Login';
+import Signup from './pages/Signup';
+import Setup from './pages/Setup';
+import NotFound from './pages/NotFound';
+import ForgotPassword from './pages/ForgotPassword';
+import Landing from './pages/Landing';
+import Pricing from './pages/Pricing';
+import SecurityPage from './pages/SecurityPage';
+import Terms from './pages/Terms';
+import Privacy from './pages/Privacy';
+import CookiePolicy from './pages/CookiePolicy';
+import Dpa from './pages/Dpa';
+import GoogleCallback from './pages/GoogleCallback';
+import Onboarding from './pages/Onboarding';
+import StripeCallback from './pages/StripeCallback';
+import Unsubscribe from './pages/Unsubscribe';
+import DemoLaunch from './pages/DemoLaunch';
+
+// Placeholder pages (create empty files for now, fill in later phases)
+const Dashboard = React.lazy(() => import('./pages/Dashboard'));
+const Invoices = React.lazy(() => import('./pages/Invoices'));
+const InvoiceDetail = React.lazy(() => import('./pages/InvoiceDetail'));
+const Customers = React.lazy(() => import('./pages/Customers'));
+const Settings = React.lazy(() => import('./pages/Settings'));
+const Reports = React.lazy(() => import('./pages/Reports'));
+const Activity = React.lazy(() => import('./pages/Activity'));
+const Billing = React.lazy(() => import('./pages/Billing'));
+const Team = React.lazy(() => import('./pages/Team'));
+const Compliance = React.lazy(() => import('./pages/Compliance'));
+const Policy = React.lazy(() => import('./pages/Policy'));
+
+/**
+ * Root redirect handler
+ * - If loading: show loading screen
+ * - Otherwise: always go to landing (landing page shows dashboard shortcut if authenticated)
+ *
+ * This ensures everyone sees the landing page first, which is the main entry point.
+ * The landing page itself can show different content for authenticated vs. non-authenticated users.
+ */
+const RootRedirect: React.FC = () => {
+  const { isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center mb-3">
+          <span className="text-white font-bold">R</span>
+        </div>
+        <div className="text-gray-500 dark:text-gray-400">Loading RecoverAI...</div>
+      </div>
+    );
+  }
+
+  // Everyone goes to landing page first
+  // Landing page shows different CTAs for authenticated vs non-authenticated users
+  return <Navigate to="/landing" replace />;
+};
+
+const App: React.FC = () => {
+  const { toasts, removeToast } = useNotification();
+
+  return (
+    <>
+      <BrowserRouter>
+        <React.Suspense
+          fallback={
+            <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-900">
+              <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center mb-3">
+                <span className="text-white font-bold">R</span>
+              </div>
+              <div className="text-gray-500 dark:text-gray-400">Loading RecoverAI...</div>
+            </div>
+          }
+        >
+          <Routes>
+            {/* Public routes */}
+            <Route path="/landing" element={<Landing />} />
+            <Route path="/" element={<RootRedirect />} />
+            <Route path="/pricing" element={<Pricing />} />
+            <Route path="/security" element={<SecurityPage />} />
+            <Route path="/terms" element={<Terms />} />
+            <Route path="/privacy" element={<Privacy />} />
+            <Route path="/cookie-policy" element={<CookiePolicy />} />
+            <Route path="/dpa" element={<Dpa />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/signup" element={<Signup />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/auth/google/callback" element={<GoogleCallback />} />
+            <Route path="/stripe/oauth/callback" element={<StripeCallback />} />
+            <Route path="/unsubscribe" element={<Unsubscribe />} />
+            <Route path="/demo" element={<DemoLaunch />} />
+            <Route
+              path="/setup"
+              element={
+                <ProtectedRoute>
+                  <Setup />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/onboarding"
+              element={
+                <ProtectedRoute>
+                  <Onboarding />
+                </ProtectedRoute>
+              }
+            />
+            
+
+            {/* Protected routes (with Layout) */}
+            {/* Root route "/" is handled by RootRedirect above */}
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Dashboard />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route path="/app" element={<Navigate to="/dashboard" replace />} />
+            <Route
+              path="/invoices"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Invoices />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/invoices/:id"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <InvoiceDetail />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/customers"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Customers />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Settings />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/reports"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Reports />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/activity"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Activity />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/billing"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Billing />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/team"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Team />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/policy"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Policy />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/compliance"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Compliance />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </React.Suspense>
+      </BrowserRouter>
+      <ToastContainer toasts={toasts} onClose={removeToast} />
+    </>
+  );
+};
+
+export default App;

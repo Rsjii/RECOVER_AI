@@ -1,0 +1,68 @@
+[
+  {
+    "name": "connect_no_auth",
+    "method": "POST",
+    "path": "/api/stripe/connect",
+    "body": { "stripeApiKey": "sk_test_invalid_key" },
+    "expectedStatus": 401
+  },
+  {
+    "name": "connect_missing_key",
+    "method": "POST",
+    "path": "/api/stripe/connect",
+    "body": {},
+    "auth": true,
+    "expectedStatus": 400
+  },
+  {
+    "name": "connect_invalid_key",
+    "method": "POST",
+    "path": "/api/stripe/connect",
+    "body": { "stripeApiKey": "sk_test_invalid_key" },
+    "auth": true,
+    "expectedStatus": 400
+  },
+  {
+    "name": "sync_no_auth",
+    "method": "POST",
+    "path": "/api/stripe/sync",
+    "expectedStatus": 401
+  },
+  {
+    "name": "sync_not_connected",
+    "method": "POST",
+    "path": "/api/stripe/sync",
+    "auth": true,
+    "expectedStatus": 400
+  },
+  {
+    "name": "webhook_invalid_signature",
+    "method": "POST",
+    "path": "/api/stripe/webhook",
+    "body": { "type": "invoice.payment_failed" },
+    "headers": { "stripe-signature": "fake_signature" },
+    "expectedStatus": 400
+  },
+  {
+    "name": "invoices_list",
+    "method": "GET",
+    "path": "/api/stripe/invoices?page=1&limit=10",
+    "auth": true,
+    "expectedStatus": 200
+  },
+  {
+    "name": "invoice_by_id_ok",
+    "method": "GET",
+    "path": "/api/stripe/invoices/{invoice0Id}",
+    "auth": true,
+    "expectedStatus": 200
+  },
+  {
+    "name": "invoice_by_id_not_found",
+    "method": "GET",
+    "path": "/api/stripe/invoices/00000000-0000-0000-0000-000000000000",
+    "auth": true,
+    "expectedStatus": 404
+  }
+]
+

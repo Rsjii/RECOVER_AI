@@ -1,0 +1,96 @@
+[
+  {
+    "name": "schedule_no_auth",
+    "method": "POST",
+    "path": "/api/email/schedule",
+    "bodyRef": "emailSchedule",
+    "expectedStatus": 401
+  },
+  {
+    "name": "schedule_missing_invoice",
+    "method": "POST",
+    "path": "/api/email/schedule",
+    "body": {},
+    "auth": true,
+    "expectedStatus": 400
+  },
+  {
+    "name": "schedule_valid",
+    "method": "POST",
+    "path": "/api/email/schedule",
+    "bodyRef": "emailSchedule",
+    "auth": true,
+    "expectedStatus": 200
+  },
+  {
+    "name": "send_now_no_auth",
+    "method": "POST",
+    "path": "/api/email/send-now",
+    "bodyRef": "emailSendNow",
+    "expectedStatus": 401
+  },
+  {
+    "name": "send_now_missing_invoice",
+    "method": "POST",
+    "path": "/api/email/send-now",
+    "body": {},
+    "auth": true,
+    "expectedStatus": 400
+  },
+  {
+    "name": "send_now_valid",
+    "method": "POST",
+    "path": "/api/email/send-now",
+    "bodyRef": "emailSendNow",
+    "auth": true,
+    "expectedStatus": 200
+  },
+  {
+    "name": "logs_no_auth",
+    "method": "GET",
+    "path": "/api/email/logs",
+    "expectedStatus": 401
+  },
+  {
+    "name": "logs_valid",
+    "method": "GET",
+    "path": "/api/email/logs",
+    "auth": true,
+    "expectedStatus": 200
+  },
+  {
+    "name": "logs_by_invoice",
+    "method": "GET",
+    "path": "/api/email/logs?invoiceId={invoice4Id}",
+    "auth": true,
+    "expectedStatus": 200
+  },
+  {
+    "name": "queue_stats_no_auth",
+    "method": "GET",
+    "path": "/api/email/queue/stats",
+    "expectedStatus": 401
+  },
+  {
+    "name": "queue_stats_valid",
+    "method": "GET",
+    "path": "/api/email/queue/stats",
+    "auth": true,
+    "expectedStatus": 200
+  },
+  {
+    "name": "sendgrid_webhook_empty",
+    "method": "POST",
+    "path": "/api/email/webhook/sendgrid",
+    "body": [],
+    "expectedStatus": 200
+  },
+  {
+    "name": "sendgrid_webhook_delivered",
+    "method": "POST",
+    "path": "/api/email/webhook/sendgrid",
+    "bodyRef": "sendgridDelivered",
+    "expectedStatus": 200
+  }
+]
+

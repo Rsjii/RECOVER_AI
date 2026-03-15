@@ -1,0 +1,15 @@
+[
+  {
+    "name": "health_ok",
+    "method": "GET",
+    "path": "/health",
+    "expectedStatus": 200
+  },
+  {
+    "name": "unknown_route_404",
+    "method": "GET",
+    "path": "/api/unknown-endpoint",
+    "expectedStatus": 404
+  }
+]
+

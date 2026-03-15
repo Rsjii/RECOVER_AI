@@ -1,0 +1,45 @@
+{
+  "meta": {
+    "description": "Reusable canonical API test cases for RecoverAI backend",
+    "usesSeedData": "test/.testdata.json"
+  },
+  "auth": [
+    { "name": "signup_missing_fields", "method": "POST", "path": "/api/auth/signup", "expectedStatus": 400 },
+    { "name": "signup_conflict", "method": "POST", "path": "/api/auth/signup", "expectedStatus": 409 },
+    { "name": "login_success", "method": "POST", "path": "/api/auth/login", "expectedStatus": 200 },
+    { "name": "login_invalid_password", "method": "POST", "path": "/api/auth/login", "expectedStatus": 401 },
+    { "name": "me_authenticated", "method": "GET", "path": "/api/auth/me", "expectedStatus": 200, "authRequired": true },
+    { "name": "me_unauthenticated", "method": "GET", "path": "/api/auth/me", "expectedStatus": 401 },
+    { "name": "refresh_with_cookie", "method": "POST", "path": "/api/auth/refresh", "expectedStatus": 200, "authRequired": true },
+    { "name": "refresh_without_cookie", "method": "POST", "path": "/api/auth/refresh", "expectedStatus": 401 },
+    { "name": "logout", "method": "POST", "path": "/api/auth/logout", "expectedStatus": 200, "authRequired": true },
+    { "name": "google_callback_missing_code", "method": "POST", "path": "/api/auth/oauth/google/callback", "expectedStatus": 400 }
+  ],
+  "stripe": [
+    { "name": "connect_no_auth", "method": "POST", "path": "/api/stripe/connect", "expectedStatus": 401 },
+    { "name": "connect_missing_key", "method": "POST", "path": "/api/stripe/connect", "expectedStatus": 400, "authRequired": true },
+    { "name": "connect_invalid_key", "method": "POST", "path": "/api/stripe/connect", "expectedStatus": 400, "authRequired": true },
+    { "name": "sync_no_auth", "method": "POST", "path": "/api/stripe/sync", "expectedStatus": 401 },
+    { "name": "sync_not_connected", "method": "POST", "path": "/api/stripe/sync", "expectedStatus": 400, "authRequired": true },
+    { "name": "webhook_invalid_signature", "method": "POST", "path": "/api/stripe/webhook", "expectedStatus": 400 },
+    { "name": "list_invoices", "method": "GET", "path": "/api/stripe/invoices?page=1&limit=10", "expectedStatus": 200, "authRequired": true },
+    { "name": "invoice_by_id_ok", "method": "GET", "path": "/api/stripe/invoices/{invoiceId}", "expectedStatus": 200, "authRequired": true },
+    { "name": "invoice_by_id_not_found", "method": "GET", "path": "/api/stripe/invoices/00000000-0000-0000-0000-000000000000", "expectedStatus": 404, "authRequired": true }
+  ],
+  "ai": [
+    { "name": "risk_no_auth", "method": "POST", "path": "/api/ai/risk-score", "expectedStatus": 401 },
+    { "name": "risk_missing_customer", "method": "POST", "path": "/api/ai/risk-score", "expectedStatus": 400, "authRequired": true },
+    { "name": "risk_valid", "method": "POST", "path": "/api/ai/risk-score", "expectedStatus": 200, "authRequired": true },
+    { "name": "generate_email_missing_fields", "method": "POST", "path": "/api/ai/generate-email", "expectedStatus": 400, "authRequired": true },
+    { "name": "generate_email_negative_amount", "method": "POST", "path": "/api/ai/generate-email", "expectedStatus": 400, "authRequired": true },
+    { "name": "generate_email_valid", "method": "POST", "path": "/api/ai/generate-email", "expectedStatus": 200, "authRequired": true },
+    { "name": "recommend_plan_missing_fields", "method": "POST", "path": "/api/ai/recommend-plan", "expectedStatus": 400, "authRequired": true },
+    { "name": "recommend_plan_zero_amount", "method": "POST", "path": "/api/ai/recommend-plan", "expectedStatus": 400, "authRequired": true },
+    { "name": "recommend_plan_valid", "method": "POST", "path": "/api/ai/recommend-plan", "expectedStatus": 200, "authRequired": true }
+  ],
+  "platform": [
+    { "name": "health", "method": "GET", "path": "/health", "expectedStatus": 200 },
+    { "name": "not_found", "method": "GET", "path": "/api/unknown-endpoint", "expectedStatus": 404 }
+  ]
+}
+

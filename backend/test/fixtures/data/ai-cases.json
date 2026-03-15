@@ -1,0 +1,74 @@
+[
+  {
+    "name": "risk_no_auth",
+    "method": "POST",
+    "path": "/api/ai/risk-score",
+    "bodyRef": "riskAlice",
+    "expectedStatus": 401
+  },
+  {
+    "name": "risk_missing_customer",
+    "method": "POST",
+    "path": "/api/ai/risk-score",
+    "body": {},
+    "auth": true,
+    "expectedStatus": 400
+  },
+  {
+    "name": "risk_valid",
+    "method": "POST",
+    "path": "/api/ai/risk-score",
+    "bodyRef": "riskAlice",
+    "auth": true,
+    "expectedStatus": 200
+  },
+  {
+    "name": "email_missing_fields",
+    "method": "POST",
+    "path": "/api/ai/generate-email",
+    "body": { "customerId": "{lateCustomerId}" },
+    "auth": true,
+    "expectedStatus": 400
+  },
+  {
+    "name": "email_negative_amount",
+    "method": "POST",
+    "path": "/api/ai/generate-email",
+    "bodyRef": "emailNegative",
+    "auth": true,
+    "expectedStatus": 400
+  },
+  {
+    "name": "email_valid",
+    "method": "POST",
+    "path": "/api/ai/generate-email",
+    "bodyRef": "emailValid",
+    "auth": true,
+    "expectedStatus": 200
+  },
+  {
+    "name": "plan_missing_fields",
+    "method": "POST",
+    "path": "/api/ai/recommend-plan",
+    "body": { "customerId": "{lateCustomerId}" },
+    "auth": true,
+    "expectedStatus": 400
+  },
+  {
+    "name": "plan_zero_amount",
+    "method": "POST",
+    "path": "/api/ai/recommend-plan",
+    "bodyRef": "planZero",
+    "auth": true,
+    "expectedStatus": 400
+  },
+  {
+    "name": "plan_valid",
+    "method": "POST",
+    "path": "/api/ai/recommend-plan",
+    "bodyRef": "planValid",
+    "auth": true,
+    "expectedStatus": 200
+  }
+]
+

@@ -1,0 +1,171 @@
+╔═══════════════════════════════════════════════════════════════════════╗
+║              COMPREHENSIVE API TEST SUITE - REAL DATA                   ║
+╚═══════════════════════════════════════════════════════════════════════╝
+
+
+🔐 STEP 1: DEMO LOGIN & DATA SEEDING
+──────────────────────────────────────────────────────────────────────
+✅ Demo login successful
+   Company: Acme SaaS (Demo)
+   User: demo@recoverai.com
+   Cookie: access_token=eyJhbGciOiJIUzI1NiIsInR5cCI...
+   First Customer ID: d159e8cb-86e5-48d9-bd98-6f3c8b2219e5
+   First Invoice ID: ae1abf5d-a16f-40ea-92bf-f47ddfa2985f
+
+📋 SECTION 1: HEALTH & PLATFORM
+──────────────────────────────────────────────────────────────────────
+✅ Health check
+   GET /health → 200 (expected: 200)
+✅ Readiness probe
+   GET /ready → 200 (expected: 200)
+✅ Liveness probe
+   GET /live → 200 (expected: 200)
+✅ 404 on unknown route
+   GET /api/unknown-endpoint → 404 (expected: 404)
+
+📋 SECTION 2: AUTHENTICATION
+──────────────────────────────────────────────────────────────────────
+✅ Signup (new user)
+   POST /api/auth/signup → 201 (expected: 201/400)
+✅ Login
+   POST /api/auth/login → 200 (expected: 200)
+✅ Get current user (auth required)
+   GET /api/auth/me → 200 (expected: 200)
+✅ Refresh token
+   POST /api/auth/refresh → 401 (expected: 200/401)
+✅ Logout
+   POST /api/auth/logout → 200 (expected: 200)
+✅ Get sessions
+   GET /api/auth/sessions → 200 (expected: 200)
+✅ Forgot password
+   POST /api/auth/forgot-password → 200 (expected: 200)
+
+📋 SECTION 3: CUSTOMERS
+──────────────────────────────────────────────────────────────────────
+✅ List customers
+   GET /api/customers?limit=10 → 200 (expected: 200)
+✅ Get customer detail
+   GET /api/customers/d159e8cb-86e5-48d9-bd98-6f3c8b2219e5 → 200 (expected: 200)
+
+📋 SECTION 4: INVOICES
+──────────────────────────────────────────────────────────────────────
+✅ List invoices
+   GET /api/invoices?limit=10&status=unpaid → 200 (expected: 200)
+✅ Get invoice detail
+   GET /api/invoices/25a30dee-43b6-40f6-91d2-786d039ca1a0 → 200 (expected: 200)
+✅ Get invoice full detail
+   GET /api/invoices/25a30dee-43b6-40f6-91d2-786d039ca1a0/detail → 200 (expected: 200)
+✅ Create manual invoice
+   POST /api/invoices/manual → 400 (expected: 201/400/422)
+✅ Update invoice status
+   PUT /api/invoices/25a30dee-43b6-40f6-91d2-786d039ca1a0/status → 200 (expected: 200/400)
+
+📋 SECTION 5: AI SERVICES
+──────────────────────────────────────────────────────────────────────
+✅ Calculate risk score
+   POST /api/ai/risk-score → 200 (expected: 200)
+❌ Generate dunning email
+   POST /api/ai/generate-email → 400 (expected: 200)
+❌ Recommend payment plan
+   POST /api/ai/recommend-plan → 400 (expected: 200)
+
+📋 SECTION 6: EMAIL QUEUE
+──────────────────────────────────────────────────────────────────────
+✅ Get queue stats
+   GET /api/email/queue/stats → 200 (expected: 200)
+✅ Get email logs
+   GET /api/email/logs?limit=5 → 200 (expected: 200)
+✅ Send email now
+   POST /api/email/send-now → 200 (expected: 200/201/400)
+✅ Schedule dunning emails
+   POST /api/email/schedule → 400 (expected: 200/201/400)
+❌ Email webhook (Resend)
+   POST /api/email/webhook/resend → 401 (expected: 200)
+
+📋 SECTION 7: DASHBOARD
+──────────────────────────────────────────────────────────────────────
+✅ Dashboard stats
+   GET /api/dashboard/stats → 200 (expected: 200)
+✅ Dashboard pipeline
+   GET /api/dashboard/pipeline → 200 (expected: 200)
+✅ Risk list
+   GET /api/dashboard/risk-list?limit=10 → 200 (expected: 200)
+
+📋 SECTION 8: PAYMENT PLANS
+──────────────────────────────────────────────────────────────────────
+✅ List payment plans
+   GET /api/payment-plans/list → 200 (expected: 200)
+❌ Get payment plans for invoice
+   GET /api/payment-plans?invoiceId=25a30dee-43b6-40f6-91d2-786d039ca1a0 → 404 (expected: 200/400)
+❌ Create payment plan
+   POST /api/payment-plans → 500 (expected: 201/400)
+
+📋 SECTION 9: SETTINGS
+──────────────────────────────────────────────────────────────────────
+✅ Get settings
+   GET /api/settings → 200 (expected: 200)
+✅ Update dunning strategy
+   PUT /api/settings/dunning → 400 (expected: 200/400)
+✅ Update general settings
+   PUT /api/settings/general → 200 (expected: 200/400)
+✅ Update Slack webhook
+   PUT /api/settings/slack → 200 (expected: 200/400)
+
+📋 SECTION 10: BILLING
+──────────────────────────────────────────────────────────────────────
+✅ List billing plans
+   GET /api/billing/plans → 200 (expected: 200)
+✅ Get current subscription
+   GET /api/billing/subscription → 200 (expected: 200/404)
+✅ Get usage metrics
+   GET /api/billing/usage → 200 (expected: 200)
+✅ Create checkout session
+   POST /api/billing/checkout → 400 (expected: 200/400)
+❌ LemonSqueezy webhook
+   POST /api/billing/webhook/lemonsqueezy → 401 (expected: 200)
+
+📋 SECTION 11: STRIPE INTEGRATION
+──────────────────────────────────────────────────────────────────────
+❌ Get Stripe OAuth authorize URL
+   GET /api/stripe/oauth/authorize → 302 (expected: 200/400)
+❌ Stripe OAuth callback
+   GET /api/stripe/oauth/callback?code=test&state=test → 302 (expected: 400/200)
+✅ Sync Stripe invoices
+   POST /api/stripe/sync → 400 (expected: 200/400)
+✅ List Stripe invoices
+   GET /api/stripe/invoices?limit=10 → 200 (expected: 200/400)
+✅ Get Stripe invoice detail
+   GET /api/stripe/invoices/25a30dee-43b6-40f6-91d2-786d039ca1a0 → 200 (expected: 200/404)
+✅ Stripe webhook
+   POST /api/stripe/webhook → 400 (expected: 400)
+
+
+╔═══════════════════════════════════════════════════════════════════════╗
+║                          TEST SUMMARY                                   ║
+╚═══════════════════════════════════════════════════════════════════════╝
+
+📊 Results: 39/47 passed (83.0%)
+✅ Passed: 39
+❌ Failed: 8
+
+Failed Tests:
+  ❌ Generate dunning email
+     POST /api/ai/generate-email → 400 (expected: 200)
+  ❌ Recommend payment plan
+     POST /api/ai/recommend-plan → 400 (expected: 200)
+  ❌ Email webhook (Resend)
+     POST /api/email/webhook/resend → 401 (expected: 200)
+  ❌ Get payment plans for invoice
+     GET /api/payment-plans?invoiceId=25a30dee-43b6-40f6-91d2-786d039ca1a0 → 404 (expected: 200/400)
+  ❌ Create payment plan
+     POST /api/payment-plans → 500 (expected: 201/400)
+  ❌ LemonSqueezy webhook
+     POST /api/billing/webhook/lemonsqueezy → 401 (expected: 200)
+  ❌ Get Stripe OAuth authorize URL
+     GET /api/stripe/oauth/authorize → 302 (expected: 200/400)
+  ❌ Stripe OAuth callback
+     GET /api/stripe/oauth/callback?code=test&state=test → 302 (expected: 400/200)
+
+✅ Report saved to: C:\dev\AGENTIC_AR\backend\test\reports\TEST_RESULTS_FINAL.md
+✅ Responses saved to: C:\dev\AGENTIC_AR\backend\test\reports\ACTUAL_API_RESPONSES.json
+
