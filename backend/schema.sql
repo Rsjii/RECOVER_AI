@@ -19,12 +19,13 @@ CREATE TABLE IF NOT EXISTS companies (
   -- Integration credentials (all encrypted at rest)
   stripe_api_key_encrypted   TEXT,
   stripe_account_id          VARCHAR,
+  stripe_last_synced_at      TIMESTAMPTZ,
   slack_webhook_url_encrypted TEXT,
 
   quickbooks_realm_id        VARCHAR,
   quickbooks_access_token_encrypted TEXT,
   quickbooks_refresh_token_encrypted TEXT,
-  
+
   chargebee_site             VARCHAR,
   chargebee_api_key_encrypted TEXT,
 
@@ -38,7 +39,9 @@ CREATE TABLE IF NOT EXISTS companies (
   dunning_strategy           JSONB DEFAULT '{"num_emails": 5, "days_between": 7, "approval_required": false}',
 
   created_at                 TIMESTAMPTZ DEFAULT NOW(),
-  updated_at                 TIMESTAMPTZ DEFAULT NOW()
+  updated_at                 TIMESTAMPTZ DEFAULT NOW(),
+
+  CONSTRAINT fk_companies_owner FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE SET NULL
 );
 
 -- ============================================================
@@ -60,19 +63,6 @@ CREATE TABLE IF NOT EXISTS users (
   updated_at    TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Link company → owner (must be after users table)
-DO $$ BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.table_constraints
-    WHERE constraint_name = 'fk_companies_owner'
-    AND table_name = 'companies'
-  ) THEN
-    ALTER TABLE companies
-      ADD CONSTRAINT fk_companies_owner
-      FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE SET NULL;
-  END IF;
-END $$;
-
 -- ============================================================
 -- CUSTOMERS (their customers who owe money)
 -- ============================================================
@@ -86,6 +76,7 @@ CREATE TABLE IF NOT EXISTS customers (
   payment_history JSONB DEFAULT '{"on_time_rate": 0, "avg_days_late": 0, "total_invoices": 0, "total_paid": 0}',
   industry        VARCHAR,
   notes           TEXT,
+  do_not_email    BOOLEAN DEFAULT false,
   created_at      TIMESTAMPTZ DEFAULT NOW(),
   updated_at      TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(company_id, email)
@@ -651,12 +642,3 @@ CREATE POLICY feature_flags_tenant_isolation ON feature_flags
   USING (company_id = app.current_company_id())
   WITH CHECK (company_id = app.current_company_id());
 
--- ============================================================
--- ADDITIVE MIGRATIONS (safe to run multiple times)
--- ============================================================
-
--- Unsubscribe support (CAN-SPAM / GDPR compliance)
-ALTER TABLE customers ADD COLUMN IF NOT EXISTS do_not_email BOOLEAN DEFAULT false;
-
--- Stripe last sync timestamp
-ALTER TABLE companies ADD COLUMN IF NOT EXISTS stripe_last_synced_at TIMESTAMPTZ;

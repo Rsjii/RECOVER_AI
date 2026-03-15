@@ -1,0 +1,86 @@
+# Dependencies
+node_modules/
+/.pnp
+.pnp.js
+
+# Environment variables (NEVER commit secrets)
+.env
+.env.local
+.env.*.local
+.env.production.local
+.env.development.local
+
+# Build outputs
+/dist
+/build
+*.tsbuildinfo
+
+# IDE/Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+*.sublime-workspace
+*.sublime-project
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Testing
+coverage/
+.nyc_output/
+
+# Local development
+.claude/
+*.sqlite
+*.db
+*.sqlite3
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.bak
+
+# Optional npm cache
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# yarn v2+
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
+
+# Compiled TypeScript
+*.js.map
+*.d.ts
+
+# Docker
+.dockerignore
+
+# Git hooks
+.husky/_
+
+# Misc
+.turbo/
+dist-ssr/
