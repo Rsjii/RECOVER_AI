@@ -50,7 +50,7 @@ instance.interceptors.response.use(
       } catch (refreshErr) {
         processQueue(refreshErr);
         // Only redirect to login if on a protected page (not public pages)
-        const publicPages = ['/landing', '/pricing', '/security', '/terms', '/privacy', '/cookie-policy', '/dpa', '/demo', '/unsubscribe', '/login', '/signup', '/forgot-password', '/auth/google/callback', '/stripe/oauth/callback'];
+        const publicPages = ['/', '/landing', '/pricing', '/security', '/terms', '/privacy', '/cookie-policy', '/dpa', '/demo', '/unsubscribe', '/login', '/signup', '/forgot-password', '/auth/google/callback', '/stripe/oauth/callback'];
         const currentPath = window.location.pathname;
         if (!publicPages.some(page => currentPath.startsWith(page))) {
           window.location.href = '/login';
