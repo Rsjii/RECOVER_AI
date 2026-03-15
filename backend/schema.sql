@@ -39,9 +39,7 @@ CREATE TABLE IF NOT EXISTS companies (
   dunning_strategy           JSONB DEFAULT '{"num_emails": 5, "days_between": 7, "approval_required": false}',
 
   created_at                 TIMESTAMPTZ DEFAULT NOW(),
-  updated_at                 TIMESTAMPTZ DEFAULT NOW(),
-
-  CONSTRAINT fk_companies_owner FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE SET NULL
+  updated_at                 TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- ============================================================
@@ -62,6 +60,14 @@ CREATE TABLE IF NOT EXISTS users (
   created_at    TIMESTAMPTZ DEFAULT NOW(),
   updated_at    TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Add owner_id FK after users table exists (idempotent)
+DO $$
+BEGIN
+  ALTER TABLE companies ADD CONSTRAINT fk_companies_owner FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE SET NULL;
+EXCEPTION WHEN duplicate_object THEN
+  NULL;
+END $$;
 
 -- ============================================================
 -- CUSTOMERS (their customers who owe money)

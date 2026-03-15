@@ -49,9 +49,10 @@ instance.interceptors.response.use(
         return instance(originalRequest);
       } catch (refreshErr) {
         processQueue(refreshErr);
-        // Redirect to login
+        // Only redirect to login if on a protected page (not public pages)
+        const publicPages = ['/landing', '/pricing', '/security', '/terms', '/privacy', '/cookie-policy', '/dpa', '/demo', '/unsubscribe', '/login', '/signup', '/forgot-password', '/auth/google/callback', '/stripe/oauth/callback'];
         const currentPath = window.location.pathname;
-        if (!currentPath.startsWith('/login') && !currentPath.startsWith('/signup')) {
+        if (!publicPages.some(page => currentPath.startsWith(page))) {
           window.location.href = '/login';
         }
         return Promise.reject(refreshErr);

@@ -28,6 +28,9 @@ import { apiLimiter, authLimiter, authSlowDown, syncLimiter, aiLimiter } from '.
 
 const app = express();
 
+// Trust proxy for rate limiting and logging (important for Railway/production)
+app.set('trust proxy', 1);
+
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
