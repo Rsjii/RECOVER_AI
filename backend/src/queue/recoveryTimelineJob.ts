@@ -1,23 +1,8 @@
-import { Worker, Queue } from 'bullmq';
-import { getRedisConnection } from './dunningQueue';
+import cron from 'node-cron';
 import { pool } from '../config/database';
 import { logError, logInfo } from '../utils/logger';
 
-const TIMELINE_QUEUE = 'recovery-timeline';
 const LOG_MODULE = 'recoveryTimelineJob';
-
-let timelineQueue: Queue | null = null;
-let timelineWorker: Worker | null = null;
-
-function getTimelineQueue(): Queue {
-  if (!timelineQueue) {
-    timelineQueue = new Queue(TIMELINE_QUEUE, { connection: getRedisConnection() });
-    timelineQueue.on('error', (err: Error) => {
-      logError(LOG_MODULE, 'queue', 'Timeline queue connection issue', err);
-    });
-  }
-  return timelineQueue;
-}
 
 async function getAllActiveCompanyIds(): Promise<string[]> {
   const result = await pool.query(`
@@ -154,75 +139,23 @@ async function runTimelineAggregation(): Promise<{ companies: number; daysProces
 }
 
 export function startRecoveryTimelineJob(): void {
-  try {
-    const connection = getRedisConnection();
-
-    timelineWorker = new Worker(
-      TIMELINE_QUEUE,
-      async (job) => {
-        logInfo(LOG_MODULE, 'worker', 'Processing timeline job', { jobId: job.id });
-        const result = await runTimelineAggregation();
-        return result;
-      },
-      ({
-        connection,
-        concurrency: 1,
-        // Blocking fetch optimization for daily cron job
-        pollInterval: 120000,       // 2 minute poll (job runs daily anyway)
-        tryBlockedFetch: true,      // Use BZPOPMIN (blocking)
-        maxStalCount: 2,            // Aggressively switch to blocking mode
-      } as any)
+  // Run on boot after 90s to backfill last 7 days
+  setTimeout(() => {
+    runTimelineAggregation().catch(err =>
+      logError(LOG_MODULE, 'startupRun', 'Startup timeline aggregation failed', err)
     );
+  }, 90_000);
 
-    timelineWorker.on('completed', (job, result) => {
-      logInfo(LOG_MODULE, 'worker', 'Timeline job completed', { jobId: job.id, ...result });
-    });
+  // Run daily at 01:00 AM UTC via cron (no Redis needed)
+  cron.schedule('0 1 * * *', () => {
+    runTimelineAggregation().catch(err =>
+      logError(LOG_MODULE, 'cronRun', 'Daily timeline aggregation failed', err)
+    );
+  });
 
-    timelineWorker.on('failed', (job, err) => {
-      logError(LOG_MODULE, 'worker', 'Timeline job failed', err, { jobId: job?.id });
-    });
-
-    timelineWorker.on('error', (err: Error) => {
-      logError(LOG_MODULE, 'worker', 'Timeline worker connection issue', err);
-    });
-
-    scheduleTimelineJob();
-    logInfo(LOG_MODULE, 'startRecoveryTimelineJob', 'Recovery timeline job started (runs daily at 01:00 UTC)');
-  } catch (err) {
-    logError(LOG_MODULE, 'startRecoveryTimelineJob', 'Failed to start recovery timeline job', err);
-  }
+  logInfo(LOG_MODULE, 'startRecoveryTimelineJob', 'Recovery timeline job started (runs daily at 01:00 UTC via cron, startup in 90s)');
 }
 
-async function scheduleTimelineJob(): Promise<void> {
-  try {
-    const queue = getTimelineQueue();
-    await queue.removeRepeatable('recovery-timeline', { pattern: '0 1 * * *' });
-    await queue.add('recovery-timeline', {}, {
-      repeat: { pattern: '0 1 * * *' },  // 1:00 AM UTC daily
-      jobId: 'recovery-timeline-cron',
-    });
-    logInfo(LOG_MODULE, 'scheduleTimelineJob', 'Recovery timeline cron scheduled (01:00 AM UTC daily)');
-
-    // Run on startup to backfill
-    setTimeout(() => {
-      queue.add('recovery-timeline-startup', {}, {
-        delay: 0,
-        jobId: `timeline-startup-${Date.now()}`,
-      }).catch(err => {
-        logError(LOG_MODULE, 'scheduleTimelineJob', 'Startup run failed to queue', err);
-      });
-    }, 90_000); // 90s after server start
-  } catch (err) {
-    logError(LOG_MODULE, 'scheduleTimelineJob', 'Failed to schedule timeline job', err);
-  }
-}
-
-export async function stopRecoveryTimelineJob(): Promise<void> {
-  try {
-    await timelineWorker?.close();
-    await timelineQueue?.close();
-    logInfo(LOG_MODULE, 'stop', 'Recovery timeline job stopped');
-  } catch (err) {
-    logError(LOG_MODULE, 'stop', 'Error stopping recovery timeline job', err);
-  }
+export function stopRecoveryTimelineJob(): void {
+  // node-cron tasks stop automatically on process exit — nothing to clean up
 }

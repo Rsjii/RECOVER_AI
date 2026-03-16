@@ -1,10 +1,9 @@
-import { Worker, Queue } from 'bullmq';
-import { getRedisConnection, queueEmailNow } from './dunningQueue';
+import cron from 'node-cron';
+import { queueEmailNow } from './dunningQueue';
 import { pool } from '../config/database';
 import { logError, logInfo, logWarn } from '../utils/logger';
 import type { DunningEmailType } from '../types/email';
 
-const AGENT_QUEUE = 'agent-loop';
 const LOG_MODULE = 'agentLoop';
 const MAX_DUNNING_EMAILS = 5;
 const PAYMENT_PLAN_DAY_THRESHOLD = 15;
@@ -18,19 +17,6 @@ export const DUNNING_DECISION_TREE: Array<{ dayOffset: number; emailType: Dunnin
   { dayOffset: 30, emailType: 'dunning_4' },
   { dayOffset: 60, emailType: 'dunning_5' },
 ];
-
-let agentQueue: Queue | null = null;
-let agentWorker: Worker | null = null;
-
-function getAgentQueue(): Queue {
-  if (!agentQueue) {
-    agentQueue = new Queue(AGENT_QUEUE, { connection: getRedisConnection() });
-    agentQueue.on('error', (err: Error) => {
-      logError(LOG_MODULE, 'queue', 'Agent queue connection issue', err);
-    });
-  }
-  return agentQueue;
-}
 
 /**
  * Fetch all unpaid overdue invoices with their email and payment plan state.
@@ -242,77 +228,25 @@ async function runDecisionEngine(): Promise<{
 }
 
 export function startAgentLoop(): void {
-  try {
-    const connection = getRedisConnection();
-
-    agentWorker = new Worker(
-      AGENT_QUEUE,
-      async (job) => {
-        logInfo(LOG_MODULE, 'worker', 'Processing agent loop job', { jobId: job.id });
-        const result = await runDecisionEngine();
-        return result;
-      },
-      ({
-        connection,
-        concurrency: 1,
-        // Blocking fetch optimization for cron-based jobs
-        pollInterval: 60000,        // 60 second poll (agent runs every 6h anyway)
-        tryBlockedFetch: true,      // Use BZPOPMIN (blocking)
-        maxStalCount: 2,            // Aggressively switch to blocking mode
-      } as any)
+  // Run once 60s after boot to let server fully settle
+  setTimeout(() => {
+    runDecisionEngine().catch(err =>
+      logError(LOG_MODULE, 'startupRun', 'Startup agent run failed', err)
     );
+  }, 60_000);
 
-    agentWorker.on('completed', (job, result) => {
-      logInfo(LOG_MODULE, 'worker', 'Agent loop job completed', { jobId: job.id, ...result });
-    });
+  // Run every 6 hours via cron (no Redis needed)
+  cron.schedule('0 */6 * * *', () => {
+    runDecisionEngine().catch(err =>
+      logError(LOG_MODULE, 'cronRun', 'Scheduled agent run failed', err)
+    );
+  });
 
-    agentWorker.on('failed', (job, err) => {
-      logError(LOG_MODULE, 'worker', 'Agent loop job failed', err, { jobId: job?.id });
-    });
-
-    agentWorker.on('error', (err: Error) => {
-      logError(LOG_MODULE, 'worker', 'Agent worker connection issue', err);
-    });
-
-    scheduleAgentLoop();
-    logInfo(LOG_MODULE, 'startAgentLoop', 'Agent loop started (runs every 6 hours)');
-  } catch (err) {
-    logError(LOG_MODULE, 'startAgentLoop', 'Failed to start agent loop', err);
-  }
+  logInfo(LOG_MODULE, 'startAgentLoop', 'Agent loop started (runs every 6 hours via cron, startup in 60s)');
 }
 
-async function scheduleAgentLoop(): Promise<void> {
-  try {
-    const queue = getAgentQueue();
-    await queue.removeRepeatable('agent-loop', { pattern: '0 */6 * * *' });
-    await queue.add('agent-loop', {}, {
-      repeat: { pattern: '0 */6 * * *' },  // Every 6 hours
-      jobId: 'agent-loop-cron',
-    });
-    logInfo(LOG_MODULE, 'scheduleAgentLoop', 'Agent loop cron scheduled (every 6 hours)');
-
-    // Trigger a startup run after 60s delay to let server fully settle
-    setTimeout(() => {
-      queue.add('agent-loop-startup', {}, {
-        delay: 0,
-        jobId: `agent-startup-${Date.now()}`,
-      }).catch(err => {
-        logError(LOG_MODULE, 'scheduleAgentLoop', 'Startup run failed to queue', err);
-      });
-    }, 60_000);
-  } catch (err) {
-    logError(LOG_MODULE, 'scheduleAgentLoop', 'Failed to schedule agent loop', err);
-  }
-}
-
-export async function stopAgentLoop(): Promise<void> {
-  try {
-    await agentWorker?.close();
-    await agentQueue?.close();
-    logInfo(LOG_MODULE, 'stop', 'Agent loop stopped');
-  } catch (err) {
-    logError(LOG_MODULE, 'stop', 'Error stopping agent loop', err);
-  }
+export function stopAgentLoop(): void {
+  // node-cron tasks stop automatically on process exit — nothing to clean up
 }
 
 /**

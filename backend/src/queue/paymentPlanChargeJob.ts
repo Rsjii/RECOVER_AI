@@ -1,25 +1,10 @@
-import { Worker, Queue } from 'bullmq';
+import cron from 'node-cron';
 import Stripe from 'stripe';
-import { getRedisConnection } from './dunningQueue';
 import { pool } from '../config/database';
 import { logError, logInfo } from '../utils/logger';
-import { encryptField, decryptField } from '../lib/encryption';
+import { decryptField } from '../lib/encryption';
 
-const QUEUE_NAME = 'payment-plan-charge';
 const LOG_MODULE = 'paymentPlanChargeJob';
-
-let chargeQueue: Queue | null = null;
-let chargeWorker: Worker | null = null;
-
-function getChargeQueue(): Queue {
-  if (!chargeQueue) {
-    chargeQueue = new Queue(QUEUE_NAME, { connection: getRedisConnection() });
-    chargeQueue.on('error', (err: Error) => {
-      logError(LOG_MODULE, 'queue', 'Charge queue connection issue', err);
-    });
-  }
-  return chargeQueue;
-}
 
 interface DueInstallment {
   plan_id: string;
@@ -252,64 +237,16 @@ async function runPaymentPlanCharges(): Promise<{ processed: number; charged: nu
 }
 
 export function startPaymentPlanChargeJob(): void {
-  try {
-    const connection = getRedisConnection();
-
-    chargeWorker = new Worker(
-      QUEUE_NAME,
-      async (job) => {
-        logInfo(LOG_MODULE, 'worker', 'Processing charge job', { jobId: job.id });
-        return runPaymentPlanCharges();
-      },
-      ({
-        connection,
-        concurrency: 1,
-        // Blocking fetch optimization for daily cron job
-        pollInterval: 120000,       // 2 minute poll (job runs daily anyway)
-        tryBlockedFetch: true,      // Use BZPOPMIN (blocking)
-        maxStalCount: 2,            // Aggressively switch to blocking mode
-      } as any)
+  // Run daily at 09:00 AM UTC via cron (no Redis needed)
+  cron.schedule('0 9 * * *', () => {
+    runPaymentPlanCharges().catch(err =>
+      logError(LOG_MODULE, 'cronRun', 'Daily payment plan charge failed', err)
     );
+  });
 
-    chargeWorker.on('completed', (job, result) => {
-      logInfo(LOG_MODULE, 'worker', 'Charge job completed', { jobId: job.id, ...result });
-    });
-
-    chargeWorker.on('failed', (job, err) => {
-      logError(LOG_MODULE, 'worker', 'Charge job failed', err, { jobId: job?.id });
-    });
-
-    chargeWorker.on('error', (err: Error) => {
-      logError(LOG_MODULE, 'worker', 'Charge worker connection issue', err);
-    });
-
-    scheduleChargeJob();
-    logInfo(LOG_MODULE, 'startPaymentPlanChargeJob', 'Payment plan charge job started (runs daily at 09:00 UTC)');
-  } catch (err) {
-    logError(LOG_MODULE, 'startPaymentPlanChargeJob', 'Failed to start payment plan charge job', err);
-  }
+  logInfo(LOG_MODULE, 'startPaymentPlanChargeJob', 'Payment plan charge job started (runs daily at 09:00 UTC via cron)');
 }
 
-async function scheduleChargeJob(): Promise<void> {
-  try {
-    const queue = getChargeQueue();
-    await queue.removeRepeatable('payment-plan-charge', { pattern: '0 9 * * *' });
-    await queue.add('payment-plan-charge', {}, {
-      repeat: { pattern: '0 9 * * *' },  // 9:00 AM UTC daily
-      jobId: 'payment-plan-charge-cron',
-    });
-    logInfo(LOG_MODULE, 'scheduleChargeJob', 'Payment plan charge cron scheduled (09:00 AM UTC daily)');
-  } catch (err) {
-    logError(LOG_MODULE, 'scheduleChargeJob', 'Failed to schedule charge job', err);
-  }
-}
-
-export async function stopPaymentPlanChargeJob(): Promise<void> {
-  try {
-    await chargeWorker?.close();
-    await chargeQueue?.close();
-    logInfo(LOG_MODULE, 'stop', 'Payment plan charge job stopped');
-  } catch (err) {
-    logError(LOG_MODULE, 'stop', 'Error stopping payment plan charge job', err);
-  }
+export function stopPaymentPlanChargeJob(): void {
+  // node-cron tasks stop automatically on process exit — nothing to clean up
 }

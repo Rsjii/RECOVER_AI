@@ -59,8 +59,26 @@ interface TrialInfo {
 export const Sidebar: React.FC = () => {
   const location = useLocation();
   const [trial, setTrial] = useState<TrialInfo | null>(null);
+  const [filteredNavItems, setFilteredNavItems] = useState(navItems);
 
   useEffect(() => {
+    // Try to access admin endpoint — if 403, user not admin
+    api.get('/api/admin/metrics')
+      .then(() => {
+        // User is admin, show admin tab
+        setFilteredNavItems(navItems);
+      })
+      .catch((err: any) => {
+        // Not admin (403) or error — hide admin tab
+        if (err?.status === 403) {
+          setFilteredNavItems(navItems.filter(item => item.path !== '/admin'));
+        } else {
+          // Other error, hide admin tab to be safe
+          setFilteredNavItems(navItems.filter(item => item.path !== '/admin'));
+        }
+      });
+
+    // Fetch billing subscription
     api.get<{ data: any }>('/api/billing/subscription')
       .then((res: any) => {
         const sub = res.data || res;
@@ -107,7 +125,7 @@ export const Sidebar: React.FC = () => {
 
       {/* Navigation */}
       <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-        {navItems.map((item) => {
+        {filteredNavItems.map((item) => {
           const isActive = item.path === '/'
             ? location.pathname === '/'
             : location.pathname.startsWith(item.path);

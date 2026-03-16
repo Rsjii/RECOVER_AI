@@ -1,24 +1,8 @@
-import { Worker, Queue } from 'bullmq';
-import { getRedisConnection } from './dunningQueue';
+import cron from 'node-cron';
 import { sendDailyDigest } from '../services/slackService';
 import { getRecoveryStats } from '../db/dashboard';
 import { pool } from '../config/database';
 import { logError, logInfo } from '../utils/logger';
-
-const DIGEST_QUEUE = 'daily-digest';
-
-let digestQueue: Queue | null = null;
-let digestWorker: Worker | null = null;
-
-function getDigestQueue(): Queue {
-  if (!digestQueue) {
-    digestQueue = new Queue(DIGEST_QUEUE, { connection: getRedisConnection() });
-    digestQueue.on('error', (err: Error) => {
-      logError('dailyDigestJob', 'queue', 'Digest queue connection issue', err);
-    });
-  }
-  return digestQueue;
-}
 
 async function countEmailsSentToday(companyId: string): Promise<number> {
   const result = await pool.query(
@@ -37,104 +21,57 @@ async function getAllCompanyIds(): Promise<string[]> {
   return result.rows.map((r: any) => r.company_id);
 }
 
-export function startDailyDigestWorker(): void {
-  try {
-    const connection = getRedisConnection();
+async function runDailyDigest(): Promise<void> {
+  const method = 'runDailyDigest';
+  logInfo('dailyDigestJob', method, 'Processing daily digest');
 
-    digestWorker = new Worker(
-      DIGEST_QUEUE,
-      async (job) => {
-        const method = 'dailyDigestWorker';
-        logInfo('dailyDigestJob', method, 'Processing daily digest job');
+  const companyIds = await getAllCompanyIds();
 
-        const companyIds = await getAllCompanyIds();
+  for (const companyId of companyIds) {
+    try {
+      const stats = await getRecoveryStats(companyId);
+      const emailsSentToday = await countEmailsSentToday(companyId);
 
-        for (const companyId of companyIds) {
-          try {
-            const stats = await getRecoveryStats(companyId);
-            const emailsSentToday = await countEmailsSentToday(companyId);
+      const { pool: db } = await import('../config/database');
+      const companyResult = await db.query(
+        'SELECT slack_webhook_url_encrypted FROM companies WHERE id = $1',
+        [companyId]
+      );
+      const company = companyResult.rows[0];
 
-            // Get Slack webhook from company settings
-            const { pool: db } = await import('../config/database');
-            const companyResult = await db.query(
-              'SELECT slack_webhook_url_encrypted FROM companies WHERE id = $1',
-              [companyId]
-            );
-            const company = companyResult.rows[0];
-
-            let webhookUrl: string | undefined;
-            if (company?.slack_webhook_url_encrypted) {
-              const { decryptField } = await import('../lib/encryption');
-              webhookUrl = decryptField(company.slack_webhook_url_encrypted);
-            }
-
-            await sendDailyDigest({
-              totalOwed: stats.totalOwed,
-              totalRecovered: stats.totalRecovered,
-              recoveryRate: stats.recoveryRate,
-              overdueCount: stats.overdueCount,
-              emailsSentToday,
-              webhookUrl,
-            });
-
-            logInfo('dailyDigestJob', method, 'Digest sent', { companyId });
-          } catch (err) {
-            logError('dailyDigestJob', method, 'Failed to send digest for company', err, { companyId });
-          }
-        }
-      },
-      ({
-        connection,
-        concurrency: 1,
-        // Blocking fetch optimization for daily cron job
-        pollInterval: 120000,       // 2 minute poll (job runs daily anyway)
-        tryBlockedFetch: true,      // Use BZPOPMIN (blocking)
-        maxStalCount: 2,            // Aggressively switch to blocking mode
-      } as any)
-    );
-
-    digestWorker.on('failed', (job, err) => {
-      logError('dailyDigestJob', 'worker', 'Job failed', err, { jobId: job?.id });
-    });
-
-    digestWorker.on('error', (err: Error) => {
-      logError('dailyDigestJob', 'worker', 'Worker connection issue', err);
-    });
-
-    // Schedule daily at 8:00 AM UTC
-    scheduleDaily();
-
-    logInfo('dailyDigestJob', 'startDailyDigestWorker', 'Daily digest worker started');
-  } catch (err) {
-    logError('dailyDigestJob', 'startDailyDigestWorker', 'Failed to start digest worker', err);
-  }
-}
-
-async function scheduleDaily(): Promise<void> {
-  try {
-    const queue = getDigestQueue();
-    // Remove existing repeatable job first to avoid duplicates
-    await queue.removeRepeatable('daily-digest', { pattern: '0 8 * * *' });
-    await queue.add(
-      'daily-digest',
-      {},
-      {
-        repeat: { pattern: '0 8 * * *' },  // 8 AM UTC daily
-        jobId: 'daily-digest-cron',
+      let webhookUrl: string | undefined;
+      if (company?.slack_webhook_url_encrypted) {
+        const { decryptField } = await import('../lib/encryption');
+        webhookUrl = decryptField(company.slack_webhook_url_encrypted);
       }
-    );
-    logInfo('dailyDigestJob', 'scheduleDaily', 'Daily digest cron scheduled (8:00 AM UTC)');
-  } catch (err) {
-    logError('dailyDigestJob', 'scheduleDaily', 'Failed to schedule digest cron', err);
+
+      await sendDailyDigest({
+        totalOwed: stats.totalOwed,
+        totalRecovered: stats.totalRecovered,
+        recoveryRate: stats.recoveryRate,
+        overdueCount: stats.overdueCount,
+        emailsSentToday,
+        webhookUrl,
+      });
+
+      logInfo('dailyDigestJob', method, 'Digest sent', { companyId });
+    } catch (err) {
+      logError('dailyDigestJob', method, 'Failed to send digest for company', err, { companyId });
+    }
   }
 }
 
-export async function stopDailyDigestWorker(): Promise<void> {
-  try {
-    await digestWorker?.close();
-    await digestQueue?.close();
-    logInfo('dailyDigestJob', 'stop', 'Daily digest worker stopped');
-  } catch (err) {
-    logError('dailyDigestJob', 'stop', 'Error stopping digest worker', err);
-  }
+export function startDailyDigestWorker(): void {
+  // Run daily at 8:00 AM UTC via cron (no Redis needed)
+  cron.schedule('0 8 * * *', () => {
+    runDailyDigest().catch(err =>
+      logError('dailyDigestJob', 'cronRun', 'Daily digest cron failed', err)
+    );
+  });
+
+  logInfo('dailyDigestJob', 'startDailyDigestWorker', 'Daily digest started (runs daily at 08:00 UTC via cron)');
+}
+
+export function stopDailyDigestWorker(): void {
+  // node-cron tasks stop automatically on process exit — nothing to clean up
 }
