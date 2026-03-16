@@ -50,11 +50,11 @@ const Setup: React.FC = () => {
       client_id: STRIPE_CLIENT_ID,
       response_type: 'code',
       scope: 'read_write',
-      redirect_uri: `${window.location.origin}/stripe/oauth/callback`,
+      redirect_uri: 'http://localhost:3000/api/stripe/oauth/exchange',
       state: 'security_token',
     });
 
-    window.location.href = `https://connect.stripe.com/oauth/authorize?${params.toString()}`;
+    window.location.href = `https://connect.stripe.com/oauth/v2/authorize?${params.toString()}`;
   };
 
   const handlePlanSelect = async (plan: 'starter' | 'growth' | 'enterprise') => {

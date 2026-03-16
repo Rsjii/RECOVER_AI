@@ -48,5 +48,10 @@ export const config = {
   slack: {
     webhookUrl: process.env.SLACK_WEBHOOK_URL,
   },
+  admin: {
+    // Comma-separated list of admin emails (strict whitelist)
+    // Default: only company founders/team leads should have access
+    emails: (process.env.ADMIN_EMAILS || 'admin@company.com,founder@company.com').split(',').map(e => e.trim().toLowerCase()),
+  },
   baseUrl: process.env.BASE_URL || 'http://localhost:3000',
 };

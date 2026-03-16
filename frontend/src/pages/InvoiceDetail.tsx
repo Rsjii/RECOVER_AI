@@ -9,7 +9,7 @@ import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { Spinner } from '../components/ui/Spinner';
 import { EmailPreviewModal } from '../components/invoices/EmailPreviewModal';
-import type { Invoice, InvoiceDetail as InvoiceDetailType, InvoiceStatus } from '../types';
+import type { Invoice, InvoiceDetail as InvoiceDetailType, InvoiceStatus, DunningStatus } from '../types';
 
 const InvoiceDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -19,12 +19,15 @@ const InvoiceDetail: React.FC = () => {
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [detail, setDetail] = useState<InvoiceDetailType | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<'details' | 'payments' | 'emails' | 'plan'>('details');
+  const [tab, setTab] = useState<'details' | 'payments' | 'emails' | 'plan' | 'dunning'>('details');
   const [updating, setUpdating] = useState(false);
   const [creatingPlan, setCreatingPlan] = useState(false);
   const [planInstallments, setPlanInstallments] = useState(3);
   const [planSubmitting, setPlanSubmitting] = useState(false);
   const [showEmailPreview, setShowEmailPreview] = useState(false);
+  const [dunningStatus, setDunningStatus] = useState<DunningStatus | null>(null);
+  const [pauseDays, setPauseDays] = useState(7);
+  const [dunningLoading, setDunningLoading] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -84,6 +87,54 @@ const InvoiceDetail: React.FC = () => {
     } finally { setPlanSubmitting(false); }
   };
 
+  useEffect(() => {
+    if (tab === 'dunning' && id) fetchDunningStatus();
+  }, [tab]);
+
+  const fetchDunningStatus = async () => {
+    if (!id) return;
+    try {
+      const res: any = await api.get(`/api/invoices/${id}/dunning-status`);
+      setDunningStatus(res.data || res);
+    } catch { /* silently fail */ }
+  };
+
+  const handlePause = async () => {
+    if (!invoice) return;
+    setDunningLoading(true);
+    try {
+      await api.post(`/api/invoices/${invoice.id}/dunning/pause`, { days: pauseDays });
+      addToast({ type: 'success', message: `Dunning paused for ${pauseDays} days` });
+      await fetchDunningStatus();
+    } catch (err: any) {
+      addToast({ type: 'error', message: err.message || 'Failed to pause dunning' });
+    } finally { setDunningLoading(false); }
+  };
+
+  const handleResume = async () => {
+    if (!invoice) return;
+    setDunningLoading(true);
+    try {
+      await api.post(`/api/invoices/${invoice.id}/dunning/resume`, {});
+      addToast({ type: 'success', message: 'Dunning resumed' });
+      await fetchDunningStatus();
+    } catch (err: any) {
+      addToast({ type: 'error', message: err.message || 'Failed to resume dunning' });
+    } finally { setDunningLoading(false); }
+  };
+
+  const handleStop = async () => {
+    if (!invoice || !window.confirm('Stop all future dunning emails for this invoice? This cannot be undone.')) return;
+    setDunningLoading(true);
+    try {
+      await api.delete(`/api/invoices/${invoice.id}/dunning`);
+      addToast({ type: 'success', message: 'Dunning stopped permanently' });
+      await fetchDunningStatus();
+    } catch (err: any) {
+      addToast({ type: 'error', message: err.message || 'Failed to stop dunning' });
+    } finally { setDunningLoading(false); }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center py-20"><Spinner size="lg" text="Loading invoice..." /></div>
@@ -97,6 +148,7 @@ const InvoiceDetail: React.FC = () => {
     { id: 'payments' as const, label: `Payments (${detail?.payments.length || 0})` },
     { id: 'emails' as const, label: `Emails (${detail?.emailLogs.length || 0})` },
     { id: 'plan' as const, label: 'Plan' },
+    { id: 'dunning' as const, label: 'Dunning' },
   ];
 
   return (
@@ -345,6 +397,93 @@ const InvoiceDetail: React.FC = () => {
                 )}
               </div>
             )}
+          </div>
+        )}
+
+        {/* Dunning */}
+        {tab === 'dunning' && (
+          <div className="space-y-4">
+            {/* Status banner */}
+            {dunningStatus?.isStopped && (
+              <div className="flex items-center gap-2 px-4 py-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-700 dark:text-red-400">
+                <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>
+                All dunning emails stopped permanently for this invoice.
+              </div>
+            )}
+            {!dunningStatus?.isStopped && dunningStatus?.isPaused && (
+              <div className="flex items-center gap-2 px-4 py-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg text-sm text-amber-700 dark:text-amber-400">
+                <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                Dunning paused until {formatDate(dunningStatus.pausedUntil!)}.
+              </div>
+            )}
+            {!dunningStatus?.isStopped && !dunningStatus?.isPaused && dunningStatus?.nextEmailType && (
+              <div className="flex items-center gap-2 px-4 py-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg text-sm text-blue-700 dark:text-blue-400">
+                <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                Next: <span className="font-medium">{dunningStatus.nextEmailType}</span>
+                {dunningStatus.nextScheduledDate && <> — scheduled {formatDate(dunningStatus.nextScheduledDate)}</>}
+              </div>
+            )}
+
+            {/* Action buttons */}
+            {!dunningStatus?.isStopped && (
+              <div className="flex flex-wrap gap-2">
+                {dunningStatus?.isPaused ? (
+                  <Button size="sm" variant="secondary" onClick={handleResume} loading={dunningLoading}>
+                    Resume Dunning
+                  </Button>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={pauseDays}
+                      onChange={e => setPauseDays(Number(e.target.value))}
+                      className="px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    >
+                      {[7, 14, 30].map(d => <option key={d} value={d}>Pause {d} days</option>)}
+                    </select>
+                    <Button size="sm" variant="secondary" onClick={handlePause} loading={dunningLoading}>
+                      Pause
+                    </Button>
+                  </div>
+                )}
+                <Button size="sm" variant="danger" onClick={handleStop} loading={dunningLoading}>
+                  Stop All
+                </Button>
+              </div>
+            )}
+
+            {/* Email history */}
+            <div>
+              <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Email History</h4>
+              {(dunningStatus?.history?.length ?? 0) === 0 ? (
+                <p className="text-sm text-gray-400">No dunning emails sent yet.</p>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 dark:bg-gray-700/50">
+                    <tr>
+                      <th className="px-4 py-2 text-left">Type</th>
+                      <th className="px-4 py-2 text-left">Sent</th>
+                      <th className="px-4 py-2 text-left">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dunningStatus!.history.map((log) => (
+                      <tr key={log.id} className="border-t border-gray-100 dark:border-gray-700">
+                        <td className="px-4 py-2 text-gray-700 dark:text-gray-300 capitalize">{log.email_type.replace('_', ' ')}</td>
+                        <td className="px-4 py-2 text-gray-500 dark:text-gray-400">{formatDate(log.sent_at)}</td>
+                        <td className="px-4 py-2">
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${
+                            log.status === 'clicked' ? 'bg-green-100 text-green-700' :
+                            log.status === 'opened' ? 'bg-blue-100 text-blue-700' :
+                            log.status === 'bounced' || log.status === 'failed' ? 'bg-red-100 text-red-700' :
+                            'bg-gray-100 text-gray-600'
+                          }`}>{log.status}</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
           </div>
         )}
       </Card>

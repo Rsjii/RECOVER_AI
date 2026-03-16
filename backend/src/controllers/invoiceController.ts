@@ -6,6 +6,7 @@ import { listEmailLogs } from '../db/emailLogs';
 import { findPaymentPlanByInvoice } from '../db/paymentPlans';
 import { logError as baseLogError, logInfo as baseLogInfo } from '../utils/logger';
 import { sendErrorResponse, parseError } from '../utils/errorHandler';
+import { DUNNING_DECISION_TREE } from '../queue/agentLoop';
 
 const LOG_MODULE = 'invoiceController';
 
@@ -362,6 +363,107 @@ export const uploadCSV = async (req: Request, res: Response): Promise<void> => {
   } catch (error: any) {
     logError(handler, `CSV upload failed after ${Date.now() - startTime}ms`, error);
     const { statusCode, message } = parseError(error);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
+
+// ── Dunning Control ──────────────────────────────────────────────────────────
+
+export const pauseInvoiceDunning = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'pauseInvoiceDunning';
+  try {
+    const companyId = (req as any).companyId;
+    const id = req.params.id as string;
+    const days = parseInt(req.body?.days);
+    if (!days || days < 1 || days > 180) {
+      sendErrorResponse(res, 400, 'days must be between 1 and 180');
+      return;
+    }
+    const invoice = await InvoiceDB.pauseInvoiceDunning(id, companyId, days);
+    if (!invoice) { sendErrorResponse(res, 404, 'Invoice not found'); return; }
+    logInfo(handler, 'Dunning paused', { invoiceId: id, days });
+    res.json({ data: invoice });
+  } catch (err) {
+    logError(handler, 'Failed', err);
+    const { statusCode, message } = parseError(err);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
+
+export const resumeInvoiceDunning = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'resumeInvoiceDunning';
+  try {
+    const companyId = (req as any).companyId;
+    const id = req.params.id as string;
+    const invoice = await InvoiceDB.resumeInvoiceDunning(id, companyId);
+    if (!invoice) { sendErrorResponse(res, 404, 'Invoice not found'); return; }
+    logInfo(handler, 'Dunning resumed', { invoiceId: id });
+    res.json({ data: invoice });
+  } catch (err) {
+    logError(handler, 'Failed', err);
+    const { statusCode, message } = parseError(err);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
+
+export const stopInvoiceDunning = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'stopInvoiceDunning';
+  try {
+    const companyId = (req as any).companyId;
+    const id = req.params.id as string;
+    const invoice = await InvoiceDB.stopInvoiceDunning(id, companyId);
+    if (!invoice) { sendErrorResponse(res, 404, 'Invoice not found'); return; }
+    logInfo(handler, 'Dunning stopped', { invoiceId: id });
+    res.json({ data: invoice });
+  } catch (err) {
+    logError(handler, 'Failed', err);
+    const { statusCode, message } = parseError(err);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
+
+export const getDunningStatus = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'getDunningStatus';
+  try {
+    const companyId = (req as any).companyId;
+    const id = req.params.id as string;
+
+    const invoice = await InvoiceDB.findInvoiceById(id, companyId);
+    if (!invoice) { sendErrorResponse(res, 404, 'Invoice not found'); return; }
+
+    const emailLogs = await listEmailLogs(companyId, id);
+    const emailTypesSent = new Set(
+      emailLogs.filter(l => l.status !== 'failed').map((l: any) => l.email_type as string)
+    );
+
+    // Find next un-sent dunning step
+    const dueDate = new Date(invoice.due_date).getTime();
+    const daysOverdue = Math.floor((Date.now() - dueDate) / (24 * 60 * 60 * 1000));
+    let nextEmailType: string | null = null;
+    let nextScheduledDate: string | null = null;
+
+    for (const step of DUNNING_DECISION_TREE) {
+      if (!emailTypesSent.has(step.emailType)) {
+        nextEmailType = step.emailType;
+        nextScheduledDate = new Date(dueDate + step.dayOffset * 24 * 60 * 60 * 1000).toISOString();
+        break;
+      }
+    }
+
+    res.json({
+      data: {
+        nextEmailType,
+        nextScheduledDate,
+        isPaused: !!(invoice.dunning_paused_until && new Date(invoice.dunning_paused_until) > new Date()),
+        pausedUntil: invoice.dunning_paused_until ?? null,
+        isStopped: invoice.dunning_stopped ?? false,
+        daysOverdue,
+        history: emailLogs,
+      },
+    });
+  } catch (err) {
+    logError(handler, 'Failed', err);
+    const { statusCode, message } = parseError(err);
     sendErrorResponse(res, statusCode, message);
   }
 };

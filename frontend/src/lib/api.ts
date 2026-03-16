@@ -29,9 +29,14 @@ instance.interceptors.response.use(
     // If 401 and not already retrying → try refresh
     if (error.response?.status === 401 && !originalRequest._retry) {
       const path = originalRequest.url || '';
-      // Don't retry refresh/login/signup themselves
+      // Don't retry refresh/login/signup themselves — but still format the error
       if (path.includes('/auth/refresh') || path.includes('/auth/login') || path.includes('/auth/signup')) {
-        return Promise.reject(error);
+        const data = error.response?.data as Record<string, any> | undefined;
+        return Promise.reject({
+          status: error.response?.status || 401,
+          message: data?.['error'] || data?.['message'] || 'Invalid email or password',
+          details: data?.['details'],
+        });
       }
 
       if (isRefreshing) {

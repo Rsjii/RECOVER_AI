@@ -52,7 +52,7 @@ class EmailService {
         previousReminders: job.attemptNumber - 1,
         companyName: 'RecoverAI',
         paymentLink: job.paymentLink,
-      });
+      }, job.companyId);
 
       // 2. Pre-generate email log ID so we can inject tracking pixel before sending
       const emailLogId = crypto.randomUUID();
@@ -78,6 +78,7 @@ class EmailService {
         subject: generated.subject,
         bodyText: bodyTextWithFooter,
         bodyHtml: bodyHtmlWithTracking,
+        companyId: job.companyId,
       });
 
       if (!sendResult.success) {

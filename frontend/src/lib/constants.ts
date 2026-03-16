@@ -16,6 +16,7 @@ export const API_ENDPOINTS = {
   stripe: {
     connect: '/api/stripe/connect',
     sync: '/api/stripe/sync',
+    syncHistory: '/api/stripe/sync/history',
     invoices: '/api/stripe/invoices',
     invoiceDetail: (id: string) => `/api/stripe/invoices/${id}`,
   },

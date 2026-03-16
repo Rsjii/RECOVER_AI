@@ -10,7 +10,8 @@ const MAX_DUNNING_EMAILS = 5;
 const PAYMENT_PLAN_DAY_THRESHOLD = 15;
 
 // Decision tree: days overdue → email type (in order)
-const DUNNING_DECISION_TREE: Array<{ dayOffset: number; emailType: DunningEmailType }> = [
+// Exported so invoiceController can compute nextScheduledDate without duplicating
+export const DUNNING_DECISION_TREE: Array<{ dayOffset: number; emailType: DunningEmailType }> = [
   { dayOffset: 1,  emailType: 'dunning_1' },
   { dayOffset: 7,  emailType: 'dunning_2' },
   { dayOffset: 14, emailType: 'dunning_3' },
@@ -48,6 +49,8 @@ async function getOverdueInvoicesForProcessing(): Promise<Array<{
   email_types_sent: string[];
   has_active_plan: boolean;
   plan_offer_sent: boolean;
+  dunning_paused_until: string | null;
+  dunning_stopped: boolean;
 }>> {
   const result = await pool.query(`
     SELECT
@@ -57,6 +60,8 @@ async function getOverdueInvoicesForProcessing(): Promise<Array<{
       i.amount::float AS amount,
       i.due_date,
       i.risk_score,
+      i.dunning_paused_until,
+      COALESCE(i.dunning_stopped, false) AS dunning_stopped,
       c.email  AS customer_email,
       c.name   AS customer_name,
       COUNT(DISTINCT el.id) FILTER (
@@ -78,7 +83,7 @@ async function getOverdueInvoicesForProcessing(): Promise<Array<{
       AND c.email IS NOT NULL
       AND c.email != ''
       AND COALESCE(c.do_not_email, false) = false
-    GROUP BY i.id, i.company_id, i.customer_id, i.amount, i.due_date, i.risk_score, c.email, c.name
+    GROUP BY i.id, i.company_id, i.customer_id, i.amount, i.due_date, i.risk_score, i.dunning_paused_until, i.dunning_stopped, c.email, c.name
     ORDER BY i.due_date ASC
   `);
 
@@ -126,6 +131,22 @@ async function runDecisionEngine(): Promise<{
       const daysOverdue = Math.floor((now - dueDate) / (24 * 60 * 60 * 1000));
 
       if (daysOverdue < 1) {
+        skipped++;
+        continue;
+      }
+
+      // ── Dunning control checks ──
+      if (invoice.dunning_stopped) {
+        logInfo(LOG_MODULE, method, 'Dunning stopped — skipping', { invoiceId: invoice.id });
+        skipped++;
+        continue;
+      }
+
+      if (invoice.dunning_paused_until && new Date(invoice.dunning_paused_until) > new Date()) {
+        logInfo(LOG_MODULE, method, 'Dunning paused — skipping', {
+          invoiceId: invoice.id,
+          pausedUntil: invoice.dunning_paused_until,
+        });
         skipped++;
         continue;
       }
@@ -231,7 +252,14 @@ export function startAgentLoop(): void {
         const result = await runDecisionEngine();
         return result;
       },
-      { connection, concurrency: 1 }
+      ({
+        connection,
+        concurrency: 1,
+        // Blocking fetch optimization for cron-based jobs
+        pollInterval: 60000,        // 60 second poll (agent runs every 6h anyway)
+        tryBlockedFetch: true,      // Use BZPOPMIN (blocking)
+        maxStalCount: 2,            // Aggressively switch to blocking mode
+      } as any)
     );
 
     agentWorker.on('completed', (job, result) => {
@@ -345,6 +373,16 @@ export async function runDecisionEngineDryRun(companyId?: string): Promise<{
     const daysOverdue = Math.floor((now - dueDate) / (24 * 60 * 60 * 1000));
 
     if (daysOverdue < 1 || !invoice.customer_email) {
+      skipped++;
+      continue;
+    }
+
+    if (invoice.dunning_stopped) {
+      skipped++;
+      continue;
+    }
+
+    if (invoice.dunning_paused_until && new Date(invoice.dunning_paused_until) > new Date()) {
       skipped++;
       continue;
     }

@@ -79,6 +79,12 @@ export async function scheduleDunningEmails(
   const method = 'scheduleDunningEmails';
   logInfo(LOG_MODULE, method, 'Scheduling dunning emails', { invoiceId, companyId });
 
+  // Block demo account from queuing any jobs (save Redis requests)
+  if (companyId === '639eb868-e760-4587-8853-58bc380663db') {
+    logInfo(LOG_MODULE, method, 'Demo account — not queuing jobs (demo mode)', { invoiceId });
+    return 0;
+  }
+
   const invoice = await findInvoiceById(invoiceId, companyId);
   if (!invoice) {
     logWarn(LOG_MODULE, method, 'Invoice not found — skipping schedule', { invoiceId });
@@ -144,6 +150,14 @@ export async function scheduleDunningEmails(
 // Add a single email job immediately (manual trigger)
 // ============================================================
 export async function queueEmailNow(job: DunningEmailJob): Promise<string> {
+  // Block demo account from queuing jobs
+  if (job.companyId === '639eb868-e760-4587-8853-58bc380663db') {
+    logInfo(LOG_MODULE, 'queueEmailNow', 'Demo account — not queuing jobs (demo mode)', {
+      invoiceId: job.invoiceId,
+    });
+    return 'demo-blocked';
+  }
+
   const queue = getDunningQueue();
 
   const bullJob = await queue.add(job.emailType, job, {
@@ -230,10 +244,15 @@ export function startDunningWorker(): Worker<DunningEmailJob> {
         sendgridMessageId: result.sendgridMessageId,
       };
     },
-    {
+    ({
       connection: getRedisConnection(),
       concurrency: 1,  // Respect Resend's 2 requests/sec rate limit
-    }
+      // Blocking fetch optimization: fetch jobs without polling
+      // Only polls Redis every 30s when queue is empty (vs default 5s)
+      pollInterval: 30000,        // 30 second poll when idle (dev-safe, < 3K cmds/day)
+      tryBlockedFetch: true,      // Use BZPOPMIN (blocking) instead of BLPOP (polling)
+      maxStalCount: 2,            // Aggressively switch to blocking mode
+    } as any)
   );
 
   dunningWorker.on('completed', (job, result) => {

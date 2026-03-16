@@ -37,6 +37,7 @@ const Billing = React.lazy(() => import('./pages/Billing'));
 const Team = React.lazy(() => import('./pages/Team'));
 const Compliance = React.lazy(() => import('./pages/Compliance'));
 const Policy = React.lazy(() => import('./pages/Policy'));
+const Admin = React.lazy(() => import('./pages/Admin'));
 
 /**
  * Root redirect handler
@@ -225,6 +226,17 @@ const App: React.FC = () => {
                 <ProtectedRoute>
                   <Layout>
                     <Compliance />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Admin />
                   </Layout>
                 </ProtectedRoute>
               }

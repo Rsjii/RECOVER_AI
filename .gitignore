@@ -97,6 +97,8 @@ test_demo_flow.sh
 z_companies/
 z_test_data/
 AI_FINAL_MODEL/
+z_guides/
 
 # Dev files
 .env.example
+z_doubts.txt

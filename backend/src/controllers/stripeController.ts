@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { stripeService } from '../services/stripeService';
 import { logError as baseLogError, logInfo as baseLogInfo } from '../utils/logger';
 import { sendErrorResponse, parseError } from '../utils/errorHandler';
+import { getSyncHistory as getSyncHistoryDB } from '../db/integrationLogs';
 
 // ============ Structured Logger ============
 const LOG_MODULE = 'stripeController';
@@ -26,11 +27,6 @@ export const connectStripe = async (req: Request, res: Response) => {
 
     logInfo(handler, 'Request received', { companyId, userId });
 
-    if (!req.body.stripeApiKey) {
-      logInfo(handler, 'Validation failed — missing stripeApiKey');
-      return sendErrorResponse(res, 400, 'stripeApiKey is required');
-    }
-
     await stripeService.connectStripe(companyId, userId, req.body);
 
     const elapsed = Date.now() - startTime;
@@ -41,6 +37,7 @@ export const connectStripe = async (req: Request, res: Response) => {
     const elapsed = Date.now() - startTime;
     logError(handler, `Failed after ${elapsed}ms`, err);
     const { statusCode, message } = parseError(err);
+    console.error('=== STRIPE CONNECT ERROR ===', { error: err.message, stack: err.stack });
     return sendErrorResponse(res, statusCode, message);
   }
 };
@@ -184,5 +181,23 @@ export const stripeOAuthCallback = async (req: Request, res: Response) => {
     logError(handler, `OAuth callback failed after ${elapsed}ms`, err);
     const { FRONTEND_URL } = process.env;
     return res.redirect(`${FRONTEND_URL}/setup?error=stripe_connection_failed`);
+  }
+};
+
+export const getSyncHistory = async (req: Request, res: Response) => {
+  const handler = 'getSyncHistory';
+  try {
+    const companyId = (req as any).companyId;
+    const limit = Math.min(parseInt((req.query.limit as string) || '10', 10), 50);
+
+    logInfo(handler, 'Request received', { companyId, limit });
+
+    const history = await getSyncHistoryDB(companyId, 'stripe', limit);
+
+    return res.status(200).json({ data: history });
+  } catch (err: any) {
+    logError(handler, 'Failed', err);
+    const { statusCode, message } = parseError(err);
+    return sendErrorResponse(res, statusCode, message);
   }
 };

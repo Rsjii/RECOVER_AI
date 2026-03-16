@@ -164,7 +164,14 @@ export function startRecoveryTimelineJob(): void {
         const result = await runTimelineAggregation();
         return result;
       },
-      { connection, concurrency: 1 }
+      ({
+        connection,
+        concurrency: 1,
+        // Blocking fetch optimization for daily cron job
+        pollInterval: 120000,       // 2 minute poll (job runs daily anyway)
+        tryBlockedFetch: true,      // Use BZPOPMIN (blocking)
+        maxStalCount: 2,            // Aggressively switch to blocking mode
+      } as any)
     );
 
     timelineWorker.on('completed', (job, result) => {

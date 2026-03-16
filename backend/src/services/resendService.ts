@@ -1,6 +1,7 @@
 import { Resend } from 'resend';
 import { logInfo, logError } from '../utils/logger';
 import { config } from '../config/env';
+import { upsertApiUsage } from '../db/apiUsage';
 
 const resend = new Resend(config.resend.apiKey);
 
@@ -10,6 +11,7 @@ export class ResendService {
     subject: string;
     bodyText: string;
     bodyHtml: string;
+    companyId?: string;
   }): Promise<{ success: boolean; messageId?: string; error?: string }> {
     try {
       logInfo('resendService', 'sendEmail', `Sending to: ${params.to}`, {
@@ -35,6 +37,11 @@ export class ResendService {
       logInfo('resendService', 'sendEmail', '✅ Sent successfully', {
         messageId: response.data?.id,
       });
+
+      if (params.companyId) {
+        upsertApiUsage({ companyId: params.companyId, service: 'resend', usageCount: 1, costUsd: 0.001, period: new Date() })
+          .catch(err => logError('resendService', 'sendEmail', 'Failed to track Resend usage', err));
+      }
 
       return {
         success: true,

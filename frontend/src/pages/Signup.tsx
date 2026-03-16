@@ -26,6 +26,13 @@ const Signup: React.FC = () => {
     company_name?: string;
   }>({});
   const [submitting, setSubmitting] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
+
+  const handleChange = (field: keyof typeof form, value: string) => {
+    setForm(prev => ({ ...prev, [field]: value }));
+    if (apiError) setApiError(null);
+    if (errors[field]) setErrors(prev => ({ ...prev, [field]: undefined }));
+  };
 
   const validate = () => {
     const newErrors: typeof errors = {};
@@ -45,13 +52,14 @@ const Signup: React.FC = () => {
     e.preventDefault();
     if (!validate()) return;
 
+    setApiError(null);
     setSubmitting(true);
     try {
       await signup(form.email, form.password, form.company_name, form.firstName, form.lastName);
       addToast({ type: 'success', message: 'Account created! Let\'s set up your integrations.' });
       navigate('/setup');
     } catch (err: any) {
-      addToast({ type: 'error', message: err.message || 'Signup failed. Try again.' });
+      setApiError(err.message || 'Signup failed. Please try again.');
     } finally {
       setSubmitting(false);
     }
@@ -75,6 +83,17 @@ const Signup: React.FC = () => {
         {/* Card */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-8">
           <form onSubmit={handleSubmit} className="space-y-4">
+
+            {/* API Error Banner */}
+            {apiError && (
+              <div className="flex items-start gap-2.5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg px-4 py-3">
+                <svg className="w-4 h-4 text-red-500 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+                <p className="text-sm text-red-700 dark:text-red-400">{apiError}</p>
+              </div>
+            )}
+
             {/* Name Row */}
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -84,7 +103,7 @@ const Signup: React.FC = () => {
                 <input
                   type="text"
                   value={form.firstName}
-                  onChange={(e) => setForm({ ...form, firstName: e.target.value })}
+                  onChange={(e) => handleChange('firstName', e.target.value)}
                   placeholder="John"
                   className={`w-full px-4 py-2.5 border rounded-lg text-gray-900 dark:text-white bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
                     errors.firstName ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
@@ -99,7 +118,7 @@ const Signup: React.FC = () => {
                 <input
                   type="text"
                   value={form.lastName}
-                  onChange={(e) => setForm({ ...form, lastName: e.target.value })}
+                  onChange={(e) => handleChange('lastName', e.target.value)}
                   placeholder="Smith"
                   className={`w-full px-4 py-2.5 border rounded-lg text-gray-900 dark:text-white bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
                     errors.lastName ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
@@ -117,7 +136,7 @@ const Signup: React.FC = () => {
               <input
                 type="text"
                 value={form.company_name}
-                onChange={(e) => setForm({ ...form, company_name: e.target.value })}
+                onChange={(e) => handleChange('company_name', e.target.value)}
                 placeholder="Acme Corp"
                 className={`w-full px-4 py-2.5 border rounded-lg text-gray-900 dark:text-white bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
                   errors.company_name ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
@@ -134,7 +153,7 @@ const Signup: React.FC = () => {
               <input
                 type="email"
                 value={form.email}
-                onChange={(e) => setForm({ ...form, email: e.target.value })}
+                onChange={(e) => handleChange('email', e.target.value)}
                 placeholder="john@company.com"
                 className={`w-full px-4 py-2.5 border rounded-lg text-gray-900 dark:text-white bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
                   errors.email ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
@@ -151,7 +170,7 @@ const Signup: React.FC = () => {
               <input
                 type="password"
                 value={form.password}
-                onChange={(e) => setForm({ ...form, password: e.target.value })}
+                onChange={(e) => handleChange('password', e.target.value)}
                 placeholder="••••••••"
                 className={`w-full px-4 py-2.5 border rounded-lg text-gray-900 dark:text-white bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
                   errors.password ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'

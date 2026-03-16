@@ -34,6 +34,17 @@ export interface Invoice {
   customer_name?: string;
   customer_email?: string;
   days_overdue?: number;
+  dunning_paused_until?: string | null;
+  dunning_stopped?: boolean;
+}
+
+export interface DunningStatus {
+  nextEmailType: string | null;
+  nextScheduledDate: string | null;
+  isPaused: boolean;
+  pausedUntil: string | null;
+  isStopped: boolean;
+  history: EmailLog[];
 }
 
 export interface Payment {

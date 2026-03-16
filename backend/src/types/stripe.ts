@@ -1,13 +1,21 @@
 // ============ Stripe Connect ============
 export interface ConnectStripeInput {
-  stripeApiKey: string;
+  stripe_api_key: string;
 }
 
 // ============ Invoice Sync ============
+export interface SkippedInvoiceDetail {
+  stripeInvoiceId: string;
+  customerName?: string;
+  amount?: number;
+  reason: 'NO_EMAIL' | 'ZERO_AMOUNT';
+}
+
 export interface SyncInvoicesResult {
   created: number;
   updated: number;
   skipped: number;
+  skippedDetails: SkippedInvoiceDetail[];
 }
 
 // ============ Stripe Invoice (from Stripe API) ============

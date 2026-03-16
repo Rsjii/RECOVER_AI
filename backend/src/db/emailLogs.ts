@@ -92,3 +92,30 @@ export async function listEmailLogs(companyId: string, invoiceId?: string): Prom
   const result = await pool.query(query, params);
   return result.rows;
 }
+
+export async function getEmailDeliveryStats(companyId: string): Promise<{
+  sent: number;
+  opened: number;
+  clicked: number;
+  failed: number;
+  bounced: number;
+}> {
+  const result = await pool.query(
+    `SELECT status, COUNT(*)::int AS count
+     FROM email_logs
+     WHERE company_id = $1
+     GROUP BY status`,
+    [companyId]
+  );
+
+  const stats = { sent: 0, opened: 0, clicked: 0, failed: 0, bounced: 0 };
+  for (const row of result.rows) {
+    const s = row.status as string;
+    if (s === 'sent' || s === 'delivered') stats.sent += row.count;
+    else if (s === 'opened') stats.opened = row.count;
+    else if (s === 'clicked') stats.clicked = row.count;
+    else if (s === 'failed') stats.failed = row.count;
+    else if (s === 'bounced') stats.bounced = row.count;
+  }
+  return stats;
+}

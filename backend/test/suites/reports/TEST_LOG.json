@@ -138,7 +138,7 @@
   {
     "test": "3.3 Get customer detail",
     "method": "GET",
-    "route": "/api/customers/adc57d57-9546-4845-a2a2-68be19355933",
+    "route": "/api/customers/3f492e35-f0be-4ca1-a33b-324e1ebda0cc",
     "status": 200,
     "expected": "200",
     "passed": true
@@ -186,7 +186,7 @@
   {
     "test": "4.5 Get invoice summary",
     "method": "GET",
-    "route": "/api/invoices/e9527c8a-0765-49a1-be00-4839df84057c",
+    "route": "/api/invoices/35131067-55fc-4a84-81a4-d2cae031761d",
     "status": 200,
     "expected": "200",
     "passed": true
@@ -194,7 +194,7 @@
   {
     "test": "4.6 Get invoice full detail",
     "method": "GET",
-    "route": "/api/invoices/e9527c8a-0765-49a1-be00-4839df84057c/detail",
+    "route": "/api/invoices/35131067-55fc-4a84-81a4-d2cae031761d/detail",
     "status": 200,
     "expected": "200",
     "passed": true
@@ -210,7 +210,7 @@
   {
     "test": "4.8 Update invoice status (unpaid→paid)",
     "method": "PUT",
-    "route": "/api/invoices/e9527c8a-0765-49a1-be00-4839df84057c/status",
+    "route": "/api/invoices/35131067-55fc-4a84-81a4-d2cae031761d/status",
     "status": 200,
     "expected": "200/400",
     "passed": true
@@ -218,7 +218,7 @@
   {
     "test": "4.9 Update invoice status (invalid)",
     "method": "PUT",
-    "route": "/api/invoices/e9527c8a-0765-49a1-be00-4839df84057c/status",
+    "route": "/api/invoices/35131067-55fc-4a84-81a4-d2cae031761d/status",
     "status": 400,
     "expected": "400/422",
     "passed": true
@@ -314,7 +314,7 @@
   {
     "test": "6.3 Get email logs (by invoice)",
     "method": "GET",
-    "route": "/api/email/logs?invoiceId=e9527c8a-0765-49a1-be00-4839df84057c&limit=5",
+    "route": "/api/email/logs?invoiceId=35131067-55fc-4a84-81a4-d2cae031761d&limit=5",
     "status": 200,
     "expected": "200",
     "passed": true
@@ -402,7 +402,7 @@
   {
     "test": "8.2 Get plans for invoice",
     "method": "GET",
-    "route": "/api/payment-plans?invoiceId=e9527c8a-0765-49a1-be00-4839df84057c",
+    "route": "/api/payment-plans?invoiceId=35131067-55fc-4a84-81a4-d2cae031761d",
     "status": 200,
     "expected": "200/404",
     "passed": true
@@ -538,7 +538,7 @@
   {
     "test": "11.3 Get Stripe invoice detail",
     "method": "GET",
-    "route": "/api/stripe/invoices/e9527c8a-0765-49a1-be00-4839df84057c",
+    "route": "/api/stripe/invoices/35131067-55fc-4a84-81a4-d2cae031761d",
     "status": 200,
     "expected": "200/404/400",
     "passed": true

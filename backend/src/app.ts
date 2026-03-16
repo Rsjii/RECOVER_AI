@@ -23,6 +23,7 @@ import featureFlagsRoutes from './routes/featureFlags';
 import quickbooksRoutes from './routes/quickbooks';
 import chargebeeRoutes from './routes/chargebee';
 import demoRoutes from './routes/demo';
+import adminRoutes from './routes/admin';
 import { getRequestContext, logError, logInfo, logWarn, withRequestContext } from './utils/logger';
 import { apiLimiter, authLimiter, authSlowDown, syncLimiter, aiLimiter } from './middleware/rateLimiter';
 
@@ -170,6 +171,7 @@ app.use('/api/feature-flags', featureFlagsRoutes);
 app.use('/api/quickbooks', quickbooksRoutes);
 app.use('/api/chargebee', chargebeeRoutes);
 app.use('/api/demo', demoRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Health check
 app.get('/health', (_req: Request, res: Response) => {

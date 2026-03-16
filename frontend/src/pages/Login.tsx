@@ -15,7 +15,15 @@ const Login: React.FC = () => {
 
   const [form, setForm] = useState({ email: '', password: '' });
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [apiError, setApiError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // Clear API error when user starts typing again
+  const handleChange = (field: 'email' | 'password', value: string) => {
+    setForm(prev => ({ ...prev, [field]: value }));
+    if (apiError) setApiError(null);
+    if (errors[field]) setErrors(prev => ({ ...prev, [field]: undefined }));
+  };
 
   const handleGoogleLogin = () => {
     const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
@@ -50,13 +58,14 @@ const Login: React.FC = () => {
     e.preventDefault();
     if (!validate()) return;
 
+    setApiError(null);
     setSubmitting(true);
     try {
       await login(form.email, form.password);
       addToast({ type: 'success', message: 'Welcome back!' });
       navigate('/dashboard');
     } catch (err: any) {
-      addToast({ type: 'error', message: err.message || 'Login failed. Check your credentials.' });
+      setApiError(err.message || 'Login failed. Please check your credentials.');
     } finally {
       setSubmitting(false);
     }
@@ -77,6 +86,17 @@ const Login: React.FC = () => {
         {/* Card */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-8">
           <form onSubmit={handleSubmit} className="space-y-5">
+
+            {/* API Error Banner */}
+            {apiError && (
+              <div className="flex items-start gap-2.5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg px-4 py-3">
+                <svg className="w-4 h-4 text-red-500 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+                <p className="text-sm text-red-700 dark:text-red-400">{apiError}</p>
+              </div>
+            )}
+
             {/* Email */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
@@ -85,7 +105,7 @@ const Login: React.FC = () => {
               <input
                 type="email"
                 value={form.email}
-                onChange={(e) => setForm({ ...form, email: e.target.value })}
+                onChange={(e) => handleChange('email', e.target.value)}
                 placeholder="john@company.com"
                 className={`w-full px-4 py-2.5 border rounded-lg text-gray-900 dark:text-white bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
                   errors.email
@@ -106,7 +126,7 @@ const Login: React.FC = () => {
               <input
                 type="password"
                 value={form.password}
-                onChange={(e) => setForm({ ...form, password: e.target.value })}
+                onChange={(e) => handleChange('password', e.target.value)}
                 placeholder="••••••••"
                 className={`w-full px-4 py-2.5 border rounded-lg text-gray-900 dark:text-white bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
                   errors.password

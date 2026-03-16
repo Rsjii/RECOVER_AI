@@ -9,6 +9,10 @@ import {
   updateInvoiceStatus,
   uploadCSV,
   uploadCSVFile,
+  getDunningStatus,
+  pauseInvoiceDunning,
+  resumeInvoiceDunning,
+  stopInvoiceDunning,
 } from '../controllers/invoiceController';
 
 const router = Router();
@@ -18,10 +22,14 @@ router.use(tenantScopeGuard);
 
 router.get('/', listInvoices);
 router.get('/:id/detail', getInvoiceDetail);
+router.get('/:id/dunning-status', getDunningStatus);
 router.get('/:id', getInvoice);
 router.post('/manual', createManualInvoice);
 router.post('/csv-upload', uploadCSVFile);
 router.post('/upload-csv', uploadCSV);
 router.put('/:id/status', updateInvoiceStatus);
+router.post('/:id/dunning/pause', pauseInvoiceDunning);
+router.post('/:id/dunning/resume', resumeInvoiceDunning);
+router.delete('/:id/dunning', stopInvoiceDunning);
 
 export default router;

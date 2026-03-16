@@ -152,3 +152,39 @@ export async function updateInvoiceRiskScore(id: string, companyId: string, risk
     [riskScore, id, companyId]
   );
 }
+
+export async function pauseInvoiceDunning(id: string, companyId: string, days: number): Promise<InvoiceRow | null> {
+  const result = await pool.query(
+    `UPDATE invoices
+     SET dunning_paused_until = NOW() + ($1 || ' days')::INTERVAL, updated_at = NOW()
+     WHERE id = $2
+       AND company_id = $3
+     RETURNING *`,
+    [days, id, companyId]
+  );
+  return result.rows[0] || null;
+}
+
+export async function resumeInvoiceDunning(id: string, companyId: string): Promise<InvoiceRow | null> {
+  const result = await pool.query(
+    `UPDATE invoices
+     SET dunning_paused_until = NULL, updated_at = NOW()
+     WHERE id = $1
+       AND company_id = $2
+     RETURNING *`,
+    [id, companyId]
+  );
+  return result.rows[0] || null;
+}
+
+export async function stopInvoiceDunning(id: string, companyId: string): Promise<InvoiceRow | null> {
+  const result = await pool.query(
+    `UPDATE invoices
+     SET dunning_stopped = TRUE, updated_at = NOW()
+     WHERE id = $1
+       AND company_id = $2
+     RETURNING *`,
+    [id, companyId]
+  );
+  return result.rows[0] || null;
+}

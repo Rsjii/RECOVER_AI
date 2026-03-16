@@ -13,6 +13,7 @@ import {
 } from '../types/ai';
 import { pool } from '../config/database';
 import { logError as baseLogError, logInfo as baseLogInfo, logWarn as baseLogWarn } from '../utils/logger';
+import { upsertApiUsage } from '../db/apiUsage';
 
 // ============ Types ============
 type AIProvider = 'anthropic' | 'openai';
@@ -29,6 +30,23 @@ interface OpenAIChatResponse {
       content?: string;
     };
   }>;
+  usage?: {
+    prompt_tokens?: number;
+    completion_tokens?: number;
+  };
+}
+
+const AI_PRICING: Record<string, { inputPer1M: number; outputPer1M: number }> = {
+  'claude-3-5-sonnet': { inputPer1M: 3.00, outputPer1M: 15.00 },
+  'claude-haiku':      { inputPer1M: 0.25, outputPer1M: 1.25  },
+  'gpt-4o-mini':       { inputPer1M: 0.15, outputPer1M: 0.60  },
+  'gpt-4o':            { inputPer1M: 5.00, outputPer1M: 15.00 },
+};
+
+function calculateAICost(model: string, inputTokens: number, outputTokens: number): number {
+  const pricing = Object.entries(AI_PRICING).find(([key]) => model.includes(key))?.[1]
+    ?? { inputPer1M: 3.00, outputPer1M: 15.00 };
+  return (inputTokens / 1_000_000) * pricing.inputPer1M + (outputTokens / 1_000_000) * pricing.outputPer1M;
 }
 
 // ============ Structured Logger ============
@@ -109,7 +127,7 @@ class AIService {
    * Send prompt to AI provider and return parsed JSON.
    * Handles Anthropic Messages API and OpenAI Chat Completions API.
    */
-  private async generateJsonResponse(prompt: string, maxTokens: number): Promise<Record<string, unknown>> {
+  private async generateJsonResponse(prompt: string, maxTokens: number, companyId?: string): Promise<Record<string, unknown>> {
     const startTime = Date.now();
     const selection = this.getProviderSelection();
 
@@ -128,6 +146,14 @@ class AIService {
 
         const textBlock = message.content.find((block) => block.type === 'text');
         responseText = textBlock?.type === 'text' ? textBlock.text : '';
+
+        if (companyId && message.usage) {
+          const inputTokens = message.usage.input_tokens ?? 0;
+          const outputTokens = message.usage.output_tokens ?? 0;
+          const costUsd = calculateAICost(selection.model, inputTokens, outputTokens);
+          upsertApiUsage({ companyId, service: 'claude', model: selection.model, usageCount: 1, costUsd, inputTokens, outputTokens, period: new Date() })
+            .catch(err => logError('generateJsonResponse', 'Failed to track Claude usage', err));
+        }
       } else {
         logInfo('generateJsonResponse', 'Calling OpenAI API', { model: selection.model, maxTokens });
 
@@ -152,6 +178,14 @@ class AIService {
         );
 
         responseText = response.data.choices?.[0]?.message?.content || '';
+
+        if (companyId && response.data.usage) {
+          const inputTokens = response.data.usage.prompt_tokens ?? 0;
+          const outputTokens = response.data.usage.completion_tokens ?? 0;
+          const costUsd = calculateAICost(selection.model, inputTokens, outputTokens);
+          upsertApiUsage({ companyId, service: 'openai', model: selection.model, usageCount: 1, costUsd, inputTokens, outputTokens, period: new Date() })
+            .catch(err => logError('generateJsonResponse', 'Failed to track OpenAI usage', err));
+        }
       }
 
       const elapsed = Date.now() - startTime;
@@ -273,7 +307,7 @@ class AIService {
   /**
    * Calculate risk score for a customer using AI analysis of payment history.
    */
-  async calculateRiskScore(input: RiskScoreInput): Promise<RiskScoreResponse> {
+  async calculateRiskScore(input: RiskScoreInput, companyId?: string): Promise<RiskScoreResponse> {
     const method = 'calculateRiskScore';
     const startTime = Date.now();
     logInfo(method, 'Starting', { customerId: input.customerId, invoiceId: input.invoiceId });
@@ -304,7 +338,7 @@ Provide your analysis in the following JSON format ONLY:
 
 Do not include any text outside the JSON.`;
 
-      const analysis = await this.generateJsonResponse(prompt, 1024);
+      const analysis = await this.generateJsonResponse(prompt, 1024, companyId);
 
       const result: RiskScoreResponse = {
         customerId: input.customerId,
@@ -340,7 +374,7 @@ Do not include any text outside the JSON.`;
    * Generate a personalized dunning email using AI.
    * Tone is auto-selected based on daysOverdue.
    */
-  async generateDunningEmail(input: DunningEmailGenerationInput): Promise<DunningEmailResponse> {
+  async generateDunningEmail(input: DunningEmailGenerationInput, companyId?: string): Promise<DunningEmailResponse> {
     const method = 'generateDunningEmail';
     const startTime = Date.now();
     logInfo(method, 'Starting', {
@@ -384,7 +418,7 @@ Generate a dunning email in JSON format ONLY:
 
 Do not include any text outside the JSON. Keep the email professional and concise.`;
 
-      const emailContent = await this.generateJsonResponse(prompt, 2048);
+      const emailContent = await this.generateJsonResponse(prompt, 2048, companyId);
 
       const result: DunningEmailResponse = {
         subject: String(emailContent.subject || 'Payment Reminder'),
@@ -420,7 +454,8 @@ Do not include any text outside the JSON. Keep the email professional and concis
    * Fetches customer history from DB if not provided.
    */
   async recommendPaymentPlan(
-    input: PaymentPlanRecommendationInput
+    input: PaymentPlanRecommendationInput,
+    companyId?: string
   ): Promise<PaymentPlanRecommendationResponse> {
     const method = 'recommendPaymentPlan';
     const startTime = Date.now();
@@ -481,7 +516,7 @@ Respond in JSON format ONLY:
 
 Do not include any text outside the JSON. Ensure math is correct: total installments = installmentCount * installmentAmount + (downPayment).`;
 
-      const recommendation = await this.generateJsonResponse(prompt, 2048);
+      const recommendation = await this.generateJsonResponse(prompt, 2048, companyId);
 
       const defaultPlan: PaymentPlanTerms = {
         installmentCount: 1,

@@ -11,6 +11,7 @@ import { sendPaymentAlert } from './slackService';
 import { ConnectStripeInput, SyncInvoicesResult } from '../types/stripe';
 import { encryptField, decryptField } from '../lib/encryption';
 import { logError, logInfo } from '../utils/logger';
+import { logIntegrationSync } from '../db/integrationLogs';
 
 function getStripeClient(apiKey: string): Stripe {
   return new Stripe(apiKey);
@@ -21,13 +22,14 @@ class StripeService {
     const method = 'connectStripe';
     const startTime = Date.now();
     try {
-      const { stripeApiKey } = input;
+      const { stripe_api_key } = input;
+
       logInfo('stripeService', method, 'Starting Stripe connect', { companyId, userId });
 
-      const stripe = getStripeClient(stripeApiKey);
+      const stripe = getStripeClient(stripe_api_key);
       await stripe.accounts.retrieve();
 
-      const encrypted = encryptField(stripeApiKey);
+      const encrypted = encryptField(stripe_api_key);
       await CompanyDB.updateCompany(companyId, { stripe_api_key_encrypted: encrypted });
 
       await AuditDB.createAuditLog({
@@ -64,13 +66,30 @@ class StripeService {
       const apiKey = decryptField(company.stripe_api_key_encrypted);
       const stripe = getStripeClient(apiKey);
 
-      const result: SyncInvoicesResult = { created: 0, updated: 0, skipped: 0 };
+      const result: SyncInvoicesResult = { created: 0, updated: 0, skipped: 0, skippedDetails: [] };
 
       const stripeInvoices = await stripe.invoices.list({ status: 'open', limit: 100 });
 
       for (const inv of stripeInvoices.data) {
         if (!inv.customer_email) {
           result.skipped++;
+          result.skippedDetails.push({
+            stripeInvoiceId: inv.id,
+            customerName: inv.customer_name || undefined,
+            amount: inv.amount_due / 100,
+            reason: 'NO_EMAIL',
+          });
+          continue;
+        }
+
+        if (inv.amount_due === 0) {
+          result.skipped++;
+          result.skippedDetails.push({
+            stripeInvoiceId: inv.id,
+            customerName: inv.customer_name || inv.customer_email,
+            amount: 0,
+            reason: 'ZERO_AMOUNT',
+          });
           continue;
         }
 
@@ -100,14 +119,41 @@ class StripeService {
       logInfo('stripeService', method, 'Stripe sync completed', {
         companyId,
         elapsedMs: Date.now() - startTime,
-        ...result,
+        created: result.created,
+        updated: result.updated,
+        skipped: result.skipped,
       });
+
+      // Non-blocking audit write
+      logIntegrationSync({
+        companyId,
+        integration: 'stripe',
+        action: 'sync',
+        status: 'success',
+        recordsCount: result.created + result.updated,
+        details: {
+          created: result.created,
+          updated: result.updated,
+          skipped: result.skipped,
+          skippedDetails: result.skippedDetails,
+        },
+      }).catch((err) => logError('stripeService', method, 'Failed to log integration sync', err));
+
       return result;
     } catch (error) {
       logError('stripeService', method, 'Stripe sync failed', error, {
         companyId,
         elapsedMs: Date.now() - startTime,
       });
+      // Non-blocking error log
+      logIntegrationSync({
+        companyId,
+        integration: 'stripe',
+        action: 'sync',
+        status: 'error',
+        recordsCount: 0,
+        errorMessage: (error as Error).message,
+      }).catch(() => { /* silent */ });
       throw error;
     }
   }

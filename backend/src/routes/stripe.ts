@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { connectStripe, syncInvoices, stripeWebhook, stripeOAuthAuthorize, stripeOAuthCallback, stripeOAuthExchange } from '../controllers/stripeController';
+import { connectStripe, syncInvoices, stripeWebhook, stripeOAuthAuthorize, stripeOAuthCallback, stripeOAuthExchange, getSyncHistory } from '../controllers/stripeController';
 import { listInvoices, getInvoice } from '../controllers/invoiceController';
 import { authMiddleware } from '../middleware/auth';
 import { validate } from '../middleware/validate';
@@ -18,6 +18,7 @@ router.post('/oauth/exchange', authMiddleware, stripeOAuthExchange);
 // Protected routes
 router.post('/connect', authMiddleware, validate(connectStripeSchema), connectStripe);
 router.post('/sync', authMiddleware, syncInvoices);
+router.get('/sync/history', authMiddleware, getSyncHistory);
 
 // Invoice endpoints
 router.get('/invoices', authMiddleware, listInvoices);

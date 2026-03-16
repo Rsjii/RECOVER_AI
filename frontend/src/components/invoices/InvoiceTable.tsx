@@ -60,11 +60,21 @@ export const InvoiceTable: React.FC<InvoiceTableProps> = ({
     {
       key: 'status',
       label: 'Status',
-      render: (val) => {
+      render: (val, row) => {
         const color = STATUS_COLORS[val as keyof typeof STATUS_COLORS] || '#6b7280';
+        const isPaused = row.dunning_paused_until && new Date(row.dunning_paused_until) > new Date();
+        const pausedDate = isPaused ? new Date(row.dunning_paused_until!).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : null;
         return (
-          <span className="px-2.5 py-1 rounded-full text-xs font-medium capitalize"
-            style={{ backgroundColor: `${color}20`, color }}>{val}</span>
+          <div className="flex flex-wrap gap-1 items-center">
+            <span className="px-2.5 py-1 rounded-full text-xs font-medium capitalize"
+              style={{ backgroundColor: `${color}20`, color }}>{val}</span>
+            {row.dunning_stopped && (
+              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">Stopped</span>
+            )}
+            {!row.dunning_stopped && isPaused && (
+              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">Paused {pausedDate}</span>
+            )}
+          </div>
         );
       },
     },

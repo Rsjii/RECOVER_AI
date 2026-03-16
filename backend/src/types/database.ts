@@ -72,9 +72,15 @@ export interface InvoiceRow {
   notes: string | null;
   created_at: string;
   updated_at: string;
+  // Dunning control fields
+  dunning_paused_until: string | null;
+  dunning_stopped: boolean;
   // Fields added by JOIN queries in invoices.ts
   customer_name?: string;
   customer_email?: string;
+  // Fields added by agentLoop aggregation
+  email_types_sent?: string[];
+  dunning_emails_sent?: number;
 }
 
 // ============ Payments ============

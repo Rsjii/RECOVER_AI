@@ -4,6 +4,21 @@ import { Button } from '../ui/Button';
 import { api } from '../../lib/api';
 import { API_ENDPOINTS } from '../../lib/constants';
 import { useNotification } from '../../hooks/useNotification';
+import { SyncResultModal } from './SyncResultModal';
+
+interface SkippedDetail {
+  stripeInvoiceId: string;
+  customerName?: string;
+  amount?: number;
+  reason: 'NO_EMAIL' | 'ZERO_AMOUNT';
+}
+
+interface SyncResult {
+  created: number;
+  updated: number;
+  skipped: number;
+  skippedDetails: SkippedDetail[];
+}
 
 interface IntegrationSectionProps {
   stripeConnected: boolean;
@@ -38,6 +53,20 @@ export const IntegrationSection: React.FC<IntegrationSectionProps> = ({
   const [cbApiKey, setCbApiKey] = useState('');
   const [connecting, setConnecting] = useState<string | null>(null);
   const [syncing, setSyncing] = useState<string | null>(null);
+  const [syncResult, setSyncResult] = useState<SyncResult | null>(null);
+
+  const handleStripeOAuth = () => {
+    const clientId = import.meta.env.VITE_STRIPE_CLIENT_ID;
+    if (!clientId) { addToast({ type: 'error', message: 'Stripe Client ID not configured' }); return; }
+    const params = new URLSearchParams({
+      client_id: clientId,
+      response_type: 'code',
+      scope: 'read_write',
+      redirect_uri: 'http://localhost:3000/api/stripe/oauth/exchange',
+      state: 'settings',
+    });
+    window.location.href = `https://connect.stripe.com/oauth/v2/authorize?${params.toString()}`;
+  };
 
   const handleStripeConnect = async () => {
     if (!stripeKey.trim()) { addToast({ type: 'error', message: 'Enter your Stripe API key' }); return; }
@@ -54,8 +83,8 @@ export const IntegrationSection: React.FC<IntegrationSectionProps> = ({
   const handleStripeSync = async () => {
     setSyncing('stripe');
     try {
-      await api.post(API_ENDPOINTS.stripe.sync);
-      addToast({ type: 'success', message: 'Invoices synced from Stripe' });
+      const response = await api.post<{ message: string; result: SyncResult }>(API_ENDPOINTS.stripe.sync);
+      setSyncResult(response.result);
     } catch (err: any) { addToast({ type: 'error', message: err.message || 'Sync failed' }); }
     finally { setSyncing(null); }
   };
@@ -147,10 +176,14 @@ export const IntegrationSection: React.FC<IntegrationSectionProps> = ({
               <Button size="sm" variant="secondary" onClick={handleStripeSync} loading={syncing === 'stripe'}>Sync Now</Button>
             </div>
           ) : (
-            <div className="flex gap-2 items-center">
-              <input type="password" value={stripeKey} onChange={e => setStripeKey(e.target.value)}
-                placeholder="sk_live_..." className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white w-48" />
-              <Button size="sm" onClick={handleStripeConnect} loading={connecting === 'stripe'}>Connect</Button>
+            <div className="flex flex-col gap-2 items-end">
+              <Button size="sm" variant="primary" onClick={handleStripeOAuth}>Connect with Stripe OAuth</Button>
+              <div className="flex gap-2 items-center">
+                <span className="text-xs text-gray-400">or</span>
+                <input type="password" value={stripeKey} onChange={e => setStripeKey(e.target.value)}
+                  placeholder="sk_live_..." className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white w-44" />
+                <Button size="sm" variant="secondary" onClick={handleStripeConnect} loading={connecting === 'stripe'}>Save Key</Button>
+              </div>
             </div>
           )}
         </div>
@@ -227,6 +260,13 @@ export const IntegrationSection: React.FC<IntegrationSectionProps> = ({
         </div>
 
       </div>
+
+      {syncResult && (
+        <SyncResultModal
+          result={syncResult}
+          onClose={() => { setSyncResult(null); onRefresh(); }}
+        />
+      )}
     </Card>
   );
 };

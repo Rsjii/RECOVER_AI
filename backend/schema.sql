@@ -103,9 +103,11 @@ CREATE TABLE IF NOT EXISTS invoices (
   risk_score  INT DEFAULT 0,                  -- 0-100 (higher = more urgent)
   source      VARCHAR(20) NOT NULL,           -- stripe | quickbooks | chargebee | manual
   source_id   VARCHAR(100),                   -- external invoice ID
-  notes       TEXT,
-  created_at  TIMESTAMPTZ DEFAULT NOW(),
-  updated_at  TIMESTAMPTZ DEFAULT NOW(),
+  notes                TEXT,
+  dunning_paused_until TIMESTAMPTZ DEFAULT NULL,
+  dunning_stopped      BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at           TIMESTAMPTZ DEFAULT NOW(),
+  updated_at           TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(company_id, source, source_id)
 );
 
@@ -197,6 +199,7 @@ CREATE TABLE IF NOT EXISTS integration_logs (
   status        VARCHAR(20) NOT NULL,   -- success | error
   records_count INT DEFAULT 0,
   error_message TEXT,
+  details       JSONB DEFAULT NULL,
   created_at    TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -204,14 +207,29 @@ CREATE TABLE IF NOT EXISTS integration_logs (
 -- API USAGE TRACKING (cost monitoring)
 -- ============================================================
 CREATE TABLE IF NOT EXISTS api_usage_tracking (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id    UUID REFERENCES companies(id) ON DELETE CASCADE,
+  service       VARCHAR(50)  NOT NULL,   -- claude | openai | resend
+  model         VARCHAR(100) NOT NULL DEFAULT 'unknown',  -- claude-haiku-4-5-20251001 | gpt-4o-mini | etc.
+  usage_count   INT NOT NULL DEFAULT 0,
+  cost_usd      DECIMAL(10, 4) DEFAULT 0,
+  input_tokens  BIGINT NOT NULL DEFAULT 0,
+  output_tokens BIGINT NOT NULL DEFAULT 0,
+  period        DATE NOT NULL,           -- first day of month (2026-03-01)
+  created_at    TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(company_id, service, model, period)
+);
+
+-- ============================================================
+-- PLATFORM DAILY STATS (Redis command snapshots, bandwidth)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS platform_daily_stats (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  company_id  UUID REFERENCES companies(id) ON DELETE CASCADE,
-  service     VARCHAR(50) NOT NULL,   -- claude | sendgrid | stripe | infrastructure
-  usage_count INT NOT NULL DEFAULT 0,
-  cost_usd    DECIMAL(10, 4) DEFAULT 0,
-  period      DATE NOT NULL,          -- first day of month (2026-03-01)
+  date        DATE NOT NULL,
+  metric_key  VARCHAR(80) NOT NULL,   -- redis_commands_total | redis_commands_daily | redis_bandwidth_bytes_total | redis_bandwidth_bytes_daily
+  value       BIGINT NOT NULL DEFAULT 0,
   created_at  TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(company_id, service, period)
+  UNIQUE(date, metric_key)
 );
 
 -- ============================================================
@@ -647,4 +665,14 @@ DROP POLICY IF EXISTS feature_flags_tenant_isolation ON feature_flags;
 CREATE POLICY feature_flags_tenant_isolation ON feature_flags
   USING (company_id = app.current_company_id())
   WITH CHECK (company_id = app.current_company_id());
+
+CREATE INDEX IF NOT EXISTS idx_invoices_dunning_active
+  ON invoices(company_id)
+  WHERE dunning_stopped = FALSE AND status NOT IN ('paid', 'uncollectable');
+
+CREATE INDEX IF NOT EXISTS idx_api_usage_company_period
+  ON api_usage_tracking(company_id, period DESC);
+
+CREATE INDEX IF NOT EXISTS idx_platform_daily_stats
+  ON platform_daily_stats(metric_key, date DESC);
 

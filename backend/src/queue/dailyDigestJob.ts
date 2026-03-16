@@ -83,7 +83,14 @@ export function startDailyDigestWorker(): void {
           }
         }
       },
-      { connection }
+      ({
+        connection,
+        concurrency: 1,
+        // Blocking fetch optimization for daily cron job
+        pollInterval: 120000,       // 2 minute poll (job runs daily anyway)
+        tryBlockedFetch: true,      // Use BZPOPMIN (blocking)
+        maxStalCount: 2,            // Aggressively switch to blocking mode
+      } as any)
     );
 
     digestWorker.on('failed', (job, err) => {
