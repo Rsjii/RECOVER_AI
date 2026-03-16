@@ -248,11 +248,11 @@ export function startDunningWorker(): Worker<DunningEmailJob> {
       connection: getRedisConnection(),
       concurrency: 1,  // Respect Resend's 2 requests/sec rate limit
       // Blocking fetch optimization: fetch jobs without polling
-      // Only polls Redis every 30s when queue is empty (vs default 5s)
-      pollInterval: 30000,        // 30 second poll when idle
-      tryBlockedFetch: true,      // Use BZPOPMIN (blocking) instead of BLPOP (polling)
-      maxStalCount: 2,            // Aggressively switch to blocking mode
-      stalledInterval: 600000,    // Check for stalled jobs every 10 min (default is 30s = 14,400 cmds/day)
+      pollInterval: 30000,        // 30 second poll when idle (fallback if blocking disabled)
+      tryBlockedFetch: true,      // Use BZPOPMIN (blocking) — blocks instead of polling
+      maxStalCount: 2,            // Aggressively switch to blocking mode immediately
+      stalledInterval: 600000,    // Check for stalled jobs every 10 min (instead of default 30s)
+      drainDelay: 60,             // Long poll for 60 seconds when queue empty (instead of default 5s)
     } as any)
   );
 
