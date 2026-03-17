@@ -1,16 +1,17 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 
 const PLANS = [
   {
     name: 'Starter',
-    price: '$1,500',
+    monthlyPrice: '$499',
+    annualPrice: '$399',
     period: '/mo',
     fee: '+ 1% success fee',
     desc: 'For growing SaaS teams starting their AR recovery journey.',
-    users: 'Up to 5 users',
-    invoices: 'Up to 500 invoices/mo',
+    users: 'Up to 3 users',
+    invoices: 'Up to 300 invoices/mo',
     features: [
       'Stripe integration',
       'AI dunning emails (5 per invoice)',
@@ -24,11 +25,12 @@ const PLANS = [
   },
   {
     name: 'Growth',
-    price: '$2,500',
+    monthlyPrice: '$999',
+    annualPrice: '$799',
     period: '/mo',
-    fee: '+ 1% success fee',
+    fee: '+ 0.75% success fee',
     desc: 'For scaling teams with high invoice volume and complex workflows.',
-    users: 'Up to 25 users',
+    users: 'Up to 15 users',
     invoices: 'Unlimited invoices',
     features: [
       'Everything in Starter',
@@ -44,9 +46,10 @@ const PLANS = [
   },
   {
     name: 'Enterprise',
-    price: 'Custom',
+    monthlyPrice: 'Custom',
+    annualPrice: 'Custom',
     period: '',
-    fee: '+ 0.75% success fee',
+    fee: '+ 0.5% success fee',
     desc: 'For large finance teams needing custom integrations and SLAs.',
     users: 'Unlimited users + SSO',
     invoices: 'Unlimited invoices',
@@ -65,7 +68,58 @@ const PLANS = [
   },
 ];
 
+const RoiCalculator: React.FC = () => {
+  const [ar, setAr] = useState('');
+  const arNum = parseFloat(ar.replace(/,/g, '')) || 0;
+  const recoveryLow = Math.round(arNum * 0.20);
+  const recoveryHigh = Math.round(arNum * 0.35);
+  const feeLow = Math.round(recoveryLow * 0.01);
+  const feeHigh = Math.round(recoveryHigh * 0.01);
+  const netLow = recoveryLow - feeLow - 499;
+  const netHigh = recoveryHigh - feeHigh - 499;
+  const hasResult = arNum > 0;
+
+  return (
+    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-2xl p-8 text-center">
+      <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">How much could you recover?</h2>
+      <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Enter your monthly overdue AR to see your estimated ROI</p>
+      <div className="flex items-center gap-2 max-w-xs mx-auto mb-6">
+        <span className="text-gray-500 text-lg">$</span>
+        <input
+          type="text"
+          value={ar}
+          onChange={(e) => setAr(e.target.value.replace(/[^0-9,]/g, ''))}
+          placeholder="50,000"
+          className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-center text-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        <span className="text-gray-500 text-sm">/mo</span>
+      </div>
+      {hasResult && (
+        <div className="grid grid-cols-3 gap-4 text-left">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+            <p className="text-xs text-gray-500 mb-1">Estimated recovery</p>
+            <p className="text-xl font-bold text-green-600">${recoveryLow.toLocaleString()} – ${recoveryHigh.toLocaleString()}</p>
+            <p className="text-xs text-gray-400 mt-1">20–35% of overdue AR</p>
+          </div>
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+            <p className="text-xs text-gray-500 mb-1">Your total cost</p>
+            <p className="text-xl font-bold text-gray-900 dark:text-white">${(499 + feeLow).toLocaleString()} – ${(499 + feeHigh).toLocaleString()}</p>
+            <p className="text-xs text-gray-400 mt-1">$499 base + 1% success fee</p>
+          </div>
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-blue-300 dark:border-blue-700">
+            <p className="text-xs text-gray-500 mb-1">Your net gain</p>
+            <p className="text-xl font-bold text-blue-600">${netLow.toLocaleString()} – ${netHigh.toLocaleString()}</p>
+            <p className="text-xs text-gray-400 mt-1">after all fees</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const Pricing: React.FC = () => {
+  const [billingInterval, setBillingInterval] = useState<'monthly' | 'annual'>('monthly');
+
   useEffect(() => { document.title = 'Pricing — RecoverAI'; }, []);
 
   return (
@@ -94,14 +148,46 @@ const Pricing: React.FC = () => {
           If we don't recover anything, you pay just the base.
         </p>
         <div className="mt-4 inline-flex items-center gap-2 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-sm px-4 py-2 rounded-full">
-          14-day free trial on all plans. No credit card required.
+          21-day free trial on all plans. No credit card required.
+        </div>
+
+        {/* Billing toggle */}
+        <div className="mt-8 flex items-center justify-center gap-4">
+          <button
+            onClick={() => setBillingInterval('monthly')}
+            className={`px-4 py-2 rounded-lg font-medium transition ${
+              billingInterval === 'monthly'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-300 hover:bg-gray-200'
+            }`}
+          >
+            Monthly
+          </button>
+          <button
+            onClick={() => setBillingInterval('annual')}
+            className={`px-4 py-2 rounded-lg font-medium transition relative ${
+              billingInterval === 'annual'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-300 hover:bg-gray-200'
+            }`}
+          >
+            Annual
+            {billingInterval === 'annual' && (
+              <span className="ml-2 inline-block bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200 text-xs px-2 py-0.5 rounded">
+                Save 20%
+              </span>
+            )}
+          </button>
         </div>
       </section>
 
       {/* Plans */}
       <section className="max-w-6xl mx-auto px-6 pb-16">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {PLANS.map((plan) => (
+          {PLANS.map((plan) => {
+            const displayPrice = billingInterval === 'monthly' ? plan.monthlyPrice : plan.annualPrice;
+            const billedText = billingInterval === 'annual' ? ' billed annually' : '';
+            return (
             <div
               key={plan.name}
               className={`relative rounded-2xl border p-8 flex flex-col ${
@@ -124,8 +210,11 @@ const Pricing: React.FC = () => {
               </div>
 
               <div className="mb-2">
-                <span className="text-4xl font-bold text-gray-900 dark:text-white">{plan.price}</span>
+                <span className="text-4xl font-bold text-gray-900 dark:text-white">{displayPrice}</span>
                 <span className="text-gray-500 text-sm">{plan.period}</span>
+                {billingInterval === 'annual' && displayPrice !== 'Custom' && (
+                  <div className="text-xs text-gray-500 mt-1">{billedText}</div>
+                )}
               </div>
               <p className="text-sm text-blue-600 font-medium mb-1">{plan.fee}</p>
               <p className="text-xs text-gray-500 mb-6">{plan.users} · {plan.invoices}</p>
@@ -148,8 +237,14 @@ const Pricing: React.FC = () => {
                 </Button>
               </Link>
             </div>
-          ))}
+            );
+          })}
         </div>
+      </section>
+
+      {/* ROI Calculator */}
+      <section className="max-w-3xl mx-auto px-6 pb-16">
+        <RoiCalculator />
       </section>
 
       {/* Success fee explainer */}

@@ -57,10 +57,12 @@ const Setup: React.FC = () => {
     window.location.href = `https://connect.stripe.com/oauth/v2/authorize?${params.toString()}`;
   };
 
+  const [billingInterval, setBillingInterval] = useState<'monthly' | 'annual'>('monthly');
+
   const handlePlanSelect = async (plan: 'starter' | 'growth' | 'enterprise') => {
     setCheckoutLoading(true);
     try {
-      const res = await api.post('/billing/checkout', { plan });
+      const res = await api.post('/billing/checkout', { plan, billingInterval });
       if (res.data?.checkoutUrl) {
         window.location.href = res.data.checkoutUrl;
       } else {
@@ -220,14 +222,25 @@ const Setup: React.FC = () => {
           Your API keys are encrypted with AES-256-GCM and never stored in plaintext.
         </p>
 
-        {stripeConnected && (
-          <div className="mt-6 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
-            <h3 className="font-semibold text-gray-900 dark:text-white mb-4">Choose Your Plan</h3>
+        <div className="mt-6 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-gray-900 dark:text-white">Choose Your Plan</h3>
+              <div className="flex gap-1 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+                <button
+                  onClick={() => setBillingInterval('monthly')}
+                  className={`text-xs px-3 py-1 rounded-md transition ${billingInterval === 'monthly' ? 'bg-white dark:bg-gray-600 font-medium shadow-sm' : 'text-gray-500'}`}
+                >Monthly</button>
+                <button
+                  onClick={() => setBillingInterval('annual')}
+                  className={`text-xs px-3 py-1 rounded-md transition ${billingInterval === 'annual' ? 'bg-white dark:bg-gray-600 font-medium shadow-sm' : 'text-gray-500'}`}
+                >Annual <span className="text-green-600">-20%</span></button>
+              </div>
+            </div>
             <div className="space-y-3">
               {[
-                { id: 'starter', name: 'Starter', price: '$99/mo', desc: 'Up to 500 invoices' },
-                { id: 'growth', name: 'Growth', price: '$299/mo', desc: 'Unlimited invoices', popular: true },
-                { id: 'enterprise', name: 'Enterprise', price: 'Custom', desc: 'Custom integrations' },
+                { id: 'starter', name: 'Starter', monthly: '$499/mo', annual: '$399/mo', desc: 'Up to 300 invoices, 3 users' },
+                { id: 'growth', name: 'Growth', monthly: '$999/mo', annual: '$799/mo', desc: 'Unlimited invoices, 15 users', popular: true },
+                { id: 'enterprise', name: 'Enterprise', monthly: 'Custom', annual: 'Custom', desc: 'Custom integrations + SLA' },
               ].map((plan) => (
                 <button
                   key={plan.id}
@@ -244,13 +257,14 @@ const Setup: React.FC = () => {
                       <p className="font-medium text-gray-900 dark:text-white">{plan.name}</p>
                       <p className="text-xs text-gray-500 dark:text-gray-400">{plan.desc}</p>
                     </div>
-                    <p className="font-semibold text-gray-900 dark:text-white">{plan.price}</p>
+                    <p className="font-semibold text-gray-900 dark:text-white">
+                      {billingInterval === 'monthly' ? plan.monthly : plan.annual}
+                    </p>
                   </div>
                 </button>
               ))}
             </div>
           </div>
-        )}
       </div>
     </div>
   );

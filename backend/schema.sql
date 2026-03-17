@@ -310,6 +310,8 @@ CREATE TABLE IF NOT EXISTS subscriptions (
   status VARCHAR(20) NOT NULL DEFAULT 'trialing', -- trialing | active | past_due | canceled
   stripe_customer_id VARCHAR(120),
   stripe_subscription_id VARCHAR(120),
+  ls_subscription_id VARCHAR(120),
+  ls_variant_id VARCHAR(50),
   current_period_start TIMESTAMPTZ,
   current_period_end TIMESTAMPTZ,
   trial_ends_at TIMESTAMPTZ,

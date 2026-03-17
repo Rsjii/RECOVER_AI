@@ -110,6 +110,7 @@ export const Sidebar: React.FC = () => {
     return { title: 'Free Plan', sub: 'Upgrade for full access' };
   };
 
+  const isDemo = localStorage.getItem('isDemo') === 'true';
   const { title, sub } = trialLabel();
   const isBadStatus = trial?.status === 'past_due' || trial?.status === 'canceled';
 
@@ -171,23 +172,32 @@ export const Sidebar: React.FC = () => {
 
       {/* Trial / Subscription Status */}
       <div className="p-4 border-t border-gray-200 dark:border-gray-700">
-        <Link to="/billing">
-          <div className={cn(
-            'rounded-lg p-3 cursor-pointer hover:opacity-90 transition-opacity',
-            isBadStatus
-              ? 'bg-red-50 dark:bg-red-900/20'
-              : 'bg-blue-50 dark:bg-blue-900/20'
-          )}>
-            <p className={cn(
-              'text-xs font-medium',
-              isBadStatus ? 'text-red-700 dark:text-red-300' : 'text-blue-700 dark:text-blue-300'
-            )}>{title}</p>
-            <p className={cn(
-              'text-xs mt-0.5',
-              isBadStatus ? 'text-red-600/70 dark:text-red-400/70' : 'text-blue-600/70 dark:text-blue-400/70'
-            )}>{sub}</p>
-          </div>
-        </Link>
+        {isDemo ? (
+          <Link to="/signup">
+            <div className="rounded-lg p-3 bg-blue-50 dark:bg-blue-900/20 hover:opacity-90 transition-opacity cursor-pointer">
+              <p className="text-xs font-medium text-blue-700 dark:text-blue-300">Viewing demo</p>
+              <p className="text-xs mt-0.5 text-blue-600/70 dark:text-blue-400/70">Start 21-day free trial →</p>
+            </div>
+          </Link>
+        ) : (
+          <Link to="/billing">
+            <div className={cn(
+              'rounded-lg p-3 cursor-pointer hover:opacity-90 transition-opacity',
+              isBadStatus
+                ? 'bg-red-50 dark:bg-red-900/20'
+                : 'bg-blue-50 dark:bg-blue-900/20'
+            )}>
+              <p className={cn(
+                'text-xs font-medium',
+                isBadStatus ? 'text-red-700 dark:text-red-300' : 'text-blue-700 dark:text-blue-300'
+              )}>{title}</p>
+              <p className={cn(
+                'text-xs mt-0.5',
+                isBadStatus ? 'text-red-600/70 dark:text-red-400/70' : 'text-blue-600/70 dark:text-blue-400/70'
+              )}>{sub}</p>
+            </div>
+          </Link>
+        )}
       </div>
     </aside>
   );

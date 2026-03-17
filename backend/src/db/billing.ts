@@ -28,10 +28,14 @@ export async function ensureDefaultPlans(): Promise<void> {
   await pool.query(
     `INSERT INTO subscription_plans (code, name, base_price_usd, success_fee_percent, billing_interval, features, limits)
      VALUES
-       ('starter', 'Starter', 1500, 1.00, 'monthly', '{"billing":true}', '{"users":5}'),
-       ('growth', 'Growth', 2500, 1.00, 'monthly', '{"billing":true,"api_access":true}', '{"users":25}'),
-       ('enterprise', 'Enterprise', 5000, 0.75, 'monthly', '{"billing":true,"api_access":true,"sso":true}', '{"users":1000}')
-     ON CONFLICT (code) DO NOTHING`
+       ('starter', 'Starter', 499, 1.00, 'monthly', '{"stripe":true}', '{"users":3,"invoices_per_month":300}'),
+       ('growth', 'Growth', 999, 0.75, 'monthly', '{"stripe":true,"quickbooks":true,"chargebee":true,"payment_plans":true,"rbac":true}', '{"users":15}'),
+       ('enterprise', 'Enterprise', 0, 0.50, 'monthly', '{"stripe":true,"quickbooks":true,"chargebee":true,"payment_plans":true,"rbac":true,"sso":true,"api_access":true,"custom_integrations":true}', '{"users":1000}')
+     ON CONFLICT (code) DO UPDATE SET
+       base_price_usd = EXCLUDED.base_price_usd,
+       success_fee_percent = EXCLUDED.success_fee_percent,
+       features = EXCLUDED.features,
+       limits = EXCLUDED.limits`
   );
 }
 
@@ -65,6 +69,8 @@ export async function upsertCompanySubscription(input: {
   status: SubscriptionRow['status'];
   stripeCustomerId?: string | null;
   stripeSubscriptionId?: string | null;
+  lsSubscriptionId?: string | null;
+  lsVariantId?: string | null;
   periodStart?: Date | null;
   periodEnd?: Date | null;
   trialEndsAt?: Date | null;
@@ -78,13 +84,15 @@ export async function upsertCompanySubscription(input: {
   await pool.query(
     `INSERT INTO subscriptions (
        company_id, plan_id, status, stripe_customer_id, stripe_subscription_id,
-       current_period_start, current_period_end, trial_ends_at
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+       ls_subscription_id, ls_variant_id, current_period_start, current_period_end, trial_ends_at
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
      ON CONFLICT (company_id) DO UPDATE SET
        plan_id = EXCLUDED.plan_id,
        status = EXCLUDED.status,
        stripe_customer_id = COALESCE(EXCLUDED.stripe_customer_id, subscriptions.stripe_customer_id),
        stripe_subscription_id = COALESCE(EXCLUDED.stripe_subscription_id, subscriptions.stripe_subscription_id),
+       ls_subscription_id = COALESCE(EXCLUDED.ls_subscription_id, subscriptions.ls_subscription_id),
+       ls_variant_id = COALESCE(EXCLUDED.ls_variant_id, subscriptions.ls_variant_id),
        current_period_start = COALESCE(EXCLUDED.current_period_start, subscriptions.current_period_start),
        current_period_end = COALESCE(EXCLUDED.current_period_end, subscriptions.current_period_end),
        trial_ends_at = COALESCE(EXCLUDED.trial_ends_at, subscriptions.trial_ends_at),
@@ -95,6 +103,8 @@ export async function upsertCompanySubscription(input: {
       input.status,
       input.stripeCustomerId ?? null,
       input.stripeSubscriptionId ?? null,
+      input.lsSubscriptionId ?? null,
+      input.lsVariantId ?? null,
       input.periodStart ?? null,
       input.periodEnd ?? null,
       input.trialEndsAt ?? null,

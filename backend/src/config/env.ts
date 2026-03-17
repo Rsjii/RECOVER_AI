@@ -27,6 +27,12 @@ export const config = {
     apiKey: process.env.LEMON_SQUEEZY_API_KEY,
     storeId: process.env.LEMON_SQUEEZY_STORE_ID,
     webhookSecret: process.env.LEMON_SQUEEZY_WEBHOOK_SECRET,
+    variantStarterMonthly: process.env.LS_VARIANT_STARTER_MONTHLY,
+    variantStarterAnnual: process.env.LS_VARIANT_STARTER_ANNUAL,
+    variantGrowthMonthly: process.env.LS_VARIANT_GROWTH_MONTHLY,
+    variantGrowthAnnual: process.env.LS_VARIANT_GROWTH_ANNUAL,
+    variantEnterpriseMonthly: process.env.LS_VARIANT_ENTERPRISE_MONTHLY,
+    variantEnterpriseAnnual: process.env.LS_VARIANT_ENTERPRISE_ANNUAL,
   },
   sendgrid: {
     apiKey: process.env.SENDGRID_API_KEY,

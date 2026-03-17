@@ -291,18 +291,24 @@ export const reconcileBillingState = async (req: Request, res: Response): Promis
 
 export const createLemonSqueezyCheckout = async (req: Request, res: Response): Promise<void> => {
   const companyId = (req as any).companyId as string;
-  const { plan } = req.body as { plan: 'starter' | 'growth' | 'enterprise' };
+  const { plan, billingInterval } = req.body as { plan: 'starter' | 'growth' | 'enterprise'; billingInterval?: 'monthly' | 'annual' };
 
   try {
-    logInfo(LOG_MODULE, 'createLemonSqueezyCheckout', 'Creating checkout', { companyId, plan });
+    logInfo(LOG_MODULE, 'createLemonSqueezyCheckout', 'Creating checkout', { companyId, plan, billingInterval });
 
     if (!['starter', 'growth', 'enterprise'].includes(plan)) {
       sendErrorResponse(res, 400, 'Invalid plan');
       return;
     }
 
+    if (billingInterval && !['monthly', 'annual'].includes(billingInterval)) {
+      sendErrorResponse(res, 400, 'Invalid billingInterval (must be monthly or annual)');
+      return;
+    }
+
     const result = await lemonSqueezyService.createCheckout({
       planId: plan,
+      billingInterval: billingInterval || 'monthly',
       customerEmail: (req as any).email || 'unknown@example.com',
       customerName: (req as any).name || 'User',
       companyId,

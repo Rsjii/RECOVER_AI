@@ -61,9 +61,9 @@ class AuthService {
       companyId: company.id,
       planCode: 'starter',
       status: 'trialing',
-      trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+      trialEndsAt: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000),
       periodStart: new Date(),
-      periodEnd: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+      periodEnd: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000),
     });
 
     // Generate and send OTP for email verification
@@ -356,9 +356,9 @@ async googleLogin(code: string): Promise<AuthResponse> {
       companyId: company.id,
       planCode: 'starter',
       status: 'trialing',
-      trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+      trialEndsAt: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000),
       periodStart: new Date(),
-      periodEnd: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+      periodEnd: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000),
     });
 
     // Audit log

@@ -8,6 +8,7 @@ import { startDailyDigestWorker, stopDailyDigestWorker } from './queue/dailyDige
 import { startAgentLoop, stopAgentLoop } from './queue/agentLoop';
 import { startRecoveryTimelineJob, stopRecoveryTimelineJob } from './queue/recoveryTimelineJob';
 import { startPaymentPlanChargeJob, stopPaymentPlanChargeJob } from './queue/paymentPlanChargeJob';
+import { startTrialExpiryJob, stopTrialExpiryJob } from './queue/trialExpiryJob';
 import { snapshotRedisStats } from './queue/redisStatsJob';
 import { logError, logInfo } from './utils/logger';
 import { initObservability } from './config/observability';
@@ -45,6 +46,7 @@ async function startServer() {
       startAgentLoop();
       startRecoveryTimelineJob();
       startPaymentPlanChargeJob();
+      startTrialExpiryJob();
       // Redis stats snapshot: run once on boot + every 24h
       snapshotRedisStats().catch(() => {});
       setInterval(() => snapshotRedisStats().catch(() => {}), 24 * 60 * 60 * 1000);
@@ -71,6 +73,7 @@ async function startServer() {
       await stopAgentLoop();
       await stopRecoveryTimelineJob();
       await stopPaymentPlanChargeJob();
+      stopTrialExpiryJob();
       server.close(() => {
         logInfo('server', 'shutdown', 'Server closed');
         process.exit(0);

@@ -425,7 +425,11 @@ export const resendOtp = async (req: Request, res: Response) => {
     if (isDev) {
       logInfo(handler, 'DEV MODE: OTP is 123456, no email sent', { userId: user.id });
     } else {
-      await resendService.sendOTP({ email: user.email, code: otpCode });
+      const result = await resendService.sendOTP({ email: user.email, code: otpCode });
+      if (!result.success) {
+        logError(handler, 'Failed to send OTP email', result.error);
+        return sendErrorResponse(res, 500, 'Failed to send OTP email. Please try again.');
+      }
     }
 
     logInfo(handler, 'OTP resent successfully', { userId: user.id, email: user.email });

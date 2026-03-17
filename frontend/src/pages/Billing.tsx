@@ -50,8 +50,13 @@ const Billing: React.FC = () => {
   const changePlan = async (planCode: string) => {
     setActionLoading(true);
     try {
-      await api.put(API_ENDPOINTS.billing.subscription, { planCode, status: 'active' });
-      await load();
+      const res = await api.post('/billing/checkout', { plan: planCode, billingInterval: 'monthly' });
+      const checkoutUrl = (res as any).checkoutUrl || (res as any).data?.checkoutUrl;
+      if (checkoutUrl) {
+        window.location.href = checkoutUrl;
+      } else {
+        await load();
+      }
     } finally {
       setActionLoading(false);
     }

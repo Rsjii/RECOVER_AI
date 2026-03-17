@@ -10,6 +10,7 @@ import {
   trackEmailClick,
 } from '../controllers/emailController';
 import { authMiddleware } from '../middleware/auth';
+import { requireActiveSubscription } from '../middleware/subscriptionGate';
 
 const router = Router();
 
@@ -22,10 +23,10 @@ router.get('/track/click', trackEmailClick);
 router.use(authMiddleware);
 
 // Schedule dunning emails for an invoice
-router.post('/schedule', scheduleInvoiceEmails);
+router.post('/schedule', requireActiveSubscription, scheduleInvoiceEmails);
 
 // Send a dunning email immediately
-router.post('/send-now', sendEmailNow);
+router.post('/send-now', requireActiveSubscription, sendEmailNow);
 
 // Get email logs
 router.get('/logs', getEmailLogs);

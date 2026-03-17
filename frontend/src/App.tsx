@@ -25,6 +25,7 @@ import Onboarding from './pages/Onboarding';
 import StripeCallback from './pages/StripeCallback';
 import Unsubscribe from './pages/Unsubscribe';
 import DemoLaunch from './pages/DemoLaunch';
+import BillingSuccess from './pages/BillingSuccess';
 
 // Placeholder pages (create empty files for now, fill in later phases)
 const Dashboard = React.lazy(() => import('./pages/Dashboard'));
@@ -121,6 +122,14 @@ const App: React.FC = () => {
               element={
                 <ProtectedRoute>
                   <Onboarding />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/billing/success"
+              element={
+                <ProtectedRoute>
+                  <BillingSuccess />
                 </ProtectedRoute>
               }
             />

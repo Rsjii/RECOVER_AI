@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { authMiddleware } from '../middleware/auth';
+import { requireActiveSubscription } from '../middleware/subscriptionGate';
 import { getStats, getPipeline, getRiskList, getRecoveryTimeline } from '../controllers/dashboardController';
 import { runDecisionEngineNow, runDecisionEngineDryRun } from '../queue/agentLoop';
 import { findInvoiceById } from '../db/invoices';
@@ -19,7 +20,7 @@ router.get('/timeline', getRecoveryTimeline);
  * POST /api/dashboard/agent/trigger
  * Manually trigger an agent run and return a real-time summary.
  */
-router.post('/agent/trigger', async (req, res) => {
+router.post('/agent/trigger', requireActiveSubscription, async (req, res) => {
   try {
     logInfo('dashboardRoute', 'agentTrigger', 'Manual agent run starting', {
       companyId: (req as any).companyId,
@@ -66,7 +67,7 @@ router.post('/agent/preview', async (req, res) => {
  * Send a single email for a specific invoice (called by dashboard individual Send button).
  * Accepts invoiceId and optional emailOverride.
  */
-router.post('/agent/trigger-single', async (req, res) => {
+router.post('/agent/trigger-single', requireActiveSubscription, async (req, res) => {
   try {
     const companyId = (req as any).companyId as string;
     const { invoiceId, emailOverride } = req.body;

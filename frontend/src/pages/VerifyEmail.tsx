@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useNotification } from '../hooks/useNotification';
 import { useAuth } from '../hooks/useAuth';
+import { api } from '../lib/api';
 
 export default function VerifyEmail() {
   const navigate = useNavigate();
@@ -52,47 +53,28 @@ export default function VerifyEmail() {
 
     setLoading(true);
     try {
-      const response = await fetch('/api/auth/verify-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ otp }),
-      });
-
-      if (!response.ok) {
-        try {
-          const error = await response.json();
-          const msg = error.error || 'Invalid or expired OTP';
-          const isExpired = msg.toLowerCase().includes('expired');
-          addToast({
-            type: 'error',
-            message: isExpired ? 'Code expired — click Resend to get a new one' : msg,
-          });
-        } catch {
-          addToast({ type: 'error', message: 'Invalid or expired OTP' });
-        }
-        setDigits(['', '', '', '', '', '']);
-        inputRefs.current[0]?.focus();
-        return;
-      }
+      await api.post('/api/auth/verify-email', { otp });
 
       addToast({ type: 'success', message: 'Email verified successfully!' });
 
       // Refresh auth context so emailVerified = true before navigating
       try {
-        const meRes = await fetch('/api/auth/me', { credentials: 'include' });
-        if (meRes.ok) {
-          const meData = await meRes.json();
-          if (meData.user) setUser(meData.user);
-        }
+        const meData = await api.get('/api/auth/me');
+        if (meData.user) setUser(meData.user);
       } catch {
         // Non-critical — navigate anyway
       }
 
       navigate(from, { replace: true });
     } catch (err: any) {
-      console.error('Verify email error:', err);
-      addToast({ type: 'error', message: err.message || 'Failed to verify email. Please try again.' });
+      const msg = err.message || 'Invalid or expired OTP';
+      const isExpired = msg.toLowerCase().includes('expired');
+      addToast({
+        type: 'error',
+        message: isExpired ? 'Code expired — click Resend to get a new one' : msg,
+      });
+      setDigits(['', '', '', '', '', '']);
+      inputRefs.current[0]?.focus();
     } finally {
       setLoading(false);
     }
@@ -103,41 +85,21 @@ export default function VerifyEmail() {
 
     setLoading(true);
     try {
-      // Get the user's email from session or local storage
-      const meResponse = await fetch('/api/auth/me', {
-        method: 'GET',
-        credentials: 'include',
-      });
-
       let email: string | undefined;
-      if (meResponse.ok) {
-        const meData = await meResponse.json();
+      try {
+        const meData = await api.get('/api/auth/me');
         email = meData.user?.email;
+      } catch {
+        // Not authenticated — email param will be used if available
       }
 
-      const response = await fetch('/api/auth/resend-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ email }),
-      });
-
-      if (!response.ok) {
-        try {
-          const error = await response.json();
-          addToast({ type: 'error', message: error.error || 'Failed to resend OTP' });
-        } catch {
-          addToast({ type: 'error', message: 'Failed to resend OTP' });
-        }
-        return;
-      }
+      await api.post('/api/auth/resend-otp', { email });
 
       addToast({ type: 'success', message: 'OTP sent to your email' });
       setResendCooldown(60);
       setDigits(['', '', '', '', '', '']);
       inputRefs.current[0]?.focus();
     } catch (err: any) {
-      console.error('Resend OTP error:', err);
       addToast({ type: 'error', message: err.message || 'Failed to resend OTP. Please try again.' });
     } finally {
       setLoading(false);
