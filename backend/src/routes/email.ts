@@ -4,7 +4,7 @@ import {
   sendEmailNow,
   getEmailLogs,
   getQueueStats,
-  sendgridWebhook,
+  resendWebhook,
   previewEmail,
   trackEmailOpen,
   trackEmailClick,
@@ -14,7 +14,7 @@ import { authMiddleware } from '../middleware/auth';
 const router = Router();
 
 // Public endpoints (no auth)
-router.post('/webhook/sendgrid', sendgridWebhook);
+router.post('/webhook/resend', resendWebhook);
 router.get('/track/open', trackEmailOpen);
 router.get('/track/click', trackEmailClick);
 

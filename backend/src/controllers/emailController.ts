@@ -182,72 +182,81 @@ export const getEmailLogs = async (req: Request, res: Response): Promise<void> =
 };
 
 /**
- * SendGrid webhook — track email delivery events (open, click, bounce, etc.)
- * POST /api/email/webhook/sendgrid
- * No auth required — raw body, verified by IP or basic signature
+ * Resend webhook — track email delivery events (open, click, bounce, delivered, etc.)
+ * POST /api/email/webhook/resend
+ * No auth required — signature verified by Resend's HMAC
  */
-export const sendgridWebhook = async (req: Request, res: Response): Promise<void> => {
-  const handler = 'sendgridWebhook';
+export const resendWebhook = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'resendWebhook';
 
   try {
-    const events: SendGridWebhookEvent[] = Array.isArray(req.body) ? req.body : [];
+    // Resend sends a single event object (not an array like SendGrid)
+    const event = req.body;
 
-    logInfo(LOG_MODULE, handler, 'SendGrid webhook received', { eventCount: events.length });
-
-    for (const event of events) {
-      const messageId = event.sg_message_id;
-
-      if (!messageId) {
-        logWarn(LOG_MODULE, handler, 'Event missing sg_message_id — skipping', { event: event.event });
-        continue;
-      }
-
-      const eventTimestamp = Number((event as any).timestamp || 0);
-      // 24h replay window for provider retries/replays.
-      if (eventTimestamp > 0 && Math.abs(Date.now() / 1000 - eventTimestamp) > 24 * 60 * 60) {
-        logWarn(LOG_MODULE, handler, 'Ignored stale SendGrid event', { messageId, event: event.event, eventTimestamp });
-        continue;
-      }
-
-      const dedupeKey = `${messageId}:${event.event}:${eventTimestamp || 'na'}`;
-      const payloadHash = crypto.createHash('sha256').update(JSON.stringify(event)).digest('hex');
-      const accepted = await SecurityDB.registerWebhookEvent({
-        provider: 'sendgrid',
-        eventId: dedupeKey,
-        eventType: event.event,
-        payloadHash,
-      });
-
-      if (!accepted) {
-        logInfo(LOG_MODULE, handler, 'Duplicate SendGrid event ignored', { dedupeKey });
-        continue;
-      }
-
-      switch (event.event) {
-        case 'delivered':
-          await updateEmailStatus(messageId, 'delivered');
-          break;
-        case 'open':
-          await updateEmailStatus(messageId, 'opened', 'opened_at');
-          break;
-        case 'click':
-          await updateEmailStatus(messageId, 'clicked', 'clicked_at');
-          break;
-        case 'bounce':
-        case 'blocked':
-        case 'invalid_email':
-          await updateEmailStatus(messageId, 'bounced');
-          break;
-        default:
-          logInfo(LOG_MODULE, handler, `Unhandled event type: ${event.event}`, { messageId });
-      }
-      await SecurityDB.completeWebhookEvent('sendgrid', dedupeKey);
+    if (!event || !event.data || !event.data.email_id) {
+      logWarn(LOG_MODULE, handler, 'Invalid Resend webhook payload — missing email_id', { event: event?.type });
+      res.status(200).json({ received: true });
+      return;
     }
 
+    const emailId = event.data.email_id;
+    const eventType = event.type; // email.opened | email.clicked | email.bounced | email.delivered | etc.
+
+    logInfo(LOG_MODULE, handler, 'Resend webhook received', { emailId, eventType });
+
+    // Extract timestamp from Resend event (ISO 8601 format in created_at field)
+    const createdAt = event.created_at ? new Date(event.created_at).getTime() / 1000 : 0;
+    // 24h replay window for provider retries/replays.
+    if (createdAt > 0 && Math.abs(Date.now() / 1000 - createdAt) > 24 * 60 * 60) {
+      logWarn(LOG_MODULE, handler, 'Ignored stale Resend event', { emailId, eventType, createdAt });
+      res.status(200).json({ received: true });
+      return;
+    }
+
+    const dedupeKey = `${emailId}:${eventType}:${createdAt || 'na'}`;
+    const payloadHash = crypto.createHash('sha256').update(JSON.stringify(event)).digest('hex');
+    const accepted = await SecurityDB.registerWebhookEvent({
+      provider: 'resend',
+      eventId: dedupeKey,
+      eventType: eventType,
+      payloadHash,
+    });
+
+    if (!accepted) {
+      logInfo(LOG_MODULE, handler, 'Duplicate Resend event ignored', { dedupeKey });
+      res.status(200).json({ received: true });
+      return;
+    }
+
+    // Handle Resend event types
+    // Resend webhook events: https://resend.com/docs/api-reference/webhooks
+    switch (eventType) {
+      case 'email.delivered':
+        await updateEmailStatus(emailId, 'delivered');
+        break;
+      case 'email.opened':
+        await updateEmailStatus(emailId, 'opened', 'opened_at');
+        break;
+      case 'email.clicked':
+        await updateEmailStatus(emailId, 'clicked', 'clicked_at');
+        break;
+      case 'email.bounced':
+      case 'email.complained':
+        await updateEmailStatus(emailId, 'bounced');
+        break;
+      case 'email.sent':
+        // Resend also sends 'sent' event, but we already know email was sent when queued
+        logInfo(LOG_MODULE, handler, 'Email sent confirmation from Resend', { emailId });
+        break;
+      default:
+        logInfo(LOG_MODULE, handler, `Unhandled Resend event type: ${eventType}`, { emailId });
+    }
+
+    await SecurityDB.completeWebhookEvent('resend', dedupeKey);
     res.status(200).json({ received: true });
   } catch (error) {
     logError(LOG_MODULE, handler, 'Webhook processing error', error);
-    // Always return 200 to SendGrid so it doesn't retry
+    // Always return 200 to Resend so it doesn't retry
     res.status(200).json({ received: true });
   }
 };
