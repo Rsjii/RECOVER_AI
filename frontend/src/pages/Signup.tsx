@@ -56,8 +56,8 @@ const Signup: React.FC = () => {
     setSubmitting(true);
     try {
       await signup(form.email, form.password, form.company_name, form.firstName, form.lastName);
-      addToast({ type: 'success', message: 'Account created! Let\'s set up your integrations.' });
-      navigate('/setup');
+      addToast({ type: 'success', message: 'Account created! Verify your email to continue.' });
+      navigate('/verify-email');
     } catch (err: any) {
       setApiError(err.message || 'Signup failed. Please try again.');
     } finally {

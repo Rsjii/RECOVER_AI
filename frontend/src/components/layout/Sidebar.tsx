@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '../../lib/utils';
 import { api } from '../../lib/api';
+import { useAuth } from '../../hooks/useAuth';
 
 const navItems = [
   {
-    path: '/', label: 'Dashboard',
+    path: '/dashboard', label: 'Dashboard',
     icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1h-2z" /></svg>
   },
   {
@@ -58,6 +59,8 @@ interface TrialInfo {
 
 export const Sidebar: React.FC = () => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const [trial, setTrial] = useState<TrialInfo | null>(null);
   const [filteredNavItems, setFilteredNavItems] = useState(navItems);
 
@@ -69,13 +72,12 @@ export const Sidebar: React.FC = () => {
         setFilteredNavItems(navItems);
       })
       .catch((err: any) => {
-        // Not admin (403) or error — hide admin tab
-        if (err?.status === 403) {
-          setFilteredNavItems(navItems.filter(item => item.path !== '/admin'));
-        } else {
-          // Other error, hide admin tab to be safe
+        // Only hide admin tab if explicitly forbidden (403)
+        const status = err?.response?.status ?? err?.status;
+        if (status === 403) {
           setFilteredNavItems(navItems.filter(item => item.path !== '/admin'));
         }
+        // Other errors (500, network) — keep admin tab visible
       });
 
     // Fetch billing subscription
@@ -111,11 +113,13 @@ export const Sidebar: React.FC = () => {
   const { title, sub } = trialLabel();
   const isBadStatus = trial?.status === 'past_due' || trial?.status === 'canceled';
 
+  const showEmailBanner = user && !user.emailVerified;
+
   return (
     <aside className="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col min-h-screen">
       {/* Brand */}
       <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-700">
-        <Link to="/" className="flex items-center gap-2.5">
+        <Link to="/dashboard" className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center flex-shrink-0">
             <span className="text-white font-bold text-sm">R</span>
           </div>
@@ -123,11 +127,27 @@ export const Sidebar: React.FC = () => {
         </Link>
       </div>
 
+      {/* Email Verification Banner */}
+      {showEmailBanner && (
+        <button
+          onClick={() => navigate('/verify-email', { state: { from: location.pathname } })}
+          className="mx-3 mt-3 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg flex items-start gap-2.5 w-[calc(100%-1.5rem)] text-left hover:bg-yellow-100 dark:hover:bg-yellow-900/30 transition-colors"
+        >
+          <svg className="w-5 h-5 text-yellow-600 dark:text-yellow-400 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+          </svg>
+          <div className="flex-1">
+            <p className="text-xs font-medium text-yellow-800 dark:text-yellow-300 mb-1">Verify your email</p>
+            <p className="text-xs text-yellow-700 dark:text-yellow-400">Click here to verify →</p>
+          </div>
+        </button>
+      )}
+
       {/* Navigation */}
       <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
         {filteredNavItems.map((item) => {
-          const isActive = item.path === '/'
-            ? location.pathname === '/'
+          const isActive = item.path === '/dashboard'
+            ? location.pathname === '/dashboard'
             : location.pathname.startsWith(item.path);
 
           return (

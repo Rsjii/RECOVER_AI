@@ -3,6 +3,8 @@ import { authService } from '../services/authService';
 import { SignupInput, LoginInput } from '../types/auth';
 import { config } from '../config/env';
 import * as SecurityDB from '../db/security';
+import * as UserDB from '../db/users';
+import resendService from '../services/resendService';
 import { logError as baseLogError, logInfo as baseLogInfo } from '../utils/logger';
 import { sendErrorResponse, parseError } from '../utils/errorHandler';
 
@@ -201,6 +203,7 @@ export const me = async (req: Request, res: Response) => {
         firstName: result.firstName,
         lastName: result.lastName,
         role: result.role,
+        emailVerified: result.emailVerified,
       },
       company: result.company,
     });
@@ -337,6 +340,101 @@ export const resetPassword = async (req: Request, res: Response) => {
     return res.status(200).json({ message: 'Password reset successfully' });
   } catch (err: any) {
     logError(handler, 'Failed', err);
+    const { statusCode, message } = parseError(err);
+    return sendErrorResponse(res, statusCode, message);
+  }
+};
+
+export const verifyEmail = async (req: Request, res: Response) => {
+  const handler = 'verifyEmail';
+  try {
+    const { otp } = req.body;
+    const userId = (req as any).userId as string | undefined;
+
+    if (!otp || typeof otp !== 'string') {
+      return sendErrorResponse(res, 400, 'OTP must be a string');
+    }
+    if (otp.length !== 6 || !/^\d+$/.test(otp)) {
+      return sendErrorResponse(res, 400, 'OTP must be exactly 6 digits');
+    }
+
+    let user;
+    if (userId) {
+      // Preferred: authenticated user — verify their specific OTP
+      user = await UserDB.findUserById(userId);
+      if (!user) return sendErrorResponse(res, 404, 'User not found');
+      if (user.otp_code !== otp) {
+        logInfo(handler, 'Invalid OTP', { userId });
+        return sendErrorResponse(res, 400, 'Invalid or expired OTP');
+      }
+      if (!user.otp_expires || new Date(user.otp_expires) < new Date()) {
+        logInfo(handler, 'OTP expired', { userId });
+        return sendErrorResponse(res, 400, 'OTP has expired — request a new one');
+      }
+    } else {
+      // Fallback: unauthenticated (edge case) — find by OTP
+      user = await UserDB.findUserByOTP(otp);
+      if (!user) {
+        logInfo(handler, 'Invalid or expired OTP (no auth context)');
+        return sendErrorResponse(res, 400, 'Invalid or expired OTP');
+      }
+    }
+
+    // Clear OTP and mark email as verified
+    await UserDB.clearOTP(user.id);
+
+    logInfo(handler, 'Email verified successfully', { userId: user.id });
+
+    return res.status(200).json({ message: 'Email verified successfully', verified: true });
+  } catch (err: any) {
+    logError(handler, 'Failed to verify email', err);
+    const { statusCode, message } = parseError(err);
+    return sendErrorResponse(res, statusCode, message);
+  }
+};
+
+export const resendOtp = async (req: Request, res: Response) => {
+  const handler = 'resendOtp';
+  try {
+    const userId = (req as any).userId;
+    const { email } = req.body as { email?: string };
+
+    let user;
+    if (userId) {
+      // If authenticated, use user from auth middleware
+      user = await UserDB.findUserById(userId);
+      if (!user) {
+        return sendErrorResponse(res, 404, 'User not found');
+      }
+    } else if (email) {
+      // If not authenticated, lookup by email (for users on verify page)
+      user = await UserDB.findUserByEmail(email);
+      if (!user) {
+        return sendErrorResponse(res, 404, 'User not found');
+      }
+    } else {
+      return sendErrorResponse(res, 400, 'Either authentication or email is required');
+    }
+
+    // Generate new OTP
+    const isDev = process.env.NODE_ENV !== 'production';
+    const otpCode = isDev ? '123456' : String(Math.floor(100000 + Math.random() * 900000));
+    const otpExpires = new Date(Date.now() + 15 * 60 * 1000);
+    await UserDB.setOTP(user.id, otpCode, otpExpires);
+
+    if (isDev) {
+      logInfo(handler, 'DEV MODE: OTP is 123456, no email sent', { userId: user.id });
+    } else {
+      await resendService.sendOTP({ email: user.email, code: otpCode });
+    }
+
+    logInfo(handler, 'OTP resent successfully', { userId: user.id, email: user.email });
+
+    return res.status(200).json({
+      message: 'OTP resent to your email',
+    });
+  } catch (err: any) {
+    logError(handler, 'Failed to resend OTP', err);
     const { statusCode, message } = parseError(err);
     return sendErrorResponse(res, statusCode, message);
   }

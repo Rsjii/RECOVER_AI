@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { authMiddleware } from '../middleware/auth';
 import { tenantScopeGuard } from '../middleware/tenantScope';
-import { listCustomers, getCustomer, unsubscribeCustomer } from '../controllers/customerController';
+import { listCustomers, getCustomer, updateCustomer, unsubscribeCustomer } from '../controllers/customerController';
 
 const router = Router();
 
@@ -13,5 +13,6 @@ router.use(tenantScopeGuard);
 
 router.get('/', listCustomers);
 router.get('/:id', getCustomer);
+router.put('/:id', updateCustomer);
 
 export default router;

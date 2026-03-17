@@ -330,6 +330,9 @@ export const demoLogin = async (req: Request, res: Response): Promise<void> => {
     const companyId = authResult.company.id;
     logInfo(LOG_MODULE, handler, 'Demo company resolved', { companyId });
 
+    // ---- 1b. Mark demo user as email-verified (skip OTP requirement) ----
+    await pool.query(`UPDATE users SET email_verified = true, otp_code = NULL, otp_expires = NULL WHERE id = $1`, [authResult.user.id]);
+
     // ---- 2. Reset existing demo data ----
     await client.query('BEGIN');
     await client.query(`DELETE FROM email_logs   WHERE company_id = $1`, [companyId]);
@@ -573,7 +576,7 @@ export const demoLogin = async (req: Request, res: Response): Promise<void> => {
 
     res.status(200).json({
       message: 'Demo account ready',
-      user: loginResult.user,
+      user: { ...loginResult.user, emailVerified: true },
       company: loginResult.company,
       isDemo: true,
     });

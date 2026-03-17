@@ -5,10 +5,11 @@ import { Spinner } from './ui/Spinner';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
+  requireEmailVerification?: boolean;
 }
 
-const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
-  const { isAuthenticated, isLoading } = useAuth();
+const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requireEmailVerification = false }) => {
+  const { isAuthenticated, isLoading, user } = useAuth();
   const location = useLocation();
 
   if (isLoading) {
@@ -24,6 +25,11 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
 
   if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  // Redirect unverified users to verify-email (preserving intended destination)
+  if (requireEmailVerification && !user?.emailVerified) {
+    return <Navigate to="/verify-email" state={{ from: location }} replace />;
   }
 
   return <>{children}</>;

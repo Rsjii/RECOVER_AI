@@ -253,82 +253,264 @@ const OverviewTab: React.FC<{ metrics: MetricsData }> = ({ metrics }) => {
 
 // ─── Emails Tab ───────────────────────────────────────────────────────────────
 
+interface EmailLog {
+  id: string;
+  sent_at: string;
+  company_id: string;
+  company_name: string;
+  recipient_email: string;
+  email_type: string;
+  status: string;
+  subject: string;
+  opened_at: string | null;
+  clicked_at: string | null;
+}
+
+type EmailSubtab = 'stats' | 'logs';
+
 const EmailsTab: React.FC<{ metrics: MetricsData }> = ({ metrics }) => {
+  const [emailSubtab, setEmailSubtab] = useState<EmailSubtab>('stats');
+  const [emailLogs, setEmailLogs] = useState<EmailLog[]>([]);
+  const [emailLogsLoading, setEmailLogsLoading] = useState(false);
+  const [emailStatusFilter, setEmailStatusFilter] = useState<string>('');
+  const [emailCompanyFilter, setEmailCompanyFilter] = useState<string>('');
+  const [emailOffset, setEmailOffset] = useState(0);
+
+  const loadEmailLogs = React.useCallback(async () => {
+    setEmailLogsLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (emailStatusFilter) params.append('status', emailStatusFilter);
+      if (emailCompanyFilter) params.append('companyId', emailCompanyFilter);
+      params.append('limit', '50');
+      params.append('offset', emailOffset.toString());
+
+      const res = await api.get(`/api/admin/email-logs?${params.toString()}`);
+      setEmailLogs((res as any).data || []);
+    } catch (err) {
+      console.error('Failed to load email logs:', err);
+    } finally {
+      setEmailLogsLoading(false);
+    }
+  }, [emailStatusFilter, emailCompanyFilter, emailOffset]);
+
+  React.useEffect(() => {
+    if (emailSubtab === 'logs') {
+      loadEmailLogs();
+    }
+  }, [emailSubtab, emailStatusFilter, emailCompanyFilter, emailOffset, loadEmailLogs]);
+
   const emailStats = metrics?.emailStats ?? { sent: 0, opened: 0, clicked: 0, failed: 0, bounced: 0, byType: [] };
   const byType = emailStats?.byType ?? [];
   const openRate  = (emailStats?.sent ?? 0) > 0 ? Math.round(((emailStats?.opened ?? 0)  / (emailStats?.sent ?? 0)) * 100) : 0;
   const clickRate = (emailStats?.sent ?? 0) > 0 ? Math.round(((emailStats?.clicked ?? 0) / (emailStats?.sent ?? 0)) * 100) : 0;
 
   return (
-    <div className="space-y-6">
-      {/* Funnel */}
-      <Card>
-        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Delivery Funnel (all time, all companies)</h3>
-        <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">{openRate}% open rate · {clickRate}% click rate</p>
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-center">
-          {[
-            { label: 'Sent',    value: emailStats?.sent ?? 0,    color: 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' },
-            { label: 'Opened',  value: emailStats?.opened ?? 0,  color: 'bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300' },
-            { label: 'Clicked', value: emailStats?.clicked ?? 0, color: 'bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' },
-            { label: 'Bounced', value: emailStats?.bounced ?? 0, color: 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' },
-            { label: 'Failed',  value: emailStats?.failed ?? 0,  color: 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300' },
-          ].map(({ label, value, color }) => (
-            <div key={label} className={cn('rounded-lg px-3 py-3', color)}>
-              <p className="text-xl font-bold">{value.toLocaleString()}</p>
-              <p className="text-xs mt-0.5">{label}</p>
-            </div>
+    <div className="space-y-4">
+      {/* Email subtabs */}
+      <div className="border-b border-gray-200 dark:border-gray-700">
+        <nav className="flex gap-6">
+          {['stats', 'logs'].map(subtab => (
+            <button
+              key={subtab}
+              onClick={() => {
+                setEmailSubtab(subtab as EmailSubtab);
+                setEmailOffset(0);
+              }}
+              className={cn(
+                'pb-3 text-sm font-medium border-b-2 transition-colors capitalize',
+                emailSubtab === subtab
+                  ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400'
+                  : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+              )}
+            >
+              {subtab}
+            </button>
           ))}
-        </div>
-      </Card>
+        </nav>
+      </div>
 
-      {/* Daily volume line chart */}
-      <Card>
-        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Daily Email Volume (last 30 days)</h3>
-        {(metrics?.emailVolumeByDay ?? []).length === 0 ? (
-          <p className="text-sm text-gray-400">No data yet.</p>
-        ) : (
-          <ResponsiveContainer width="100%" height={200}>
-            <LineChart data={metrics.emailVolumeByDay} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-              <XAxis dataKey="date" tick={{ fontSize: 10 }} tickFormatter={d => d.slice(5)} />
-              <YAxis tick={{ fontSize: 11 }} />
-              <Tooltip labelFormatter={d => `Date: ${d}`} />
-              <Legend />
-              <Line type="monotone" dataKey="sent"   name="Sent"   stroke="#3b82f6" strokeWidth={2} dot={false} />
-              <Line type="monotone" dataKey="opened" name="Opened" stroke="#22c55e" strokeWidth={2} dot={false} />
-            </LineChart>
-          </ResponsiveContainer>
-        )}
-      </Card>
-
-      {/* By type */}
-      <Card>
-        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Emails by Type</h3>
-        {(byType?.length ?? 0) === 0 ? (
-          <p className="text-sm text-gray-400">No emails sent yet.</p>
-        ) : (
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 dark:bg-gray-700/50">
-              <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Email Type</th>
-                <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">Count</th>
-                <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">% of Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(byType ?? []).map(row => (
-                <tr key={row.email_type} className="border-t border-gray-100 dark:border-gray-700">
-                  <td className="px-4 py-2 font-mono text-xs text-gray-700 dark:text-gray-300">{row.email_type}</td>
-                  <td className="px-4 py-2 text-right text-gray-900 dark:text-white">{row.count.toLocaleString()}</td>
-                  <td className="px-4 py-2 text-right text-gray-500 dark:text-gray-400">
-                    {(emailStats?.sent ?? 0) > 0 ? Math.round((row.count / (emailStats?.sent ?? 0)) * 100) : 0}%
-                  </td>
-                </tr>
+      <div className="space-y-6">
+      {emailSubtab === 'stats' && (
+        <>
+          {/* Funnel */}
+          <Card>
+            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Delivery Funnel (all time, all companies)</h3>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">{openRate}% open rate · {clickRate}% click rate</p>
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-center">
+              {[
+                { label: 'Sent',    value: emailStats?.sent ?? 0,    color: 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' },
+                { label: 'Opened',  value: emailStats?.opened ?? 0,  color: 'bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300' },
+                { label: 'Clicked', value: emailStats?.clicked ?? 0, color: 'bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' },
+                { label: 'Bounced', value: emailStats?.bounced ?? 0, color: 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' },
+                { label: 'Failed',  value: emailStats?.failed ?? 0,  color: 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300' },
+              ].map(({ label, value, color }) => (
+                <div key={label} className={cn('rounded-lg px-3 py-3', color)}>
+                  <p className="text-xl font-bold">{value.toLocaleString()}</p>
+                  <p className="text-xs mt-0.5">{label}</p>
+                </div>
               ))}
-            </tbody>
-          </table>
-        )}
-      </Card>
+            </div>
+          </Card>
+
+          {/* Daily volume line chart */}
+          <Card>
+            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Daily Email Volume (last 30 days)</h3>
+            {(metrics?.emailVolumeByDay ?? []).length === 0 ? (
+              <p className="text-sm text-gray-400">No data yet.</p>
+            ) : (
+              <ResponsiveContainer width="100%" height={200}>
+                <LineChart data={metrics.emailVolumeByDay} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="date" tick={{ fontSize: 10 }} tickFormatter={d => d.slice(5)} />
+                  <YAxis tick={{ fontSize: 11 }} />
+                  <Tooltip labelFormatter={d => `Date: ${d}`} />
+                  <Legend />
+                  <Line type="monotone" dataKey="sent"   name="Sent"   stroke="#3b82f6" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="opened" name="Opened" stroke="#22c55e" strokeWidth={2} dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
+          </Card>
+
+          {/* By type */}
+          <Card>
+            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Emails by Type</h3>
+            {(byType?.length ?? 0) === 0 ? (
+              <p className="text-sm text-gray-400">No emails sent yet.</p>
+            ) : (
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 dark:bg-gray-700/50">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Email Type</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">Count</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">% of Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(byType ?? []).map(row => (
+                    <tr key={row.email_type} className="border-t border-gray-100 dark:border-gray-700">
+                      <td className="px-4 py-2 font-mono text-xs text-gray-700 dark:text-gray-300">{row.email_type}</td>
+                      <td className="px-4 py-2 text-right text-gray-900 dark:text-white">{row.count.toLocaleString()}</td>
+                      <td className="px-4 py-2 text-right text-gray-500 dark:text-gray-400">
+                        {(emailStats?.sent ?? 0) > 0 ? Math.round((row.count / (emailStats?.sent ?? 0)) * 100) : 0}%
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </Card>
+        </>
+      )}
+
+      {emailSubtab === 'logs' && (
+        <Card>
+          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">Email Logs</h3>
+
+          {/* Filters */}
+          <div className="mb-4 space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-medium text-gray-700 dark:text-gray-300 block mb-1">Status</label>
+                <select
+                  value={emailStatusFilter}
+                  onChange={(e) => {
+                    setEmailStatusFilter(e.target.value);
+                    setEmailOffset(0);
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">All Statuses</option>
+                  <option value="sent">Sent</option>
+                  <option value="opened">Opened</option>
+                  <option value="clicked">Clicked</option>
+                  <option value="failed">Failed</option>
+                  <option value="bounced">Bounced</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-700 dark:text-gray-300 block mb-1">Company</label>
+                <input
+                  type="text"
+                  placeholder="Filter by company ID..."
+                  value={emailCompanyFilter}
+                  onChange={(e) => {
+                    setEmailCompanyFilter(e.target.value);
+                    setEmailOffset(0);
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Table */}
+          {emailLogsLoading ? (
+            <Spinner size="sm" text="Loading..." />
+          ) : emailLogs.length === 0 ? (
+            <p className="text-sm text-gray-400">No emails found.</p>
+          ) : (
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 dark:bg-gray-700/50">
+                    <tr>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Date</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Company</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Recipient</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Type</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {emailLogs.map(log => (
+                      <tr key={log.id} className="border-t border-gray-100 dark:border-gray-700">
+                        <td className="px-4 py-2 text-xs text-gray-500 dark:text-gray-400">{format(parseISO(log.sent_at), 'MMM d, HH:mm')}</td>
+                        <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-white">{log.company_name}</td>
+                        <td className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300">{log.recipient_email}</td>
+                        <td className="px-4 py-2 text-xs"><span className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 px-2 py-1 rounded">{log.email_type}</span></td>
+                        <td className="px-4 py-2 text-xs">
+                          <span className={cn(
+                            'px-2 py-1 rounded',
+                            log.status === 'sent' || log.status === 'delivered' || log.status === 'opened' || log.status === 'clicked' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' : '',
+                            log.status === 'bounced' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' : '',
+                            log.status === 'failed' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' : ''
+                          )}>
+                            {log.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination */}
+              <div className="mt-4 flex items-center justify-between">
+                <p className="text-xs text-gray-500 dark:text-gray-400">Showing {emailLogs.length} logs</p>
+                <div className="space-x-2">
+                  <button
+                    onClick={() => setEmailOffset(Math.max(0, emailOffset - 50))}
+                    disabled={emailOffset === 0}
+                    className="px-3 py-1 text-sm rounded border border-gray-300 dark:border-gray-600 disabled:opacity-50 hover:bg-gray-50 dark:hover:bg-gray-700"
+                  >
+                    Previous
+                  </button>
+                  <button
+                    onClick={() => setEmailOffset(emailOffset + 50)}
+                    disabled={emailLogs.length < 50}
+                    className="px-3 py-1 text-sm rounded border border-gray-300 dark:border-gray-600 disabled:opacity-50 hover:bg-gray-50 dark:hover:bg-gray-700"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+        </Card>
+      )}
+      </div>
     </div>
   );
 };

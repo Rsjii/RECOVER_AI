@@ -56,6 +56,46 @@ export class ResendService {
     }
   }
 
+  async sendOTP(params: {
+    email: string;
+    code: string;
+  }): Promise<{ success: boolean; messageId?: string; error?: string }> {
+    try {
+      logInfo('resendService', 'sendOTP', `Sending OTP to: ${params.email}`);
+
+      const response = await resend.emails.send({
+        from: config.resend.fromEmail,
+        to: params.email,
+        subject: 'Your RecoverAI verification code',
+        html: `<p>Your 6-digit verification code is: <strong>${params.code}</strong></p><p>Valid for 15 minutes.</p>`,
+        text: `Your verification code is: ${params.code} (valid for 15 minutes)`,
+      });
+
+      if (response.error) {
+        logError('resendService', 'sendOTP', 'Send failed', response.error);
+        return {
+          success: false,
+          error: response.error.message,
+        };
+      }
+
+      logInfo('resendService', 'sendOTP', '✅ Sent successfully', {
+        messageId: response.data?.id,
+      });
+
+      return {
+        success: true,
+        messageId: response.data?.id,
+      };
+    } catch (error) {
+      logError('resendService', 'sendOTP', 'Error', error);
+      return {
+        success: false,
+        error: (error as Error).message,
+      };
+    }
+  }
+
   async handleWebhookEvent(body: any): Promise<void> {
     try {
       const { type, data } = body;

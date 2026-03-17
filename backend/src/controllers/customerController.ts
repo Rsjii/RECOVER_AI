@@ -69,6 +69,40 @@ export const getCustomer = async (req: Request, res: Response): Promise<void> =>
   }
 };
 
+export const updateCustomer = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'updateCustomer';
+  const companyId = (req as any).companyId;
+
+  try {
+    const customerId = req.params.id as string;
+    const { email } = req.body as { email?: string };
+
+    if (!email || typeof email !== 'string') {
+      sendErrorResponse(res, 400, 'Email is required and must be a string');
+      return;
+    }
+
+    // Basic email validation
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      sendErrorResponse(res, 400, 'Invalid email format');
+      return;
+    }
+
+    const customer = await CustomerDB.updateCustomer(customerId, companyId, { email });
+
+    logInfo(LOG_MODULE, handler, 'Customer updated', { customerId, email });
+
+    res.status(200).json({
+      message: 'Customer updated successfully',
+      data: customer,
+    });
+  } catch (error: any) {
+    logError(LOG_MODULE, handler, 'Failed to update customer', error);
+    const { statusCode, message } = parseError(error);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
+
 /**
  * POST /api/customers/unsubscribe (no auth — customers click link from email)
  * Body: { token } where token = base64(email:companyId)

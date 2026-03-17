@@ -56,6 +56,25 @@ export async function listCustomers(
 }
 
 /**
+ * Update customer email (permanent change to DB)
+ */
+export async function updateCustomer(id: string, companyId: string, data: { email: string }): Promise<CustomerRow> {
+  const result = await pool.query(
+    `UPDATE customers
+     SET email = $1, updated_at = NOW()
+     WHERE id = $2 AND company_id = $3
+     RETURNING *`,
+    [data.email, id, companyId]
+  );
+
+  if (result.rows.length === 0) {
+    throw new Error('Customer not found or not authorized');
+  }
+
+  return result.rows[0];
+}
+
+/**
  * Recompute and persist customer payment_history from actual invoice/payment data
  */
 export async function updateCustomerPaymentHistory(customerId: string): Promise<void> {

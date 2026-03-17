@@ -35,7 +35,7 @@ export async function findUserById(id: string): Promise<UserRow | null> {
 
 export async function findUserWithCompany(userId: string) {
   const result = await pool.query(
-    `SELECT u.id, u.company_id, u.email, u.first_name, u.last_name, u.role,
+    `SELECT u.id, u.company_id, u.email, u.first_name, u.last_name, u.role, u.email_verified,
             c.name as company_name, c.timezone, c.preferred_currency
      FROM users u
      JOIN companies c ON u.company_id = c.id
@@ -97,4 +97,27 @@ export async function updatePassword(userId: string, passwordHash: string): Prom
 
 export async function clearResetToken(userId: string): Promise<void> {
   await pool.query('UPDATE users SET reset_token = NULL, reset_token_expires = NULL WHERE id = $1', [userId]);
+}
+
+export async function setOTP(userId: string, code: string, expiresAt: Date): Promise<void> {
+  await pool.query(
+    'UPDATE users SET otp_code = $1, otp_expires = $2 WHERE id = $3',
+    [code, expiresAt, userId]
+  );
+}
+
+export async function findUserByOTP(code: string): Promise<UserRow | null> {
+  const result = await pool.query(
+    'SELECT * FROM users WHERE otp_code = $1 AND otp_expires > NOW()',
+    [code]
+  );
+  return result.rows[0] || null;
+}
+
+export async function clearOTP(userId: string): Promise<void> {
+  await pool.query('UPDATE users SET otp_code = NULL, otp_expires = NULL, email_verified = true WHERE id = $1', [userId]);
+}
+
+export async function markEmailVerified(userId: string): Promise<void> {
+  await pool.query('UPDATE users SET email_verified = true WHERE id = $1', [userId]);
 }

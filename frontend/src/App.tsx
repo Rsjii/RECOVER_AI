@@ -10,6 +10,7 @@ import { useAuth } from './hooks/useAuth';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Setup from './pages/Setup';
+import VerifyEmail from './pages/VerifyEmail';
 import NotFound from './pages/NotFound';
 import ForgotPassword from './pages/ForgotPassword';
 import Landing from './pages/Landing';
@@ -100,6 +101,14 @@ const App: React.FC = () => {
             <Route path="/unsubscribe" element={<Unsubscribe />} />
             <Route path="/demo" element={<DemoLaunch />} />
             <Route
+              path="/verify-email"
+              element={
+                <ProtectedRoute>
+                  <VerifyEmail />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/setup"
               element={
                 <ProtectedRoute>
@@ -117,12 +126,12 @@ const App: React.FC = () => {
             />
             
 
-            {/* Protected routes (with Layout) */}
+            {/* Protected routes (with Layout) — all require email verification */}
             {/* Root route "/" is handled by RootRedirect above */}
             <Route
               path="/dashboard"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute requireEmailVerification>
                   <Layout>
                     <Dashboard />
                   </Layout>
@@ -133,7 +142,7 @@ const App: React.FC = () => {
             <Route
               path="/invoices"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute requireEmailVerification>
                   <Layout>
                     <Invoices />
                   </Layout>
@@ -143,7 +152,7 @@ const App: React.FC = () => {
             <Route
               path="/invoices/:id"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute requireEmailVerification>
                   <Layout>
                     <InvoiceDetail />
                   </Layout>
@@ -153,7 +162,7 @@ const App: React.FC = () => {
             <Route
               path="/customers"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute requireEmailVerification>
                   <Layout>
                     <Customers />
                   </Layout>
@@ -163,7 +172,7 @@ const App: React.FC = () => {
             <Route
               path="/settings"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute requireEmailVerification>
                   <Layout>
                     <Settings />
                   </Layout>
@@ -173,7 +182,7 @@ const App: React.FC = () => {
             <Route
               path="/reports"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute requireEmailVerification>
                   <Layout>
                     <Reports />
                   </Layout>
@@ -183,7 +192,7 @@ const App: React.FC = () => {
             <Route
               path="/activity"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute requireEmailVerification>
                   <Layout>
                     <Activity />
                   </Layout>
@@ -193,7 +202,7 @@ const App: React.FC = () => {
             <Route
               path="/billing"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute requireEmailVerification>
                   <Layout>
                     <Billing />
                   </Layout>
@@ -203,7 +212,7 @@ const App: React.FC = () => {
             <Route
               path="/team"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute requireEmailVerification>
                   <Layout>
                     <Team />
                   </Layout>
@@ -213,7 +222,7 @@ const App: React.FC = () => {
             <Route
               path="/policy"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute requireEmailVerification>
                   <Layout>
                     <Policy />
                   </Layout>
@@ -223,7 +232,7 @@ const App: React.FC = () => {
             <Route
               path="/compliance"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute requireEmailVerification>
                   <Layout>
                     <Compliance />
                   </Layout>
@@ -234,7 +243,7 @@ const App: React.FC = () => {
             <Route
               path="/admin"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute requireEmailVerification>
                   <Layout>
                     <Admin />
                   </Layout>

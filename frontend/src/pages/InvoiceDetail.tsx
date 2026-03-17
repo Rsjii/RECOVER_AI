@@ -28,6 +28,9 @@ const InvoiceDetail: React.FC = () => {
   const [dunningStatus, setDunningStatus] = useState<DunningStatus | null>(null);
   const [pauseDays, setPauseDays] = useState(7);
   const [dunningLoading, setDunningLoading] = useState(false);
+  const [editingEmail, setEditingEmail] = useState(false);
+  const [emailInput, setEmailInput] = useState('');
+  const [updatingEmail, setUpdatingEmail] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -135,6 +138,28 @@ const InvoiceDetail: React.FC = () => {
     } finally { setDunningLoading(false); }
   };
 
+  const handleUpdateEmail = async () => {
+    if (!invoice) return;
+    if (!emailInput || emailInput.trim() === '') {
+      addToast({ type: 'error', message: 'Email cannot be empty' });
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailInput)) {
+      addToast({ type: 'error', message: 'Invalid email format' });
+      return;
+    }
+
+    setUpdatingEmail(true);
+    try {
+      await api.put(`/api/customers/${invoice.customer_id}`, { email: emailInput });
+      setInvoice({ ...invoice, customer_email: emailInput });
+      setEditingEmail(false);
+      addToast({ type: 'success', message: 'Email updated successfully' });
+    } catch (err: any) {
+      addToast({ type: 'error', message: err.message || 'Failed to update email' });
+    } finally { setUpdatingEmail(false); }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center py-20"><Spinner size="lg" text="Loading invoice..." /></div>
@@ -228,7 +253,48 @@ const InvoiceDetail: React.FC = () => {
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-6 text-sm">
               <div><span className="text-gray-500 dark:text-gray-400 block mb-1">Customer</span><span className="text-gray-900 dark:text-white font-medium">{invoice.customer_name}</span></div>
-              <div><span className="text-gray-500 dark:text-gray-400 block mb-1">Email</span><span className="text-gray-900 dark:text-white">{invoice.customer_email}</span></div>
+              <div className="relative group">
+                <span className="text-gray-500 dark:text-gray-400 block mb-1">Email</span>
+                {editingEmail ? (
+                  <div className="flex gap-2">
+                    <input
+                      type="email"
+                      value={emailInput}
+                      onChange={(e) => setEmailInput(e.target.value)}
+                      className="flex-1 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <button
+                      onClick={handleUpdateEmail}
+                      disabled={updatingEmail}
+                      className="px-2 py-1 text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300 disabled:opacity-50"
+                    >
+                      ✓
+                    </button>
+                    <button
+                      onClick={() => {
+                        setEditingEmail(false);
+                        setEmailInput('');
+                      }}
+                      className="px-2 py-1 text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ) : (
+                  <div
+                    onClick={() => {
+                      setEditingEmail(true);
+                      setEmailInput(invoice.customer_email || '');
+                    }}
+                    className="flex items-center gap-2 cursor-pointer group/email"
+                  >
+                    <span className="text-gray-900 dark:text-white">{invoice.customer_email}</span>
+                    <svg className="w-4 h-4 text-gray-400 dark:text-gray-500 opacity-0 group-hover/email:opacity-100 transition-opacity" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                    </svg>
+                  </div>
+                )}
+              </div>
               <div><span className="text-gray-500 dark:text-gray-400 block mb-1">Issued</span><span className="text-gray-900 dark:text-white">{formatDate(invoice.issued_date)}</span></div>
               <div><span className="text-gray-500 dark:text-gray-400 block mb-1">Source</span><span className="text-gray-900 dark:text-white capitalize">{invoice.source}</span></div>
             </div>

@@ -292,3 +292,67 @@ export async function getRedisCommandsHistory(days = 30): Promise<{
   );
   return result.rows;
 }
+
+/**
+ * Get all email logs across all companies (admin only, no tenant filter).
+ * Supports filtering by company_id, status, and pagination.
+ */
+export interface EmailLogAdminRow {
+  id: string;
+  sent_at: string;
+  company_id: string;
+  company_name: string;
+  recipient_email: string;
+  email_type: string;
+  status: string;
+  subject: string;
+  opened_at: string | null;
+  clicked_at: string | null;
+}
+
+export async function getAllEmailLogsAdmin(filters: {
+  companyId?: string;
+  status?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<EmailLogAdminRow[]> {
+  const { companyId, status, limit = 50, offset = 0 } = filters;
+
+  let query = `
+    SELECT
+      el.id,
+      el.sent_at,
+      el.company_id,
+      c.name AS company_name,
+      el.recipient_email,
+      el.email_type,
+      el.status,
+      el.subject,
+      el.opened_at,
+      el.clicked_at
+    FROM email_logs el
+    JOIN companies c ON el.company_id = c.id
+    WHERE 1=1
+  `;
+
+  const params: any[] = [];
+  let paramIndex = 1;
+
+  if (companyId) {
+    query += ` AND el.company_id = $${paramIndex}`;
+    params.push(companyId);
+    paramIndex++;
+  }
+
+  if (status) {
+    query += ` AND el.status = $${paramIndex}`;
+    params.push(status);
+    paramIndex++;
+  }
+
+  query += ` ORDER BY el.sent_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+  params.push(limit, offset);
+
+  const result = await pool.query(query, params);
+  return result.rows;
+}

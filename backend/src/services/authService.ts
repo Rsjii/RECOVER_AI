@@ -10,6 +10,7 @@ import * as TeamDB from '../db/team';
 import * as SecurityDB from '../db/security';
 import { logInfo, logError } from '../utils/logger';
 import { JWTPayload, SignupInput, LoginInput, AuthResponse } from '../types/auth';
+import resendService from './resendService';
 
 class AuthService {
   async signup(input: SignupInput): Promise<AuthResponse> {
@@ -65,6 +66,20 @@ class AuthService {
       periodEnd: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
     });
 
+    // Generate and send OTP for email verification
+    const isDev = process.env.NODE_ENV !== 'production';
+    const otpCode = isDev ? '123456' : String(Math.floor(100000 + Math.random() * 900000));
+    const otpExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+    await UserDB.setOTP(user.id, otpCode, otpExpires);
+
+    if (isDev) {
+      logInfo('authService', 'signup', 'DEV MODE: OTP is 123456, no email sent', { email: user.email });
+    } else {
+      resendService.sendOTP({ email: user.email, code: otpCode }).catch((err: any) => {
+        logError('authService', 'signup', 'Failed to send OTP email', err, { email: user.email });
+      });
+    }
+
     // Generate tokens
     const { accessToken, refreshToken } = this.generateTokens(user.id, company.id, user.email);
 
@@ -84,6 +99,7 @@ class AuthService {
         firstName: user.first_name,
         lastName: user.last_name,
         role: user.role,
+        emailVerified: false,
       },
       company: {
         id: company.id,
@@ -142,6 +158,7 @@ class AuthService {
         firstName: user.first_name,
         lastName: user.last_name,
         role: user.role,
+        emailVerified: user.email_verified || false,
       },
       company: {
         id: user.company_id,
@@ -205,7 +222,7 @@ class AuthService {
     }
   }
 
-  async getCurrentUser(userId: string): Promise<AuthResponse['user'] & { company: AuthResponse['company'] }> {
+  async getCurrentUser(userId: string): Promise<AuthResponse['user'] & { company: AuthResponse['company']; emailVerified: boolean }> {
     const user = await UserDB.findUserWithCompany(userId);
 
     if (!user) {
@@ -218,6 +235,7 @@ class AuthService {
       firstName: user.first_name,
       lastName: user.last_name,
       role: user.role,
+      emailVerified: user.email_verified || false,
       company: {
         id: user.company_id,
         name: user.company_name,
@@ -256,9 +274,18 @@ class AuthService {
 
     await UserDB.setResetToken(user.id, resetToken, resetExpiry);
 
-    // TODO: Send email via SendGrid with reset link
-    // For now, just log it
-    logInfo('authService', 'requestPasswordReset', 'Reset token generated', { email });
+    // Send password reset email via Resend (non-blocking)
+    const resetLink = `${config.frontendUrl}/reset-password?token=${resetToken}`;
+    resendService.sendEmail({
+      to: email,
+      subject: 'Reset your RecoverAI password',
+      bodyText: `Click this link to reset your password: ${resetLink}\n\nValid for 1 hour.`,
+      bodyHtml: `<p>Click <a href="${resetLink}">here</a> to reset your password.</p><p>Valid for 1 hour.</p>`,
+    }).catch((err: any) => {
+      logError('authService', 'requestPasswordReset', 'Failed to send reset email', err, { email });
+    });
+
+    logInfo('authService', 'requestPasswordReset', 'Reset token generated and email sent', { email });
   }
 
   async resetPassword(token: string, newPassword: string): Promise<void> {

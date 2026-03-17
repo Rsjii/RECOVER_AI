@@ -8,6 +8,8 @@ import {
   googleCallback,
   forgotPassword,
   resetPassword,
+  verifyEmail,
+  resendOtp,
   listSessions,
   listCompanySessions,
   revokeCompanySessionById,
@@ -29,9 +31,11 @@ router.post('/logout', logout);
 router.post('/refresh', refresh);
 router.post('/forgot-password', authLimiter, forgotPassword);
 router.post('/reset-password', authLimiter, resetPassword);
+router.post('/verify-email', authMiddleware, verifyEmail);
 router.post('/oauth/google/callback', googleCallback);
 
-// Protected routes
+// Public/Protected routes
+router.post('/resend-otp', resendOtp);  // Can work with auth OR email param
 router.get('/me', authMiddleware, me);
 router.get('/sessions', authMiddleware, listSessions);
 router.delete('/sessions/:sessionId', authMiddleware, revokeSessionById);

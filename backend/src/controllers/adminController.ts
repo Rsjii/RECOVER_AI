@@ -10,6 +10,7 @@ import {
   getPlatformRevenue,
   getEmailVolumeByDay,
   getRedisCommandsHistory,
+  getAllEmailLogsAdmin,
 } from '../db/adminStats';
 import { getDunningQueue } from '../queue/dunningQueue';
 import { config } from '../config/env';
@@ -114,6 +115,51 @@ export const getMetrics = async (req: Request, res: Response): Promise<void> => 
         queue: queueCounts,
         redisHistory,
       },
+    });
+  } catch (err) {
+    logError(LOG_MODULE, handler, 'Failed', err);
+    const { statusCode, message } = parseError(err);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
+
+export const getEmailLogs = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'getEmailLogs';
+  try {
+    const userEmail = ((req as any).email || '').toLowerCase();
+
+    // Same email whitelist check as getMetrics
+    const isAdminEmail = config.admin.emails.includes(userEmail);
+
+    if (!isAdminEmail) {
+      logInfo(LOG_MODULE, handler, 'Unauthorized admin access attempt', {
+        userEmail: userEmail ? userEmail.substring(0, 10) + '...' : 'UNKNOWN',
+      });
+      res.status(403).json({
+        error: 'Admin access restricted to authorized administrators only',
+        code: 'FORBIDDEN',
+      });
+      return;
+    }
+
+    // Query parameters: companyId, status, limit, offset
+    const companyId = (req.query.companyId as string) || undefined;
+    const status = (req.query.status as string) || undefined;
+    const limit = Math.min(parseInt(req.query.limit as string) || 50, 500); // Max 500
+    const offset = parseInt(req.query.offset as string) || 0;
+
+    logInfo(LOG_MODULE, handler, 'Fetching email logs', {
+      companyId,
+      status,
+      limit,
+      offset,
+    });
+
+    const logs = await getAllEmailLogsAdmin({ companyId, status, limit, offset });
+
+    res.json({
+      data: logs,
+      pagination: { limit, offset, returned: logs.length },
     });
   } catch (err) {
     logError(LOG_MODULE, handler, 'Failed', err);

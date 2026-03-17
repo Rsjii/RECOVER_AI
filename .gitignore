@@ -93,6 +93,11 @@ REAL_PLAN_TODO.txt
 SETUP_AND_TESTING.txt
 test_demo_flow.sh
 
+# Test documentation & reports (auto-generated, not needed in git)
+backend/test/docs/
+backend/test/reports/
+backend/test/suites/
+
 # Scratch folders
 z_companies/
 z_test_data/

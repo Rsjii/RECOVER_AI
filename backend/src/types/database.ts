@@ -11,6 +11,9 @@ export interface UserRow {
   last_login: string | null;
   created_at: string;
   updated_at: string;
+  email_verified: boolean;
+  otp_code: string | null;
+  otp_expires: string | null;
 }
 
 export interface UserWithCompany extends UserRow {

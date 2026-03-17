@@ -57,6 +57,9 @@ CREATE TABLE IF NOT EXISTS users (
   last_login    TIMESTAMPTZ,
   reset_token   VARCHAR(255),
   reset_token_expires TIMESTAMPTZ,
+  email_verified BOOLEAN DEFAULT false,
+  otp_code      VARCHAR(6),
+  otp_expires   TIMESTAMPTZ,
   created_at    TIMESTAMPTZ DEFAULT NOW(),
   updated_at    TIMESTAMPTZ DEFAULT NOW()
 );
