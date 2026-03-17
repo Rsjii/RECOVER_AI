@@ -150,7 +150,7 @@ export default function VerifyEmail() {
           </button>
 
           {/* Resend OTP */}
-          <div className="text-center">
+          <div className="text-center mb-4">
             <p className="text-gray-600 dark:text-gray-400 text-sm mb-3">
               Didn't receive the code?
             </p>
@@ -160,6 +160,16 @@ export default function VerifyEmail() {
               className="text-blue-600 dark:text-blue-400 hover:underline text-sm font-semibold disabled:text-gray-400"
             >
               {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend Code'}
+            </button>
+          </div>
+
+          {/* Change Email / Back Button */}
+          <div className="border-t border-gray-200 dark:border-slate-700 pt-4">
+            <button
+              onClick={() => navigate('/signup', { replace: true })}
+              className="w-full text-center text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white text-sm font-medium transition"
+            >
+              ← Wrong email? Start over
             </button>
           </div>
 
