@@ -18,6 +18,8 @@ import Pricing from './pages/Pricing';
 import SecurityPage from './pages/SecurityPage';
 import Terms from './pages/Terms';
 import Privacy from './pages/Privacy';
+import Support from './pages/Support';
+import Refund from './pages/Refund';
 import CookiePolicy from './pages/CookiePolicy';
 import Dpa from './pages/Dpa';
 import GoogleCallback from './pages/GoogleCallback';
@@ -92,6 +94,8 @@ const App: React.FC = () => {
             <Route path="/security" element={<SecurityPage />} />
             <Route path="/terms" element={<Terms />} />
             <Route path="/privacy" element={<Privacy />} />
+            <Route path="/support" element={<Support />} />
+            <Route path="/refund-policy" element={<Refund />} />
             <Route path="/cookie-policy" element={<CookiePolicy />} />
             <Route path="/dpa" element={<Dpa />} />
             <Route path="/login" element={<Login />} />
