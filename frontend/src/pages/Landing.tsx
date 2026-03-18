@@ -3,11 +3,14 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 import { api } from '../lib/api';
 import { useAuth } from '../hooks/useAuth';
+import { useTheme } from '../hooks/useTheme';
 
 const Landing: React.FC = () => {
   const navigate = useNavigate();
   const { isAuthenticated, setAuthState } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const [demoLoading, setDemoLoading] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     document.title = 'RecoverAI — Autonomous AR Recovery for B2B SaaS';
@@ -53,14 +56,46 @@ const Landing: React.FC = () => {
         <nav className="hidden md:flex items-center gap-6">
           <Link to="/pricing" className="text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">Pricing</Link>
           <Link to="/security" className="text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">Security</Link>
+          <button onClick={toggleTheme}
+            className="p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}>
+            {theme === 'light' ? (
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" /></svg>
+            ) : (
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.536l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.707.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.464 5.05l-.707-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clipRule="evenodd" /></svg>
+            )}
+          </button>
           <Link to="/login" className="text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">Sign in</Link>
           <Link to="/signup"><Button size="sm">Start free trial</Button></Link>
         </nav>
-        <div className="flex md:hidden gap-2">
-          <Link to="/login" className="text-sm text-gray-600">Sign in</Link>
-          <Link to="/signup"><Button size="sm">Try free</Button></Link>
+        <div className="flex md:hidden items-center gap-2">
+          <button onClick={toggleTheme}
+            className="p-2 text-gray-500 dark:text-gray-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            title={theme === 'light' ? 'Dark mode' : 'Light mode'}>
+            {theme === 'light' ? (
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" /></svg>
+            ) : (
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.536l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.707.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.464 5.05l-.707-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clipRule="evenodd" /></svg>
+            )}
+          </button>
+          <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="p-2 text-gray-500 dark:text-gray-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+            {mobileMenuOpen ? (
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+            ) : (
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
+            )}
+          </button>
         </div>
       </header>
+      {mobileMenuOpen && (
+        <div className="md:hidden border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-6 py-4 flex flex-col gap-4">
+          <Link to="/pricing" onClick={() => setMobileMenuOpen(false)} className="text-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">Pricing</Link>
+          <Link to="/security" onClick={() => setMobileMenuOpen(false)} className="text-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">Security</Link>
+          <Link to="/login" onClick={() => setMobileMenuOpen(false)} className="text-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">Sign in</Link>
+          <Link to="/signup" onClick={() => setMobileMenuOpen(false)}><Button size="sm" className="w-full">Start free trial</Button></Link>
+        </div>
+      )}
 
       {/* Hero */}
       <main className="max-w-6xl mx-auto px-6 pt-16 pb-12 text-center">
@@ -112,6 +147,23 @@ const Landing: React.FC = () => {
         <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">No credit card required. Cancel anytime.</p>
       </main>
 
+      {/* Trust signals */}
+      <div className="border-y border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/30 py-3">
+        <div className="max-w-4xl mx-auto px-6 flex flex-wrap items-center justify-center gap-6 text-xs text-gray-400 dark:text-gray-500">
+          {[
+            { icon: '🔒', text: 'AES-256-GCM encryption' },
+            { icon: '🛡️', text: 'SOC 2 in progress' },
+            { icon: '🇺🇸', text: 'US data residency' },
+            { icon: '🏦', text: 'Stripe-certified' },
+            { icon: '📋', text: 'GDPR compliant' },
+          ].map((item) => (
+            <span key={item.text} className="flex items-center gap-1.5">
+              <span>{item.icon}</span><span>{item.text}</span>
+            </span>
+          ))}
+        </div>
+      </div>
+
       {/* Stats */}
       <section className="max-w-5xl mx-auto px-6 py-8">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -126,6 +178,65 @@ const Landing: React.FC = () => {
               <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">{s.label}</div>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* Product Preview */}
+      <section className="max-w-5xl mx-auto px-6 py-10">
+        <p className="text-center text-sm font-medium text-gray-400 uppercase tracking-wider mb-6">
+          Your dashboard — live in 60 seconds
+        </p>
+        <div className="rounded-2xl border border-gray-200 dark:border-gray-700 shadow-xl overflow-hidden">
+          <div className="bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-2 flex items-center gap-2">
+            <div className="flex gap-1.5">
+              <div className="w-3 h-3 rounded-full bg-red-400" />
+              <div className="w-3 h-3 rounded-full bg-yellow-400" />
+              <div className="w-3 h-3 rounded-full bg-green-400" />
+            </div>
+            <div className="flex-1 bg-white dark:bg-gray-700 rounded px-3 py-1 text-xs text-gray-400 text-center">
+              app.recoverai.com/dashboard
+            </div>
+          </div>
+          <div className="bg-white dark:bg-gray-900 p-5">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+              {[
+                { label: 'Total Owed', value: '$124,500', color: 'text-red-600' },
+                { label: 'Recovered', value: '$84,660', color: 'text-green-600' },
+                { label: 'Overdue', value: '23 invoices', color: 'text-orange-600' },
+                { label: 'Avg Collection', value: '31 days', color: 'text-blue-600' },
+              ].map((card) => (
+                <div key={card.label} className="bg-gray-50 dark:bg-gray-800 rounded-xl p-3 border border-gray-100 dark:border-gray-700">
+                  <p className="text-xs text-gray-400 mb-1">{card.label}</p>
+                  <p className={`text-lg font-bold ${card.color}`}>{card.value}</p>
+                </div>
+              ))}
+            </div>
+            <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4 mb-4 border border-gray-100 dark:border-gray-700">
+              <p className="text-xs font-medium text-gray-500 mb-3">Monthly Recovery</p>
+              <div className="flex items-end gap-2 h-16">
+                {[30, 45, 60, 38, 72, 85, 68].map((h, i) => (
+                  <div key={i} className="flex-1 bg-blue-200 dark:bg-blue-900/40 rounded-t" style={{ height: `${h}%` }} />
+                ))}
+              </div>
+              <div className="flex justify-between text-xs text-gray-300 mt-1">
+                {['Sep','Oct','Nov','Dec','Jan','Feb','Mar'].map((m) => <span key={m}>{m}</span>)}
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              {[
+                { name: 'Acme Corp', amount: '$12,400', days: '42 days', risk: 94, color: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400' },
+                { name: 'TechFlow Inc', amount: '$8,200', days: '21 days', risk: 67, color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400' },
+                { name: 'GrowthCo', amount: '$3,100', days: '8 days', risk: 32, color: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' },
+              ].map((row) => (
+                <div key={row.name} className="flex items-center justify-between bg-gray-50 dark:bg-gray-800 rounded-lg px-3 py-2 border border-gray-100 dark:border-gray-700">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300 w-24">{row.name}</span>
+                  <span className="text-xs text-gray-400 hidden sm:block">{row.days} overdue</span>
+                  <span className="text-sm font-medium text-gray-900 dark:text-white">{row.amount}</span>
+                  <span className={`text-xs px-2 py-0.5 rounded font-medium ${row.color}`}>Risk {row.risk}</span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </section>
 
@@ -233,39 +344,37 @@ const Landing: React.FC = () => {
         </div>
       </section>
 
-      {/* Testimonials */}
+      {/* Early Access */}
       <section className="bg-gray-50 dark:bg-gray-800/50 py-14">
-        <div className="max-w-5xl mx-auto px-6">
-          <h2 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white text-center mb-10">
-            What founders say
+        <div className="max-w-5xl mx-auto px-6 text-center">
+          <div className="inline-flex items-center gap-2 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-xs font-medium px-3 py-1.5 rounded-full mb-6">
+            <span className="w-2 h-2 rounded-full bg-green-500" />
+            Now accepting early access applications
+          </div>
+          <h2 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mb-4">
+            Join as an early access customer
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <p className="text-gray-500 dark:text-gray-400 mb-10 max-w-xl mx-auto">
+            We're onboarding a limited number of B2B SaaS companies. First customers get
+            locked-in pricing, personal onboarding, and direct access to the founding team.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             {[
-              {
-                quote: "RecoverAI recovered $34k in the first two weeks — without us sending a single email manually. This is exactly what autonomous AI should do.",
-                name: 'Sarah K.',
-                title: 'CEO, B2B SaaS ($3M ARR)',
-              },
-              {
-                quote: "We were spending 8 hours a week chasing payments. Now the agent handles it all. Our DSO dropped from 52 days to 31 days in a month.",
-                name: 'Marcus T.',
-                title: 'CFO, SaaS Startup ($5M ARR)',
-              },
-              {
-                quote: "The payment plan feature alone is worth it. Customers who would have churned are now paying in installments. Recovery rate went from 40% to 71%.",
-                name: 'Priya M.',
-                title: 'Founder, FinTech SaaS ($2M ARR)',
-              },
-            ].map((t) => (
-              <div key={t.name} className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6">
-                <p className="text-gray-600 dark:text-gray-300 text-sm italic mb-4">"{t.quote}"</p>
-                <div>
-                  <p className="font-semibold text-gray-900 dark:text-white text-sm">{t.name}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{t.title}</p>
-                </div>
+              { icon: '🔒', title: 'Locked-in pricing', desc: 'Early customers keep their rate forever as prices increase.' },
+              { icon: '🤝', title: 'Founder onboarding', desc: 'I personally set up your first month. Not a support ticket queue.' },
+              { icon: '🗺️', title: 'Shape the roadmap', desc: 'Direct line to the product team. Your use case gets priority.' },
+            ].map((item) => (
+              <div key={item.title} className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 text-left">
+                <div className="text-2xl mb-3">{item.icon}</div>
+                <h3 className="font-semibold text-gray-900 dark:text-white mb-1">{item.title}</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">{item.desc}</p>
               </div>
             ))}
           </div>
+          <Link to="/signup">
+            <Button size="lg" className="px-8">Apply for early access</Button>
+          </Link>
+          <p className="mt-3 text-xs text-gray-400">No credit card required. We'll reach out within 24 hours.</p>
         </div>
       </section>
 
@@ -286,7 +395,7 @@ const Landing: React.FC = () => {
             },
             {
               q: 'Is my data safe? Where is it stored?',
-              a: 'All credentials are encrypted with AES-256-GCM before storage. We never store plaintext API keys. Data is stored in US-based PostgreSQL. We are SOC 2 compliant. See our Security page for details.',
+              a: 'All credentials are encrypted with AES-256-GCM before storage. We never store plaintext API keys. Data is stored in US-based PostgreSQL. SOC 2 certification is in progress. See our Security page for details.',
             },
             {
               q: 'Can I review emails before they are sent?',
