@@ -130,6 +130,13 @@ class AuthService {
       throw new Error('Account is disabled');
     }
 
+    // Check if account uses Google OAuth only (no password set)
+    if (!user.password_hash || user.password_hash === '') {
+      const err: any = new Error('This email uses Google Sign-In. Please continue with Google.');
+      err.code = 'USE_GOOGLE';
+      throw err;
+    }
+
     // Verify password
     const isValid = await bcrypt.compare(password, user.password_hash);
     if (!isValid) {
@@ -329,6 +336,7 @@ async googleLogin(code: string): Promise<AuthResponse> {
 
   // Find existing user with this email
   let user = await UserDB.findUserWithCompanyByEmail(email);
+  const avatarUrl = (googleUser.picture as string) || undefined;
 
   if (!user) {
     // New user - create company + user
@@ -346,6 +354,9 @@ async googleLogin(code: string): Promise<AuthResponse> {
       firstName,
       lastName,
       role: 'owner',
+      googleId: googleUser.sub as string,
+      authProvider: 'google',
+      avatarUrl,
     });
 
     // Set company owner
@@ -373,7 +384,22 @@ async googleLogin(code: string): Promise<AuthResponse> {
     // Fetch with company info
     user = await UserDB.findUserWithCompany(newUser.id);
   } else {
-    // Existing user - update last login
+    // Existing user - link Google account if not already linked
+    if (!user.google_id) {
+      // Account linking: email/password user linking with Google
+      await UserDB.updateGoogleId(user.id, googleUser.sub as string, 'both', avatarUrl);
+
+      // Audit log
+      await AuditDB.createAuditLog({
+        companyId: user.company_id,
+        userId: user.id,
+        action: 'UPDATE',
+        resourceType: 'user',
+        details: { email, method: 'google_oauth_link' },
+      });
+    }
+
+    // Update last login
     await UserDB.updateLastLogin(user.id);
 
     // Audit log

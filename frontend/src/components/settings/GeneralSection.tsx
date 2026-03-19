@@ -36,14 +36,14 @@ export const GeneralSection: React.FC<GeneralSectionProps> = ({ timezone, prefer
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Timezone</label>
           <select value={form.timezone} onChange={e => setForm({ ...form, timezone: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm">
+            className="w-full px-3 py-2 border border-gray-300 dark:border-white/[0.1] rounded-lg bg-white dark:bg-white/[0.06] text-gray-900 dark:text-white text-sm">
             {timezones.map(tz => <option key={tz} value={tz}>{tz}</option>)}
           </select>
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Preferred Currency</label>
           <select value={form.preferredCurrency} onChange={e => setForm({ ...form, preferredCurrency: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm">
+            className="w-full px-3 py-2 border border-gray-300 dark:border-white/[0.1] rounded-lg bg-white dark:bg-white/[0.06] text-gray-900 dark:text-white text-sm">
             {currencies.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>

@@ -60,6 +60,9 @@ CREATE TABLE IF NOT EXISTS users (
   email_verified BOOLEAN DEFAULT false,
   otp_code      VARCHAR(6),
   otp_expires   TIMESTAMPTZ,
+  auth_provider VARCHAR(20) DEFAULT 'email',     -- 'email' | 'google' | 'both'
+  google_id     VARCHAR(255),
+  avatar_url    VARCHAR(500),
   created_at    TIMESTAMPTZ DEFAULT NOW(),
   updated_at    TIMESTAMPTZ DEFAULT NOW()
 );
@@ -265,6 +268,7 @@ CREATE INDEX IF NOT EXISTS idx_audit_logs_user           ON audit_logs(user_id, 
 CREATE INDEX IF NOT EXISTS idx_integration_logs_company  ON integration_logs(company_id, created_at DESC);
 
 CREATE INDEX IF NOT EXISTS idx_users_reset_token ON users(reset_token) WHERE reset_token IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_users_google_id ON users(google_id) WHERE google_id IS NOT NULL;
 
 -- ============================================================
 -- RECOVERY TIMELINE (for reports and analytics)

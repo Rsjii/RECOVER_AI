@@ -65,7 +65,12 @@ const Login: React.FC = () => {
       addToast({ type: 'success', message: 'Welcome back!' });
       navigate('/dashboard');
     } catch (err: any) {
-      setApiError(err.message || 'Login failed. Please check your credentials.');
+      if (err.code === 'USE_GOOGLE') {
+        setApiError('You signed up with Google. Please continue with Google above.');
+        addToast({ type: 'info', message: 'Use the Google button to sign in.' });
+      } else {
+        setApiError(err.message || 'Login failed. Please check your credentials.');
+      }
     } finally {
       setSubmitting(false);
     }
@@ -76,7 +81,7 @@ const Login: React.FC = () => {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="w-12 h-12 rounded-xl bg-blue-600 flex items-center justify-center mx-auto mb-4">
+          <div className="w-12 h-12 rounded-xl bg-brand-600 flex items-center justify-center mx-auto mb-4">
             <span className="text-white text-xl font-bold">R</span>
           </div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">RecoverAI</h1>
@@ -107,7 +112,7 @@ const Login: React.FC = () => {
                 value={form.email}
                 onChange={(e) => handleChange('email', e.target.value)}
                 placeholder="john@company.com"
-                className={`w-full px-4 py-2.5 border rounded-lg text-gray-900 dark:text-white bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
+                className={`w-full px-4 py-2.5 border rounded-lg text-gray-900 dark:text-white bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors ${
                   errors.email
                     ? 'border-red-500'
                     : 'border-gray-300 dark:border-gray-600'
@@ -128,7 +133,7 @@ const Login: React.FC = () => {
                 value={form.password}
                 onChange={(e) => handleChange('password', e.target.value)}
                 placeholder="••••••••"
-                className={`w-full px-4 py-2.5 border rounded-lg text-gray-900 dark:text-white bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
+                className={`w-full px-4 py-2.5 border rounded-lg text-gray-900 dark:text-white bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors ${
                   errors.password
                     ? 'border-red-500'
                     : 'border-gray-300 dark:border-gray-600'
@@ -140,7 +145,7 @@ const Login: React.FC = () => {
               <div className="flex justify-end -mt-2">
                 <Link
                   to="/forgot-password"
-                  className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                  className="text-xs text-brand-600 hover:text-blue-700 font-medium"
                 >
                   Forgot password?
                 </Link>
@@ -183,7 +188,7 @@ const Login: React.FC = () => {
             Don't have an account?{' '}
             <Link
               to="/signup"
-              className="text-blue-600 hover:text-blue-700 font-medium"
+              className="text-brand-600 hover:text-blue-700 font-medium"
             >
               Sign up free
             </Link>

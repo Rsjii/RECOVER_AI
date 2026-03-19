@@ -1,15 +1,36 @@
 @import "tailwindcss";
 
+/* Tailwind v4: enable class-based dark mode (adds .dark class to <html>) */
+@variant dark (&:where(.dark, .dark *));
+
 @theme {
+  /* Brand Colors */
   --color-brand-50: #f0f9ff;
   --color-brand-100: #e0f2fe;
   --color-brand-500: #3b82f6;
   --color-brand-600: #2563eb;
   --color-brand-700: #1d4ed8;
+  --color-brand-glow: rgba(37, 99, 235, 0.35);
+
+  /* Surface Hierarchy - Dark Mode */
+  --color-surface-base: #09090b;
+  --color-surface-card: #111113;
+  --color-surface-elevated: #18181b;
+  --color-surface-modal: #1c1c1f;
+
+  /* Surface Hierarchy - Light Mode */
+  --color-surface-base-light: #ffffff;
+  --color-surface-card-light: #f9fafb;
+  --color-surface-elevated-light: #f3f4f6;
+  --color-surface-modal-light: #ffffff;
+
+  /* Risk Colors */
   --color-risk-low: #16a34a;
   --color-risk-medium: #ca8a04;
   --color-risk-high: #ea580c;
   --color-risk-critical: #dc2626;
+
+  /* Typography */
   --font-family-sans: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
@@ -21,12 +42,12 @@
   }
 
   body {
-    @apply bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100;
+    @apply bg-white text-gray-900 dark:bg-[#09090b] dark:text-gray-100;
   }
 
   /* Smooth theme transitions */
   *, *::before, *::after {
-    transition-property: background-color, border-color, color;
+    transition-property: background-color, border-color, color, box-shadow;
     transition-duration: 150ms;
     transition-timing-function: ease-in-out;
   }
@@ -39,5 +60,41 @@
   .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;
+  }
+
+  /* Glow effects */
+  .glow-brand {
+    box-shadow: 0 0 30px var(--color-brand-glow);
+  }
+
+  .glow-brand-hover:hover {
+    box-shadow: 0 0 30px var(--color-brand-glow);
+  }
+
+  /* Surface backgrounds */
+  .surface-base {
+    @apply bg-white dark:bg-[#09090b];
+  }
+
+  .surface-card {
+    @apply bg-gray-50 dark:bg-[#111113];
+  }
+
+  .surface-elevated {
+    @apply bg-white dark:bg-[#18181b];
+  }
+
+  .surface-modal {
+    @apply bg-white dark:bg-[#1c1c1f];
+  }
+
+  /* Subtle dark mode border */
+  .border-subtle-dark {
+    @apply border-white/[0.06] dark:border-white/[0.06];
+  }
+
+  /* Typography adjustments for dark mode */
+  .dark body {
+    letter-spacing: 0.01em;
   }
 }

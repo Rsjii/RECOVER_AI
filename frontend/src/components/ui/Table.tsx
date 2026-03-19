@@ -28,7 +28,7 @@ export const Table = <T extends Record<string, any>>({
     return (
       <div className="overflow-x-auto">
         <table className="w-full text-sm text-left">
-          <thead className="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
+          <thead className="bg-gray-50 dark:bg-white/[0.03] border-b border-gray-200 dark:border-white/[0.06]">
             <tr>
               {columns.map((col) => (
                 <th key={String(col.key)} className="px-6 py-3 font-semibold text-gray-900 dark:text-white">
@@ -39,10 +39,10 @@ export const Table = <T extends Record<string, any>>({
           </thead>
           <tbody>
             {Array.from({ length: 6 }).map((_, rowIdx) => (
-              <tr key={rowIdx} className="border-b border-gray-200 dark:border-gray-700">
+              <tr key={rowIdx} className="border-b border-gray-200 dark:border-white/[0.06]">
                 {columns.map((col) => (
                   <td key={String(col.key)} className="px-6 py-4">
-                    <div className="h-4 rounded bg-gray-200 dark:bg-gray-700 animate-pulse" />
+                    <div className="h-4 rounded bg-gray-200 dark:bg-white/[0.08] animate-pulse" />
                   </td>
                 ))}
               </tr>
@@ -60,7 +60,7 @@ export const Table = <T extends Record<string, any>>({
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm text-left text-gray-700 dark:text-gray-300">
-        <thead className="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
+        <thead className="bg-gray-50 dark:bg-white/[0.03] border-b border-gray-200 dark:border-white/[0.06]">
           <tr>
             {columns.map((col) => (
               <th key={String(col.key)} className="px-6 py-3 font-semibold text-gray-900 dark:text-white" style={{ width: col.width }}>
@@ -76,7 +76,7 @@ export const Table = <T extends Record<string, any>>({
         <tbody>
           {sortedData.map((row, idx) => (
             <tr key={idx} onClick={() => onRowClick?.(row)}
-              className={cn('border-b border-gray-200 dark:border-gray-700', onRowClick && 'hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer')}>
+              className={cn('border-b border-gray-200 dark:border-white/[0.06]', onRowClick && 'hover:bg-gray-50 dark:hover:bg-white/[0.03] cursor-pointer transition-colors')}>
               {columns.map((col) => (
                 <td key={String(col.key)} className="px-6 py-4">
                   {col.render ? col.render(row[col.key], row) : String(row[col.key] ?? '')}
@@ -87,7 +87,7 @@ export const Table = <T extends Record<string, any>>({
         </tbody>
       </table>
       {pagination && (
-        <div className="flex items-center justify-between p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+        <div className="flex items-center justify-between p-4 border-t border-gray-200 dark:border-white/[0.06] bg-gray-50 dark:bg-white/[0.02]">
           <div className="text-sm text-gray-600 dark:text-gray-400">
             Page {pagination.page} of {pagination.pages} (Total: {pagination.total})
           </div>

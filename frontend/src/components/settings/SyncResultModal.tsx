@@ -82,7 +82,7 @@ export const SyncResultModal: React.FC<SyncResultModalProps> = ({ result, onClos
             {skippedExpanded && (
               <div className="divide-y divide-gray-100 dark:divide-gray-700">
                 {result.skippedDetails.map((item) => (
-                  <div key={item.stripeInvoiceId} className="px-4 py-3 bg-white dark:bg-gray-800">
+                  <div key={item.stripeInvoiceId} className="px-4 py-3 bg-white dark:bg-[#111113]">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">

@@ -1,14 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
+import { ThemeToggle } from '../components/ui/ThemeToggle';
 import { api } from '../lib/api';
 import { useAuth } from '../hooks/useAuth';
-import { useTheme } from '../hooks/useTheme';
 
 const Landing: React.FC = () => {
   const navigate = useNavigate();
   const { isAuthenticated, setAuthState } = useAuth();
-  const { theme, toggleTheme } = useTheme();
   const [demoLoading, setDemoLoading] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -44,7 +43,12 @@ const Landing: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-white dark:bg-gray-900">
+    <div className="min-h-screen bg-white dark:bg-[#09090b]" style={{
+      backgroundImage: `
+        radial-gradient(circle at 20% 50%, rgba(37, 99, 235, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 80% 80%, rgba(59, 130, 246, 0.05) 0%, transparent 50%)
+      `,
+    }}>
       {/* Nav */}
       <header className="max-w-6xl mx-auto px-6 py-5 flex items-center justify-between">
         <Link to="/landing" className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
@@ -56,28 +60,12 @@ const Landing: React.FC = () => {
         <nav className="hidden md:flex items-center gap-6">
           <Link to="/pricing" className="text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">Pricing</Link>
           <Link to="/security" className="text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">Security</Link>
-          <button onClick={toggleTheme}
-            className="p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-            title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}>
-            {theme === 'light' ? (
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" /></svg>
-            ) : (
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.536l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.707.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.464 5.05l-.707-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clipRule="evenodd" /></svg>
-            )}
-          </button>
+          <ThemeToggle />
           <Link to="/login" className="text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">Sign in</Link>
           <Link to="/signup"><Button size="sm">Start free trial</Button></Link>
         </nav>
         <div className="flex md:hidden items-center gap-2">
-          <button onClick={toggleTheme}
-            className="p-2 text-gray-500 dark:text-gray-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-            title={theme === 'light' ? 'Dark mode' : 'Light mode'}>
-            {theme === 'light' ? (
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" /></svg>
-            ) : (
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.536l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.707.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.464 5.05l-.707-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clipRule="evenodd" /></svg>
-            )}
-          </button>
+          <ThemeToggle className="p-2 text-gray-500 dark:text-gray-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" />
           <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             className="p-2 text-gray-500 dark:text-gray-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
             {mobileMenuOpen ? (
@@ -98,22 +86,22 @@ const Landing: React.FC = () => {
       )}
 
       {/* Hero */}
-      <main className="max-w-6xl mx-auto px-6 pt-16 pb-12 text-center">
-        <div className="inline-flex items-center gap-2 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs font-medium px-3 py-1.5 rounded-full mb-6">
-          <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+      <main className="max-w-6xl mx-auto px-6 pt-20 pb-16 text-center">
+        <div className="inline-flex items-center gap-2 bg-brand-50 dark:bg-blue-900/30 text-brand-700 dark:text-blue-300 text-xs font-medium px-3 py-1.5 rounded-full mb-8">
+          <span className="w-2 h-2 rounded-full bg-brand-500 animate-pulse" />
           Now live — connect Stripe in under 60 seconds
         </div>
-        <h1 className="text-4xl md:text-6xl font-bold text-gray-900 dark:text-white max-w-4xl mx-auto leading-tight">
+        <h1 className="text-5xl md:text-7xl font-bold text-gray-900 dark:text-white max-w-5xl mx-auto leading-tight">
           Stop chasing invoices.<br />
-          <span className="text-blue-600">Let AI recover them.</span>
+          <span className="bg-gradient-to-r from-brand-600 to-brand-500 bg-clip-text text-transparent">Let AI recover them.</span>
         </h1>
-        <p className="mt-6 text-lg md:text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
+        <p className="mt-8 text-lg md:text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto leading-relaxed">
           RecoverAI autonomously sends personalized dunning emails, offers payment plans, and tracks payments — without any manual work from your team.
         </p>
         <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
           {!isAuthenticated ? (
             <>
-              <Link to="/signup"><Button size="lg" className="px-8">Start 14-day free trial</Button></Link>
+              <Link to="/signup"><Button size="lg" className="px-8">Start 21-day free trial</Button></Link>
               <Button
                 size="lg"
                 variant="outline"
@@ -174,7 +162,7 @@ const Landing: React.FC = () => {
             { value: '0 hours', label: 'Manual work needed' },
           ].map((s) => (
             <div key={s.label} className="text-center bg-gray-50 dark:bg-gray-800 rounded-xl p-5">
-              <div className="text-2xl font-bold text-blue-600">{s.value}</div>
+              <div className="text-2xl font-bold text-brand-600">{s.value}</div>
               <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">{s.label}</div>
             </div>
           ))}
@@ -203,7 +191,7 @@ const Landing: React.FC = () => {
                 { label: 'Total Owed', value: '$124,500', color: 'text-red-600' },
                 { label: 'Recovered', value: '$84,660', color: 'text-green-600' },
                 { label: 'Overdue', value: '23 invoices', color: 'text-orange-600' },
-                { label: 'Avg Collection', value: '31 days', color: 'text-blue-600' },
+                { label: 'Avg Collection', value: '31 days', color: 'text-brand-600' },
               ].map((card) => (
                 <div key={card.label} className="bg-gray-50 dark:bg-gray-800 rounded-xl p-3 border border-gray-100 dark:border-gray-700">
                   <p className="text-xs text-gray-400 mb-1">{card.label}</p>
@@ -257,7 +245,7 @@ const Landing: React.FC = () => {
               step: '2',
               title: 'AI scores and prioritizes',
               desc: 'Every invoice gets a risk score 0-100 based on days overdue, amount, and customer payment history.',
-              color: 'bg-blue-100 dark:bg-blue-900/40 text-blue-600',
+              color: 'bg-blue-100 dark:bg-blue-900/40 text-brand-600',
             },
             {
               step: '3',
@@ -306,45 +294,7 @@ const Landing: React.FC = () => {
         </div>
       </section>
 
-      {/* vs competition */}
-      <section className="max-w-5xl mx-auto px-6 py-14">
-        <h2 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white text-center mb-10">
-          RecoverAI vs. the alternatives
-        </h2>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-200 dark:border-gray-700">
-                <th className="text-left py-3 text-gray-500 font-medium w-1/3">Feature</th>
-                <th className="py-3 text-blue-600 font-semibold">RecoverAI</th>
-                <th className="py-3 text-gray-400 font-medium">Upflow</th>
-                <th className="py-3 text-gray-400 font-medium">Growfin</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-              {[
-                ['Truly autonomous (no approval needed)', true, false, false],
-                ['Outcome-based pricing', true, false, false],
-                ['SMB-friendly (< 1 day setup)', true, false, false],
-                ['AI-personalized emails', true, 'Basic', 'Basic'],
-                ['Automatic payment plans', true, false, false],
-                ['Stripe + QB + Chargebee', true, 'Stripe only', 'Limited'],
-                ['Real-time Slack alerts', true, false, false],
-                ['14-day free trial', true, false, false],
-              ].map(([feature, us, upflow, growfin]) => (
-                <tr key={String(feature)}>
-                  <td className="py-3 text-gray-700 dark:text-gray-300">{feature}</td>
-                  <td className="py-3 text-center">{us === true ? <span className="text-green-600 font-bold">Yes</span> : <span className="text-blue-600 text-xs">{String(us)}</span>}</td>
-                  <td className="py-3 text-center">{upflow === false ? <span className="text-red-400">No</span> : <span className="text-gray-500 text-xs">{String(upflow)}</span>}</td>
-                  <td className="py-3 text-center">{growfin === false ? <span className="text-red-400">No</span> : <span className="text-gray-500 text-xs">{String(growfin)}</span>}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      {/* Early Access */}
+{/* Early Access */}
       <section className="bg-gray-50 dark:bg-gray-800/50 py-14">
         <div className="max-w-5xl mx-auto px-6 text-center">
           <div className="inline-flex items-center gap-2 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-xs font-medium px-3 py-1.5 rounded-full mb-6">
@@ -407,7 +357,7 @@ const Landing: React.FC = () => {
             },
             {
               q: 'How does outcome-based pricing work?',
-              a: 'You pay a base subscription + 1% of invoices we successfully recover. If we recover $50k this month, you pay your base + $500. If we recover nothing, you just pay the base.',
+              a: 'You pay a base subscription + a success fee on recovered invoices. Starter ($499/mo + 1%), Growth ($999/mo + 0.75%), Enterprise (custom + 0.5%). If we recover $50k this month, you pay your base + the success fee. If we recover nothing, you just pay the base.',
             },
           ].map((item) => (
             <details key={item.q} className="group bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
@@ -424,14 +374,14 @@ const Landing: React.FC = () => {
       </section>
 
       {/* CTA */}
-      <section className="bg-blue-600 py-14">
+      <section className="bg-brand-600 py-14">
         <div className="max-w-3xl mx-auto px-6 text-center">
           <h2 className="text-2xl md:text-3xl font-bold text-white mb-3">
             Ready to stop chasing invoices?
           </h2>
-          <p className="text-blue-100 mb-8">Connect Stripe in 60 seconds. First recovery in 24 hours. 14-day free trial.</p>
+          <p className="text-blue-100 mb-8">Connect Stripe in 60 seconds. First recovery in 24 hours. 21-day free trial.</p>
           <Link to="/signup">
-            <Button size="lg" className="bg-white text-blue-600 hover:bg-blue-50 px-10">
+            <Button size="lg" className="bg-white text-brand-600 hover:bg-brand-50 px-10">
               Start free trial — no credit card
             </Button>
           </Link>

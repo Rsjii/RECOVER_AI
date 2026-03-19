@@ -41,7 +41,7 @@ export const SlackSection: React.FC<SlackSectionProps> = ({ connected, onSaved }
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">{connected ? 'Update webhook URL' : 'Webhook URL'}</label>
           <input type="url" value={webhookUrl} onChange={e => setWebhookUrl(e.target.value)}
             placeholder="https://hooks.slack.com/services/..."
-            className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+            className="w-full px-4 py-2.5 border border-gray-300 dark:border-white/[0.1] rounded-lg bg-white dark:bg-white/[0.06] text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-brand-500 focus:outline-none" />
           <p className="text-xs text-gray-500 mt-1">Create an Incoming Webhook at api.slack.com/apps</p>
         </div>
         <Button size="sm" onClick={handleSave} loading={saving}>{connected ? 'Update Webhook' : 'Save Webhook'}</Button>

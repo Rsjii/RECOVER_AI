@@ -1,6 +1,7 @@
 import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { Card } from '../ui/Card';
+import { useTheme } from '../../hooks/useTheme';
 import type { InvoicePipeline } from '../../types';
 
 interface RecoveryChartProps {
@@ -8,17 +9,8 @@ interface RecoveryChartProps {
 }
 
 export const RecoveryChart: React.FC<RecoveryChartProps> = ({ pipeline }) => {
-  const [isDark, setIsDark] = React.useState(false);
-
-  React.useEffect(() => {
-    const checkDark = () => {
-      setIsDark(document.documentElement.classList.contains('dark'));
-    };
-    checkDark();
-    const observer = new MutationObserver(checkDark);
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
-    return () => observer.disconnect();
-  }, []);
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
 
   const data = [
     { name: 'Unpaid', count: pipeline.unpaid, amount: pipeline.unpaidAmount, fill: '#ef4444' },
@@ -43,24 +35,42 @@ export const RecoveryChart: React.FC<RecoveryChartProps> = ({ pipeline }) => {
     );
   }
 
+  const gridColor = isDark ? 'rgba(255,255,255,0.06)' : '#e5e7eb';
+  const axisColor = isDark ? '#64748b' : '#9ca3af';
+  const tooltipBg = isDark ? '#18181b' : '#ffffff';
+  const tooltipBorder = isDark ? 'rgba(255,255,255,0.1)' : '#e5e7eb';
+  const tooltipText = isDark ? '#f1f5f9' : '#111827';
+
   return (
     <Card>
       <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Invoice Pipeline</h3>
       <div className="h-72">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} barCategoryGap="20%">
-            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" className="dark:opacity-20" />
-            <XAxis dataKey="name" tick={{ fontSize: 12, fill: '#6b7280' }} />
-            <YAxis tick={{ fontSize: 12, fill: '#6b7280' }} />
+            <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
+            <XAxis
+              dataKey="name"
+              tick={{ fontSize: 12, fill: axisColor }}
+              axisLine={{ stroke: gridColor }}
+              tickLine={false}
+            />
+            <YAxis
+              tick={{ fontSize: 12, fill: axisColor }}
+              axisLine={false}
+              tickLine={false}
+              width={30}
+            />
             <Tooltip
               formatter={(value: number | undefined) => [value ?? 0, 'Invoices']}
               contentStyle={{
-                backgroundColor: isDark ? '#1f2937' : '#ffffff',
-                border: `1px solid ${isDark ? '#374151' : '#e5e7eb'}`,
+                backgroundColor: tooltipBg,
+                border: `1px solid ${tooltipBorder}`,
                 borderRadius: '8px',
-                color: isDark ? '#f3f4f6' : '#111827',
+                color: tooltipText,
+                boxShadow: isDark ? '0 4px 24px rgba(0,0,0,0.4)' : '0 4px 12px rgba(0,0,0,0.1)',
               }}
-              labelStyle={{ color: isDark ? '#d1d5db' : '#374151' }}
+              labelStyle={{ color: isDark ? '#94a3b8' : '#374151', fontWeight: 600 }}
+              cursor={{ fill: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)' }}
             />
             <Bar dataKey="count" radius={[4, 4, 0, 0]}>
               {data.map((entry, i) => (

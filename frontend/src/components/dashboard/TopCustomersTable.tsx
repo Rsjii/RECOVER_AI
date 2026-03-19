@@ -26,7 +26,7 @@ export const TopCustomersTable: React.FC<TopCustomersTableProps> = ({ customers,
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
-          <thead className="bg-gray-50 dark:bg-gray-700/50">
+          <thead className="bg-gray-50 dark:bg-white/[0.03]">
             <tr>
               <th className="px-4 py-2 text-left font-medium text-gray-600 dark:text-gray-300">Customer</th>
               <th className="px-4 py-2 text-right font-medium text-gray-600 dark:text-gray-300">Owed</th>
@@ -38,7 +38,7 @@ export const TopCustomersTable: React.FC<TopCustomersTableProps> = ({ customers,
           <tbody>
             {customers.map((c) => (
               <tr key={c.customerId}
-                className="border-t border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
+                className="border-t border-gray-100 dark:border-white/[0.05] hover:bg-gray-50 dark:hover:bg-white/[0.03] cursor-pointer transition-colors"
                 onClick={() => onCustomerClick?.(c.customerId)}>
                 <td className="px-4 py-3">
                   <div className="font-medium text-gray-900 dark:text-white">{c.customerName}</div>

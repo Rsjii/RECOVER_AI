@@ -1,9 +1,9 @@
 import React, { useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-import { useTheme } from '../../hooks/useTheme';
 import { useNotification } from '../../hooks/useNotification';
 import { getInitials } from '../../lib/utils';
+import { ThemeToggle } from '../ui/ThemeToggle';
 
 interface HeaderProps {
   onMenuClick?: () => void;
@@ -11,7 +11,6 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
   const { user, company, logout } = useAuth();
-  const { theme, toggleTheme } = useTheme();
   const { addToast } = useNotification();
   const [showMenu, setShowMenu] = React.useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -37,13 +36,13 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
   };
 
   return (
-    <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+    <header className="bg-white dark:bg-[#111113] border-b border-gray-200 dark:border-white/[0.06]">
       <div className="px-6 h-16 flex items-center justify-between">
         {/* Left: Company name */}
         <div className="flex items-center gap-3">
           {onMenuClick && (
             <button onClick={onMenuClick}
-              className="p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg lg:hidden">
+              className="p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-white/[0.06] rounded-lg lg:hidden">
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
@@ -56,21 +55,13 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
 
         {/* Right: Theme toggle + User */}
         <div className="flex items-center gap-2">
-          <button onClick={toggleTheme}
-            className="p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-            title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}>
-            {theme === 'light' ? (
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" /></svg>
-            ) : (
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.536l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.707.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.464 5.05l-.707-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clipRule="evenodd" /></svg>
-            )}
-          </button>
+          <ThemeToggle />
 
           {/* User Menu */}
           <div className="relative" ref={menuRef}>
             <button onClick={() => setShowMenu(!showMenu)}
-              className="flex items-center gap-2 p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
-              <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-bold">
+              className="flex items-center gap-2 p-1.5 hover:bg-gray-100 dark:hover:bg-white/[0.06] rounded-lg transition-colors">
+              <div className="w-8 h-8 rounded-full bg-brand-600 flex items-center justify-center text-white text-xs font-bold">
                 {getInitials(user?.email?.split('@')[0] || 'U')}
               </div>
               <div className="hidden sm:block text-left">
@@ -81,13 +72,13 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
               </svg>
             </button>
             {showMenu && (
-              <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 z-50 py-1 animate-in fade-in duration-150">
-                <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
+              <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-[#18181b] rounded-xl shadow-lg border border-gray-200 dark:border-white/[0.08] z-50 py-1 animate-in fade-in duration-150">
+                <div className="px-4 py-3 border-b border-gray-100 dark:border-white/[0.06]">
                   <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{user?.email}</p>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{company?.name}</p>
                 </div>
                 <Link to="/settings" onClick={() => setShowMenu(false)}
-                  className="block px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
+                  className="block px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/[0.06]">
                   Settings
                 </Link>
                 <button onClick={handleLogout}

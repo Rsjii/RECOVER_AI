@@ -8,16 +8,19 @@ export interface CreateUserInput {
   firstName: string;
   lastName: string;
   role?: string;
+  googleId?: string;
+  authProvider?: 'email' | 'google' | 'both';
+  avatarUrl?: string;
 }
 
 export async function createUser(input: CreateUserInput): Promise<UserRow> {
-  const { companyId, email, passwordHash, firstName, lastName, role = 'member' } = input;
+  const { companyId, email, passwordHash, firstName, lastName, role = 'member', googleId, authProvider = 'email', avatarUrl } = input;
 
   const result = await pool.query(
-    `INSERT INTO users (company_id, email, password_hash, first_name, last_name, role, is_active)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)
+    `INSERT INTO users (company_id, email, password_hash, first_name, last_name, role, is_active, google_id, auth_provider, avatar_url)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
      RETURNING *`,
-    [companyId, email, passwordHash, firstName, lastName, role, true]
+    [companyId, email, passwordHash, firstName, lastName, role, true, googleId || null, authProvider, avatarUrl || null]
   );
 
   return result.rows[0];
@@ -120,4 +123,11 @@ export async function clearOTP(userId: string): Promise<void> {
 
 export async function markEmailVerified(userId: string): Promise<void> {
   await pool.query('UPDATE users SET email_verified = true WHERE id = $1', [userId]);
+}
+
+export async function updateGoogleId(userId: string, googleId: string, authProvider: 'email' | 'google' | 'both', avatarUrl?: string): Promise<void> {
+  await pool.query(
+    'UPDATE users SET google_id = $1, auth_provider = $2, avatar_url = $3 WHERE id = $4',
+    [googleId, authProvider, avatarUrl || null, userId]
+  );
 }

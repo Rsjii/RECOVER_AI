@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
-import { useTheme } from '../hooks/useTheme';
+import { ThemeToggle } from '../components/ui/ThemeToggle';
 
 const PLANS = [
   {
@@ -81,7 +81,7 @@ const RoiCalculator: React.FC = () => {
   const hasResult = arNum > 0;
 
   return (
-    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-2xl p-8 text-center">
+    <div className="bg-brand-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-2xl p-8 text-center">
       <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">How much could you recover?</h2>
       <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Enter your monthly overdue AR to see your estimated ROI</p>
       <div className="flex items-center gap-2 max-w-xs mx-auto mb-6">
@@ -109,7 +109,7 @@ const RoiCalculator: React.FC = () => {
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-blue-300 dark:border-blue-700">
             <p className="text-xs text-gray-500 mb-1">Your net gain</p>
-            <p className="text-xl font-bold text-blue-600">${netLow.toLocaleString()} – ${netHigh.toLocaleString()}</p>
+            <p className="text-xl font-bold text-brand-600">${netLow.toLocaleString()} – ${netHigh.toLocaleString()}</p>
             <p className="text-xs text-gray-400 mt-1">after all fees</p>
           </div>
         </div>
@@ -120,7 +120,6 @@ const RoiCalculator: React.FC = () => {
 
 const Pricing: React.FC = () => {
   const [billingInterval, setBillingInterval] = useState<'monthly' | 'annual'>('monthly');
-  const { theme, toggleTheme } = useTheme();
 
   useEffect(() => { document.title = 'Pricing — RecoverAI'; }, []);
 
@@ -135,15 +134,7 @@ const Pricing: React.FC = () => {
           RecoverAI
         </Link>
         <div className="flex items-center gap-4">
-          <button onClick={toggleTheme}
-            className="p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-            title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}>
-            {theme === 'light' ? (
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" /></svg>
-            ) : (
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.536l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.707.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.464 5.05l-.707-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clipRule="evenodd" /></svg>
-            )}
-          </button>
+          <ThemeToggle />
           <Link to="/login" className="text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900">Sign in</Link>
           <Link to="/signup"><Button size="sm">Start free trial</Button></Link>
         </div>
@@ -158,7 +149,7 @@ const Pricing: React.FC = () => {
           Pay a base subscription + a small fee only on invoices we successfully recover.
           If we don't recover anything, you pay just the base.
         </p>
-        <div className="mt-4 inline-flex items-center gap-2 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-sm px-4 py-2 rounded-full">
+        <div className="mt-4 inline-flex items-center gap-2 bg-brand-50 dark:bg-blue-900/30 text-brand-700 dark:text-blue-300 text-sm px-4 py-2 rounded-full">
           21-day free trial on all plans. No credit card required.
         </div>
 
@@ -203,13 +194,13 @@ const Pricing: React.FC = () => {
               key={plan.name}
               className={`relative rounded-2xl border p-8 flex flex-col ${
                 plan.popular
-                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 shadow-lg shadow-blue-100 dark:shadow-blue-900/20'
+                  ? 'border-blue-500 bg-brand-50 dark:bg-blue-900/20 shadow-lg shadow-blue-100 dark:shadow-blue-900/20'
                   : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800'
               }`}
             >
               {plan.popular && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <span className="bg-blue-600 text-white text-xs font-semibold px-3 py-1 rounded-full">
+                  <span className="bg-brand-600 text-white text-xs font-semibold px-3 py-1 rounded-full">
                     Most popular
                   </span>
                 </div>
@@ -227,7 +218,7 @@ const Pricing: React.FC = () => {
                   <div className="text-xs text-gray-500 mt-1">{billedText}</div>
                 )}
               </div>
-              <p className="text-sm text-blue-600 font-medium mb-1">{plan.fee}</p>
+              <p className="text-sm text-brand-600 font-medium mb-1">{plan.fee}</p>
               <p className="text-xs text-gray-500 mb-6">{plan.users} · {plan.invoices}</p>
 
               <ul className="space-y-2.5 mb-8 flex-1">
@@ -276,7 +267,7 @@ const Pricing: React.FC = () => {
             ].map((ex) => (
               <div key={ex.label} className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700">
                 <p className="text-xs text-gray-500 mb-1">{ex.desc}</p>
-                <p className="text-2xl font-bold text-blue-600">{ex.amount}</p>
+                <p className="text-2xl font-bold text-brand-600">{ex.amount}</p>
                 <p className="text-sm text-gray-700 dark:text-gray-300 mt-1">{ex.label}</p>
               </div>
             ))}
@@ -307,7 +298,7 @@ const Pricing: React.FC = () => {
             },
             {
               q: 'Do you offer annual billing discounts?',
-              a: 'Yes, annual plans get 2 months free (equivalent to 17% off). Contact us to switch.',
+              a: 'Yes, annual plans save 20% when you pay annually. Contact us to switch plans.',
             },
           ].map((item) => (
             <details key={item.q} className="group bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
@@ -324,12 +315,12 @@ const Pricing: React.FC = () => {
       </section>
 
       {/* CTA */}
-      <section className="bg-blue-600 py-12">
+      <section className="bg-brand-600 py-12">
         <div className="max-w-2xl mx-auto px-6 text-center">
           <h2 className="text-2xl font-bold text-white mb-2">Start recovering invoices today</h2>
           <p className="text-blue-100 mb-6">14-day free trial. No credit card. Cancel anytime.</p>
           <Link to="/signup">
-            <Button className="bg-white text-blue-600 hover:bg-blue-50 px-8" size="lg">
+            <Button className="bg-white text-brand-600 hover:bg-brand-50 px-8" size="lg">
               Start free trial
             </Button>
           </Link>

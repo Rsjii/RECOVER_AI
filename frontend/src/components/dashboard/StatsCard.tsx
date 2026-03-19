@@ -26,7 +26,7 @@ export const StatsCard: React.FC<StatsCardProps> = ({ label, value, subtitle, ic
           </div>
         )}
       </div>
-      <div className="p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50">{icon}</div>
+      <div className="p-3 rounded-lg bg-gray-100 dark:bg-white/[0.06]">{icon}</div>
     </div>
   </Card>
 );

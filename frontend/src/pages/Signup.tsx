@@ -48,6 +48,26 @@ const Signup: React.FC = () => {
     return Object.keys(newErrors).length === 0;
   };
 
+  const handleGoogleSignup = () => {
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+    const redirectUri = `${window.location.origin}/auth/google/callback`;
+    const scope = 'openid email profile';
+    const responseType = 'code';
+    const state = Math.random().toString(36).substring(7);
+
+    sessionStorage.setItem('oauth_state', state);
+
+    const params = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      scope,
+      response_type: responseType,
+      state,
+    });
+
+    window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
@@ -73,7 +93,7 @@ const Signup: React.FC = () => {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="w-12 h-12 rounded-xl bg-blue-600 flex items-center justify-center mx-auto mb-4">
+          <div className="w-12 h-12 rounded-xl bg-brand-600 flex items-center justify-center mx-auto mb-4">
             <span className="text-white text-xl font-bold">R</span>
           </div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Start recovering revenue</h1>
@@ -105,7 +125,7 @@ const Signup: React.FC = () => {
                   value={form.firstName}
                   onChange={(e) => handleChange('firstName', e.target.value)}
                   placeholder="John"
-                  className={`w-full px-4 py-2.5 border rounded-lg text-gray-900 dark:text-white bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
+                  className={`w-full px-4 py-2.5 border rounded-lg text-gray-900 dark:text-white bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors ${
                     errors.firstName ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
                   }`}
                 />
@@ -120,7 +140,7 @@ const Signup: React.FC = () => {
                   value={form.lastName}
                   onChange={(e) => handleChange('lastName', e.target.value)}
                   placeholder="Smith"
-                  className={`w-full px-4 py-2.5 border rounded-lg text-gray-900 dark:text-white bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
+                  className={`w-full px-4 py-2.5 border rounded-lg text-gray-900 dark:text-white bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors ${
                     errors.lastName ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
                   }`}
                 />
@@ -138,7 +158,7 @@ const Signup: React.FC = () => {
                 value={form.company_name}
                 onChange={(e) => handleChange('company_name', e.target.value)}
                 placeholder="Acme Corp"
-                className={`w-full px-4 py-2.5 border rounded-lg text-gray-900 dark:text-white bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
+                className={`w-full px-4 py-2.5 border rounded-lg text-gray-900 dark:text-white bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors ${
                   errors.company_name ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
                 }`}
               />
@@ -155,7 +175,7 @@ const Signup: React.FC = () => {
                 value={form.email}
                 onChange={(e) => handleChange('email', e.target.value)}
                 placeholder="john@company.com"
-                className={`w-full px-4 py-2.5 border rounded-lg text-gray-900 dark:text-white bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
+                className={`w-full px-4 py-2.5 border rounded-lg text-gray-900 dark:text-white bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors ${
                   errors.email ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
                 }`}
               />
@@ -172,7 +192,7 @@ const Signup: React.FC = () => {
                 value={form.password}
                 onChange={(e) => handleChange('password', e.target.value)}
                 placeholder="••••••••"
-                className={`w-full px-4 py-2.5 border rounded-lg text-gray-900 dark:text-white bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
+                className={`w-full px-4 py-2.5 border rounded-lg text-gray-900 dark:text-white bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors ${
                   errors.password ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
                 }`}
               />
@@ -206,16 +226,34 @@ const Signup: React.FC = () => {
               Create account
             </Button>
 
+            <div className="relative py-1">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-200 dark:border-gray-700" />
+              </div>
+              <div className="relative flex justify-center">
+                <span className="px-2 text-xs text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800">OR</span>
+              </div>
+            </div>
+
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={handleGoogleSignup}
+            >
+              Continue with Google
+            </Button>
+
             <p className="text-xs text-center text-gray-500 dark:text-gray-400">
               By signing up, you agree to our{' '}
-              <Link to="/terms" className="text-blue-600 hover:underline">Terms</Link> and{' '}
-              <Link to="/privacy" className="text-blue-600 hover:underline">Privacy Policy</Link>
+              <Link to="/terms" className="text-brand-600 hover:underline">Terms</Link> and{' '}
+              <Link to="/privacy" className="text-brand-600 hover:underline">Privacy Policy</Link>
             </p>
           </form>
 
           <p className="mt-6 text-center text-sm text-gray-500 dark:text-gray-400">
             Already have an account?{' '}
-            <Link to="/login" className="text-blue-600 hover:text-blue-700 font-medium">Sign in</Link>
+            <Link to="/login" className="text-brand-600 hover:text-blue-700 font-medium">Sign in</Link>
           </p>
         </div>
       </div>

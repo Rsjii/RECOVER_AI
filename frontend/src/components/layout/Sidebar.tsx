@@ -117,9 +117,9 @@ export const Sidebar: React.FC = () => {
   const showEmailBanner = user && !user.emailVerified;
 
   return (
-    <aside className="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col min-h-screen">
+    <aside className="w-64 bg-white dark:bg-[#111113] border-r border-gray-200 dark:border-white/[0.06] flex flex-col min-h-screen">
       {/* Brand */}
-      <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-700">
+      <div className="px-6 py-5 border-b border-gray-200 dark:border-white/[0.06]">
         <Link to="/dashboard" className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center flex-shrink-0">
             <span className="text-white font-bold text-sm">R</span>
@@ -158,12 +158,12 @@ export const Sidebar: React.FC = () => {
               className={cn(
                 'relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200',
                 isActive
-                  ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
-                  : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white'
+                  ? 'bg-brand-50 dark:bg-brand-600/[0.12] text-brand-600 dark:text-brand-400'
+                  : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/[0.04] hover:text-gray-900 dark:hover:text-white'
               )}
             >
-              {isActive && <span className="absolute left-0 top-1.5 bottom-1.5 w-1 rounded-r bg-blue-600 dark:bg-blue-400" />}
-              <span className={cn(isActive ? 'text-blue-600 dark:text-blue-400' : '')}>{item.icon}</span>
+              {isActive && <span className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-r bg-brand-500" />}
+              <span className={cn(isActive ? 'text-brand-600 dark:text-brand-400' : '')}>{item.icon}</span>
               <span>{item.label}</span>
             </Link>
           );
@@ -171,7 +171,7 @@ export const Sidebar: React.FC = () => {
       </nav>
 
       {/* Trial / Subscription Status */}
-      <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+      <div className="p-4 border-t border-gray-200 dark:border-white/[0.06]">
         {isDemo ? (
           <Link to="/signup">
             <div className="rounded-lg p-3 bg-blue-50 dark:bg-blue-900/20 hover:opacity-90 transition-opacity cursor-pointer">

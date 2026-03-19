@@ -54,6 +54,7 @@ export const IntegrationSection: React.FC<IntegrationSectionProps> = ({
   const [connecting, setConnecting] = useState<string | null>(null);
   const [syncing, setSyncing] = useState<string | null>(null);
   const [syncResult, setSyncResult] = useState<SyncResult | null>(null);
+  const [expandedGuide, setExpandedGuide] = useState<string | null>(null);
 
   const handleStripeOAuth = () => {
     const clientId = import.meta.env.VITE_STRIPE_CLIENT_ID;
@@ -151,10 +152,38 @@ export const IntegrationSection: React.FC<IntegrationSectionProps> = ({
   return (
     <Card>
       <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Integrations</h3>
+
+      {!stripeConnected && (
+        <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+          <details className="cursor-pointer" open={expandedGuide === 'stripe'} onChange={(e) => setExpandedGuide(e.currentTarget.open ? 'stripe' : null)}>
+            <summary className="font-medium text-blue-900 dark:text-blue-300 flex items-center justify-between">
+              <span>How to connect Stripe?</span>
+              <svg className="w-5 h-5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </summary>
+            <div className="mt-3 text-sm text-blue-800 dark:text-blue-200 space-y-2">
+              <p><strong>Option 1: OAuth (Recommended)</strong></p>
+              <ol className="list-decimal list-inside space-y-1 ml-2">
+                <li>Click "Connect with Stripe OAuth" below</li>
+                <li>Authorize RecoverAI to access your Stripe account</li>
+                <li>You'll be redirected back automatically</li>
+              </ol>
+              <p className="mt-3"><strong>Option 2: API Key</strong></p>
+              <ol className="list-decimal list-inside space-y-1 ml-2">
+                <li>Go to Stripe Dashboard → Developers → API keys</li>
+                <li>Copy your Secret Key (starts with sk_live_)</li>
+                <li>Paste it in the field below and click "Save Key"</li>
+              </ol>
+            </div>
+          </details>
+        </div>
+      )}
+
       <div className="space-y-4">
 
         {/* Stripe */}
-        <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+        <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-white/[0.06] rounded-lg">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-900 flex items-center justify-center">
               <span className="text-purple-600 font-bold">S</span>
@@ -181,7 +210,7 @@ export const IntegrationSection: React.FC<IntegrationSectionProps> = ({
               <div className="flex gap-2 items-center">
                 <span className="text-xs text-gray-400">or</span>
                 <input type="password" value={stripeKey} onChange={e => setStripeKey(e.target.value)}
-                  placeholder="sk_live_..." className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white w-44" />
+                  placeholder="sk_live_..." className="px-3 py-1.5 border border-gray-300 dark:border-white/[0.1] rounded-lg bg-white dark:bg-white/[0.06] text-sm text-gray-900 dark:text-white w-44" />
                 <Button size="sm" variant="secondary" onClick={handleStripeConnect} loading={connecting === 'stripe'}>Save Key</Button>
               </div>
             </div>
@@ -189,7 +218,7 @@ export const IntegrationSection: React.FC<IntegrationSectionProps> = ({
         </div>
 
         {/* QuickBooks */}
-        <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+        <div className="p-4 bg-gray-50 dark:bg-white/[0.06] rounded-lg">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-900 flex items-center justify-center">
@@ -213,7 +242,7 @@ export const IntegrationSection: React.FC<IntegrationSectionProps> = ({
         </div>
 
         {/* Chargebee */}
-        <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+        <div className="p-4 bg-gray-50 dark:bg-white/[0.06] rounded-lg">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-orange-100 dark:bg-orange-900 flex items-center justify-center">
@@ -233,10 +262,10 @@ export const IntegrationSection: React.FC<IntegrationSectionProps> = ({
             ) : (
               <div className="flex gap-2 items-center flex-wrap mt-2">
                 <input type="text" value={cbSite} onChange={e => setCbSite(e.target.value)}
-                  placeholder="your-site" className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white w-32" />
+                  placeholder="your-site" className="px-3 py-1.5 border border-gray-300 dark:border-white/[0.1] rounded-lg bg-white dark:bg-white/[0.06] text-sm text-gray-900 dark:text-white w-32" />
                 <span className="text-xs text-gray-400">.chargebee.com</span>
                 <input type="password" value={cbApiKey} onChange={e => setCbApiKey(e.target.value)}
-                  placeholder="API Key" className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white w-40" />
+                  placeholder="API Key" className="px-3 py-1.5 border border-gray-300 dark:border-white/[0.1] rounded-lg bg-white dark:bg-white/[0.06] text-sm text-gray-900 dark:text-white w-40" />
                 <Button size="sm" onClick={handleChargebeeConnect} loading={connecting === 'chargebee'}>Connect</Button>
               </div>
             )}
@@ -244,7 +273,7 @@ export const IntegrationSection: React.FC<IntegrationSectionProps> = ({
         </div>
 
         {/* Slack */}
-        <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+        <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-white/[0.06] rounded-lg">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
               <span className="text-blue-600 font-bold">#</span>

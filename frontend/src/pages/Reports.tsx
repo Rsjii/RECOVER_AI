@@ -4,6 +4,7 @@ import { API_ENDPOINTS } from '../lib/constants';
 import { formatCurrency } from '../lib/utils';
 import { Card } from '../components/ui/Card';
 import { Spinner } from '../components/ui/Spinner';
+import { useTheme } from '../hooks/useTheme';
 import {
   AreaChart, Area, LineChart, Line,
   XAxis, YAxis, CartesianGrid, Tooltip,
@@ -31,6 +32,8 @@ interface DashboardStats {
 
 const Reports: React.FC = () => {
   useEffect(() => { document.title = 'Reports — RecoverAI'; }, []);
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
 
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [timeline, setTimeline] = useState<TimelinePoint[]>([]);
@@ -116,7 +119,7 @@ const Reports: React.FC = () => {
           <select
             value={months}
             onChange={(e) => setMonths(Number(e.target.value))}
-            className="text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+            className="text-sm border border-gray-300 dark:border-white/[0.1] rounded-lg px-3 py-2 bg-white dark:bg-[#18181b] text-gray-700 dark:text-gray-300"
           >
             <option value={3}>Last 3 months</option>
             <option value={6}>Last 6 months</option>
@@ -125,7 +128,7 @@ const Reports: React.FC = () => {
           <button
             onClick={handleExportCSV}
             disabled={!timeline.length}
-            className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-[#18181b] border border-gray-300 dark:border-white/[0.1] rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/[0.06] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -172,33 +175,21 @@ const Reports: React.FC = () => {
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="label" tick={{ fontSize: 12 }} />
-                <YAxis tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} tick={{ fontSize: 12 }} />
+                <CartesianGrid strokeDasharray="3 3" stroke={isDark ? 'rgba(255,255,255,0.06)' : '#e5e7eb'} vertical={false} />
+                <XAxis dataKey="label" tick={{ fontSize: 12, fill: isDark ? '#64748b' : '#9ca3af' }} axisLine={false} tickLine={false} />
+                <YAxis tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} tick={{ fontSize: 12, fill: isDark ? '#64748b' : '#9ca3af' }} axisLine={false} tickLine={false} width={40} />
                 <Tooltip
                   formatter={(v: number | undefined, name: string | undefined) => [
                     formatCurrency((v as number) ?? 0),
                     name === 'recovered_amount' ? 'Recovered' : 'Created',
                   ]}
                   labelFormatter={(label) => `Period: ${label}`}
+                  contentStyle={{ backgroundColor: isDark ? '#18181b' : '#fff', border: `1px solid ${isDark ? 'rgba(255,255,255,0.1)' : '#e5e7eb'}`, borderRadius: 8, color: isDark ? '#f1f5f9' : '#111827', boxShadow: isDark ? '0 4px 24px rgba(0,0,0,0.4)' : '0 4px 12px rgba(0,0,0,0.1)' }}
+                  labelStyle={{ color: isDark ? '#94a3b8' : '#374151', fontWeight: 600 }}
                 />
-                <Legend
-                  formatter={(value) => value === 'recovered_amount' ? 'Recovered' : 'Created'}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="amount_created"
-                  stroke="#93c5fd"
-                  fill="#dbeafe"
-                  strokeWidth={2}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="recovered_amount"
-                  stroke="#10b981"
-                  fill="#d1fae5"
-                  strokeWidth={2}
-                />
+                <Legend formatter={(value) => <span style={{ color: isDark ? '#94a3b8' : '#6b7280', fontSize: 12 }}>{value === 'recovered_amount' ? 'Recovered' : 'Created'}</span>} />
+                <Area type="monotone" dataKey="amount_created" stroke="#3b82f6" fill={isDark ? 'rgba(59,130,246,0.1)' : '#dbeafe'} strokeWidth={2} />
+                <Area type="monotone" dataKey="recovered_amount" stroke="#10b981" fill={isDark ? 'rgba(16,185,129,0.1)' : '#d1fae5'} strokeWidth={2} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -216,18 +207,15 @@ const Reports: React.FC = () => {
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="label" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} />
+                <CartesianGrid strokeDasharray="3 3" stroke={isDark ? 'rgba(255,255,255,0.06)' : '#e5e7eb'} vertical={false} />
+                <XAxis dataKey="label" tick={{ fontSize: 12, fill: isDark ? '#64748b' : '#9ca3af' }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 12, fill: isDark ? '#64748b' : '#9ca3af' }} axisLine={false} tickLine={false} width={30} />
                 <Tooltip
-                  formatter={(v: number | undefined, name: string | undefined) => [
-                    (v as number) ?? 0,
-                    name === 'recovered_count' ? 'Recovered' : 'Total',
-                  ]}
+                  formatter={(v: number | undefined, name: string | undefined) => [(v as number) ?? 0, name === 'recovered_count' ? 'Recovered' : 'Total']}
+                  contentStyle={{ backgroundColor: isDark ? '#18181b' : '#fff', border: `1px solid ${isDark ? 'rgba(255,255,255,0.1)' : '#e5e7eb'}`, borderRadius: 8, color: isDark ? '#f1f5f9' : '#111827', boxShadow: isDark ? '0 4px 24px rgba(0,0,0,0.4)' : '0 4px 12px rgba(0,0,0,0.1)' }}
+                  labelStyle={{ color: isDark ? '#94a3b8' : '#374151', fontWeight: 600 }}
                 />
-                <Legend
-                  formatter={(value) => value === 'recovered_count' ? 'Invoices Recovered' : 'Total Invoices'}
-                />
+                <Legend formatter={(value) => <span style={{ color: isDark ? '#94a3b8' : '#6b7280', fontSize: 12 }}>{value === 'recovered_count' ? 'Invoices Recovered' : 'Total Invoices'}</span>} />
                 <Line
                   type="monotone"
                   dataKey="total_count"
@@ -255,7 +243,7 @@ const Reports: React.FC = () => {
           <div className="overflow-x-auto">
             <table className="w-full text-sm text-left">
               <thead>
-                <tr className="text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
+                <tr className="text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-white/[0.06]">
                   <th className="pb-3 font-medium">Period</th>
                   <th className="pb-3 font-medium text-right">Invoices</th>
                   <th className="pb-3 font-medium text-right">Recovered</th>
@@ -272,7 +260,7 @@ const Reports: React.FC = () => {
                   return (
                     <tr
                       key={idx}
-                      className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                      className="border-b border-gray-100 dark:border-white/[0.05] hover:bg-gray-50 dark:hover:bg-white/[0.03] transition-colors"
                     >
                       <td className="py-3 text-gray-900 dark:text-white font-medium">{row.label}</td>
                       <td className="py-3 text-right text-gray-600 dark:text-gray-400">{row.total_count}</td>
