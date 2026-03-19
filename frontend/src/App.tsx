@@ -93,9 +93,12 @@ const App: React.FC = () => {
             <Route path="/pricing" element={<Pricing />} />
             <Route path="/security" element={<SecurityPage />} />
             <Route path="/terms" element={<Terms />} />
+            <Route path="/terms-of-service" element={<Terms />} />
             <Route path="/privacy" element={<Privacy />} />
+            <Route path="/privacy-policy" element={<Privacy />} />
             <Route path="/support" element={<Support />} />
             <Route path="/refund-policy" element={<Refund />} />
+            <Route path="/cancellation" element={<Refund />} />
             <Route path="/cookie-policy" element={<CookiePolicy />} />
             <Route path="/dpa" element={<Dpa />} />
             <Route path="/login" element={<Login />} />
