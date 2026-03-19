@@ -59,7 +59,7 @@ class AuthService {
     await BillingDB.ensureDefaultPlans();
     await BillingDB.upsertCompanySubscription({
       companyId: company.id,
-      planCode: 'starter',
+      planCode: 'phase_0',
       status: 'trialing',
       trialEndsAt: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000),
       periodStart: new Date(),
@@ -365,7 +365,7 @@ async googleLogin(code: string): Promise<AuthResponse> {
     await BillingDB.ensureDefaultPlans();
     await BillingDB.upsertCompanySubscription({
       companyId: company.id,
-      planCode: 'starter',
+      planCode: 'phase_0',
       status: 'trialing',
       trialEndsAt: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000),
       periodStart: new Date(),

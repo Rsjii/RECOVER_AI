@@ -331,12 +331,12 @@ export const reconcileBillingState = async (req: Request, res: Response): Promis
 
 export const createLemonSqueezyCheckout = async (req: Request, res: Response): Promise<void> => {
   const companyId = (req as any).companyId as string;
-  const { plan, billingInterval } = req.body as { plan: 'starter' | 'growth' | 'enterprise'; billingInterval?: 'monthly' | 'annual' };
+  const { plan, billingInterval } = req.body as { plan: 'phase_0' | 'growth' | 'enterprise'; billingInterval?: 'monthly' | 'annual' };
 
   try {
     logInfo(LOG_MODULE, 'createLemonSqueezyCheckout', 'Creating checkout', { companyId, plan, billingInterval });
 
-    if (!['starter', 'growth', 'enterprise'].includes(plan)) {
+    if (!['phase_0', 'growth', 'enterprise'].includes(plan)) {
       sendErrorResponse(res, 400, 'Invalid plan');
       return;
     }

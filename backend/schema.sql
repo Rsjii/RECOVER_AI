@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS companies (
   timezone                   VARCHAR DEFAULT 'UTC',
   preferred_currency         VARCHAR(3) DEFAULT 'USD',
   dunning_strategy           JSONB DEFAULT '{"num_emails": 5, "days_between": 7, "approval_required": false}',
+  cash_balance_usd           NUMERIC(15,2) DEFAULT 0,
 
   created_at                 TIMESTAMPTZ DEFAULT NOW(),
   updated_at                 TIMESTAMPTZ DEFAULT NOW()
@@ -86,6 +87,8 @@ CREATE TABLE IF NOT EXISTS customers (
   company_name    VARCHAR,
   phone           VARCHAR,
   phone_opt_in    BOOLEAN DEFAULT false,
+  card_expires_at DATE,
+  last_activity_at TIMESTAMPTZ,
   payment_history JSONB DEFAULT '{"on_time_rate": 0, "avg_days_late": 0, "total_invoices": 0, "total_paid": 0}',
   industry        VARCHAR,
   notes           TEXT,
@@ -115,6 +118,7 @@ CREATE TABLE IF NOT EXISTS invoices (
   dunning_stopped      BOOLEAN NOT NULL DEFAULT FALSE,
   sms_count            INTEGER DEFAULT 0,
   last_sms_sent_at     TIMESTAMPTZ,
+  last_decline_type    VARCHAR(10),
   created_at           TIMESTAMPTZ DEFAULT NOW(),
   updated_at           TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(company_id, source, source_id)
@@ -301,6 +305,7 @@ CREATE TABLE IF NOT EXISTS subscription_plans (
   name VARCHAR(100) NOT NULL,
   base_price_usd DECIMAL(10, 2) NOT NULL DEFAULT 0,
   success_fee_percent DECIMAL(5, 2) NOT NULL DEFAULT 1.00,
+  success_fee_tiers JSONB,
   billing_interval VARCHAR(20) NOT NULL DEFAULT 'monthly', -- monthly | annual
   features JSONB NOT NULL DEFAULT '{}',
   limits JSONB NOT NULL DEFAULT '{}',
@@ -691,34 +696,9 @@ CREATE INDEX IF NOT EXISTS idx_platform_daily_stats
   ON platform_daily_stats(metric_key, date DESC);
 
 -- ============================================================
--- MIGRATIONS: Payment Failure Prediction + Cash Position + Pricing
+-- INDEXES FOR RISK PREDICTION & FORECASTING (Sprint 1)
 -- ============================================================
 
--- companies: cash balance for cash position widget
-DO $$ BEGIN
-  ALTER TABLE companies ADD COLUMN cash_balance_usd NUMERIC(15,2) DEFAULT 0;
-EXCEPTION WHEN duplicate_column THEN NULL; END $$;
-
--- customers: card expiry + last activity for risk prediction
-DO $$ BEGIN
-  ALTER TABLE customers ADD COLUMN card_expires_at DATE;
-EXCEPTION WHEN duplicate_column THEN NULL; END $$;
-
-DO $$ BEGIN
-  ALTER TABLE customers ADD COLUMN last_activity_at TIMESTAMPTZ;
-EXCEPTION WHEN duplicate_column THEN NULL; END $$;
-
--- invoices: decline type for risk prediction
-DO $$ BEGIN
-  ALTER TABLE invoices ADD COLUMN last_decline_type VARCHAR(10);  -- null | 'hard' | 'soft'
-EXCEPTION WHEN duplicate_column THEN NULL; END $$;
-
--- subscription_plans: tiered success fee structure
-DO $$ BEGIN
-  ALTER TABLE subscription_plans ADD COLUMN success_fee_tiers JSONB;
-EXCEPTION WHEN duplicate_column THEN NULL; END $$;
-
--- Indexes for risk prediction queries
 CREATE INDEX IF NOT EXISTS idx_customers_card_expires
   ON customers(company_id, card_expires_at)
   WHERE card_expires_at IS NOT NULL;

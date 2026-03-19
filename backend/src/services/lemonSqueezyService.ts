@@ -10,7 +10,7 @@ export class LemonSqueezyService {
   private webhookSecret = config.lemonSqueezy.webhookSecret;
 
   async createCheckout(params: {
-    planId: 'starter' | 'growth' | 'enterprise';
+    planId: 'phase_0' | 'growth' | 'enterprise';
     billingInterval?: 'monthly' | 'annual';
     customerEmail: string;
     customerName: string;
@@ -165,7 +165,7 @@ export class LemonSqueezyService {
       if (eventName === 'subscription_created') {
         const customData = data.attributes?.checkout_data?.custom;
         const companyId = customData?.company_id;
-        const planCode = customData?.plan_code || 'starter';
+        const planCode = customData?.plan_code || 'growth';
         const customerId = data.attributes?.customer_id;
         const lsStatus = data.attributes?.status;
         const lsSubscriptionId = data.id;
@@ -199,7 +199,7 @@ export class LemonSqueezyService {
       if (eventName === 'subscription_updated') {
         const customData = data.attributes?.checkout_data?.custom;
         const companyId = customData?.company_id;
-        const planCode = customData?.plan_code || 'starter';
+        const planCode = customData?.plan_code || 'growth';
         const lsStatus = data.attributes?.status;
 
         if (companyId) {
@@ -222,7 +222,7 @@ export class LemonSqueezyService {
       if (eventName === 'subscription_cancelled') {
         const customData = data.attributes?.checkout_data?.custom;
         const companyId = customData?.company_id;
-        const planCode = customData?.plan_code || 'starter';
+        const planCode = customData?.plan_code || 'growth';
 
         if (companyId) {
           await upsertCompanySubscription({
