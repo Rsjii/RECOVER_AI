@@ -56,6 +56,35 @@ export async function listCustomers(
 }
 
 /**
+ * Set or update a customer's phone number and SMS opt-in status.
+ * TCPA requires explicit opt-in before any SMS can be sent.
+ */
+export async function updateCustomerPhone(
+  id: string,
+  companyId: string,
+  phone: string,
+  optIn: boolean
+): Promise<void> {
+  await pool.query(
+    `UPDATE customers SET phone = $1, phone_opt_in = $2, updated_at = NOW()
+     WHERE id = $3 AND company_id = $4`,
+    [phone, optIn, id, companyId]
+  );
+}
+
+/**
+ * Mark a customer as opted out of SMS (STOP reply handler).
+ * Looks up by phone number across all companies.
+ */
+export async function handleSMSOptOut(phoneNumber: string): Promise<void> {
+  await pool.query(
+    `UPDATE customers SET phone_opt_in = false, updated_at = NOW()
+     WHERE phone = $1`,
+    [phoneNumber]
+  );
+}
+
+/**
  * Update customer email (permanent change to DB)
  */
 export async function updateCustomer(id: string, companyId: string, data: { email: string }): Promise<CustomerRow> {

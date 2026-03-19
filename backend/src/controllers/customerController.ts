@@ -75,22 +75,37 @@ export const updateCustomer = async (req: Request, res: Response): Promise<void>
 
   try {
     const customerId = req.params.id as string;
-    const { email } = req.body as { email?: string };
+    const { email, phone, phone_opt_in } = req.body as { email?: string; phone?: string | null; phone_opt_in?: boolean };
 
-    if (!email || typeof email !== 'string') {
-      sendErrorResponse(res, 400, 'Email is required and must be a string');
+    const updatingEmail = email !== undefined;
+    const updatingPhone = phone !== undefined || phone_opt_in !== undefined;
+
+    if (!updatingEmail && !updatingPhone) {
+      sendErrorResponse(res, 400, 'At least one field (email, phone, phone_opt_in) is required');
       return;
     }
 
-    // Basic email validation
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      sendErrorResponse(res, 400, 'Invalid email format');
-      return;
+    let customer;
+
+    if (updatingEmail) {
+      if (typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        sendErrorResponse(res, 400, 'Invalid email format');
+        return;
+      }
+      customer = await CustomerDB.updateCustomer(customerId, companyId, { email });
     }
 
-    const customer = await CustomerDB.updateCustomer(customerId, companyId, { email });
+    if (updatingPhone) {
+      const phoneValue = phone === null ? '' : (phone || '');
+      await CustomerDB.updateCustomerPhone(customerId, companyId, phoneValue, phone_opt_in ?? false);
+      if (!customer) {
+        const found = await CustomerDB.findCustomerById(customerId, companyId);
+        if (!found) { sendErrorResponse(res, 404, 'Customer not found'); return; }
+        customer = found;
+      }
+    }
 
-    logInfo(LOG_MODULE, handler, 'Customer updated', { customerId, email });
+    logInfo(LOG_MODULE, handler, 'Customer updated', { customerId });
 
     res.status(200).json({
       message: 'Customer updated successfully',

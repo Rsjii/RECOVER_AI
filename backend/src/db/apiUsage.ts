@@ -1,6 +1,6 @@
 import { pool } from '../config/database';
 
-export type ApiService = 'claude' | 'openai' | 'resend';
+export type ApiService = 'claude' | 'openai' | 'resend' | 'twilio';
 
 export interface ApiUsageSummaryRow {
   service: string;

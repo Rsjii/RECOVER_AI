@@ -4,6 +4,7 @@ import { testDbConnection } from './config/database';
 import { connectRedis } from './config/redis';
 import { runMigrations } from './lib/migrate';
 import { startDunningWorker, stopDunningWorker } from './queue/dunningQueue';
+import { startSMSWorker } from './queue/smsQueue';
 import { startDailyDigestWorker, stopDailyDigestWorker } from './queue/dailyDigestJob';
 import { startAgentLoop, stopAgentLoop } from './queue/agentLoop';
 import { startRecoveryTimelineJob, stopRecoveryTimelineJob } from './queue/recoveryTimelineJob';
@@ -42,6 +43,7 @@ async function startServer() {
         workers: 'dunning, agent-loop, payment-plans, recovery-timeline, daily-digest'
       });
       startDunningWorker();
+      startSMSWorker();
       startDailyDigestWorker();
       startAgentLoop();
       startRecoveryTimelineJob();

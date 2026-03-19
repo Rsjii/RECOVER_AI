@@ -82,6 +82,7 @@ CREATE TABLE IF NOT EXISTS customers (
   email           VARCHAR NOT NULL,
   company_name    VARCHAR,
   phone           VARCHAR,
+  phone_opt_in    BOOLEAN DEFAULT false,
   payment_history JSONB DEFAULT '{"on_time_rate": 0, "avg_days_late": 0, "total_invoices": 0, "total_paid": 0}',
   industry        VARCHAR,
   notes           TEXT,
@@ -109,6 +110,8 @@ CREATE TABLE IF NOT EXISTS invoices (
   notes                TEXT,
   dunning_paused_until TIMESTAMPTZ DEFAULT NULL,
   dunning_stopped      BOOLEAN NOT NULL DEFAULT FALSE,
+  sms_count            INTEGER DEFAULT 0,
+  last_sms_sent_at     TIMESTAMPTZ,
   created_at           TIMESTAMPTZ DEFAULT NOW(),
   updated_at           TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(company_id, source, source_id)
@@ -245,6 +248,8 @@ CREATE INDEX IF NOT EXISTS idx_invoices_source_id        ON invoices(source, sou
 
 CREATE INDEX IF NOT EXISTS idx_customers_company         ON customers(company_id);
 CREATE INDEX IF NOT EXISTS idx_customers_email           ON customers(company_id, email);
+CREATE INDEX IF NOT EXISTS idx_customers_phone           ON customers(phone) WHERE phone IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_customers_phone_opt_in    ON customers(company_id, phone_opt_in) WHERE phone_opt_in = true;
 
 CREATE INDEX IF NOT EXISTS idx_email_logs_invoice        ON email_logs(invoice_id);
 CREATE INDEX IF NOT EXISTS idx_email_logs_company        ON email_logs(company_id, sent_at DESC);

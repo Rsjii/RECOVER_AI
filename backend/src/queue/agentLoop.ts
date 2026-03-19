@@ -1,8 +1,14 @@
 import cron from 'node-cron';
 import { queueEmailNow } from './dunningQueue';
+import { queueSMSNow } from './smsQueue';
 import { pool } from '../config/database';
 import { logError, logInfo, logWarn } from '../utils/logger';
+import { normalizePhone } from '../services/smsService';
 import type { DunningEmailType } from '../types/email';
+
+// SMS thresholds: send SMS when email alone isn't working
+const SMS_MIN_EMAILS_SENT = 2;     // must have tried email at least twice
+const SMS_MIN_DAYS_OVERDUE = 7;    // must be at least 7 days overdue
 
 const LOG_MODULE = 'agentLoop';
 const MAX_DUNNING_EMAILS = 5;
@@ -30,6 +36,9 @@ async function getOverdueInvoicesForProcessing(): Promise<Array<{
   due_date: string;
   customer_email: string;
   customer_name: string;
+  customer_phone: string | null;
+  customer_phone_opt_in: boolean;
+  company_name: string;
   risk_score: number;
   dunning_emails_sent: number;
   email_types_sent: string[];
@@ -37,6 +46,7 @@ async function getOverdueInvoicesForProcessing(): Promise<Array<{
   plan_offer_sent: boolean;
   dunning_paused_until: string | null;
   dunning_stopped: boolean;
+  sms_count: number;
 }>> {
   const result = await pool.query(`
     SELECT
@@ -48,8 +58,12 @@ async function getOverdueInvoicesForProcessing(): Promise<Array<{
       i.risk_score,
       i.dunning_paused_until,
       COALESCE(i.dunning_stopped, false) AS dunning_stopped,
-      c.email  AS customer_email,
-      c.name   AS customer_name,
+      COALESCE(i.sms_count, 0)::int AS sms_count,
+      c.email           AS customer_email,
+      c.name            AS customer_name,
+      c.phone           AS customer_phone,
+      COALESCE(c.phone_opt_in, false) AS customer_phone_opt_in,
+      co.name           AS company_name,
       COUNT(DISTINCT el.id) FILTER (
         WHERE el.email_type LIKE 'dunning_%' AND el.status != 'failed'
       )::int AS dunning_emails_sent,
@@ -60,7 +74,8 @@ async function getOverdueInvoicesForProcessing(): Promise<Array<{
       (COUNT(DISTINCT pp.id) FILTER (WHERE pp.status = 'active') > 0) AS has_active_plan,
       (COUNT(DISTINCT el2.id) FILTER (WHERE el2.email_type = 'payment_plan_offer' AND el2.status != 'failed') > 0) AS plan_offer_sent
     FROM invoices i
-    JOIN customers c ON i.customer_id = c.id
+    JOIN customers c  ON i.customer_id = c.id
+    JOIN companies co ON i.company_id  = co.id
     LEFT JOIN email_logs el  ON el.invoice_id = i.id
     LEFT JOIN email_logs el2 ON el2.invoice_id = i.id
     LEFT JOIN payment_plans pp ON pp.invoice_id = i.id
@@ -69,7 +84,9 @@ async function getOverdueInvoicesForProcessing(): Promise<Array<{
       AND c.email IS NOT NULL
       AND c.email != ''
       AND COALESCE(c.do_not_email, false) = false
-    GROUP BY i.id, i.company_id, i.customer_id, i.amount, i.due_date, i.risk_score, i.dunning_paused_until, i.dunning_stopped, c.email, c.name
+    GROUP BY i.id, i.company_id, i.customer_id, i.amount, i.due_date, i.risk_score,
+             i.dunning_paused_until, i.dunning_stopped, i.sms_count,
+             c.email, c.name, c.phone, c.phone_opt_in, co.name
     ORDER BY i.due_date ASC
   `);
 
@@ -77,6 +94,7 @@ async function getOverdueInvoicesForProcessing(): Promise<Array<{
     ...row,
     has_active_plan: row.has_active_plan === true || row.has_active_plan === 't',
     plan_offer_sent: row.plan_offer_sent === true || row.plan_offer_sent === 't',
+    customer_phone_opt_in: row.customer_phone_opt_in === true || row.customer_phone_opt_in === 't',
   }));
 }
 
@@ -216,6 +234,34 @@ async function runDecisionEngine(): Promise<{
           invoiceId: invoice.id,
           daysOverdue,
         });
+      }
+
+      // ── SMS escalation: trigger when email isn't working ──
+      if (
+        invoice.customer_phone_opt_in &&
+        invoice.customer_phone &&
+        invoice.dunning_emails_sent >= SMS_MIN_EMAILS_SENT &&
+        daysOverdue >= SMS_MIN_DAYS_OVERDUE &&
+        invoice.sms_count === 0   // only queue first SMS here; subsequent handled by smsQueue retries
+      ) {
+        const normalizedPhone = normalizePhone(invoice.customer_phone);
+        if (normalizedPhone) {
+          await queueSMSNow({
+            companyId: invoice.company_id,
+            customerId: invoice.customer_id,
+            invoiceId: invoice.id,
+            phoneNumber: normalizedPhone,
+            customerName: invoice.customer_name,
+            companyName: invoice.company_name,
+            invoiceAmount: invoice.amount,
+            daysOverdue,
+          });
+          logInfo(LOG_MODULE, method, 'SMS queued', {
+            invoiceId: invoice.id,
+            daysOverdue,
+            dunningEmailsSent: invoice.dunning_emails_sent,
+          });
+        }
       }
     } catch (err) {
       logError(LOG_MODULE, method, 'Error processing invoice', err, { invoiceId: invoice.id });

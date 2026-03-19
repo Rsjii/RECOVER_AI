@@ -7,6 +7,8 @@ export interface Customer {
   name: string;
   email: string;
   company_name?: string;
+  phone?: string;
+  phone_opt_in?: boolean;
   industry?: string;
   payment_history: {
     on_time_rate: number;

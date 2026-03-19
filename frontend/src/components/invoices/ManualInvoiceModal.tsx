@@ -17,6 +17,7 @@ export const ManualInvoiceModal: React.FC<ManualInvoiceModalProps> = ({ isOpen, 
   const [form, setForm] = useState({
     customerName: '',
     customerEmail: '',
+    customerPhone: '',
     amount: '',
     currency: 'USD',
     dueDate: '',
@@ -44,13 +45,14 @@ export const ManualInvoiceModal: React.FC<ManualInvoiceModalProps> = ({ isOpen, 
       await api.post(API_ENDPOINTS.invoices.manual, {
         customerName: form.customerName.trim(),
         customerEmail: form.customerEmail.trim(),
+        customerPhone: form.customerPhone.trim() || undefined,
         amount: Number(form.amount),
         currency: form.currency,
         dueDate: form.dueDate,
         notes: form.notes.trim() || undefined,
       });
       addToast({ type: 'success', message: 'Invoice created successfully' });
-      setForm({ customerName: '', customerEmail: '', amount: '', currency: 'USD', dueDate: '', notes: '' });
+      setForm({ customerName: '', customerEmail: '', customerPhone: '', amount: '', currency: 'USD', dueDate: '', notes: '' });
       onCreated();
       onClose();
     } catch (err: any) {
@@ -80,6 +82,7 @@ export const ManualInvoiceModal: React.FC<ManualInvoiceModalProps> = ({ isOpen, 
       <form onSubmit={handleSubmit} className="space-y-4">
         {field('Customer Name', 'customerName', { placeholder: 'Acme Corp' })}
         {field('Customer Email', 'customerEmail', { type: 'email', placeholder: 'billing@acme.com' })}
+        {field('Phone (optional)', 'customerPhone', { type: 'tel', placeholder: '+12125551234' })}
         <div className="grid grid-cols-2 gap-3">
           {field('Amount', 'amount', { type: 'number', min: '0.01', step: '0.01', placeholder: '1000.00' })}
           <div>
