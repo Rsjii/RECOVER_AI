@@ -25,17 +25,42 @@ export interface SubscriptionRow {
 }
 
 export async function ensureDefaultPlans(): Promise<void> {
+  // Tiered success fee structure:
+  // Growth:     5% first $50k, 3% next $100k, 2% above $150k (monthly recovered)
+  // Enterprise: 4% first $100k, 2.5% next $200k, 1.5% above $300k
+  const growthTiers = JSON.stringify([
+    { up_to: 50000,  pct: 5.0 },
+    { up_to: 150000, pct: 3.0 },
+    { up_to: null,   pct: 2.0 },
+  ]);
+  const enterpriseTiers = JSON.stringify([
+    { up_to: 100000, pct: 4.0 },
+    { up_to: 300000, pct: 2.5 },
+    { up_to: null,   pct: 1.5 },
+  ]);
+
   await pool.query(
-    `INSERT INTO subscription_plans (code, name, base_price_usd, success_fee_percent, billing_interval, features, limits)
+    `INSERT INTO subscription_plans (code, name, base_price_usd, success_fee_percent, billing_interval, features, limits, success_fee_tiers)
      VALUES
-       ('starter', 'Starter', 499, 1.00, 'monthly', '{"stripe":true}', '{"users":3,"invoices_per_month":300}'),
-       ('growth', 'Growth', 999, 0.75, 'monthly', '{"stripe":true,"quickbooks":true,"chargebee":true,"payment_plans":true,"rbac":true}', '{"users":15}'),
-       ('enterprise', 'Enterprise', 0, 0.50, 'monthly', '{"stripe":true,"quickbooks":true,"chargebee":true,"payment_plans":true,"rbac":true,"sso":true,"api_access":true,"custom_integrations":true}', '{"users":1000}')
+       ('phase_0', 'Phase 0 (First Customers)', 0, 5.00, 'monthly',
+        '{"stripe":true,"ar_recovery":true,"payment_prediction":true,"cash_position":true}',
+        '{"users":5,"invoices_per_month":200}',
+        NULL),
+       ('growth', 'Growth', 2500, 5.00, 'monthly',
+        '{"stripe":true,"quickbooks":true,"ar_recovery":true,"sms":true,"payment_plans":true,"payment_prediction":true,"cash_position":true,"priority_support":true}',
+        '{"users":20}',
+        $1),
+       ('enterprise', 'Enterprise', 5000, 4.00, 'monthly',
+        '{"stripe":true,"quickbooks":true,"xero":true,"netsuite":true,"ar_recovery":true,"sms":true,"payment_plans":true,"ap_automation":true,"payment_prediction":true,"cash_position":true,"api_access":true,"white_label":true,"dedicated_am":true}',
+        '{"users":1000}',
+        $2)
      ON CONFLICT (code) DO UPDATE SET
-       base_price_usd = EXCLUDED.base_price_usd,
-       success_fee_percent = EXCLUDED.success_fee_percent,
-       features = EXCLUDED.features,
-       limits = EXCLUDED.limits`
+       base_price_usd       = EXCLUDED.base_price_usd,
+       success_fee_percent  = EXCLUDED.success_fee_percent,
+       success_fee_tiers    = EXCLUDED.success_fee_tiers,
+       features             = EXCLUDED.features,
+       limits               = EXCLUDED.limits`,
+    [growthTiers, enterpriseTiers]
   );
 }
 

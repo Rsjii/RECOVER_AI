@@ -690,3 +690,42 @@ CREATE INDEX IF NOT EXISTS idx_api_usage_company_period
 CREATE INDEX IF NOT EXISTS idx_platform_daily_stats
   ON platform_daily_stats(metric_key, date DESC);
 
+-- ============================================================
+-- MIGRATIONS: Payment Failure Prediction + Cash Position + Pricing
+-- ============================================================
+
+-- companies: cash balance for cash position widget
+DO $$ BEGIN
+  ALTER TABLE companies ADD COLUMN cash_balance_usd NUMERIC(15,2) DEFAULT 0;
+EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+
+-- customers: card expiry + last activity for risk prediction
+DO $$ BEGIN
+  ALTER TABLE customers ADD COLUMN card_expires_at DATE;
+EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE customers ADD COLUMN last_activity_at TIMESTAMPTZ;
+EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+
+-- invoices: decline type for risk prediction
+DO $$ BEGIN
+  ALTER TABLE invoices ADD COLUMN last_decline_type VARCHAR(10);  -- null | 'hard' | 'soft'
+EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+
+-- subscription_plans: tiered success fee structure
+DO $$ BEGIN
+  ALTER TABLE subscription_plans ADD COLUMN success_fee_tiers JSONB;
+EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+
+-- Indexes for risk prediction queries
+CREATE INDEX IF NOT EXISTS idx_customers_card_expires
+  ON customers(company_id, card_expires_at)
+  WHERE card_expires_at IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_customers_last_activity
+  ON customers(company_id, last_activity_at);
+
+CREATE INDEX IF NOT EXISTS idx_payments_status_company
+  ON payments(company_id, status, paid_at DESC);
+

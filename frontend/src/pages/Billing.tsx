@@ -6,12 +6,18 @@ import { Button } from '../components/ui/Button';
 import type { BillingInvoice, CompanySubscription, SubscriptionPlan, UsageRollup } from '../types';
 import { formatCurrency, formatDate } from '../lib/utils';
 
+interface FeeTierBreakdown {
+  label: string;
+  amountUsd: number;
+}
+
 interface RecoveryFee {
   baseFeeUsd: number;
   recoveredUsd: number;
   feePct: number;
   recoveryFeeUsd: number;
   totalUsd: number;
+  breakdown?: FeeTierBreakdown[];
 }
 
 const Billing: React.FC = () => {
@@ -114,13 +120,27 @@ const Billing: React.FC = () => {
                   <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 text-sm space-y-1">
                     <p className="font-medium text-gray-900 dark:text-white mb-2">This Month's Bill Estimate</p>
                     <div className="flex justify-between text-gray-600 dark:text-gray-300">
-                      <span>Base fee</span>
+                      <span>Base subscription</span>
                       <span>{formatCurrency(recoveryFee.baseFeeUsd)}</span>
                     </div>
-                    <div className="flex justify-between text-gray-600 dark:text-gray-300">
-                      <span>Recovery fee ({recoveryFee.feePct}% of {formatCurrency(recoveryFee.recoveredUsd)} recovered)</span>
-                      <span>{formatCurrency(recoveryFee.recoveryFeeUsd)}</span>
-                    </div>
+                    {recoveryFee.breakdown && recoveryFee.breakdown.length > 0 ? (
+                      <>
+                        <p className="text-xs text-gray-400 pt-1">
+                          Success fee on {formatCurrency(recoveryFee.recoveredUsd)} recovered:
+                        </p>
+                        {recoveryFee.breakdown.map((tier) => (
+                          <div key={tier.label} className="flex justify-between text-gray-600 dark:text-gray-300 pl-3">
+                            <span className="text-xs">{tier.label}</span>
+                            <span>{formatCurrency(tier.amountUsd)}</span>
+                          </div>
+                        ))}
+                      </>
+                    ) : (
+                      <div className="flex justify-between text-gray-600 dark:text-gray-300">
+                        <span>Success fee ({recoveryFee.feePct}% of {formatCurrency(recoveryFee.recoveredUsd)} recovered)</span>
+                        <span>{formatCurrency(recoveryFee.recoveryFeeUsd)}</span>
+                      </div>
+                    )}
                     <div className="flex justify-between font-semibold text-gray-900 dark:text-white border-t border-gray-200 dark:border-gray-700 pt-1 mt-1">
                       <span>Estimated total</span>
                       <span>{formatCurrency(recoveryFee.totalUsd)}</span>
@@ -135,7 +155,9 @@ const Billing: React.FC = () => {
             {plans.map((plan) => (
               <Card key={plan.id}>
                 <h3 className="font-semibold text-gray-900 dark:text-white">{plan.name}</h3>
-                <p className="text-sm text-gray-500 mt-1">{formatCurrency(Number(plan.base_price_usd))}/month + {plan.success_fee_percent}% success fee</p>
+                <p className="text-sm text-gray-500 mt-1">
+                  {formatCurrency(Number(plan.base_price_usd))}/month + tiered success fee
+                </p>
                 <Button
                   className="mt-4 w-full"
                   variant={subscription?.plan_code === plan.code ? 'secondary' : 'primary'}

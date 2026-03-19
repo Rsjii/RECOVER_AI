@@ -5,79 +5,71 @@ import { ThemeToggle } from '../components/ui/ThemeToggle';
 
 const PLANS = [
   {
-    name: 'Starter',
-    monthlyPrice: '$499',
-    annualPrice: '$399',
-    period: '/mo',
-    fee: '+ 1% success fee',
-    desc: 'For growing SaaS teams starting their AR recovery journey.',
-    users: 'Up to 3 users',
-    invoices: 'Up to 300 invoices/mo',
-    features: [
-      'Stripe integration',
-      'AI dunning emails (5 per invoice)',
-      'Risk scoring (0-100)',
-      'Basic dashboard',
-      'Slack alerts',
-      'Email support',
-    ],
-    cta: 'Start free trial',
-    popular: false,
-  },
-  {
     name: 'Growth',
-    monthlyPrice: '$999',
-    annualPrice: '$799',
+    monthlyPrice: '$2,500',
+    annualPrice: '$2,000',
     period: '/mo',
-    fee: '+ 0.75% success fee',
-    desc: 'For scaling teams with high invoice volume and complex workflows.',
-    users: 'Up to 15 users',
+    fee: '+ tiered success fee',
+    feeDetail: '5% first $50k · 3% next $100k · 2% above',
+    desc: 'For $5M–$20M ARR B2B SaaS with invoice-based billing.',
+    users: 'Up to 20 users',
     invoices: 'Unlimited invoices',
     features: [
-      'Everything in Starter',
-      'QuickBooks + Chargebee integrations',
-      'Payment plan automation',
-      'Advanced analytics & DSO tracking',
-      'Team collaboration + RBAC',
-      'Policy rules & approval queues',
-      'Priority support',
+      'AI dunning emails + SMS reminders',
+      'Payment failure prediction (5 signals)',
+      '90-day cash position forecast',
+      'Payment plans (3/6/12 month)',
+      'Stripe + QuickBooks integration',
+      'Email open/click tracking',
+      'CAN-SPAM compliant unsubscribe',
+      'Priority email support',
     ],
     cta: 'Start free trial',
     popular: true,
   },
   {
     name: 'Enterprise',
-    monthlyPrice: 'Custom',
-    annualPrice: 'Custom',
-    period: '',
-    fee: '+ 0.5% success fee',
-    desc: 'For large finance teams needing custom integrations and SLAs.',
+    monthlyPrice: '$5,000',
+    annualPrice: '$4,000',
+    period: '/mo',
+    fee: '+ tiered success fee',
+    feeDetail: '4% first $100k · 2.5% next $200k · 1.5% above',
+    desc: 'For $20M–$100M ARR companies needing full finance ops automation.',
     users: 'Unlimited users + SSO',
     invoices: 'Unlimited invoices',
     features: [
-      'Everything in Growth',
-      'Custom integrations (NetSuite, SAP, Zuora)',
+      'Everything in Growth +',
+      'Basic AP automation (invoice OCR + approval)',
+      'Stripe + QuickBooks + Xero + NetSuite',
+      '180-day cash position + scenario planning',
+      'Advanced payment prediction (all 5 signals)',
+      'API access + white-label option',
       'Dedicated account manager',
-      'Custom dunning playbooks',
-      'SLA guarantees',
-      'GDPR DPA + SOC 2 report',
-      'White-label emails',
-      'API access',
+      'Monthly CFO review call',
+      'Custom email templates',
     ],
     cta: 'Contact sales',
     popular: false,
   },
 ];
 
+function calcTieredFee(amount: number): number {
+  if (amount <= 0) return 0;
+  if (amount <= 50000) return Math.round(amount * 0.05);
+  if (amount <= 150000) return Math.round(50000 * 0.05 + (amount - 50000) * 0.03);
+  return Math.round(50000 * 0.05 + 100000 * 0.03 + (amount - 150000) * 0.02);
+}
+
 const RoiCalculator: React.FC = () => {
   const [ar, setAr] = useState('');
   const arNum = parseFloat(ar.replace(/,/g, '')) || 0;
   const recoveryLow = Math.round(arNum * 0.20);
   const recoveryHigh = Math.round(arNum * 0.35);
-  const feeLow = Math.round(recoveryLow * 0.01);
-  const feeHigh = Math.round(recoveryHigh * 0.01);
-  const netLow = recoveryLow - feeLow - 499;
-  const netHigh = recoveryHigh - feeHigh - 499;
+  const feeLow = calcTieredFee(recoveryLow);
+  const feeHigh = calcTieredFee(recoveryHigh);
+  const BASE = 2500;
+  const netLow = recoveryLow - feeLow - BASE;
+  const netHigh = recoveryHigh - feeHigh - BASE;
   const hasResult = arNum > 0;
 
   return (
@@ -104,8 +96,8 @@ const RoiCalculator: React.FC = () => {
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
             <p className="text-xs text-gray-500 mb-1">Your total cost</p>
-            <p className="text-xl font-bold text-gray-900 dark:text-white">${(499 + feeLow).toLocaleString()} – ${(499 + feeHigh).toLocaleString()}</p>
-            <p className="text-xs text-gray-400 mt-1">$499 base + 1% success fee</p>
+            <p className="text-xl font-bold text-gray-900 dark:text-white">${(BASE + feeLow).toLocaleString()} – ${(BASE + feeHigh).toLocaleString()}</p>
+            <p className="text-xs text-gray-400 mt-1">$2,500 base + tiered success fee</p>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-blue-300 dark:border-blue-700">
             <p className="text-xs text-gray-500 mb-1">Your net gain</p>
@@ -256,14 +248,14 @@ const Pricing: React.FC = () => {
             How does the success fee work?
           </h2>
           <p className="text-gray-600 dark:text-gray-300 mb-8">
-            We charge 1% only on invoices that RecoverAI successfully recovers.
-            Zero recovery = zero success fee. Aligned incentives.
+            We charge a tiered success fee only on invoices RecoverAI successfully recovers.
+            Zero recovery = zero success fee. Rates drop as you recover more — aligned incentives.
           </p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-left">
             {[
-              { label: 'You owe', amount: '$0', desc: 'If we recover $0 this month' },
-              { label: 'You pay $250', amount: '$25k', desc: 'If we recover $25,000 (1%)' },
-              { label: 'You pay $500', amount: '$50k', desc: 'If we recover $50,000 (1%)' },
+              { label: 'You owe $0 success fee', amount: '$0', desc: 'If we recover $0 this month' },
+              { label: 'You pay $1,250 (5%)', amount: '$25k', desc: 'If we recover $25,000' },
+              { label: 'You pay $2,500 (5%)', amount: '$50k', desc: 'If we recover $50,000' },
             ].map((ex) => (
               <div key={ex.label} className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700">
                 <p className="text-xs text-gray-500 mb-1">{ex.desc}</p>
@@ -286,7 +278,7 @@ const Pricing: React.FC = () => {
             },
             {
               q: 'What happens after the free trial?',
-              a: 'After 14 days, you can choose a plan or your account pauses. No charges until you upgrade. All your data is preserved for 30 days.',
+              a: 'After 21 days, you can choose a plan or your account pauses. No charges until you upgrade. All your data is preserved for 30 days.',
             },
             {
               q: 'Can I change plans later?',
@@ -318,7 +310,7 @@ const Pricing: React.FC = () => {
       <section className="bg-brand-600 py-12">
         <div className="max-w-2xl mx-auto px-6 text-center">
           <h2 className="text-2xl font-bold text-white mb-2">Start recovering invoices today</h2>
-          <p className="text-blue-100 mb-6">14-day free trial. No credit card. Cancel anytime.</p>
+          <p className="text-blue-100 mb-6">21-day free trial. No credit card. Cancel anytime.</p>
           <Link to="/signup">
             <Button className="bg-white text-brand-600 hover:bg-brand-50 px-8" size="lg">
               Start free trial

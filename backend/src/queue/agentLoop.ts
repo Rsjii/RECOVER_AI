@@ -4,6 +4,7 @@ import { queueSMSNow } from './smsQueue';
 import { pool } from '../config/database';
 import { logError, logInfo, logWarn } from '../utils/logger';
 import { normalizePhone } from '../services/smsService';
+import { scoreCustomerRisk } from '../services/riskScoringService';
 import type { DunningEmailType } from '../types/email';
 
 // SMS thresholds: send SMS when email alone isn't working
@@ -80,7 +81,7 @@ async function getOverdueInvoicesForProcessing(): Promise<Array<{
     LEFT JOIN email_logs el2 ON el2.invoice_id = i.id
     LEFT JOIN payment_plans pp ON pp.invoice_id = i.id
     WHERE i.status NOT IN ('paid', 'uncollectable')
-      AND i.due_date < NOW()
+      AND i.due_date < NOW() + INTERVAL '7 days'  -- include invoices due soon for proactive risk emails
       AND c.email IS NOT NULL
       AND c.email != ''
       AND COALESCE(c.do_not_email, false) = false
@@ -261,6 +262,41 @@ async function runDecisionEngine(): Promise<{
             daysOverdue,
             dunningEmailsSent: invoice.dunning_emails_sent,
           });
+        }
+      }
+
+      // ── Proactive risk email: send BEFORE invoice fails ──
+      // Triggered when: score >= 60 AND invoice due within 7 days AND not yet overdue
+      // AND no proactive_reminder email sent yet for this invoice
+      if (daysOverdue <= 0) {
+        const daysUntilDue = Math.abs(daysOverdue);
+        if (daysUntilDue <= 7) {
+          const emailTypesSentForRisk = new Set<string>(invoice.email_types_sent || []);
+          if (!emailTypesSentForRisk.has('proactive_reminder')) {
+            const { score } = await scoreCustomerRisk(invoice.company_id, invoice.customer_id);
+            if (score >= 60) {
+              await queueEmailNow({
+                companyId: invoice.company_id,
+                customerId: invoice.customer_id,
+                invoiceId: invoice.id,
+                recipientEmail: invoice.customer_email,
+                customerName: invoice.customer_name || 'Valued Customer',
+                invoiceAmount: Number(invoice.amount),
+                dueDate: invoice.due_date,
+                daysOverdue: 0,
+                emailType: 'proactive_reminder' as DunningEmailType,
+                attemptNumber: 1,
+                riskScore: score,
+              });
+              emailsQueued++;
+              logInfo(LOG_MODULE, method, 'Proactive risk email queued', {
+                invoiceId: invoice.id,
+                customerId: invoice.customer_id,
+                riskScore: score,
+                daysUntilDue,
+              });
+            }
+          }
         }
       }
     } catch (err) {

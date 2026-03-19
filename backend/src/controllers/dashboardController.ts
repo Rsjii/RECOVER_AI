@@ -3,6 +3,8 @@ import { getRecoveryStats, getInvoicePipeline, getCustomerRiskList } from '../db
 import { pool } from '../config/database';
 import { logError, logInfo } from '../utils/logger';
 import { sendErrorResponse, parseError } from '../utils/errorHandler';
+import { getAtRiskCustomers } from '../services/riskScoringService';
+import { getCashPosition, updateCashBalance } from '../services/cashPositionService';
 
 const LOG_MODULE = 'dashboardController';
 
@@ -94,6 +96,67 @@ export const getRecoveryTimeline = async (req: Request, res: Response): Promise<
     res.status(200).json({ data: result.rows });
   } catch (error) {
     logError(LOG_MODULE, handler, 'Failed to fetch timeline', error);
+    const { statusCode, message } = parseError(error);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
+
+/**
+ * GET /api/dashboard/at-risk
+ * Returns customers with payment failure risk score >= 40
+ */
+export const getAtRisk = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'getAtRisk';
+  const companyId = (req as any).companyId;
+  try {
+    const atRisk = await getAtRiskCustomers(companyId);
+    logInfo(LOG_MODULE, handler, `${atRisk.length} at-risk customers returned`, { companyId });
+    res.status(200).json({ data: atRisk });
+  } catch (error) {
+    logError(LOG_MODULE, handler, 'Failed to fetch at-risk customers', error);
+    const { statusCode, message } = parseError(error);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
+
+/**
+ * GET /api/dashboard/cash-position
+ * Returns projected cash balance for 30/60/90 days
+ */
+export const getCashPositionHandler = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'getCashPosition';
+  const companyId = (req as any).companyId;
+  try {
+    const position = await getCashPosition(companyId);
+    logInfo(LOG_MODULE, handler, 'Cash position calculated', { companyId });
+    res.status(200).json({ data: position });
+  } catch (error) {
+    logError(LOG_MODULE, handler, 'Failed to calculate cash position', error);
+    const { statusCode, message } = parseError(error);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
+
+/**
+ * PUT /api/dashboard/cash-balance
+ * Update the company's manually entered current cash balance
+ */
+export const updateCashBalanceHandler = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'updateCashBalance';
+  const companyId = (req as any).companyId;
+  const { balanceUsd } = req.body;
+
+  if (typeof balanceUsd !== 'number' || balanceUsd < 0) {
+    sendErrorResponse(res, 400, 'balanceUsd must be a non-negative number');
+    return;
+  }
+
+  try {
+    await updateCashBalance(companyId, balanceUsd);
+    logInfo(LOG_MODULE, handler, 'Cash balance updated', { companyId, balanceUsd });
+    res.status(200).json({ data: { balanceUsd } });
+  } catch (error) {
+    logError(LOG_MODULE, handler, 'Failed to update cash balance', error);
     const { statusCode, message } = parseError(error);
     sendErrorResponse(res, statusCode, message);
   }

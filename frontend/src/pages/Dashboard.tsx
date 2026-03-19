@@ -12,6 +12,26 @@ import { TopCustomersTable } from '../components/dashboard/TopCustomersTable';
 import { EmailPreviewModal } from '../components/invoices/EmailPreviewModal';
 import type { DashboardStats, InvoicePipeline, CustomerRisk } from '../types';
 
+interface AtRiskCustomer {
+  customerId: string;
+  name: string;
+  email: string;
+  score: number;
+  signals: { type: string; description: string }[];
+  invoiceId: string | null;
+  invoiceAmount: number | null;
+  daysUntilDue: number | null;
+  currency: string;
+}
+
+interface CashPosition {
+  currentBalance: number;
+  balance30: number;
+  balance60: number;
+  balance90: number;
+  invoiceCount: number;
+}
+
 interface AgentPreview {
   emailsWouldQueue: number;
   plansWouldOffer: number;
@@ -55,6 +75,9 @@ const Dashboard: React.FC = () => {
   const [emailOverrides, setEmailOverrides] = useState<Record<string, string>>({}); // invoiceId → email
   const [editingEmail, setEditingEmail] = useState<string | null>(null); // which invoiceId is being edited
   const [sendingIndividual, setSendingIndividual] = useState<string | null>(null); // which invoiceId is sending
+  const [atRisk, setAtRisk] = useState<AtRiskCustomer[]>([]);
+  const [cashPosition, setCashPosition] = useState<CashPosition | null>(null);
+  const [cashBalanceInput, setCashBalanceInput] = useState<string>('');
 
   useEffect(() => {
     document.title = 'Dashboard — RecoverAI';
@@ -83,14 +106,21 @@ const Dashboard: React.FC = () => {
       setLoading(true);
       setError(null);
       try {
-        const [statsRes, pipelineRes, riskRes] = await Promise.all([
+        const [statsRes, pipelineRes, riskRes, atRiskRes, cashRes] = await Promise.all([
           api.get<{ data: DashboardStats }>(API_ENDPOINTS.dashboard.stats),
           api.get<{ data: InvoicePipeline }>(API_ENDPOINTS.dashboard.pipeline),
           api.get<{ data: CustomerRisk[]; total: number }>(API_ENDPOINTS.dashboard.riskList + '?limit=10'),
+          api.get<{ data: AtRiskCustomer[] }>('/api/dashboard/at-risk').catch(() => ({ data: [] })),
+          api.get<{ data: CashPosition }>('/api/dashboard/cash-position').catch(() => ({ data: null })),
         ]);
         setStats(statsRes.data);
         setPipeline(pipelineRes.data);
         setRiskList(riskRes.data);
+        setAtRisk(atRiskRes.data || []);
+        if (cashRes.data) {
+          setCashPosition(cashRes.data);
+          setCashBalanceInput(String(cashRes.data.currentBalance || 0));
+        }
       } catch (err: any) {
         setError(err.message || 'Failed to load dashboard');
       } finally {
@@ -394,6 +424,92 @@ const Dashboard: React.FC = () => {
           <Button variant="primary" onClick={() => navigate('/settings')}>
             Connect Stripe →
           </Button>
+        </div>
+      )}
+
+      {/* Cash Position Widget */}
+      {cashPosition && (
+        <div className="bg-[#111113] border border-white/[0.06] rounded-xl p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-base font-semibold text-white">Cash Position Forecast</h2>
+              <p className="text-xs text-gray-500 mt-0.5">Based on AR aging × payment history. Excludes operating expenses.</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-500">Current balance:</span>
+              <span className="text-xs text-gray-400">$</span>
+              <input
+                type="number"
+                value={cashBalanceInput}
+                onChange={e => setCashBalanceInput(e.target.value)}
+                onBlur={async () => {
+                  const val = parseFloat(cashBalanceInput);
+                  if (!isNaN(val) && val >= 0) {
+                    try {
+                      await api.put('/api/dashboard/cash-balance', { balanceUsd: val });
+                      const res = await api.get<{ data: CashPosition }>('/api/dashboard/cash-position');
+                      if (res.data) setCashPosition(res.data);
+                    } catch { /* non-critical */ }
+                  }
+                }}
+                className="w-28 text-xs bg-white/[0.04] border border-white/[0.08] rounded px-2 py-1 text-white focus:outline-none focus:border-blue-500/60"
+                placeholder="0"
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-4">
+            {([
+              { label: '30 Days', value: cashPosition.balance30 },
+              { label: '60 Days', value: cashPosition.balance60 },
+              { label: '90 Days', value: cashPosition.balance90 },
+            ] as const).map(({ label, value }) => (
+              <div key={label} className="bg-white/[0.03] border border-white/[0.06] rounded-lg p-4 text-center">
+                <p className="text-xs text-gray-500 mb-1">{label}</p>
+                <p className={`text-xl font-bold ${value >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                  {formatCurrency(value)}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Payment Failure Risk Widget */}
+      {atRisk.length > 0 && (
+        <div className="bg-[#111113] border border-white/[0.06] rounded-xl p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-base font-semibold text-white">Payment Risk Alerts</h2>
+              <p className="text-xs text-gray-500 mt-0.5">Customers likely to miss payment — proactive email sent automatically</p>
+            </div>
+            <span className="text-xs bg-red-500/10 text-red-400 border border-red-500/20 px-2 py-1 rounded-full">
+              {atRisk.length} at risk
+            </span>
+          </div>
+          <div className="space-y-3">
+            {atRisk.slice(0, 5).map(customer => (
+              <div key={customer.customerId} className="flex items-center justify-between bg-white/[0.03] border border-white/[0.06] rounded-lg px-4 py-3">
+                <div className="flex items-center gap-3">
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                    customer.score >= 80 ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
+                    'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                  }`}>
+                    {customer.score}
+                  </span>
+                  <div>
+                    <p className="text-sm font-medium text-white">{customer.name}</p>
+                    <p className="text-xs text-gray-500">{customer.signals.map(s => s.description).join(' · ')}</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-semibold text-white">{formatCurrency(customer.invoiceAmount || 0)}</p>
+                  {customer.daysUntilDue !== null && customer.daysUntilDue >= 0 && (
+                    <p className="text-xs text-gray-500">due in {customer.daysUntilDue}d</p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

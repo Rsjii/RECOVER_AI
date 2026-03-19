@@ -29,10 +29,11 @@ export class LemonSqueezyService {
       });
 
       // Map plan + interval to variant IDs from config
+      // New plans: growth ($2,500/mo) + enterprise ($5,000/mo)
       const variantMap: Record<string, Record<string, string>> = {
-        starter: {
-          monthly: config.lemonSqueezy.variantStarterMonthly || '123456',
-          annual: config.lemonSqueezy.variantStarterAnnual || '123457',
+        phase_0: {
+          monthly: config.lemonSqueezy.variantPhase0Monthly || '000001',
+          annual: config.lemonSqueezy.variantPhase0Monthly || '000001',  // no annual for phase_0
         },
         growth: {
           monthly: config.lemonSqueezy.variantGrowthMonthly || '123458',

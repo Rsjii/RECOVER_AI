@@ -7,6 +7,43 @@ import lemonSqueezyService from '../services/lemonSqueezyService';
 
 const LOG_MODULE = 'billingController';
 
+interface FeeTier { up_to: number | null; pct: number; }
+
+/**
+ * Calculate tiered success fee.
+ * Tiers example: [{up_to:50000,pct:5},{up_to:150000,pct:3},{up_to:null,pct:2}]
+ * Falls back to flat feePct if no tiers defined.
+ */
+function calculateTieredFee(recoveredUsd: number, tiers: FeeTier[] | null, flatPct: number): {
+  feeUsd: number;
+  breakdown: { label: string; amountUsd: number }[];
+} {
+  if (!tiers || tiers.length === 0) {
+    const feeUsd = Number(((recoveredUsd * flatPct) / 100).toFixed(2));
+    return { feeUsd, breakdown: [{ label: `${flatPct}% of $${recoveredUsd.toFixed(0)}`, amountUsd: feeUsd }] };
+  }
+
+  let remaining = recoveredUsd;
+  let totalFee = 0;
+  let prevThreshold = 0;
+  const breakdown: { label: string; amountUsd: number }[] = [];
+
+  for (const tier of tiers) {
+    if (remaining <= 0) break;
+    const tierMax = tier.up_to !== null ? tier.up_to - prevThreshold : Infinity;
+    const chunk = Math.min(remaining, tierMax);
+    const tierFee = Number(((chunk * tier.pct) / 100).toFixed(2));
+    if (chunk > 0) {
+      breakdown.push({ label: `${tier.pct}% of $${chunk.toFixed(0)}`, amountUsd: tierFee });
+    }
+    totalFee += tierFee;
+    remaining -= chunk;
+    prevThreshold = tier.up_to ?? 0;
+  }
+
+  return { feeUsd: Number(totalFee.toFixed(2)), breakdown };
+}
+
 export const listPlans = async (_req: Request, res: Response): Promise<void> => {
   try {
     await BillingDB.ensureDefaultPlans();
@@ -25,7 +62,7 @@ export const getCurrentSubscription = async (req: Request, res: Response): Promi
     const subscription = await BillingDB.getCurrentSubscription(companyId);
 
     // Augment with real-time recovery fee for current billing period
-    let recoveryFee: { baseFeeUsd: number; recoveredUsd: number; feePct: number; recoveryFeeUsd: number; totalUsd: number } | null = null;
+    let recoveryFee: { baseFeeUsd: number; recoveredUsd: number; feePct: number; recoveryFeeUsd: number; totalUsd: number; breakdown: { label: string; amountUsd: number }[] } | null = null;
     if (subscription) {
       const now = new Date();
       const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
@@ -43,13 +80,15 @@ export const getCurrentSubscription = async (req: Request, res: Response): Promi
       const recoveredUsd = Number(paymentsRes.rows[0]?.total || 0);
       const plan = plansRes.find((p) => p.code === subscription.plan_code);
       const baseFeeUsd = Number(plan?.base_price_usd || 0);
-      const feePct = Number(plan?.success_fee_percent || 1);
-      const recoveryFeeUsd = Number(((recoveredUsd * feePct) / 100).toFixed(2));
+      const flatPct = Number(plan?.success_fee_percent || 5);
+      const tiers = (plan as any)?.success_fee_tiers ?? null;
+      const { feeUsd: recoveryFeeUsd, breakdown } = calculateTieredFee(recoveredUsd, tiers, flatPct);
       recoveryFee = {
         baseFeeUsd,
         recoveredUsd,
-        feePct,
+        feePct: flatPct,
         recoveryFeeUsd,
+        breakdown,
         totalUsd: Number((baseFeeUsd + recoveryFeeUsd).toFixed(2)),
       };
     }
@@ -121,8 +160,9 @@ export const createMonthlyBillingInvoice = async (req: Request, res: Response): 
     const plans = await BillingDB.listActivePlans();
     const plan = plans.find((p) => p.code === subscription.plan_code);
     const baseAmount = Number(plan?.base_price_usd || 0);
-    const successFeePct = Number(plan?.success_fee_percent || 1);
-    const successFeeAmount = Number(((recoveredAmount * successFeePct) / 100).toFixed(2));
+    const flatPct = Number(plan?.success_fee_percent || 5);
+    const tiers = (plan as any)?.success_fee_tiers ?? null;
+    const { feeUsd: successFeeAmount, breakdown } = calculateTieredFee(recoveredAmount, tiers, flatPct);
     const total = Number((baseAmount + successFeeAmount).toFixed(2));
 
     await BillingDB.createBillingInvoice({
@@ -136,7 +176,7 @@ export const createMonthlyBillingInvoice = async (req: Request, res: Response): 
       status: 'open',
       lineItems: [
         { key: 'base_plan_fee', amountUsd: baseAmount, note: `Base fee for ${subscription.plan_name}` },
-        { key: 'success_fee', amountUsd: successFeeAmount, note: `${successFeePct}% of recovered amount`, baseRecoveredUsd: recoveredAmount },
+        { key: 'success_fee', amountUsd: successFeeAmount, note: breakdown.map(b => b.label).join(' + '), baseRecoveredUsd: recoveredAmount },
       ],
     });
 
