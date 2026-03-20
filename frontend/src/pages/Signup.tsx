@@ -6,10 +6,18 @@ import { Button } from '../components/ui/Button';
 import { validateEmail, validatePassword, getPasswordStrength } from '../lib/utils';
 
 const Signup: React.FC = () => {
-  useEffect(() => { document.title = 'Sign Up — RecoverAI'; }, []);
   const navigate = useNavigate();
-  const { signup } = useAuth();
+  const { signup, isAuthenticated, isLoading } = useAuth();
   const { addToast } = useNotification();
+
+  useEffect(() => { document.title = 'Sign Up — RecoverAI'; }, []);
+
+  // Redirect authenticated users to dashboard
+  useEffect(() => {
+    if (isAuthenticated && !isLoading) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [isAuthenticated, isLoading, navigate]);
 
   const [form, setForm] = useState({
     firstName: '',
@@ -77,7 +85,7 @@ const Signup: React.FC = () => {
     try {
       await signup(form.email, form.password, form.company_name, form.firstName, form.lastName);
       addToast({ type: 'success', message: 'Account created! Verify your email to continue.' });
-      navigate('/verify-email');
+      navigate('/verify-email', { replace: true });
     } catch (err: any) {
       setApiError(err.message || 'Signup failed. Please try again.');
     } finally {

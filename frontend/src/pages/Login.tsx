@@ -1,17 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useNotification } from '../hooks/useNotification';
 import { Button } from '../components/ui/Button';
 import { validateEmail } from '../lib/utils';
 
 const Login: React.FC = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { login, isAuthenticated, isLoading } = useAuth();
+  const { addToast } = useNotification();
+
   useEffect(() => {
     document.title = 'Sign In — RecoverAI';
-  }, []);
-  const navigate = useNavigate();
-  const { login } = useAuth();
-  const { addToast } = useNotification();
+    // Redirect authenticated users to dashboard
+    if (isAuthenticated && !isLoading) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [isAuthenticated, isLoading, navigate]);
 
   const [form, setForm] = useState({ email: '', password: '' });
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
@@ -63,7 +69,8 @@ const Login: React.FC = () => {
     try {
       await login(form.email, form.password);
       addToast({ type: 'success', message: 'Welcome back!' });
-      navigate('/dashboard');
+      const from = (location.state as any)?.from?.pathname || '/dashboard';
+      navigate(from, { replace: true });
     } catch (err: any) {
       if (err.code === 'USE_GOOGLE') {
         setApiError('You signed up with Google. Please continue with Google above.');

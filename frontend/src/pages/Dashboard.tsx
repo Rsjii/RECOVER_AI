@@ -252,13 +252,15 @@ const Dashboard: React.FC = () => {
           {agentMsg && (
             <p className="text-xs text-green-600 dark:text-green-400 max-w-xs text-right">{agentMsg}</p>
           )}
-          <Button variant="secondary" size="sm" onClick={handlePreviewAgent} loading={loadingPreview}>
-            <svg className="w-4 h-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-            </svg>
-            Preview Agent
-          </Button>
+          {isDemo && (
+            <Button variant="secondary" size="sm" onClick={handlePreviewAgent} loading={loadingPreview}>
+              <svg className="w-4 h-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+              </svg>
+              Preview Agent
+            </Button>
+          )}
           {!isDemo && (
             <Button variant="secondary" size="sm" onClick={handleTriggerAgent} loading={triggeringAgent}>
               <svg className="w-4 h-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -466,29 +468,31 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Activation Path */}
-      <div className="bg-white dark:bg-[#111113] rounded-xl border border-gray-200 dark:border-white/[0.06] p-4">
-        <h2 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Activation Path</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
-          <div className="rounded border border-gray-200 dark:border-white/[0.06] p-3">
-            <div className="text-gray-500 dark:text-gray-400">Signup to Integration</div>
-            <div className="text-gray-900 dark:text-white font-medium mt-1">
-              {stats && stats.totalInvoices > 0 ? 'Completed' : 'Pending'}
+      {isDemo && (
+        <div className="bg-white dark:bg-[#111113] rounded-xl border border-gray-200 dark:border-white/[0.06] p-4">
+          <h2 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Activation Path</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+            <div className="rounded border border-gray-200 dark:border-white/[0.06] p-3">
+              <div className="text-gray-500 dark:text-gray-400">Signup to Integration</div>
+              <div className="text-gray-900 dark:text-white font-medium mt-1">
+                {stats && stats.totalInvoices > 0 ? 'Completed' : 'Pending'}
+              </div>
             </div>
-          </div>
-          <div className="rounded border border-gray-200 dark:border-white/[0.06] p-3">
-            <div className="text-gray-500 dark:text-gray-400">Integration to First Recovery</div>
-            <div className="text-gray-900 dark:text-white font-medium mt-1">
-              {stats && stats.totalRecovered > 0 ? 'Completed' : 'In progress'}
+            <div className="rounded border border-gray-200 dark:border-white/[0.06] p-3">
+              <div className="text-gray-500 dark:text-gray-400">Integration to First Recovery</div>
+              <div className="text-gray-900 dark:text-white font-medium mt-1">
+                {stats && stats.totalRecovered > 0 ? 'Completed' : 'In progress'}
+              </div>
             </div>
-          </div>
-          <div className="rounded border border-gray-200 dark:border-white/[0.06] p-3">
-            <div className="text-gray-500 dark:text-gray-400">Estimated ROI This Month</div>
-            <div className="text-gray-900 dark:text-white font-medium mt-1">
-              {formatCurrency(stats?.totalRecovered || 0)}
+            <div className="rounded border border-gray-200 dark:border-white/[0.06] p-3">
+              <div className="text-gray-500 dark:text-gray-400">Estimated ROI This Month</div>
+              <div className="text-gray-900 dark:text-white font-medium mt-1">
+                {formatCurrency(stats?.totalRecovered || 0)}
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       {stats?.totalInvoices === 0 && (
         <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-8 text-center">

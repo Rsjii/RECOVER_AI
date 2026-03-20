@@ -39,8 +39,7 @@ const Reports = React.lazy(() => import('./pages/Reports'));
 const Activity = React.lazy(() => import('./pages/Activity'));
 const Billing = React.lazy(() => import('./pages/Billing'));
 const Team = React.lazy(() => import('./pages/Team'));
-const Compliance = React.lazy(() => import('./pages/Compliance'));
-const Policy = React.lazy(() => import('./pages/Policy'));
+const PolicyCompliance = React.lazy(() => import('./pages/PolicyCompliance'));
 const Admin = React.lazy(() => import('./pages/Admin'));
 
 /**
@@ -240,20 +239,14 @@ const App: React.FC = () => {
               element={
                 <ProtectedRoute requireEmailVerification>
                   <Layout>
-                    <Policy />
+                    <PolicyCompliance />
                   </Layout>
                 </ProtectedRoute>
               }
             />
             <Route
               path="/compliance"
-              element={
-                <ProtectedRoute requireEmailVerification>
-                  <Layout>
-                    <Compliance />
-                  </Layout>
-                </ProtectedRoute>
-              }
+              element={<Navigate to="/policy" replace />}
             />
 
             <Route

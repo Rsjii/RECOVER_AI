@@ -38,12 +38,8 @@ const navItems = [
     icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20h10M12 12a4 4 0 100-8 4 4 0 000 8z" /></svg>
   },
   {
-    path: '/policy', label: 'Policy',
-    icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m5.012-3.428A9 9 0 1112 3a9 9 0 019.012 3.572z" /></svg>
-  },
-  {
-    path: '/compliance', label: 'Compliance',
-    icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m-7 5l-4-4V5a2 2 0 012-2h8l4 4v10a2 2 0 01-2 2H8a2 2 0 01-2-2z" /></svg>
+    path: '/policy', label: 'Policy & Compliance',
+    icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m7-4a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
   },
   {
     path: '/admin', label: 'Admin',

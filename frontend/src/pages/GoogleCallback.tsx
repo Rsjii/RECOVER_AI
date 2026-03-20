@@ -18,13 +18,13 @@ const GoogleCallback: React.FC = () => {
 
       if (error) {
         addToast({ type: 'error', message: `Google login failed: ${error}` });
-        navigate('/login');
+        navigate('/login', { replace: true });
         return;
       }
 
       if (!code) {
         addToast({ type: 'error', message: 'No authorization code received' });
-        navigate('/login');
+        navigate('/login', { replace: true });
         return;
       }
 
@@ -34,11 +34,11 @@ const GoogleCallback: React.FC = () => {
 
         if (response.data && response.data.user) {
           addToast({ type: 'success', message: 'Welcome!' });
-          navigate('/dashboard');
+          navigate('/dashboard', { replace: true });
         }
       } catch (err: any) {
         addToast({ type: 'error', message: err.message || 'Google login failed' });
-        navigate('/login');
+        navigate('/login', { replace: true });
       }
     };
 
