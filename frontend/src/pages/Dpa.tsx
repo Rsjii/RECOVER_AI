@@ -5,7 +5,7 @@ const Dpa: React.FC = () => {
   useEffect(() => { document.title = 'Data Processing Addendum — RecoverAI'; }, []);
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-gray-50 dark:bg-[#09090b]">
       <div className="max-w-4xl mx-auto px-6 py-12">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Data Processing Addendum</h1>
         <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Effective Date: March 1, 2026</p>
@@ -68,35 +68,35 @@ const Dpa: React.FC = () => {
           The Customer provides general authorization for RecoverAI to engage Sub-processors to assist in providing the Service. RecoverAI will notify the Customer of any intended changes to the list of Sub-processors at least 30 days before engaging a new Sub-processor. The Customer may object to such changes by providing written notice within 14 days; if the parties cannot resolve the objection, the Customer may terminate the affected Service. RecoverAI ensures that each Sub-processor is bound by data protection obligations no less protective than those set out in this DPA.
         </p>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm border border-gray-200 dark:border-gray-700 rounded-lg">
+          <table className="w-full text-sm border border-gray-200 dark:border-white/[0.06] rounded-lg">
             <thead>
-              <tr className="bg-gray-100 dark:bg-gray-800">
-                <th className="text-left px-4 py-2.5 text-gray-900 dark:text-gray-100 font-medium border-b border-gray-200 dark:border-gray-700">Sub-processor</th>
-                <th className="text-left px-4 py-2.5 text-gray-900 dark:text-gray-100 font-medium border-b border-gray-200 dark:border-gray-700">Purpose</th>
-                <th className="text-left px-4 py-2.5 text-gray-900 dark:text-gray-100 font-medium border-b border-gray-200 dark:border-gray-700">Data Processed</th>
-                <th className="text-left px-4 py-2.5 text-gray-900 dark:text-gray-100 font-medium border-b border-gray-200 dark:border-gray-700">Location</th>
+              <tr className="bg-gray-100 dark:bg-[#111113]">
+                <th className="text-left px-4 py-2.5 text-gray-900 dark:text-gray-100 font-medium border-b border-gray-200 dark:border-white/[0.06]">Sub-processor</th>
+                <th className="text-left px-4 py-2.5 text-gray-900 dark:text-gray-100 font-medium border-b border-gray-200 dark:border-white/[0.06]">Purpose</th>
+                <th className="text-left px-4 py-2.5 text-gray-900 dark:text-gray-100 font-medium border-b border-gray-200 dark:border-white/[0.06]">Data Processed</th>
+                <th className="text-left px-4 py-2.5 text-gray-900 dark:text-gray-100 font-medium border-b border-gray-200 dark:border-white/[0.06]">Location</th>
               </tr>
             </thead>
             <tbody className="text-gray-700 dark:text-gray-300">
-              <tr className="border-b border-gray-200 dark:border-gray-700">
+              <tr className="border-b border-gray-200 dark:border-white/[0.06]">
                 <td className="px-4 py-2.5 font-medium text-gray-900 dark:text-gray-100">Supabase</td>
                 <td className="px-4 py-2.5">PostgreSQL database hosting and management</td>
                 <td className="px-4 py-2.5">All Customer Data (invoices, contacts, communications, account records)</td>
                 <td className="px-4 py-2.5">United States</td>
               </tr>
-              <tr className="border-b border-gray-200 dark:border-gray-700">
+              <tr className="border-b border-gray-200 dark:border-white/[0.06]">
                 <td className="px-4 py-2.5 font-medium text-gray-900 dark:text-gray-100">Upstash</td>
                 <td className="px-4 py-2.5">Redis cache and background job queue management</td>
                 <td className="px-4 py-2.5">Job metadata, session tokens, temporary processing state</td>
                 <td className="px-4 py-2.5">United States</td>
               </tr>
-              <tr className="border-b border-gray-200 dark:border-gray-700">
+              <tr className="border-b border-gray-200 dark:border-white/[0.06]">
                 <td className="px-4 py-2.5 font-medium text-gray-900 dark:text-gray-100">Resend</td>
                 <td className="px-4 py-2.5">Transactional email delivery for dunning communications</td>
                 <td className="px-4 py-2.5">Recipient email addresses, email subject lines and body content</td>
                 <td className="px-4 py-2.5">United States</td>
               </tr>
-              <tr className="border-b border-gray-200 dark:border-gray-700">
+              <tr className="border-b border-gray-200 dark:border-white/[0.06]">
                 <td className="px-4 py-2.5 font-medium text-gray-900 dark:text-gray-100">Anthropic</td>
                 <td className="px-4 py-2.5">AI content generation for personalized dunning emails</td>
                 <td className="px-4 py-2.5">Invoice amounts, customer names, company names, days overdue</td>
@@ -152,7 +152,7 @@ const Dpa: React.FC = () => {
           For questions regarding this DPA or data processing matters, please contact our Data Protection Officer at dpo@recoverai.com or by mail at RecoverAI, Inc., 1209 Orange Street, Wilmington, DE 19801, United States.
         </p>
 
-        <div className="mt-12 pt-6 border-t border-gray-200 dark:border-gray-700">
+        <div className="mt-12 pt-6 border-t border-gray-200 dark:border-white/[0.06]">
           <Link to="/landing" className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
             &larr; Back to Home
           </Link>

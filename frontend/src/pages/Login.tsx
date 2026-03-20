@@ -77,7 +77,7 @@ const Login: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center px-4">
+    <div className="min-h-screen bg-gray-50 dark:bg-[#09090b] flex items-center justify-center px-4">
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
@@ -89,7 +89,7 @@ const Login: React.FC = () => {
         </div>
 
         {/* Card */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-8">
+        <div className="bg-white dark:bg-[#111113] rounded-xl shadow-sm border border-gray-200 dark:border-white/[0.06] p-8">
           <form onSubmit={handleSubmit} className="space-y-5">
 
             {/* API Error Banner */}
@@ -112,10 +112,10 @@ const Login: React.FC = () => {
                 value={form.email}
                 onChange={(e) => handleChange('email', e.target.value)}
                 placeholder="john@company.com"
-                className={`w-full px-4 py-2.5 border rounded-lg text-gray-900 dark:text-white bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors ${
+                className={`w-full px-4 py-2.5 border rounded-lg text-gray-900 dark:text-white bg-white dark:bg-white/[0.03] focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors ${
                   errors.email
                     ? 'border-red-500'
-                    : 'border-gray-300 dark:border-gray-600'
+                    : 'border-gray-300 dark:border-white/[0.08]'
                 }`}
               />
               {errors.email && (
@@ -133,10 +133,10 @@ const Login: React.FC = () => {
                 value={form.password}
                 onChange={(e) => handleChange('password', e.target.value)}
                 placeholder="••••••••"
-                className={`w-full px-4 py-2.5 border rounded-lg text-gray-900 dark:text-white bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors ${
+                className={`w-full px-4 py-2.5 border rounded-lg text-gray-900 dark:text-white bg-white dark:bg-white/[0.03] focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors ${
                   errors.password
                     ? 'border-red-500'
-                    : 'border-gray-300 dark:border-gray-600'
+                    : 'border-gray-300 dark:border-white/[0.08]'
                 }`}
               />
               {errors.password && (
@@ -166,10 +166,10 @@ const Login: React.FC = () => {
 
             <div className="relative py-1">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-200 dark:border-gray-700" />
+                <div className="w-full border-t border-gray-200 dark:border-white/[0.06]" />
               </div>
               <div className="relative flex justify-center">
-                <span className="px-2 text-xs text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800">OR</span>
+                <span className="px-2 text-xs text-gray-500 dark:text-gray-400 bg-white dark:bg-[#111113]">OR</span>
               </div>
             </div>
 

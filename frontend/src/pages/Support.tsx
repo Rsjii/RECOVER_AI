@@ -4,12 +4,12 @@ const Support: React.FC = () => {
   useEffect(() => { document.title = 'Support & Contact — RecoverAI'; }, []);
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-gray-50 dark:bg-[#09090b]">
       <div className="max-w-4xl mx-auto px-6 py-12">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Contact & Support</h1>
         <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Get in touch with our team</p>
 
-        <div className="mt-8 bg-white dark:bg-gray-800 rounded-lg p-6 shadow">
+        <div className="mt-8 bg-white dark:bg-[#111113] rounded-lg p-6 shadow">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Reach Out to Us</h2>
 
           <div className="space-y-4">
@@ -97,7 +97,7 @@ const Support: React.FC = () => {
           legal@recoverai.com
         </p>
 
-        <p className="text-xs text-gray-500 dark:text-gray-400 mt-8 pt-8 border-t border-gray-200 dark:border-gray-700">
+        <p className="text-xs text-gray-500 dark:text-gray-400 mt-8 pt-8 border-t border-gray-200 dark:border-white/[0.06]">
           Last updated: March 17, 2026
         </p>
       </div>

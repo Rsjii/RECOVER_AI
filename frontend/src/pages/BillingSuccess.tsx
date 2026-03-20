@@ -22,7 +22,7 @@ const BillingSuccess: React.FC = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center px-4">
+    <div className="min-h-screen bg-gray-50 dark:bg-[#09090b] flex items-center justify-center px-4">
       <div className="max-w-md w-full text-center">
         {status === 'loading' ? (
           <div className="text-gray-500 dark:text-gray-400">Confirming your subscription...</div>

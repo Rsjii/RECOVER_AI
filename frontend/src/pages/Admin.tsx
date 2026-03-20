@@ -134,7 +134,7 @@ const Admin: React.FC = () => {
       </div>
 
       {/* Tab Bar */}
-      <div className="border-b border-gray-200 dark:border-gray-700">
+      <div className="border-b border-gray-200 dark:border-white/[0.06]">
         <nav className="flex gap-6">
           {tabs.map(tab => (
             <button
@@ -219,7 +219,7 @@ const OverviewTab: React.FC<{ metrics: MetricsData }> = ({ metrics }) => {
           <p className="text-sm text-gray-400">No companies yet.</p>
         ) : (
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 dark:bg-gray-700/50">
+            <thead className="bg-gray-50 dark:bg-white/[0.04]">
               <tr>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Company</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Email</th>
@@ -229,7 +229,7 @@ const OverviewTab: React.FC<{ metrics: MetricsData }> = ({ metrics }) => {
             </thead>
             <tbody>
               {recentCompanies.map(c => (
-                <tr key={c.id} className="border-t border-gray-100 dark:border-gray-700">
+                <tr key={c.id} className="border-t border-gray-100 dark:border-white/[0.06]">
                   <td className="px-4 py-2 font-medium text-gray-900 dark:text-white">{c.name}</td>
                   <td className="px-4 py-2 text-gray-500 dark:text-gray-400">{c.email}</td>
                   <td className="px-4 py-2">
@@ -308,7 +308,7 @@ const EmailsTab: React.FC<{ metrics: MetricsData }> = ({ metrics }) => {
   return (
     <div className="space-y-4">
       {/* Email subtabs */}
-      <div className="border-b border-gray-200 dark:border-gray-700">
+      <div className="border-b border-gray-200 dark:border-white/[0.06]">
         <nav className="flex gap-6">
           {['stats', 'logs'].map(subtab => (
             <button
@@ -380,7 +380,7 @@ const EmailsTab: React.FC<{ metrics: MetricsData }> = ({ metrics }) => {
               <p className="text-sm text-gray-400">No emails sent yet.</p>
             ) : (
               <table className="w-full text-sm">
-                <thead className="bg-gray-50 dark:bg-gray-700/50">
+                <thead className="bg-gray-50 dark:bg-white/[0.04]">
                   <tr>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Email Type</th>
                     <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">Count</th>
@@ -389,7 +389,7 @@ const EmailsTab: React.FC<{ metrics: MetricsData }> = ({ metrics }) => {
                 </thead>
                 <tbody>
                   {(byType ?? []).map(row => (
-                    <tr key={row.email_type} className="border-t border-gray-100 dark:border-gray-700">
+                    <tr key={row.email_type} className="border-t border-gray-100 dark:border-white/[0.06]">
                       <td className="px-4 py-2 font-mono text-xs text-gray-700 dark:text-gray-300">{row.email_type}</td>
                       <td className="px-4 py-2 text-right text-gray-900 dark:text-white">{row.count.toLocaleString()}</td>
                       <td className="px-4 py-2 text-right text-gray-500 dark:text-gray-400">
@@ -419,7 +419,7 @@ const EmailsTab: React.FC<{ metrics: MetricsData }> = ({ metrics }) => {
                     setEmailStatusFilter(e.target.value);
                     setEmailOffset(0);
                   }}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-white/[0.08] rounded-lg bg-white dark:bg-white/[0.03] text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">All Statuses</option>
                   <option value="sent">Sent</option>
@@ -439,7 +439,7 @@ const EmailsTab: React.FC<{ metrics: MetricsData }> = ({ metrics }) => {
                     setEmailCompanyFilter(e.target.value);
                     setEmailOffset(0);
                   }}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-white/[0.08] rounded-lg bg-white dark:bg-white/[0.03] text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
             </div>
@@ -454,7 +454,7 @@ const EmailsTab: React.FC<{ metrics: MetricsData }> = ({ metrics }) => {
             <>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead className="bg-gray-50 dark:bg-gray-700/50">
+                  <thead className="bg-gray-50 dark:bg-white/[0.04]">
                     <tr>
                       <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Date</th>
                       <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Company</th>
@@ -465,7 +465,7 @@ const EmailsTab: React.FC<{ metrics: MetricsData }> = ({ metrics }) => {
                   </thead>
                   <tbody>
                     {emailLogs.map(log => (
-                      <tr key={log.id} className="border-t border-gray-100 dark:border-gray-700">
+                      <tr key={log.id} className="border-t border-gray-100 dark:border-white/[0.06]">
                         <td className="px-4 py-2 text-xs text-gray-500 dark:text-gray-400">{format(parseISO(log.sent_at), 'MMM d, HH:mm')}</td>
                         <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-white">{log.company_name}</td>
                         <td className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300">{log.recipient_email}</td>
@@ -493,14 +493,14 @@ const EmailsTab: React.FC<{ metrics: MetricsData }> = ({ metrics }) => {
                   <button
                     onClick={() => setEmailOffset(Math.max(0, emailOffset - 50))}
                     disabled={emailOffset === 0}
-                    className="px-3 py-1 text-sm rounded border border-gray-300 dark:border-gray-600 disabled:opacity-50 hover:bg-gray-50 dark:hover:bg-gray-700"
+                    className="px-3 py-1 text-sm rounded border border-gray-300 dark:border-white/[0.08] disabled:opacity-50 hover:bg-gray-50 dark:hover:bg-white/[0.06]"
                   >
                     Previous
                   </button>
                   <button
                     onClick={() => setEmailOffset(emailOffset + 50)}
                     disabled={emailLogs.length < 50}
-                    className="px-3 py-1 text-sm rounded border border-gray-300 dark:border-gray-600 disabled:opacity-50 hover:bg-gray-50 dark:hover:bg-gray-700"
+                    className="px-3 py-1 text-sm rounded border border-gray-300 dark:border-white/[0.08] disabled:opacity-50 hover:bg-gray-50 dark:hover:bg-white/[0.06]"
                   >
                     Next
                   </button>
@@ -608,7 +608,7 @@ const CostsTab: React.FC<{ metrics: MetricsData }> = ({ metrics }) => {
           <p className="text-sm text-gray-400">No data yet. Will populate after first AI call.</p>
         ) : (
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 dark:bg-gray-700/50">
+            <thead className="bg-gray-50 dark:bg-white/[0.04]">
               <tr>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Model</th>
                 <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">Calls</th>
@@ -619,7 +619,7 @@ const CostsTab: React.FC<{ metrics: MetricsData }> = ({ metrics }) => {
             </thead>
             <tbody>
               {usageByModel.map((row, i) => (
-                <tr key={i} className="border-t border-gray-100 dark:border-gray-700">
+                <tr key={i} className="border-t border-gray-100 dark:border-white/[0.06]">
                   <td className="px-4 py-2">
                     <div className="flex items-center gap-2">
                       <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: modelColor(row.model) }} />
@@ -644,7 +644,7 @@ const CostsTab: React.FC<{ metrics: MetricsData }> = ({ metrics }) => {
           <p className="text-sm text-gray-400">No usage tracked yet.</p>
         ) : (
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 dark:bg-gray-700/50">
+            <thead className="bg-gray-50 dark:bg-white/[0.04]">
               <tr>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Month</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Service</th>
@@ -656,7 +656,7 @@ const CostsTab: React.FC<{ metrics: MetricsData }> = ({ metrics }) => {
             </thead>
             <tbody>
               {usageByMonth.map((row, i) => (
-                <tr key={i} className="border-t border-gray-100 dark:border-gray-700">
+                <tr key={i} className="border-t border-gray-100 dark:border-white/[0.06]">
                   <td className="px-4 py-2 text-gray-600 dark:text-gray-300">{format(parseISO(row.period), 'MMM yyyy')}</td>
                   <td className="px-4 py-2 capitalize text-gray-700 dark:text-gray-300">{row.service}</td>
                   <td className="px-4 py-2 text-right">{row.usage_count.toLocaleString()}</td>
@@ -677,7 +677,7 @@ const CostsTab: React.FC<{ metrics: MetricsData }> = ({ metrics }) => {
           <p className="text-sm text-gray-400">No data yet.</p>
         ) : (
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 dark:bg-gray-700/50">
+            <thead className="bg-gray-50 dark:bg-white/[0.04]">
               <tr>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Company</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Email</th>
@@ -687,7 +687,7 @@ const CostsTab: React.FC<{ metrics: MetricsData }> = ({ metrics }) => {
             </thead>
             <tbody>
               {topCompaniesByCost.map((row, i) => (
-                <tr key={i} className="border-t border-gray-100 dark:border-gray-700">
+                <tr key={i} className="border-t border-gray-100 dark:border-white/[0.06]">
                   <td className="px-4 py-2 font-medium text-gray-900 dark:text-white">{row.company_name}</td>
                   <td className="px-4 py-2 text-gray-500 dark:text-gray-400">{row.company_email}</td>
                   <td className="px-4 py-2 text-right">{row.total_calls.toLocaleString()}</td>

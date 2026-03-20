@@ -46,7 +46,7 @@ const GoogleCallback: React.FC = () => {
   }, [searchParams, navigate, login, addToast]);
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+    <div className="min-h-screen bg-gray-50 dark:bg-[#09090b] flex items-center justify-center">
       <div className="text-center">
         <div className="w-12 h-12 rounded-full border-4 border-blue-600 border-t-transparent animate-spin mx-auto mb-4" />
         <p className="text-gray-600 dark:text-gray-400">Signing in with Google...</p>

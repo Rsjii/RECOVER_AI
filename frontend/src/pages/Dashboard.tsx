@@ -9,6 +9,13 @@ import { StatsCard } from '../components/dashboard/StatsCard';
 import { RecoveryChart } from '../components/dashboard/RecoveryChart';
 import { RiskBreakdownChart } from '../components/dashboard/RiskBreakdownChart';
 import { TopCustomersTable } from '../components/dashboard/TopCustomersTable';
+import { RunwayWidget } from '../components/dashboard/RunwayWidget';
+import type { RunwayData } from '../components/dashboard/RunwayWidget';
+import { CashPositionWidget } from '../components/dashboard/CashPositionWidget';
+import { WhatIfWidget } from '../components/dashboard/WhatIfWidget';
+import { CashLeakageWidget } from '../components/dashboard/CashLeakageWidget';
+import type { CashLeakageData } from '../components/dashboard/CashLeakageWidget';
+import { AtRiskWidget } from '../components/dashboard/AtRiskWidget';
 import { EmailPreviewModal } from '../components/invoices/EmailPreviewModal';
 import type { DashboardStats, InvoicePipeline, CustomerRisk } from '../types';
 
@@ -29,7 +36,11 @@ interface CashPosition {
   balance30: number;
   balance60: number;
   balance90: number;
+  pendingInvoices30: number;
+  pendingInvoices60: number;
+  pendingInvoices90: number;
   invoiceCount: number;
+  asOfDate: string;
 }
 
 interface AgentPreview {
@@ -78,6 +89,8 @@ const Dashboard: React.FC = () => {
   const [atRisk, setAtRisk] = useState<AtRiskCustomer[]>([]);
   const [cashPosition, setCashPosition] = useState<CashPosition | null>(null);
   const [cashBalanceInput, setCashBalanceInput] = useState<string>('');
+  const [runway, setRunway] = useState<RunwayData | null>(null);
+  const [leakage, setLeakage] = useState<CashLeakageData | null>(null);
 
   useEffect(() => {
     document.title = 'Dashboard — RecoverAI';
@@ -106,12 +119,14 @@ const Dashboard: React.FC = () => {
       setLoading(true);
       setError(null);
       try {
-        const [statsRes, pipelineRes, riskRes, atRiskRes, cashRes] = await Promise.all([
+        const [statsRes, pipelineRes, riskRes, atRiskRes, cashRes, runwayRes, leakageRes] = await Promise.all([
           api.get<{ data: DashboardStats }>(API_ENDPOINTS.dashboard.stats),
           api.get<{ data: InvoicePipeline }>(API_ENDPOINTS.dashboard.pipeline),
           api.get<{ data: CustomerRisk[]; total: number }>(API_ENDPOINTS.dashboard.riskList + '?limit=10'),
-          api.get<{ data: AtRiskCustomer[] }>('/api/dashboard/at-risk').catch(() => ({ data: [] })),
-          api.get<{ data: CashPosition }>('/api/dashboard/cash-position').catch(() => ({ data: null })),
+          api.get<{ data: AtRiskCustomer[] }>('/api/dashboard/at-risk').catch(() => ({ data: [] as AtRiskCustomer[] })),
+          api.get<{ data: CashPosition }>('/api/dashboard/cash-position').catch(() => ({ data: null as CashPosition | null })),
+          api.get<{ data: RunwayData }>('/api/dashboard/runway').catch(() => ({ data: null as RunwayData | null })),
+          api.get<{ data: CashLeakageData }>('/api/dashboard/cash-leakage').catch(() => ({ data: null as CashLeakageData | null })),
         ]);
         setStats(statsRes.data);
         setPipeline(pipelineRes.data);
@@ -121,6 +136,8 @@ const Dashboard: React.FC = () => {
           setCashPosition(cashRes.data);
           setCashBalanceInput(String(cashRes.data.currentBalance || 0));
         }
+        setRunway(runwayRes.data);
+        setLeakage(leakageRes.data);
       } catch (err: any) {
         setError(err.message || 'Failed to load dashboard');
       } finally {
@@ -193,6 +210,29 @@ const Dashboard: React.FC = () => {
     }
   };
 
+  const handleWhatIf = async (scenario: { type: 'remove_customer' | 'accelerate_dunning' | 'custom'; removeCustomerId?: string; customReductionPct?: number }) => {
+    const res = await api.post<{ data: any }>('/api/dashboard/cash-whatif', scenario);
+    return res.data;
+  };
+
+  const handleCashBalanceSubmit = async () => {
+    const val = parseFloat(cashBalanceInput);
+    if (!isNaN(val) && val >= 0) {
+      try {
+        await api.put('/api/dashboard/cash-balance', { balanceUsd: val });
+        const res = await api.get<{ data: CashPosition }>('/api/dashboard/cash-position');
+        if (res.data) setCashPosition(res.data);
+      } catch { /* non-critical */ }
+    }
+  };
+
+  // Build customer options for WhatIf widget from risk list
+  const whatIfCustomers = riskList.map(c => ({
+    id: c.customerId,
+    name: c.customerName,
+    totalOwed: c.totalOwed,
+  }));
+
   if (loading) return <DashboardSkeleton />;
 
   if (error) {
@@ -261,14 +301,14 @@ const Dashboard: React.FC = () => {
               { label: 'Payment plans', value: agentPreview.plansWouldOffer, color: 'text-purple-600' },
               { label: 'Est. recovery', value: `$${agentPreview.estimatedRecoveryUsd.toLocaleString()}`, color: 'text-green-600' },
             ].map(({ label, value, color }) => (
-              <div key={label} className="bg-white dark:bg-gray-800 rounded-lg p-3 text-center border border-gray-200 dark:border-gray-700">
+              <div key={label} className="bg-white dark:bg-[#111113] rounded-lg p-3 text-center border border-gray-200 dark:border-white/[0.06]">
                 <div className={`text-xl font-bold ${color}`}>{value}</div>
                 <div className="text-xs text-gray-500 mt-0.5">{label}</div>
               </div>
             ))}
           </div>
           {agentPreview.previews.length > 0 && (
-            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 mb-4 overflow-hidden">
+            <div className="bg-white dark:bg-[#111113] rounded-lg border border-gray-200 dark:border-white/[0.06] mb-4 overflow-hidden">
               <div className="divide-y divide-gray-100 dark:divide-gray-700">
                 {agentPreview.previews.slice(0, expandAll ? undefined : 5).map((item) => {
                   const isEditing = editingEmail === item.invoiceId;
@@ -284,7 +324,7 @@ const Dashboard: React.FC = () => {
                           <span className={`px-1.5 py-0.5 rounded font-medium ${item.riskScore >= 80 ? 'bg-red-100 text-red-700' : item.riskScore >= 50 ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}`}>
                             {item.riskScore}
                           </span>
-                          <span className="bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-1.5 py-0.5 rounded">
+                          <span className="bg-gray-100 dark:bg-white/[0.03] text-gray-600 dark:text-gray-300 px-1.5 py-0.5 rounded">
                             {EMAIL_TYPE_SHORT[item.emailType] || item.emailType}
                           </span>
                         </div>
@@ -298,13 +338,13 @@ const Dashboard: React.FC = () => {
                             onChange={(e) => setEmailOverrides({ ...emailOverrides, [item.invoiceId]: e.target.value })}
                             onBlur={() => setEditingEmail(null)}
                             autoFocus
-                            className="flex-1 px-2 py-1 border border-blue-400 dark:border-blue-500 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-xs focus:outline-none"
+                            className="flex-1 px-2 py-1 border border-blue-400 dark:border-blue-500 rounded bg-white dark:bg-white/[0.03] text-gray-900 dark:text-white text-xs focus:outline-none"
                           />
                         ) : (
                           <button
                             type="button"
                             onClick={() => setEditingEmail(item.invoiceId)}
-                            className="flex items-center gap-1 flex-1 min-w-0 px-2 py-1 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white rounded transition-colors group"
+                            className="flex items-center gap-1 flex-1 min-w-0 px-2 py-1 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/[0.06] hover:text-gray-900 dark:hover:text-white rounded transition-colors group"
                           >
                             <span className="truncate">{overrideEmail || item.recipientEmail}</span>
                             <svg className="w-3 h-3 flex-shrink-0 opacity-0 group-hover:opacity-60 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -370,6 +410,45 @@ const Dashboard: React.FC = () => {
         </div>
       )}
 
+      {/* ═══ CASH COMMAND CENTER ═══ */}
+      <div className="space-y-4">
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Cash Command Center</h2>
+
+        {/* Runway Widget — full width, prominent */}
+        <RunwayWidget runway={runway} loading={loading} />
+
+        {/* Cash Position + What-If side by side */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <CashPositionWidget
+            cashPosition={cashPosition}
+            cashBalanceInput={cashBalanceInput}
+            onBalanceChange={setCashBalanceInput}
+            onBalanceSubmit={handleCashBalanceSubmit}
+            loading={loading}
+          />
+          <WhatIfWidget onCalculate={handleWhatIf} customers={whatIfCustomers} />
+        </div>
+
+        {/* Cash Leakage — full width */}
+        <CashLeakageWidget leakage={leakage} loading={loading} />
+      </div>
+
+      {/* ═══ RISK INTELLIGENCE ═══ */}
+      <div className="space-y-4">
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Risk Intelligence</h2>
+        <AtRiskWidget
+          atRiskCustomers={atRisk.map(c => ({
+            customerId: c.customerId,
+            customerName: c.name,
+            score: c.score,
+            signals: c.signals.map(s => s.description),
+            invoiceAmount: c.invoiceAmount || 0,
+            daysUntilDue: c.daysUntilDue || 0,
+          }))}
+          loading={loading}
+        />
+      </div>
+
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatsCard label="Total Owed" value={formatCurrency(stats?.totalOwed || 0)}
@@ -386,22 +465,23 @@ const Dashboard: React.FC = () => {
           icon={<span className="text-2xl">📊</span>} />
       </div>
 
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+      {/* Activation Path */}
+      <div className="bg-white dark:bg-[#111113] rounded-xl border border-gray-200 dark:border-white/[0.06] p-4">
         <h2 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Activation Path</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
-          <div className="rounded border border-gray-200 dark:border-gray-700 p-3">
+          <div className="rounded border border-gray-200 dark:border-white/[0.06] p-3">
             <div className="text-gray-500 dark:text-gray-400">Signup to Integration</div>
             <div className="text-gray-900 dark:text-white font-medium mt-1">
               {stats && stats.totalInvoices > 0 ? 'Completed' : 'Pending'}
             </div>
           </div>
-          <div className="rounded border border-gray-200 dark:border-gray-700 p-3">
+          <div className="rounded border border-gray-200 dark:border-white/[0.06] p-3">
             <div className="text-gray-500 dark:text-gray-400">Integration to First Recovery</div>
             <div className="text-gray-900 dark:text-white font-medium mt-1">
               {stats && stats.totalRecovered > 0 ? 'Completed' : 'In progress'}
             </div>
           </div>
-          <div className="rounded border border-gray-200 dark:border-gray-700 p-3">
+          <div className="rounded border border-gray-200 dark:border-white/[0.06] p-3">
             <div className="text-gray-500 dark:text-gray-400">Estimated ROI This Month</div>
             <div className="text-gray-900 dark:text-white font-medium mt-1">
               {formatCurrency(stats?.totalRecovered || 0)}
@@ -424,92 +504,6 @@ const Dashboard: React.FC = () => {
           <Button variant="primary" onClick={() => navigate('/settings')}>
             Connect Stripe →
           </Button>
-        </div>
-      )}
-
-      {/* Cash Position Widget */}
-      {cashPosition && (
-        <div className="bg-[#111113] border border-white/[0.06] rounded-xl p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-base font-semibold text-white">Cash Position Forecast</h2>
-              <p className="text-xs text-gray-500 mt-0.5">Based on AR aging × payment history. Excludes operating expenses.</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-gray-500">Current balance:</span>
-              <span className="text-xs text-gray-400">$</span>
-              <input
-                type="number"
-                value={cashBalanceInput}
-                onChange={e => setCashBalanceInput(e.target.value)}
-                onBlur={async () => {
-                  const val = parseFloat(cashBalanceInput);
-                  if (!isNaN(val) && val >= 0) {
-                    try {
-                      await api.put('/api/dashboard/cash-balance', { balanceUsd: val });
-                      const res = await api.get<{ data: CashPosition }>('/api/dashboard/cash-position');
-                      if (res.data) setCashPosition(res.data);
-                    } catch { /* non-critical */ }
-                  }
-                }}
-                className="w-28 text-xs bg-white/[0.04] border border-white/[0.08] rounded px-2 py-1 text-white focus:outline-none focus:border-blue-500/60"
-                placeholder="0"
-              />
-            </div>
-          </div>
-          <div className="grid grid-cols-3 gap-4">
-            {([
-              { label: '30 Days', value: cashPosition.balance30 },
-              { label: '60 Days', value: cashPosition.balance60 },
-              { label: '90 Days', value: cashPosition.balance90 },
-            ] as const).map(({ label, value }) => (
-              <div key={label} className="bg-white/[0.03] border border-white/[0.06] rounded-lg p-4 text-center">
-                <p className="text-xs text-gray-500 mb-1">{label}</p>
-                <p className={`text-xl font-bold ${value >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                  {formatCurrency(value)}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Payment Failure Risk Widget */}
-      {atRisk.length > 0 && (
-        <div className="bg-[#111113] border border-white/[0.06] rounded-xl p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-base font-semibold text-white">Payment Risk Alerts</h2>
-              <p className="text-xs text-gray-500 mt-0.5">Customers likely to miss payment — proactive email sent automatically</p>
-            </div>
-            <span className="text-xs bg-red-500/10 text-red-400 border border-red-500/20 px-2 py-1 rounded-full">
-              {atRisk.length} at risk
-            </span>
-          </div>
-          <div className="space-y-3">
-            {atRisk.slice(0, 5).map(customer => (
-              <div key={customer.customerId} className="flex items-center justify-between bg-white/[0.03] border border-white/[0.06] rounded-lg px-4 py-3">
-                <div className="flex items-center gap-3">
-                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                    customer.score >= 80 ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
-                    'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-                  }`}>
-                    {customer.score}
-                  </span>
-                  <div>
-                    <p className="text-sm font-medium text-white">{customer.name}</p>
-                    <p className="text-xs text-gray-500">{customer.signals.map(s => s.description).join(' · ')}</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm font-semibold text-white">{formatCurrency(customer.invoiceAmount || 0)}</p>
-                  {customer.daysUntilDue !== null && customer.daysUntilDue >= 0 && (
-                    <p className="text-xs text-gray-500">due in {customer.daysUntilDue}d</p>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
         </div>
       )}
 

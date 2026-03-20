@@ -69,8 +69,8 @@ export const ManualInvoiceModal: React.FC<ManualInvoiceModalProps> = ({ isOpen, 
         {...props}
         value={form[key]}
         onChange={(e) => setForm({ ...form, [key]: e.target.value })}
-        className={`w-full px-4 py-2.5 border rounded-lg text-sm text-gray-900 dark:text-white bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
-          errors[key] ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
+        className={`w-full px-4 py-2.5 border rounded-lg text-sm text-gray-900 dark:text-white bg-white dark:bg-white/[0.03] focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
+          errors[key] ? 'border-red-500' : 'border-gray-300 dark:border-white/[0.08]'
         }`}
       />
       {errors[key] && <p className="mt-1 text-xs text-red-500">{errors[key]}</p>}
@@ -90,7 +90,7 @@ export const ManualInvoiceModal: React.FC<ManualInvoiceModalProps> = ({ isOpen, 
             <select
               value={form.currency}
               onChange={(e) => setForm({ ...form, currency: e.target.value })}
-              className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2.5 border border-gray-300 dark:border-white/[0.08] rounded-lg text-sm text-gray-900 dark:text-white bg-white dark:bg-white/[0.03] focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               {['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'INR'].map(c => <option key={c}>{c}</option>)}
             </select>
@@ -104,7 +104,7 @@ export const ManualInvoiceModal: React.FC<ManualInvoiceModalProps> = ({ isOpen, 
             onChange={(e) => setForm({ ...form, notes: e.target.value })}
             rows={2}
             placeholder="Any notes about this invoice..."
-            className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+            className="w-full px-4 py-2.5 border border-gray-300 dark:border-white/[0.08] rounded-lg text-sm text-gray-900 dark:text-white bg-white dark:bg-white/[0.03] focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
           />
         </div>
         <div className="flex justify-end gap-2 pt-2">

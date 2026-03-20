@@ -65,7 +65,7 @@ const Compliance: React.FC = () => {
       {exportPayload && (
         <Card>
           <h2 className="font-semibold text-gray-900 dark:text-white mb-3">Latest Export Preview</h2>
-          <pre className="text-xs bg-gray-50 dark:bg-gray-900 border dark:border-gray-700 p-3 rounded overflow-auto max-h-96">{exportPayload}</pre>
+          <pre className="text-xs bg-gray-50 dark:bg-[#09090b] border dark:border-white/[0.06] p-3 rounded overflow-auto max-h-96">{exportPayload}</pre>
         </Card>
       )}
 
@@ -75,7 +75,7 @@ const Compliance: React.FC = () => {
           <div className="space-y-2">
             {requests.length === 0 && <p className="text-sm text-gray-500">No requests found.</p>}
             {requests.map((r) => (
-              <div key={r.id} className="text-sm p-2 rounded bg-gray-50 dark:bg-gray-800">
+              <div key={r.id} className="text-sm p-2 rounded bg-gray-50 dark:bg-[#111113]">
                 {r.request_type} - {r.status} - {new Date(r.requested_at).toLocaleString()}
               </div>
             ))}

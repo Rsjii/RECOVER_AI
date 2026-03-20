@@ -84,7 +84,7 @@ const Setup: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center px-4">
+    <div className="min-h-screen bg-gray-50 dark:bg-[#09090b] flex items-center justify-center px-4">
       <div className="w-full max-w-lg">
         {/* Header */}
         <div className="text-center mb-8">
@@ -110,7 +110,7 @@ const Setup: React.FC = () => {
                       ? 'bg-green-100 text-green-600'
                       : i === 1
                       ? 'bg-blue-600 text-white'
-                      : 'bg-gray-100 dark:bg-gray-700 text-gray-400'
+                      : 'bg-gray-100 dark:bg-white/[0.03] text-gray-400'
                   }`}
                 >
                   {i === 0 ? '✓' : i + 1}
@@ -133,7 +133,7 @@ const Setup: React.FC = () => {
         {/* Integration Cards */}
         <div className="space-y-4">
           {/* Stripe Card */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+          <div className="bg-white dark:bg-[#111113] rounded-xl border border-gray-200 dark:border-white/[0.06] p-6">
             <div className="flex items-start justify-between mb-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-900 flex items-center justify-center">
@@ -174,7 +174,7 @@ const Setup: React.FC = () => {
           </div>
 
           {/* QuickBooks Card */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 opacity-60">
+          <div className="bg-white dark:bg-[#111113] rounded-xl border border-gray-200 dark:border-white/[0.06] p-6 opacity-60">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-900 flex items-center justify-center">
                 <span className="text-green-600 dark:text-green-300 font-bold text-lg">QB</span>
@@ -187,7 +187,7 @@ const Setup: React.FC = () => {
           </div>
 
           {/* Chargebee Card */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 opacity-60">
+          <div className="bg-white dark:bg-[#111113] rounded-xl border border-gray-200 dark:border-white/[0.06] p-6 opacity-60">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-orange-100 dark:bg-orange-900 flex items-center justify-center">
                 <span className="text-orange-600 dark:text-orange-300 font-bold text-lg">CB</span>
@@ -222,10 +222,10 @@ const Setup: React.FC = () => {
           Your API keys are encrypted with AES-256-GCM and never stored in plaintext.
         </p>
 
-        <div className="mt-6 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
+        <div className="mt-6 bg-white dark:bg-[#111113] rounded-xl border border-gray-200 dark:border-white/[0.06] p-5">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-gray-900 dark:text-white">Choose Your Plan</h3>
-              <div className="flex gap-1 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+              <div className="flex gap-1 bg-gray-100 dark:bg-white/[0.03] rounded-lg p-1">
                 <button
                   onClick={() => setBillingInterval('monthly')}
                   className={`text-xs px-3 py-1 rounded-md transition ${billingInterval === 'monthly' ? 'bg-white dark:bg-gray-600 font-medium shadow-sm' : 'text-gray-500'}`}
@@ -249,7 +249,7 @@ const Setup: React.FC = () => {
                   className={`w-full text-left p-4 rounded-lg border-2 transition ${
                     plan.popular
                       ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                      : 'border-gray-300 dark:border-gray-600 hover:border-blue-400'
+                      : 'border-gray-300 dark:border-white/[0.08] hover:border-blue-400'
                   }`}
                 >
                   <div className="flex items-center justify-between">

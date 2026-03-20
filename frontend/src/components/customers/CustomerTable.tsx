@@ -15,9 +15,9 @@ export const CustomerTable: React.FC<CustomerTableProps> = ({ customers, loading
   if (customers.length === 0) return <div className="text-center py-12 text-gray-500 dark:text-gray-400">No customers found</div>;
 
   return (
-    <div className="overflow-x-auto bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+    <div className="overflow-x-auto bg-white dark:bg-[#111113] rounded-lg border border-gray-200 dark:border-white/[0.06]">
       <table className="w-full text-sm text-left text-gray-700 dark:text-gray-300">
-        <thead className="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
+        <thead className="bg-gray-50 dark:bg-white/[0.03] border-b border-gray-200 dark:border-white/[0.08]">
           <tr>
             <th className="px-6 py-3 font-semibold text-gray-900 dark:text-white">Customer</th>
             <th className="px-6 py-3 font-semibold text-gray-900 dark:text-white">Company</th>
@@ -29,7 +29,7 @@ export const CustomerTable: React.FC<CustomerTableProps> = ({ customers, loading
         <tbody>
           {customers.map(c => (
             <tr key={c.id} onClick={() => onRowClick(c)}
-              className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/60 cursor-pointer">
+              className="border-b border-gray-200 dark:border-white/[0.06] hover:bg-gray-50 dark:hover:bg-white/[0.06] cursor-pointer">
               <td className="px-6 py-4">
                 <div className="font-medium text-gray-900 dark:text-white">{c.name}</div>
                 <div className="text-xs text-gray-500 dark:text-gray-400">{c.email}</div>
@@ -53,7 +53,7 @@ export const CustomerTable: React.FC<CustomerTableProps> = ({ customers, loading
         </tbody>
       </table>
       {pagination && pagination.pages > 1 && (
-        <div className="flex items-center justify-between p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+        <div className="flex items-center justify-between p-4 border-t border-gray-200 dark:border-white/[0.06] bg-gray-50 dark:bg-[#111113]">
           <span className="text-sm text-gray-600 dark:text-gray-400">Page {pagination.page} of {pagination.pages} ({pagination.total} total)</span>
           <div className="flex gap-2">
             <Button size="sm" variant="secondary" disabled={pagination.page === 1}

@@ -107,7 +107,7 @@ const Onboarding: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center px-4 py-10">
+    <div className="min-h-screen bg-gray-50 dark:bg-[#09090b] flex items-center justify-center px-4 py-10">
       <div className="w-full max-w-xl">
         {/* Header */}
         <div className="text-center mb-8">
@@ -128,7 +128,7 @@ const Onboarding: React.FC = () => {
                     ? 'bg-green-500 text-white'
                     : s.id === step
                     ? 'bg-blue-600 text-white ring-4 ring-blue-100 dark:ring-blue-900'
-                    : 'bg-gray-200 dark:bg-gray-700 text-gray-400'
+                    : 'bg-gray-200 dark:bg-white/[0.03] text-gray-400'
                 }`}>
                   {s.id < step ? '✓' : s.id}
                 </div>
@@ -137,14 +137,14 @@ const Onboarding: React.FC = () => {
                 </span>
               </div>
               {i < STEPS.length - 1 && (
-                <div className={`flex-1 h-px mx-1 ${s.id < step ? 'bg-green-400' : 'bg-gray-200 dark:bg-gray-700'}`} />
+                <div className={`flex-1 h-px mx-1 ${s.id < step ? 'bg-green-400' : 'bg-gray-200 dark:bg-white/[0.03]'}`} />
               )}
             </React.Fragment>
           ))}
         </div>
 
         {/* Step Content */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-8">
+        <div className="bg-white dark:bg-[#111113] rounded-2xl border border-gray-200 dark:border-white/[0.06] p-8">
 
           {/* Step 1: Connect Stripe */}
           {step === 1 && (
@@ -194,7 +194,7 @@ const Onboarding: React.FC = () => {
                   { label: 'Customer history', desc: 'Analyzes payment patterns', done: true },
                   { label: 'Priority queue', desc: 'High-risk invoices first', done: true },
                 ].map((item) => (
-                  <div key={item.label} className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                  <div key={item.label} className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-white/[0.04] rounded-lg">
                     <span className="text-green-500 font-bold text-sm">{item.done ? '✓' : '○'}</span>
                     <div>
                       <p className="text-sm font-medium text-gray-900 dark:text-white">{item.label}</p>
@@ -303,7 +303,7 @@ const Onboarding: React.FC = () => {
                   value={slackWebhook}
                   onChange={(e) => setSlackWebhook(e.target.value)}
                   placeholder="https://hooks.slack.com/services/..."
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-white/[0.08] rounded-lg bg-white dark:bg-white/[0.03] text-sm text-gray-900 dark:text-white"
                 />
                 <p className="text-xs text-gray-500 mt-1">
                   Create a webhook at api.slack.com/apps → Incoming Webhooks

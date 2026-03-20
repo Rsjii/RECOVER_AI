@@ -117,7 +117,7 @@ const Billing: React.FC = () => {
                   <p>Period ends: {subscription.current_period_end ? formatDate(subscription.current_period_end) : 'N/A'}</p>
                 </div>
                 {recoveryFee && (
-                  <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 text-sm space-y-1">
+                  <div className="bg-gray-50 dark:bg-[#111113] rounded-lg p-3 text-sm space-y-1">
                     <p className="font-medium text-gray-900 dark:text-white mb-2">This Month's Bill Estimate</p>
                     <div className="flex justify-between text-gray-600 dark:text-gray-300">
                       <span>Base subscription</span>
@@ -141,7 +141,7 @@ const Billing: React.FC = () => {
                         <span>{formatCurrency(recoveryFee.recoveryFeeUsd)}</span>
                       </div>
                     )}
-                    <div className="flex justify-between font-semibold text-gray-900 dark:text-white border-t border-gray-200 dark:border-gray-700 pt-1 mt-1">
+                    <div className="flex justify-between font-semibold text-gray-900 dark:text-white border-t border-gray-200 dark:border-white/[0.06] pt-1 mt-1">
                       <span>Estimated total</span>
                       <span>{formatCurrency(recoveryFee.totalUsd)}</span>
                     </div>
@@ -176,8 +176,16 @@ const Billing: React.FC = () => {
               {usage.length === 0 && <p className="text-sm text-gray-500">No usage tracked yet.</p>}
               {usage.map((u) => (
                 <div key={u.metric_key} className="flex justify-between text-sm">
-                  <span className="text-gray-600 dark:text-gray-300">{u.metric_key}</span>
-                  <span className="font-medium text-gray-900 dark:text-white">{u.quantity}</span>
+                  <span className="text-gray-600 dark:text-gray-300">{({
+                    emails_sent: 'Emails Sent',
+                    recovered_amount_usd: 'Amount Recovered',
+                    invoices_processed: 'Invoices Processed',
+                    sms_sent: 'SMS Sent',
+                    payment_plans_created: 'Payment Plans Created',
+                  } as Record<string, string>)[u.metric_key] || u.metric_key}</span>
+                  <span className="font-medium text-gray-900 dark:text-white">
+                    {u.metric_key === 'recovered_amount_usd' ? formatCurrency(Number(u.quantity)) : Number(u.quantity).toLocaleString()}
+                  </span>
                 </div>
               ))}
             </div>
@@ -188,7 +196,7 @@ const Billing: React.FC = () => {
             <div className="space-y-2">
               {invoices.length === 0 && <p className="text-sm text-gray-500">No billing invoices yet.</p>}
               {invoices.map((inv) => (
-                <div key={inv.id} className="flex justify-between text-sm p-2 rounded bg-gray-50 dark:bg-gray-800">
+                <div key={inv.id} className="flex justify-between text-sm p-2 rounded bg-gray-50 dark:bg-white/[0.03]">
                   <span className="text-gray-600 dark:text-gray-300">{formatDate(inv.period_start)} - {formatDate(inv.period_end)} ({inv.status})</span>
                   <span className="font-medium text-gray-900 dark:text-white">{formatCurrency(Number(inv.total_amount_usd))}</span>
                 </div>

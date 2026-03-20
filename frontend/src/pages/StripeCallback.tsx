@@ -38,7 +38,7 @@ const StripeCallback: React.FC = () => {
   }, []);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-[#09090b]">
       <div className="text-center max-w-md px-6">
         {status === 'loading' && (
           <>

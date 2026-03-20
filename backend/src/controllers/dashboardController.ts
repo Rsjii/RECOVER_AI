@@ -4,7 +4,8 @@ import { pool } from '../config/database';
 import { logError, logInfo } from '../utils/logger';
 import { sendErrorResponse, parseError } from '../utils/errorHandler';
 import { getAtRiskCustomers } from '../services/riskScoringService';
-import { getCashPosition, updateCashBalance } from '../services/cashPositionService';
+import { getCashPosition, updateCashBalance, calculateWhatIf, calculateRunway, getCashLeakage } from '../services/cashPositionService';
+import type { WhatIfScenario } from '../services/cashPositionService';
 
 const LOG_MODULE = 'dashboardController';
 
@@ -157,6 +158,71 @@ export const updateCashBalanceHandler = async (req: Request, res: Response): Pro
     res.status(200).json({ data: { balanceUsd } });
   } catch (error) {
     logError(LOG_MODULE, handler, 'Failed to update cash balance', error);
+    const { statusCode, message } = parseError(error);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
+
+/**
+ * POST /api/dashboard/cash-whatif
+ * Calculate a what-if scenario against current cash position
+ */
+export const getWhatIfHandler = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'getWhatIf';
+  const companyId = (req as any).companyId;
+  const { type, removeCustomerId, accelerateDunningByDays, customReductionPct } = req.body;
+
+  const validTypes = ['remove_customer', 'accelerate_dunning', 'custom'];
+  if (!type || !validTypes.includes(type)) {
+    sendErrorResponse(res, 400, `type must be one of: ${validTypes.join(', ')}`);
+    return;
+  }
+
+  try {
+    const scenario: WhatIfScenario = { type, removeCustomerId, accelerateDunningByDays, customReductionPct };
+    const result = await calculateWhatIf(companyId, scenario);
+    logInfo(LOG_MODULE, handler, 'What-if calculated', { companyId, type });
+    res.status(200).json({ data: result });
+  } catch (error) {
+    logError(LOG_MODULE, handler, 'Failed to calculate what-if', error);
+    const { statusCode, message } = parseError(error);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
+
+/**
+ * GET /api/dashboard/runway
+ * Returns cash runway in days based on burn rate
+ */
+export const getRunwayHandler = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'getRunway';
+  const companyId = (req as any).companyId;
+
+  try {
+    const result = await calculateRunway(companyId);
+    logInfo(LOG_MODULE, handler, 'Runway calculated', { companyId, runwayDays: result.runwayDays });
+    res.status(200).json({ data: result });
+  } catch (error) {
+    logError(LOG_MODULE, handler, 'Failed to calculate runway', error);
+    const { statusCode, message } = parseError(error);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
+
+/**
+ * GET /api/dashboard/cash-leakage
+ * Returns cash leakage analysis by source
+ */
+export const getCashLeakageHandler = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'getCashLeakage';
+  const companyId = (req as any).companyId;
+
+  try {
+    const result = await getCashLeakage(companyId);
+    logInfo(LOG_MODULE, handler, 'Cash leakage analyzed', { companyId, total: result.totalLeakageUsd });
+    res.status(200).json({ data: result });
+  } catch (error) {
+    logError(LOG_MODULE, handler, 'Failed to analyze cash leakage', error);
     const { statusCode, message } = parseError(error);
     sendErrorResponse(res, statusCode, message);
   }

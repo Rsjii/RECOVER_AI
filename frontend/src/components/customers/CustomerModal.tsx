@@ -99,7 +99,7 @@ export const CustomerModal: React.FC<CustomerModalProps> = ({ customer, isOpen, 
           </div>
 
           {/* SMS / Phone Section */}
-          <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+          <div className="border border-gray-200 dark:border-white/[0.06] rounded-lg p-4">
             <div className="flex items-center justify-between mb-3">
               <h4 className="text-sm font-semibold text-gray-900 dark:text-white">SMS Outreach</h4>
               {!editingPhone && (
@@ -121,7 +121,7 @@ export const CustomerModal: React.FC<CustomerModalProps> = ({ customer, isOpen, 
                     value={phone}
                     onChange={e => setPhone(e.target.value)}
                     placeholder="+12125551234"
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-white/[0.08] rounded-lg text-sm text-gray-900 dark:text-white bg-white dark:bg-white/[0.03] focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <label className="flex items-center gap-2 cursor-pointer">
@@ -145,7 +145,7 @@ export const CustomerModal: React.FC<CustomerModalProps> = ({ customer, isOpen, 
                   </button>
                   <button
                     onClick={() => { setEditingPhone(false); setPhone(customer.phone || ''); setPhoneOptIn(customer.phone_opt_in ?? false); }}
-                    className="px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+                    className="px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/[0.06] rounded-lg"
                   >
                     Cancel
                   </button>
@@ -178,7 +178,7 @@ export const CustomerModal: React.FC<CustomerModalProps> = ({ customer, isOpen, 
             ) : (
               <div className="space-y-2 max-h-64 overflow-y-auto">
                 {invoices.map(inv => (
-                  <div key={inv.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                  <div key={inv.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-white/[0.04] rounded-lg">
                     <div>
                       <span className="text-sm font-medium text-gray-900 dark:text-white">
                         {formatCurrency(Number(inv.amount), inv.currency)}

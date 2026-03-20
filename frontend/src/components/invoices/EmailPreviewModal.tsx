@@ -80,9 +80,9 @@ export const EmailPreviewModal: React.FC<EmailPreviewModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="bg-white dark:bg-[#111113] rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+        <div className="p-6 border-b border-gray-200 dark:border-white/[0.06]">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Email Preview</h2>
@@ -103,7 +103,7 @@ export const EmailPreviewModal: React.FC<EmailPreviewModalProps> = ({
                 className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-colors ${
                   selectedType === t.value
                     ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                    : 'bg-gray-100 dark:bg-white/[0.03] text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/[0.06]'
                 }`}
               >
                 {t.label}
@@ -158,13 +158,13 @@ export const EmailPreviewModal: React.FC<EmailPreviewModalProps> = ({
               )}
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1 uppercase tracking-wide">Subject</label>
-                <div className="bg-gray-50 dark:bg-gray-700 rounded-lg px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">
+                <div className="bg-gray-50 dark:bg-white/[0.03] rounded-lg px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">
                   {preview.subject}
                 </div>
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1 uppercase tracking-wide">Body</label>
-                <div className="bg-gray-50 dark:bg-gray-700 rounded-lg px-4 py-4 text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">
+                <div className="bg-gray-50 dark:bg-white/[0.03] rounded-lg px-4 py-4 text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">
                   {preview.body}
                 </div>
               </div>
@@ -173,7 +173,7 @@ export const EmailPreviewModal: React.FC<EmailPreviewModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="p-6 border-t border-gray-200 dark:border-gray-700 flex gap-3 justify-end">
+        <div className="p-6 border-t border-gray-200 dark:border-white/[0.06] flex gap-3 justify-end">
           <Button variant="secondary" onClick={onClose}>Close</Button>
           {onApprove && preview && (
             <Button onClick={handleApprove} disabled={sending}>

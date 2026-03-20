@@ -14,7 +14,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requireEmailV
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-[#09090b] px-4">
         <div className="w-12 h-12 rounded-xl bg-blue-600 flex items-center justify-center mb-4">
           <span className="text-white text-xl font-bold">R</span>
         </div>

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { authMiddleware } from '../middleware/auth';
 import { requireActiveSubscription } from '../middleware/subscriptionGate';
-import { getStats, getPipeline, getRiskList, getRecoveryTimeline, getAtRisk, getCashPositionHandler, updateCashBalanceHandler } from '../controllers/dashboardController';
+import { getStats, getPipeline, getRiskList, getRecoveryTimeline, getAtRisk, getCashPositionHandler, updateCashBalanceHandler, getWhatIfHandler, getRunwayHandler, getCashLeakageHandler } from '../controllers/dashboardController';
 import { runDecisionEngineNow, runDecisionEngineDryRun } from '../queue/agentLoop';
 import { findInvoiceById } from '../db/invoices';
 import { queueEmailNow } from '../queue/dunningQueue';
@@ -18,6 +18,9 @@ router.get('/timeline', getRecoveryTimeline);
 router.get('/at-risk', getAtRisk);
 router.get('/cash-position', getCashPositionHandler);
 router.put('/cash-balance', updateCashBalanceHandler);
+router.post('/cash-whatif', getWhatIfHandler);
+router.get('/runway', getRunwayHandler);
+router.get('/cash-leakage', getCashLeakageHandler);
 
 /**
  * POST /api/dashboard/agent/trigger

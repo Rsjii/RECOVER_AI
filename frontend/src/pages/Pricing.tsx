@@ -5,6 +5,28 @@ import { ThemeToggle } from '../components/ui/ThemeToggle';
 
 const PLANS = [
   {
+    name: 'Free Trial',
+    monthlyPrice: '$0',
+    annualPrice: '$0',
+    period: '',
+    fee: 'No credit card required',
+    feeDetail: '21 days · full Growth features',
+    desc: 'Try RecoverAI risk-free for 21 days with all Growth plan features.',
+    users: 'Up to 5 users',
+    invoices: 'Unlimited invoices',
+    features: [
+      'Full Growth features for 21 days',
+      'AI dunning emails + SMS reminders',
+      'Payment failure prediction',
+      '90-day cash position forecast',
+      'Stripe + QuickBooks integration',
+      'Email open/click tracking',
+      'No credit card required',
+    ],
+    cta: 'Start free trial',
+    popular: false,
+  },
+  {
     name: 'Growth',
     monthlyPrice: '$2,500',
     annualPrice: '$2,000',
@@ -83,23 +105,23 @@ const RoiCalculator: React.FC = () => {
           value={ar}
           onChange={(e) => setAr(e.target.value.replace(/[^0-9,]/g, ''))}
           placeholder="50,000"
-          className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-center text-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="flex-1 px-4 py-2 border border-gray-300 dark:border-white/[0.08] rounded-lg bg-white dark:bg-[#111113] text-gray-900 dark:text-white text-center text-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
         <span className="text-gray-500 text-sm">/mo</span>
       </div>
       {hasResult && (
         <div className="grid grid-cols-3 gap-4 text-left">
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+          <div className="bg-white dark:bg-[#111113] rounded-xl p-4 border border-gray-200 dark:border-white/[0.06]">
             <p className="text-xs text-gray-500 mb-1">Estimated recovery</p>
             <p className="text-xl font-bold text-green-600">${recoveryLow.toLocaleString()} – ${recoveryHigh.toLocaleString()}</p>
             <p className="text-xs text-gray-400 mt-1">20–35% of overdue AR</p>
           </div>
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+          <div className="bg-white dark:bg-[#111113] rounded-xl p-4 border border-gray-200 dark:border-white/[0.06]">
             <p className="text-xs text-gray-500 mb-1">Your total cost</p>
             <p className="text-xl font-bold text-gray-900 dark:text-white">${(BASE + feeLow).toLocaleString()} – ${(BASE + feeHigh).toLocaleString()}</p>
             <p className="text-xs text-gray-400 mt-1">$2,500 base + tiered success fee</p>
           </div>
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-blue-300 dark:border-blue-700">
+          <div className="bg-white dark:bg-[#111113] rounded-xl p-4 border border-blue-300 dark:border-blue-700">
             <p className="text-xs text-gray-500 mb-1">Your net gain</p>
             <p className="text-xl font-bold text-brand-600">${netLow.toLocaleString()} – ${netHigh.toLocaleString()}</p>
             <p className="text-xs text-gray-400 mt-1">after all fees</p>
@@ -116,7 +138,7 @@ const Pricing: React.FC = () => {
   useEffect(() => { document.title = 'Pricing — RecoverAI'; }, []);
 
   return (
-    <div className="min-h-screen bg-white dark:bg-gray-900">
+    <div className="min-h-screen bg-white dark:bg-[#09090b]">
       {/* Nav */}
       <header className="max-w-6xl mx-auto px-6 py-5 flex items-center justify-between">
         <Link to="/landing" className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
@@ -152,7 +174,7 @@ const Pricing: React.FC = () => {
             className={`px-4 py-2 rounded-lg font-medium transition ${
               billingInterval === 'monthly'
                 ? 'bg-blue-600 text-white'
-                : 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-300 hover:bg-gray-200'
+                : 'bg-gray-100 dark:bg-[#111113] text-gray-900 dark:text-gray-300 hover:bg-gray-200'
             }`}
           >
             Monthly
@@ -162,7 +184,7 @@ const Pricing: React.FC = () => {
             className={`px-4 py-2 rounded-lg font-medium transition relative ${
               billingInterval === 'annual'
                 ? 'bg-blue-600 text-white'
-                : 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-300 hover:bg-gray-200'
+                : 'bg-gray-100 dark:bg-[#111113] text-gray-900 dark:text-gray-300 hover:bg-gray-200'
             }`}
           >
             Annual
@@ -187,7 +209,7 @@ const Pricing: React.FC = () => {
               className={`relative rounded-2xl border p-8 flex flex-col ${
                 plan.popular
                   ? 'border-blue-500 bg-brand-50 dark:bg-blue-900/20 shadow-lg shadow-blue-100 dark:shadow-blue-900/20'
-                  : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800'
+                  : 'border-gray-200 dark:border-white/[0.06] bg-white dark:bg-[#111113]'
               }`}
             >
               {plan.popular && (
@@ -242,7 +264,7 @@ const Pricing: React.FC = () => {
       </section>
 
       {/* Success fee explainer */}
-      <section className="bg-gray-50 dark:bg-gray-800/50 py-12">
+      <section className="bg-gray-50 dark:bg-[#111113]/50 py-12">
         <div className="max-w-3xl mx-auto px-6 text-center">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
             How does the success fee work?
@@ -257,7 +279,7 @@ const Pricing: React.FC = () => {
               { label: 'You pay $1,250 (5%)', amount: '$25k', desc: 'If we recover $25,000' },
               { label: 'You pay $2,500 (5%)', amount: '$50k', desc: 'If we recover $50,000' },
             ].map((ex) => (
-              <div key={ex.label} className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700">
+              <div key={ex.label} className="bg-white dark:bg-[#111113] rounded-xl p-5 border border-gray-200 dark:border-white/[0.06]">
                 <p className="text-xs text-gray-500 mb-1">{ex.desc}</p>
                 <p className="text-2xl font-bold text-brand-600">{ex.amount}</p>
                 <p className="text-sm text-gray-700 dark:text-gray-300 mt-1">{ex.label}</p>
@@ -293,7 +315,7 @@ const Pricing: React.FC = () => {
               a: 'Yes, annual plans save 20% when you pay annually. Contact us to switch plans.',
             },
           ].map((item) => (
-            <details key={item.q} className="group bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
+            <details key={item.q} className="group bg-white dark:bg-[#111113] rounded-xl border border-gray-200 dark:border-white/[0.06] p-5">
               <summary className="flex items-center justify-between cursor-pointer font-medium text-gray-900 dark:text-white list-none text-sm">
                 {item.q}
                 <svg className="w-4 h-4 text-gray-400 group-open:rotate-180 transition-transform flex-shrink-0 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">

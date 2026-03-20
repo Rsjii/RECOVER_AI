@@ -182,7 +182,7 @@ const InvoiceDetail: React.FC = () => {
       <div className="flex items-center gap-4">
         <button
           onClick={() => navigate('/invoices')}
-          className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400"
+          className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-white/[0.06] text-gray-500 dark:text-gray-400"
         >
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -229,7 +229,7 @@ const InvoiceDetail: React.FC = () => {
 
       {/* Tabs */}
       <Card>
-        <div className="flex border-b border-gray-200 dark:border-gray-700 gap-1 -mt-2 -mx-1 mb-4">
+        <div className="flex border-b border-gray-200 dark:border-white/[0.06] gap-1 -mt-2 -mx-1 mb-4">
           {tabs.map(t => (
             <button
               key={t.id}
@@ -261,7 +261,7 @@ const InvoiceDetail: React.FC = () => {
                       type="email"
                       value={emailInput}
                       onChange={(e) => setEmailInput(e.target.value)}
-                      className="flex-1 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="flex-1 px-2 py-1 border border-gray-300 dark:border-white/[0.08] rounded bg-white dark:bg-white/[0.03] text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                     <button
                       onClick={handleUpdateEmail}
@@ -299,7 +299,7 @@ const InvoiceDetail: React.FC = () => {
               <div><span className="text-gray-500 dark:text-gray-400 block mb-1">Source</span><span className="text-gray-900 dark:text-white capitalize">{invoice.source}</span></div>
             </div>
 
-            <div className="flex flex-wrap gap-2 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <div className="flex flex-wrap gap-2 pt-4 border-t border-gray-200 dark:border-white/[0.06]">
               {invoice.status === 'unpaid' && (
                 <>
                   <Button size="sm" onClick={() => updateStatus('paid')} loading={updating}>Mark Paid</Button>
@@ -323,7 +323,7 @@ const InvoiceDetail: React.FC = () => {
             ? <p className="text-gray-500 dark:text-gray-400 text-center py-8">No payments recorded</p>
             : (
               <table className="w-full text-sm">
-                <thead className="bg-gray-50 dark:bg-gray-700/50">
+                <thead className="bg-gray-50 dark:bg-white/[0.04]">
                   <tr>
                     <th className="px-4 py-2 text-left text-gray-600 dark:text-gray-300">Date</th>
                     <th className="px-4 py-2 text-right text-gray-600 dark:text-gray-300">Amount</th>
@@ -333,7 +333,7 @@ const InvoiceDetail: React.FC = () => {
                 </thead>
                 <tbody>
                   {detail!.payments.map(p => (
-                    <tr key={p.id} className="border-t border-gray-100 dark:border-gray-700">
+                    <tr key={p.id} className="border-t border-gray-100 dark:border-white/[0.06]">
                       <td className="px-4 py-2 text-gray-900 dark:text-white">{formatDate(p.paid_at)}</td>
                       <td className="px-4 py-2 text-right font-medium">{formatCurrency(Number(p.amount))}</td>
                       <td className="px-4 py-2 capitalize text-gray-600 dark:text-gray-300">{p.payment_method}</td>
@@ -366,7 +366,7 @@ const InvoiceDetail: React.FC = () => {
               : (
                 <div className="space-y-3">
                   {detail!.emailLogs.map(e => (
-                    <div key={e.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                    <div key={e.id} className="border border-gray-200 dark:border-white/[0.06] rounded-lg p-4">
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-sm font-medium text-gray-900 dark:text-white">{e.subject}</span>
                         <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
@@ -409,7 +409,7 @@ const InvoiceDetail: React.FC = () => {
                   </span>
                 </div>
                 <table className="w-full text-sm">
-                  <thead className="bg-gray-50 dark:bg-gray-700/50">
+                  <thead className="bg-gray-50 dark:bg-white/[0.04]">
                     <tr>
                       <th className="px-4 py-2 text-left">#</th>
                       <th className="px-4 py-2 text-right">Amount</th>
@@ -419,7 +419,7 @@ const InvoiceDetail: React.FC = () => {
                   </thead>
                   <tbody>
                     {detail.paymentPlan.installments.map((inst, i) => (
-                      <tr key={i} className="border-t border-gray-100 dark:border-gray-700">
+                      <tr key={i} className="border-t border-gray-100 dark:border-white/[0.06]">
                         <td className="px-4 py-2 text-gray-600 dark:text-gray-300">{i + 1}</td>
                         <td className="px-4 py-2 text-right font-medium">{formatCurrency(inst.amount)}</td>
                         <td className="px-4 py-2 text-gray-600 dark:text-gray-300">{formatDate(inst.due_date)}</td>
@@ -430,7 +430,7 @@ const InvoiceDetail: React.FC = () => {
                 </table>
               </div>
             ) : creatingPlan ? (
-              <div className="space-y-4 p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+              <div className="space-y-4 p-4 border border-gray-200 dark:border-white/[0.06] rounded-lg">
                 <h4 className="text-sm font-semibold text-gray-900 dark:text-white">Create Payment Plan</h4>
                 <div>
                   <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
@@ -439,7 +439,7 @@ const InvoiceDetail: React.FC = () => {
                   <select
                     value={planInstallments}
                     onChange={(e) => setPlanInstallments(Number(e.target.value))}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-white/[0.08] rounded-lg text-sm text-gray-900 dark:text-white bg-white dark:bg-white/[0.03] focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     {[2, 3, 4, 6, 9, 12].map(n => (
                       <option key={n} value={n}>
@@ -502,7 +502,7 @@ const InvoiceDetail: React.FC = () => {
                     <select
                       value={pauseDays}
                       onChange={e => setPauseDays(Number(e.target.value))}
-                      className="px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      className="px-2 py-1.5 text-sm border border-gray-300 dark:border-white/[0.08] rounded-lg bg-white dark:bg-white/[0.03] text-gray-900 dark:text-white"
                     >
                       {[7, 14, 30].map(d => <option key={d} value={d}>Pause {d} days</option>)}
                     </select>
@@ -524,7 +524,7 @@ const InvoiceDetail: React.FC = () => {
                 <p className="text-sm text-gray-400">No dunning emails sent yet.</p>
               ) : (
                 <table className="w-full text-sm">
-                  <thead className="bg-gray-50 dark:bg-gray-700/50">
+                  <thead className="bg-gray-50 dark:bg-white/[0.04]">
                     <tr>
                       <th className="px-4 py-2 text-left">Type</th>
                       <th className="px-4 py-2 text-left">Sent</th>
@@ -533,7 +533,7 @@ const InvoiceDetail: React.FC = () => {
                   </thead>
                   <tbody>
                     {dunningStatus!.history.map((log) => (
-                      <tr key={log.id} className="border-t border-gray-100 dark:border-gray-700">
+                      <tr key={log.id} className="border-t border-gray-100 dark:border-white/[0.06]">
                         <td className="px-4 py-2 text-gray-700 dark:text-gray-300 capitalize">{log.email_type.replace('_', ' ')}</td>
                         <td className="px-4 py-2 text-gray-500 dark:text-gray-400">{formatDate(log.sent_at)}</td>
                         <td className="px-4 py-2">

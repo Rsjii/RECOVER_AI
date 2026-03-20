@@ -130,3 +130,338 @@ export async function updateCashBalance(companyId: string, balanceUsd: number): 
   );
   logInfo(MODULE, 'updateCashBalance', 'Cash balance updated', { companyId, balanceUsd });
 }
+
+// ─── What-If Scenarios ─────────────────────────────────────────────
+
+export interface WhatIfScenario {
+  type: 'remove_customer' | 'accelerate_dunning' | 'custom';
+  removeCustomerId?: string;
+  accelerateDunningByDays?: number;
+  customReductionPct?: number;
+}
+
+export interface WhatIfResult {
+  baselineBalance30: number;
+  baselineBalance60: number;
+  baselineBalance90: number;
+  scenarioBalance30: number;
+  scenarioBalance60: number;
+  scenarioBalance90: number;
+  impactAmount: number;
+  impactDescription: string;
+  customerName?: string;
+}
+
+/**
+ * Calculate a what-if scenario against the current cash position.
+ * - remove_customer: removes a specific customer's expected payments
+ * - accelerate_dunning: applies 1.15x multiplier to payment probabilities
+ * - custom: reduces all expected inflows by a given percentage
+ */
+export async function calculateWhatIf(
+  companyId: string,
+  scenario: WhatIfScenario
+): Promise<WhatIfResult> {
+  try {
+    const baseline = await getCashPosition(companyId);
+
+    let scenarioBalance30 = baseline.balance30;
+    let scenarioBalance60 = baseline.balance60;
+    let scenarioBalance90 = baseline.balance90;
+    let impactAmount = 0;
+    let impactDescription = '';
+    let customerName: string | undefined;
+
+    if (scenario.type === 'remove_customer' && scenario.removeCustomerId) {
+      // Calculate how much this customer contributes to expected cash
+      const custResult = await pool.query(
+        `SELECT
+           c.name AS customer_name,
+           COALESCE(SUM(CASE WHEN CEIL(EXTRACT(EPOCH FROM (i.due_date - NOW())) / 86400) <= 30 THEN i.amount ELSE 0 END), 0) AS due_30,
+           COALESCE(SUM(CASE WHEN CEIL(EXTRACT(EPOCH FROM (i.due_date - NOW())) / 86400) <= 60 THEN i.amount ELSE 0 END), 0) AS due_60,
+           COALESCE(SUM(CASE WHEN CEIL(EXTRACT(EPOCH FROM (i.due_date - NOW())) / 86400) <= 90 THEN i.amount ELSE 0 END), 0) AS due_90
+         FROM invoices i
+         JOIN customers c ON c.id = i.customer_id
+         WHERE i.company_id = $1
+           AND i.customer_id = $2
+           AND i.status = 'unpaid'
+           AND i.dunning_stopped = FALSE
+           AND i.due_date > NOW()
+         GROUP BY c.name`,
+        [companyId, scenario.removeCustomerId]
+      );
+
+      if (custResult.rows.length > 0) {
+        const row = custResult.rows[0];
+        customerName = row.customer_name;
+
+        // Get probability for this customer
+        const probResult = await pool.query(
+          `SELECT COUNT(*)::FLOAT AS total, COUNT(CASE WHEN status = 'paid' THEN 1 END)::FLOAT AS paid
+           FROM invoices WHERE company_id = $1 AND customer_id = $2 AND created_at > NOW() - INTERVAL '12 months'`,
+          [companyId, scenario.removeCustomerId]
+        );
+        const prob = probResult.rows[0]?.total > 0 ? probResult.rows[0].paid / probResult.rows[0].total : 0.65;
+
+        const loss30 = parseFloat(row.due_30) * prob;
+        const loss60 = parseFloat(row.due_60) * prob;
+        const loss90 = parseFloat(row.due_90) * prob;
+
+        scenarioBalance30 = Math.round((baseline.balance30 - loss30) * 100) / 100;
+        scenarioBalance60 = Math.round((baseline.balance60 - loss60) * 100) / 100;
+        scenarioBalance90 = Math.round((baseline.balance90 - loss90) * 100) / 100;
+        impactAmount = Math.round(loss90 * 100) / 100;
+        impactDescription = `Losing ${customerName} would reduce 90-day cash by $${impactAmount.toLocaleString()}`;
+      } else {
+        impactDescription = 'Customer has no unpaid invoices';
+      }
+    } else if (scenario.type === 'accelerate_dunning') {
+      // Accelerating dunning improves payment probability by ~15%
+      const multiplier = 1.15;
+      const improvement30 = baseline.pendingInvoices30 * (multiplier - 1);
+      const improvement60 = baseline.pendingInvoices60 * (multiplier - 1);
+      const improvement90 = baseline.pendingInvoices90 * (multiplier - 1);
+
+      scenarioBalance30 = Math.round((baseline.balance30 + improvement30) * 100) / 100;
+      scenarioBalance60 = Math.round((baseline.balance60 + improvement60) * 100) / 100;
+      scenarioBalance90 = Math.round((baseline.balance90 + improvement90) * 100) / 100;
+      impactAmount = Math.round(improvement90 * 100) / 100;
+      impactDescription = `Accelerating dunning could free up $${impactAmount.toLocaleString()} in 90 days`;
+    } else if (scenario.type === 'custom' && scenario.customReductionPct != null) {
+      // Reduce all expected inflows by a percentage
+      const factor = scenario.customReductionPct / 100;
+      const reduction30 = baseline.pendingInvoices30 * factor;
+      const reduction60 = baseline.pendingInvoices60 * factor;
+      const reduction90 = baseline.pendingInvoices90 * factor;
+
+      scenarioBalance30 = Math.round((baseline.balance30 - reduction30) * 100) / 100;
+      scenarioBalance60 = Math.round((baseline.balance60 - reduction60) * 100) / 100;
+      scenarioBalance90 = Math.round((baseline.balance90 - reduction90) * 100) / 100;
+      impactAmount = Math.round(reduction90 * 100) / 100;
+      impactDescription = `A ${scenario.customReductionPct}% revenue drop would reduce 90-day cash by $${impactAmount.toLocaleString()}`;
+    }
+
+    logInfo(MODULE, 'calculateWhatIf', 'What-if calculated', { companyId, type: scenario.type, impactAmount });
+
+    return {
+      baselineBalance30: baseline.balance30,
+      baselineBalance60: baseline.balance60,
+      baselineBalance90: baseline.balance90,
+      scenarioBalance30,
+      scenarioBalance60,
+      scenarioBalance90,
+      impactAmount,
+      impactDescription,
+      customerName,
+    };
+  } catch (err: unknown) {
+    logError(MODULE, 'calculateWhatIf', err instanceof Error ? err.message : String(err));
+    throw err;
+  }
+}
+
+// ─── Cash Runway ────────────────────────────────────────────────────
+
+export interface RunwayResult {
+  currentBalance: number;
+  monthlyBurnRate: number;
+  runwayDays: number;
+  runwayStatus: 'critical' | 'warning' | 'healthy';
+  avgMonthlyCreated: number;
+  avgMonthlyRecovered: number;
+  asOfDate: string;
+}
+
+/**
+ * Calculate cash runway in days.
+ * Burn proxy = avg monthly invoices created - avg monthly recovered (last 6 months).
+ */
+export async function calculateRunway(companyId: string): Promise<RunwayResult> {
+  try {
+    // Get current cash balance
+    const companyResult = await pool.query(
+      `SELECT COALESCE(cash_balance_usd, 0) AS cash_balance FROM companies WHERE id = $1`,
+      [companyId]
+    );
+    const currentBalance = parseFloat(companyResult.rows[0]?.cash_balance || '0');
+
+    // Get monthly invoice created vs recovered over last 6 months
+    const monthlyResult = await pool.query(
+      `SELECT
+         DATE_TRUNC('month', created_at) AS month,
+         COALESCE(SUM(amount), 0) AS created_amount,
+         COALESCE(SUM(CASE WHEN status = 'paid' THEN amount ELSE 0 END), 0) AS recovered_amount
+       FROM invoices
+       WHERE company_id = $1
+         AND created_at > NOW() - INTERVAL '6 months'
+       GROUP BY DATE_TRUNC('month', created_at)
+       ORDER BY month`,
+      [companyId]
+    );
+
+    let avgMonthlyCreated = 0;
+    let avgMonthlyRecovered = 0;
+
+    if (monthlyResult.rows.length > 0) {
+      const totalCreated = monthlyResult.rows.reduce((sum: number, r: any) => sum + parseFloat(r.created_amount), 0);
+      const totalRecovered = monthlyResult.rows.reduce((sum: number, r: any) => sum + parseFloat(r.recovered_amount), 0);
+      const monthCount = monthlyResult.rows.length;
+      avgMonthlyCreated = totalCreated / monthCount;
+      avgMonthlyRecovered = totalRecovered / monthCount;
+    }
+
+    // Burn rate = net cash outflow per month (created - recovered = unrecovered portion)
+    const monthlyBurnRate = Math.max(avgMonthlyCreated - avgMonthlyRecovered, 0);
+    const dailyBurn = monthlyBurnRate / 30;
+
+    // Runway in days
+    const runwayDays = dailyBurn > 0 ? Math.round(currentBalance / dailyBurn) : 9999;
+
+    let runwayStatus: 'critical' | 'warning' | 'healthy';
+    if (runwayDays < 60) runwayStatus = 'critical';
+    else if (runwayDays < 120) runwayStatus = 'warning';
+    else runwayStatus = 'healthy';
+
+    logInfo(MODULE, 'calculateRunway', 'Runway calculated', {
+      companyId, runwayDays, monthlyBurnRate: Math.round(monthlyBurnRate),
+    });
+
+    return {
+      currentBalance,
+      monthlyBurnRate: Math.round(monthlyBurnRate * 100) / 100,
+      runwayDays,
+      runwayStatus,
+      avgMonthlyCreated: Math.round(avgMonthlyCreated * 100) / 100,
+      avgMonthlyRecovered: Math.round(avgMonthlyRecovered * 100) / 100,
+      asOfDate: new Date().toISOString(),
+    };
+  } catch (err: unknown) {
+    logError(MODULE, 'calculateRunway', err instanceof Error ? err.message : String(err));
+    return {
+      currentBalance: 0,
+      monthlyBurnRate: 0,
+      runwayDays: 0,
+      runwayStatus: 'critical',
+      avgMonthlyCreated: 0,
+      avgMonthlyRecovered: 0,
+      asOfDate: new Date().toISOString(),
+    };
+  }
+}
+
+// ─── Cash Leakage Analysis ──────────────────────────────────────────
+
+export interface LeakageSource {
+  category: 'failed_payments' | 'payment_delays' | 'customer_churn';
+  label: string;
+  amountUsd: number;
+  percentage: number;
+  detail: string;
+}
+
+export interface CashLeakageResult {
+  totalLeakageUsd: number;
+  sources: LeakageSource[];
+  period: string;
+  asOfDate: string;
+}
+
+/**
+ * Analyze where cash is being lost:
+ * 1. Failed payments (last 90 days)
+ * 2. Payment delays (DSO cost impact)
+ * 3. Customer churn (unpaid >90 days with no activity)
+ */
+export async function getCashLeakage(companyId: string): Promise<CashLeakageResult> {
+  try {
+    // 1. Failed payments — sum of failed payment attempts in last 90 days
+    const failedResult = await pool.query(
+      `SELECT COALESCE(SUM(amount), 0) AS failed_total
+       FROM payments
+       WHERE company_id = $1
+         AND status = 'failed'
+         AND created_at > NOW() - INTERVAL '90 days'`,
+      [companyId]
+    );
+    const failedAmount = parseFloat(failedResult.rows[0]?.failed_total || '0');
+
+    // 2. Payment delays — avg days late × cost of capital approximation
+    const delayResult = await pool.query(
+      `SELECT
+         COALESCE(AVG(EXTRACT(EPOCH FROM (p.created_at - i.due_date)) / 86400), 0) AS avg_days_late,
+         COALESCE(SUM(i.amount), 0) AS total_owed
+       FROM invoices i
+       JOIN payments p ON p.invoice_id = i.id AND p.status = 'succeeded'
+       WHERE i.company_id = $1
+         AND p.created_at > i.due_date
+         AND i.created_at > NOW() - INTERVAL '90 days'`,
+      [companyId]
+    );
+    const avgDaysLate = Math.max(parseFloat(delayResult.rows[0]?.avg_days_late || '0'), 0);
+    const totalOwedLate = parseFloat(delayResult.rows[0]?.total_owed || '0');
+    // Cost of capital: 5% annual rate applied to late amounts
+    const delayAmount = Math.round(totalOwedLate * 0.05 / 365 * avgDaysLate * 100) / 100;
+
+    // 3. Customer churn — customers with unpaid invoices >90 days old and no payment in 90 days
+    const churnResult = await pool.query(
+      `SELECT COALESCE(SUM(i.amount), 0) AS churn_total
+       FROM invoices i
+       WHERE i.company_id = $1
+         AND i.status = 'unpaid'
+         AND i.due_date < NOW() - INTERVAL '90 days'
+         AND NOT EXISTS (
+           SELECT 1 FROM payments p
+           WHERE p.invoice_id = i.id
+             AND p.status = 'succeeded'
+             AND p.created_at > NOW() - INTERVAL '90 days'
+         )`,
+      [companyId]
+    );
+    const churnAmount = parseFloat(churnResult.rows[0]?.churn_total || '0');
+
+    const totalLeakage = failedAmount + delayAmount + churnAmount;
+
+    const sources: LeakageSource[] = [
+      {
+        category: 'failed_payments',
+        label: 'Failed Payments',
+        amountUsd: Math.round(failedAmount * 100) / 100,
+        percentage: totalLeakage > 0 ? Math.round((failedAmount / totalLeakage) * 100) : 0,
+        detail: 'Revenue lost to declined cards and failed transactions (90 days)',
+      },
+      {
+        category: 'payment_delays',
+        label: 'Payment Delays',
+        amountUsd: Math.round(delayAmount * 100) / 100,
+        percentage: totalLeakage > 0 ? Math.round((delayAmount / totalLeakage) * 100) : 0,
+        detail: `Avg ${Math.round(avgDaysLate)} days late — cost of capital at 5% annual rate`,
+      },
+      {
+        category: 'customer_churn',
+        label: 'Customer Churn',
+        amountUsd: Math.round(churnAmount * 100) / 100,
+        percentage: totalLeakage > 0 ? Math.round((churnAmount / totalLeakage) * 100) : 0,
+        detail: 'Invoices >90 days overdue with no recent payment activity',
+      },
+    ];
+
+    logInfo(MODULE, 'getCashLeakage', 'Cash leakage analyzed', {
+      companyId, totalLeakage: Math.round(totalLeakage), sources: sources.length,
+    });
+
+    return {
+      totalLeakageUsd: Math.round(totalLeakage * 100) / 100,
+      sources,
+      period: 'Last 90 days',
+      asOfDate: new Date().toISOString(),
+    };
+  } catch (err: unknown) {
+    logError(MODULE, 'getCashLeakage', err instanceof Error ? err.message : String(err));
+    return {
+      totalLeakageUsd: 0,
+      sources: [],
+      period: 'Last 90 days',
+      asOfDate: new Date().toISOString(),
+    };
+  }
+}

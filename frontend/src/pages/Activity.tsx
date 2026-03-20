@@ -57,7 +57,7 @@ const Activity: React.FC = () => {
         ) : (
           <div className="space-y-3 max-h-[600px] overflow-y-auto">
             {logs.map((log: any) => (
-              <div key={log.id} className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+              <div key={log.id} className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-white/[0.04] rounded-lg">
                 <span className="text-lg mt-0.5">{statusIcon(log.status)}</span>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">

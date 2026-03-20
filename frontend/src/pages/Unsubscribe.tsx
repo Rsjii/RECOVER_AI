@@ -30,9 +30,9 @@ const Unsubscribe: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-[#09090b] px-4">
       <div className="max-w-md w-full text-center">
-        <div className="w-12 h-12 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-6">
+        <div className="w-12 h-12 bg-gray-100 dark:bg-[#111113] rounded-full flex items-center justify-center mx-auto mb-6">
           <svg className="w-6 h-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
           </svg>
@@ -78,7 +78,7 @@ const Unsubscribe: React.FC = () => {
             <p className="text-sm text-red-500 mb-4">{message}</p>
             <button
               onClick={handleUnsubscribe}
-              className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg text-sm hover:bg-gray-300"
+              className="px-4 py-2 bg-gray-200 dark:bg-white/[0.03] text-gray-800 dark:text-white rounded-lg text-sm hover:bg-gray-300"
             >
               Try again
             </button>

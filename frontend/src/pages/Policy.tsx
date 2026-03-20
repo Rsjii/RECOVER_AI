@@ -87,7 +87,7 @@ const Policy: React.FC = () => {
               <div>
                 <label className="block text-sm mb-1 text-gray-600 dark:text-gray-300">Autonomy Level</label>
                 <select
-                  className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-800 dark:border-gray-700"
+                  className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-[#111113] dark:border-white/[0.06]"
                   value={policy.autonomyLevel}
                   onChange={(e) => setPolicy({ ...policy, autonomyLevel: e.target.value as AgentPolicy['autonomyLevel'] })}
                 >
@@ -100,7 +100,7 @@ const Policy: React.FC = () => {
                 <label className="block text-sm mb-1 text-gray-600 dark:text-gray-300">Max Emails / Week</label>
                 <input
                   type="number"
-                  className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-800 dark:border-gray-700"
+                  className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-[#111113] dark:border-white/[0.06]"
                   value={policy.maxEmailsPerWeek}
                   onChange={(e) => setPolicy({ ...policy, maxEmailsPerWeek: Number(e.target.value) })}
                 />
@@ -111,7 +111,7 @@ const Policy: React.FC = () => {
                   type="number"
                   min={0}
                   max={23}
-                  className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-800 dark:border-gray-700"
+                  className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-[#111113] dark:border-white/[0.06]"
                   value={policy.quietHoursStart}
                   onChange={(e) => setPolicy({ ...policy, quietHoursStart: Number(e.target.value) })}
                 />
@@ -122,7 +122,7 @@ const Policy: React.FC = () => {
                   type="number"
                   min={0}
                   max={23}
-                  className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-800 dark:border-gray-700"
+                  className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-[#111113] dark:border-white/[0.06]"
                   value={policy.quietHoursEnd}
                   onChange={(e) => setPolicy({ ...policy, quietHoursEnd: Number(e.target.value) })}
                 />
@@ -131,7 +131,7 @@ const Policy: React.FC = () => {
                 <label className="block text-sm mb-1 text-gray-600 dark:text-gray-300">Escalation Days</label>
                 <input
                   type="number"
-                  className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-800 dark:border-gray-700"
+                  className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-[#111113] dark:border-white/[0.06]"
                   value={policy.escalationDays}
                   onChange={(e) => setPolicy({ ...policy, escalationDays: Number(e.target.value) })}
                 />
@@ -155,7 +155,7 @@ const Policy: React.FC = () => {
           {simulation && (
             <Card>
               <h2 className="font-semibold text-gray-900 dark:text-white mb-2">Simulation Output</h2>
-              <pre className="text-xs bg-gray-50 dark:bg-gray-900 border dark:border-gray-700 p-3 rounded overflow-auto">{JSON.stringify(simulation, null, 2)}</pre>
+              <pre className="text-xs bg-gray-50 dark:bg-[#09090b] border dark:border-white/[0.06] p-3 rounded overflow-auto">{JSON.stringify(simulation, null, 2)}</pre>
             </Card>
           )}
 
@@ -166,7 +166,7 @@ const Policy: React.FC = () => {
             ) : (
               <div className="space-y-2">
                 {approvals.map((item) => (
-                  <div key={item.id} className="rounded border border-gray-200 dark:border-gray-700 p-3">
+                  <div key={item.id} className="rounded border border-gray-200 dark:border-white/[0.06] p-3">
                     <div className="text-sm text-gray-700 dark:text-gray-300">
                       <span className="font-medium">Risk:</span> {item.risk_score} | <span className="font-medium">Overdue:</span> {item.days_overdue} days
                     </div>
@@ -203,7 +203,7 @@ const Policy: React.FC = () => {
             ) : (
               <div className="space-y-2">
                 {flags.map((flag) => (
-                  <div key={flag.key} className="flex items-center justify-between text-sm border rounded px-3 py-2 border-gray-200 dark:border-gray-700">
+                  <div key={flag.key} className="flex items-center justify-between text-sm border rounded px-3 py-2 border-gray-200 dark:border-white/[0.06]">
                     <span className="text-gray-700 dark:text-gray-300">{flag.key}</span>
                     <Button
                       size="sm"

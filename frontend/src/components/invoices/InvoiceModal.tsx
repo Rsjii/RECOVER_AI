@@ -112,7 +112,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ invoice, isOpen, onC
           </div>
 
           {/* Tabs */}
-          <div className="flex border-b border-gray-200 dark:border-gray-700 gap-1">
+          <div className="flex border-b border-gray-200 dark:border-white/[0.06] gap-1">
             {tabs.map(t => (
               <button
                 key={t.id}
@@ -163,7 +163,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ invoice, isOpen, onC
                   <p className="text-sm text-gray-900 dark:text-white">{formatDate(invoice.issued_date)}</p>
                 </div>
               </div>
-              <div className="flex flex-wrap gap-2 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <div className="flex flex-wrap gap-2 pt-4 border-t border-gray-200 dark:border-white/[0.06]">
                 {invoice.status === 'unpaid' && (
                   <>
                     <Button size="sm" onClick={() => updateStatus('paid')} loading={updating}>Mark Paid</Button>
@@ -187,7 +187,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ invoice, isOpen, onC
               ? <p className="text-gray-500 dark:text-gray-400 text-center py-6">No payments recorded</p>
               : (
                 <table className="w-full text-sm">
-                  <thead className="bg-gray-50 dark:bg-gray-700/50">
+                  <thead className="bg-gray-50 dark:bg-white/[0.04]">
                     <tr>
                       <th className="px-4 py-2 text-left text-gray-600 dark:text-gray-300">Date</th>
                       <th className="px-4 py-2 text-right text-gray-600 dark:text-gray-300">Amount</th>
@@ -197,7 +197,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ invoice, isOpen, onC
                   </thead>
                   <tbody>
                     {detail!.payments.map(p => (
-                      <tr key={p.id} className="border-t border-gray-100 dark:border-gray-700">
+                      <tr key={p.id} className="border-t border-gray-100 dark:border-white/[0.06]">
                         <td className="px-4 py-2 text-gray-900 dark:text-white">{formatDate(p.paid_at)}</td>
                         <td className="px-4 py-2 text-right font-medium text-gray-900 dark:text-white">{formatCurrency(Number(p.amount))}</td>
                         <td className="px-4 py-2 capitalize text-gray-600 dark:text-gray-300">{p.payment_method}</td>
@@ -220,13 +220,13 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ invoice, isOpen, onC
               : (
                 <div className="space-y-3 max-h-80 overflow-y-auto">
                   {detail!.emailLogs.map(e => (
-                    <div key={e.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-3">
+                    <div key={e.id} className="border border-gray-200 dark:border-white/[0.06] rounded-lg p-3">
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-sm font-medium text-gray-900 dark:text-white">{e.subject}</span>
                         <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
                           ['opened','clicked'].includes(e.status) ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' :
                           ['bounced','failed'].includes(e.status) ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' :
-                          'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'}`}>
+                          'bg-gray-100 text-gray-600 dark:bg-white/[0.03] dark:text-gray-300'}`}>
                           {e.status}
                         </span>
                       </div>
@@ -254,7 +254,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ invoice, isOpen, onC
                     </span>
                   </div>
                   <table className="w-full text-sm">
-                    <thead className="bg-gray-50 dark:bg-gray-700/50">
+                    <thead className="bg-gray-50 dark:bg-white/[0.04]">
                       <tr>
                         <th className="px-4 py-2 text-left text-gray-600 dark:text-gray-300">#</th>
                         <th className="px-4 py-2 text-right text-gray-600 dark:text-gray-300">Amount</th>
@@ -264,7 +264,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ invoice, isOpen, onC
                     </thead>
                     <tbody>
                       {detail.paymentPlan.installments.map((inst, i) => (
-                        <tr key={i} className="border-t border-gray-100 dark:border-gray-700">
+                        <tr key={i} className="border-t border-gray-100 dark:border-white/[0.06]">
                           <td className="px-4 py-2 text-gray-600 dark:text-gray-300">{i + 1}</td>
                           <td className="px-4 py-2 text-right font-medium text-gray-900 dark:text-white">{formatCurrency(inst.amount)}</td>
                           <td className="px-4 py-2 text-gray-600 dark:text-gray-300">{formatDate(inst.due_date)}</td>
@@ -275,7 +275,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ invoice, isOpen, onC
                   </table>
                 </div>
               ) : creatingPlan ? (
-                <div className="space-y-4 p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+                <div className="space-y-4 p-4 border border-gray-200 dark:border-white/[0.06] rounded-lg">
                   <h4 className="text-sm font-semibold text-gray-900 dark:text-white">Create Payment Plan</h4>
                   <div>
                     <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
@@ -284,7 +284,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ invoice, isOpen, onC
                     <select
                       value={planForm.installments}
                       onChange={(e) => setPlanForm({ installments: Number(e.target.value) })}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-white/[0.08] rounded-lg text-sm text-gray-900 dark:text-white bg-white dark:bg-white/[0.03] focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       {[2, 3, 4, 6, 9, 12].map(n => (
                         <option key={n} value={n}>

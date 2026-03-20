@@ -56,10 +56,10 @@ export const CSVUploadModal: React.FC<CSVUploadModalProps> = ({ isOpen, onClose,
       <div className="space-y-4">
         <div>
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-            Upload a CSV file with columns: <code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-xs">customer_name, customer_email, amount, currency, due_date</code>
+            Upload a CSV file with columns: <code className="bg-gray-100 dark:bg-white/[0.03] px-2 py-1 rounded text-xs">customer_name, customer_email, amount, currency, due_date</code>
           </p>
           <div
-            className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center cursor-pointer hover:border-blue-500 transition-colors"
+            className="border-2 border-dashed border-gray-300 dark:border-white/[0.08] rounded-lg p-6 text-center cursor-pointer hover:border-blue-500 transition-colors"
             onClick={() => fileInputRef.current?.click()}
           >
             <svg className="w-8 h-8 mx-auto text-gray-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">

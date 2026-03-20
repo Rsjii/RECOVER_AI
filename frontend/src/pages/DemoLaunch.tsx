@@ -73,7 +73,7 @@ const DemoLaunch: React.FC = () => {
 
   if (step === 'loading') {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-900">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-[#09090b]">
         <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center mb-6">
           <span className="text-white font-bold text-lg">R</span>
         </div>
@@ -85,7 +85,7 @@ const DemoLaunch: React.FC = () => {
 
   if (step === 'preview' && preview) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-12 px-4">
+      <div className="min-h-screen bg-gray-50 dark:bg-[#09090b] py-12 px-4">
         <div className="max-w-3xl mx-auto">
           {/* Header */}
           <div className="text-center mb-10">
@@ -101,19 +101,19 @@ const DemoLaunch: React.FC = () => {
 
           {/* Summary cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 text-center">
+            <div className="bg-white dark:bg-[#111113] rounded-xl border border-gray-200 dark:border-white/[0.06] p-4 text-center">
               <div className="text-2xl font-bold text-gray-900 dark:text-white">{preview.invoicesScanned}</div>
               <div className="text-xs text-gray-500 mt-1">Invoices scanned</div>
             </div>
-            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 text-center">
+            <div className="bg-white dark:bg-[#111113] rounded-xl border border-gray-200 dark:border-white/[0.06] p-4 text-center">
               <div className="text-2xl font-bold text-blue-600">{preview.emailsWouldQueue}</div>
               <div className="text-xs text-gray-500 mt-1">Emails ready to send</div>
             </div>
-            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 text-center">
+            <div className="bg-white dark:bg-[#111113] rounded-xl border border-gray-200 dark:border-white/[0.06] p-4 text-center">
               <div className="text-2xl font-bold text-purple-600">{preview.plansWouldOffer}</div>
               <div className="text-xs text-gray-500 mt-1">Payment plans offered</div>
             </div>
-            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 text-center">
+            <div className="bg-white dark:bg-[#111113] rounded-xl border border-gray-200 dark:border-white/[0.06] p-4 text-center">
               <div className="text-2xl font-bold text-green-600">
                 ${preview.estimatedRecoveryUsd.toLocaleString()}
               </div>
@@ -123,8 +123,8 @@ const DemoLaunch: React.FC = () => {
 
           {/* Preview list */}
           {preview.previews.length > 0 && (
-            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 mb-8">
-              <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+            <div className="bg-white dark:bg-[#111113] rounded-xl border border-gray-200 dark:border-white/[0.06] mb-8">
+              <div className="p-4 border-b border-gray-200 dark:border-white/[0.06]">
                 <h2 className="font-semibold text-gray-900 dark:text-white text-sm">
                   Emails agent would send ({preview.previews.length})
                 </h2>
@@ -145,7 +145,7 @@ const DemoLaunch: React.FC = () => {
                       <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${RISK_COLOR(item.riskScore)}`}>
                         Risk {item.riskScore}
                       </span>
-                      <span className="text-xs px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+                      <span className="text-xs px-2 py-0.5 rounded bg-gray-100 dark:bg-white/[0.03] text-gray-600 dark:text-gray-300">
                         {EMAIL_TYPE_LABELS[item.emailType] || item.emailType}
                       </span>
                     </div>
@@ -175,7 +175,7 @@ const DemoLaunch: React.FC = () => {
               </button>
               <button
                 onClick={handleSignup}
-                className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm font-semibold px-6 py-2.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                className="bg-white dark:bg-[#111113] border border-gray-300 dark:border-white/[0.08] text-gray-700 dark:text-gray-300 text-sm font-semibold px-6 py-2.5 rounded-lg hover:bg-gray-50 dark:hover:bg-white/[0.06] transition-colors"
               >
                 Start with my Stripe data
               </button>
@@ -193,7 +193,7 @@ const DemoLaunch: React.FC = () => {
 
   // Default: choose screen
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col items-center justify-center px-4 py-12">
+    <div className="min-h-screen bg-gray-50 dark:bg-[#09090b] flex flex-col items-center justify-center px-4 py-12">
       <div className="w-12 h-12 rounded-xl bg-blue-600 flex items-center justify-center mb-6">
         <span className="text-white font-bold text-xl">R</span>
       </div>
@@ -213,7 +213,7 @@ const DemoLaunch: React.FC = () => {
 
       <div className="grid md:grid-cols-2 gap-6 w-full max-w-2xl">
         {/* Option A: Sample Demo */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 flex flex-col">
+        <div className="bg-white dark:bg-[#111113] rounded-2xl border border-gray-200 dark:border-white/[0.06] p-6 flex flex-col">
           <div className="flex items-center gap-2 mb-3">
             <span className="text-2xl">🎭</span>
             <span className="font-semibold text-gray-900 dark:text-white">Sample Data Demo</span>
@@ -238,7 +238,7 @@ const DemoLaunch: React.FC = () => {
         </div>
 
         {/* Option B: Real Data */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 flex flex-col">
+        <div className="bg-white dark:bg-[#111113] rounded-2xl border border-gray-200 dark:border-white/[0.06] p-6 flex flex-col">
           <div className="flex items-center gap-2 mb-3">
             <span className="text-2xl">🔗</span>
             <span className="font-semibold text-gray-900 dark:text-white">Preview My Data</span>

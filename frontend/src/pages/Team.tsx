@@ -55,12 +55,12 @@ const Team: React.FC = () => {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="teammate@company.com"
-            className="flex-1 px-3 py-2 border rounded-lg bg-white dark:bg-gray-800 dark:border-gray-700"
+            className="flex-1 px-3 py-2 border rounded-lg bg-white dark:bg-[#111113] dark:border-white/[0.06]"
           />
           <select
             value={role}
             onChange={(e) => setRole(e.target.value as 'admin' | 'member' | 'viewer')}
-            className="px-3 py-2 border rounded-lg bg-white dark:bg-gray-800 dark:border-gray-700"
+            className="px-3 py-2 border rounded-lg bg-white dark:bg-[#111113] dark:border-white/[0.06]"
           >
             <option value="admin">Admin</option>
             <option value="member">Member</option>
@@ -75,7 +75,7 @@ const Team: React.FC = () => {
         {loading ? <p className="text-sm text-gray-500">Loading team...</p> : (
           <div className="space-y-2">
             {members.map((m) => (
-              <div key={m.user_id} className="p-3 rounded bg-gray-50 dark:bg-gray-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div key={m.user_id} className="p-3 rounded bg-gray-50 dark:bg-[#111113] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
                   <p className="text-sm font-medium text-gray-900 dark:text-white">{m.email}</p>
                   <p className="text-xs text-gray-500">Role: {m.role}</p>
@@ -83,7 +83,7 @@ const Team: React.FC = () => {
                 {m.role !== 'owner' && (
                   <div className="flex items-center gap-2">
                     <select
-                      className="px-2 py-1 border rounded bg-white dark:bg-gray-700 dark:border-gray-600 text-sm"
+                      className="px-2 py-1 border rounded bg-white dark:bg-white/[0.03] dark:border-white/[0.08] text-sm"
                       value={m.role}
                       onChange={(e) => changeRole(m.user_id, e.target.value as 'admin' | 'member' | 'viewer')}
                     >
@@ -105,7 +105,7 @@ const Team: React.FC = () => {
         <div className="space-y-2">
           {invitations.length === 0 && <p className="text-sm text-gray-500">No pending invitations.</p>}
           {invitations.map((i) => (
-            <div key={i.id} className="text-sm p-2 rounded bg-gray-50 dark:bg-gray-800">
+            <div key={i.id} className="text-sm p-2 rounded bg-gray-50 dark:bg-[#111113]">
               {i.email} ({i.role}) - expires {new Date(i.expires_at).toLocaleString()}
             </div>
           ))}

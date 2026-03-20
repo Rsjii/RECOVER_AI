@@ -6,9 +6,9 @@ const SecurityPage: React.FC = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-gray-50 dark:bg-[#09090b]">
       {/* Hero Section */}
-      <section className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+      <section className="bg-white dark:bg-[#111113] border-b border-gray-200 dark:border-white/[0.06]">
         <div className="max-w-5xl mx-auto px-6 py-20 text-center">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-indigo-100 dark:bg-indigo-900/40 mb-6">
             <svg className="w-8 h-8 text-indigo-600 dark:text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -36,7 +36,7 @@ const SecurityPage: React.FC = () => {
           ].map((badge) => (
             <div
               key={badge.label}
-              className="flex flex-col items-center justify-center rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm px-4 py-5 text-center"
+              className="flex flex-col items-center justify-center rounded-xl bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] shadow-sm px-4 py-5 text-center"
             >
               <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wide">
                 {badge.label}
@@ -51,7 +51,7 @@ const SecurityPage: React.FC = () => {
       <section className="max-w-5xl mx-auto px-6 py-16">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Data Security */}
-          <div className="rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm p-6">
+          <div className="rounded-xl bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] shadow-sm p-6">
             <div className="flex items-center gap-3 mb-4">
               <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-emerald-100 dark:bg-emerald-900/40">
                 <svg className="w-5 h-5 text-emerald-600 dark:text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -81,7 +81,7 @@ const SecurityPage: React.FC = () => {
           </div>
 
           {/* Access Control */}
-          <div className="rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm p-6">
+          <div className="rounded-xl bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] shadow-sm p-6">
             <div className="flex items-center gap-3 mb-4">
               <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/40">
                 <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -115,7 +115,7 @@ const SecurityPage: React.FC = () => {
           </div>
 
           {/* Infrastructure */}
-          <div className="rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm p-6">
+          <div className="rounded-xl bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] shadow-sm p-6">
             <div className="flex items-center gap-3 mb-4">
               <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-900/40">
                 <svg className="w-5 h-5 text-purple-600 dark:text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -145,7 +145,7 @@ const SecurityPage: React.FC = () => {
           </div>
 
           {/* Compliance */}
-          <div className="rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm p-6">
+          <div className="rounded-xl bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] shadow-sm p-6">
             <div className="flex items-center gap-3 mb-4">
               <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-amber-100 dark:bg-amber-900/40">
                 <svg className="w-5 h-5 text-amber-600 dark:text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -181,7 +181,7 @@ const SecurityPage: React.FC = () => {
       </section>
 
       {/* Bottom CTA */}
-      <section className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
+      <section className="bg-white dark:bg-[#111113] border-t border-gray-200 dark:border-white/[0.06]">
         <div className="max-w-5xl mx-auto px-6 py-14 text-center">
           <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">
             Questions about security?

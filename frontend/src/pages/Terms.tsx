@@ -5,7 +5,7 @@ const Terms: React.FC = () => {
   useEffect(() => { document.title = 'Terms of Service — RecoverAI'; }, []);
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-gray-50 dark:bg-[#09090b]">
       <div className="max-w-4xl mx-auto px-6 py-12">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Terms of Service</h1>
         <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Effective Date: March 1, 2026</p>
@@ -93,7 +93,7 @@ const Terms: React.FC = () => {
           If you have any questions about these Terms, please contact us at legal@recoverai.com or by mail at RecoverAI, Inc., 1209 Orange Street, Wilmington, DE 19801, United States.
         </p>
 
-        <div className="mt-12 pt-6 border-t border-gray-200 dark:border-gray-700">
+        <div className="mt-12 pt-6 border-t border-gray-200 dark:border-white/[0.06]">
           <Link to="/landing" className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
             &larr; Back to Home
           </Link>

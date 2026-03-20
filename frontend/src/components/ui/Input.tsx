@@ -22,8 +22,8 @@ export const Input: React.FC<InputProps> = ({ label, error, hint, icon, classNam
         <input
           id={inputId}
           className={cn(
-            'w-full px-4 py-2.5 border rounded-lg text-gray-900 dark:text-white bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors text-sm',
-            error ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 dark:border-gray-600',
+            'w-full px-4 py-2.5 border rounded-lg text-gray-900 dark:text-white bg-white dark:bg-white/[0.03] focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors text-sm',
+            error ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 dark:border-white/[0.08]',
             icon ? 'pl-10' : '',
             className
           )}

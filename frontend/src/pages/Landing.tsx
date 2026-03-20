@@ -65,9 +65,9 @@ const Landing: React.FC = () => {
           <Link to="/signup"><Button size="sm">Start free trial</Button></Link>
         </nav>
         <div className="flex md:hidden items-center gap-2">
-          <ThemeToggle className="p-2 text-gray-500 dark:text-gray-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" />
+          <ThemeToggle className="p-2 text-gray-500 dark:text-gray-400 rounded-lg hover:bg-gray-100 dark:hover:bg-white/[0.06] transition-colors" />
           <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="p-2 text-gray-500 dark:text-gray-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+            className="p-2 text-gray-500 dark:text-gray-400 rounded-lg hover:bg-gray-100 dark:hover:bg-white/[0.06] transition-colors">
             {mobileMenuOpen ? (
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
             ) : (
@@ -77,7 +77,7 @@ const Landing: React.FC = () => {
         </div>
       </header>
       {mobileMenuOpen && (
-        <div className="md:hidden border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-6 py-4 flex flex-col gap-4">
+        <div className="md:hidden border-b border-gray-200 dark:border-white/[0.06] bg-white dark:bg-[#09090b] px-6 py-4 flex flex-col gap-4">
           <Link to="/pricing" onClick={() => setMobileMenuOpen(false)} className="text-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">Pricing</Link>
           <Link to="/security" onClick={() => setMobileMenuOpen(false)} className="text-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">Security</Link>
           <Link to="/login" onClick={() => setMobileMenuOpen(false)} className="text-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">Sign in</Link>
@@ -89,14 +89,14 @@ const Landing: React.FC = () => {
       <main className="max-w-6xl mx-auto px-6 pt-20 pb-16 text-center">
         <div className="inline-flex items-center gap-2 bg-brand-50 dark:bg-blue-900/30 text-brand-700 dark:text-blue-300 text-xs font-medium px-3 py-1.5 rounded-full mb-8">
           <span className="w-2 h-2 rounded-full bg-brand-500 animate-pulse" />
-          Now live — connect Stripe in under 60 seconds
+          Now live — see your cash runway in 60 seconds
         </div>
         <h1 className="text-5xl md:text-7xl font-bold text-gray-900 dark:text-white max-w-5xl mx-auto leading-tight">
-          Stop chasing invoices.<br />
-          <span className="bg-gradient-to-r from-brand-600 to-brand-500 bg-clip-text text-transparent">Let AI recover them.</span>
+          Stop Running<br />
+          <span className="bg-gradient-to-r from-brand-600 to-brand-500 bg-clip-text text-transparent">Out of Cash.</span>
         </h1>
         <p className="mt-8 text-lg md:text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto leading-relaxed">
-          RecoverAI autonomously sends personalized dunning emails, offers payment plans, and tracks payments — without any manual work from your team.
+          Real-time cash position, runway forecasting, and automated AR recovery — the daily financial command center your SaaS needs.
         </p>
         <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
           {!isAuthenticated ? (
@@ -136,7 +136,7 @@ const Landing: React.FC = () => {
       </main>
 
       {/* Trust signals */}
-      <div className="border-y border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/30 py-3">
+      <div className="border-y border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-white/[0.015] py-3">
         <div className="max-w-4xl mx-auto px-6 flex flex-wrap items-center justify-center gap-6 text-xs text-gray-400 dark:text-gray-500">
           {[
             { icon: '🔒', text: 'AES-256-GCM encryption' },
@@ -156,12 +156,12 @@ const Landing: React.FC = () => {
       <section className="max-w-5xl mx-auto px-6 py-8">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
+            { value: '127 days', label: 'Avg runway visibility' },
+            { value: '< 1 min', label: 'Time to cash position' },
+            { value: '3 types', label: 'What-if scenarios' },
             { value: '68%', label: 'Avg recovery rate' },
-            { value: '< 1 day', label: 'Time to first recovery' },
-            { value: '5-email', label: 'Autonomous dunning sequence' },
-            { value: '0 hours', label: 'Manual work needed' },
           ].map((s) => (
-            <div key={s.label} className="text-center bg-gray-50 dark:bg-gray-800 rounded-xl p-5">
+            <div key={s.label} className="text-center bg-gray-50 dark:bg-[#111113] rounded-xl p-5">
               <div className="text-2xl font-bold text-brand-600">{s.value}</div>
               <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">{s.label}</div>
             </div>
@@ -174,49 +174,57 @@ const Landing: React.FC = () => {
         <p className="text-center text-sm font-medium text-gray-400 uppercase tracking-wider mb-6">
           Your dashboard — live in 60 seconds
         </p>
-        <div className="rounded-2xl border border-gray-200 dark:border-gray-700 shadow-xl overflow-hidden">
-          <div className="bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-2 flex items-center gap-2">
+        <div className="rounded-2xl border border-gray-200 dark:border-white/[0.06] shadow-xl overflow-hidden">
+          <div className="bg-gray-100 dark:bg-[#111113] border-b border-gray-200 dark:border-white/[0.06] px-4 py-2 flex items-center gap-2">
             <div className="flex gap-1.5">
               <div className="w-3 h-3 rounded-full bg-red-400" />
               <div className="w-3 h-3 rounded-full bg-yellow-400" />
               <div className="w-3 h-3 rounded-full bg-green-400" />
             </div>
-            <div className="flex-1 bg-white dark:bg-gray-700 rounded px-3 py-1 text-xs text-gray-400 text-center">
+            <div className="flex-1 bg-white dark:bg-white/[0.03] rounded px-3 py-1 text-xs text-gray-400 text-center">
               app.recoverai.com/dashboard
             </div>
           </div>
-          <div className="bg-white dark:bg-gray-900 p-5">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-              {[
-                { label: 'Total Owed', value: '$124,500', color: 'text-red-600' },
-                { label: 'Recovered', value: '$84,660', color: 'text-green-600' },
-                { label: 'Overdue', value: '23 invoices', color: 'text-orange-600' },
-                { label: 'Avg Collection', value: '31 days', color: 'text-brand-600' },
-              ].map((card) => (
-                <div key={card.label} className="bg-gray-50 dark:bg-gray-800 rounded-xl p-3 border border-gray-100 dark:border-gray-700">
-                  <p className="text-xs text-gray-400 mb-1">{card.label}</p>
-                  <p className={`text-lg font-bold ${card.color}`}>{card.value}</p>
+          <div className="bg-white dark:bg-[#09090b] p-5">
+            {/* Row 1: Cash Runway + Cash Position + At-Risk */}
+            <div className="grid grid-cols-3 gap-3 mb-4">
+              <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-xl p-4 border border-emerald-200 dark:border-emerald-800 text-center">
+                <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">Cash Runway</p>
+                <p className="text-3xl font-bold text-emerald-700 dark:text-emerald-300 mt-1">142 <span className="text-lg">days</span></p>
+                <p className="text-xs text-emerald-500 mt-1">Healthy</p>
+              </div>
+              <div className="bg-gray-50 dark:bg-[#111113] rounded-xl p-4 border border-gray-100 dark:border-white/[0.06]">
+                <p className="text-xs text-gray-400 mb-2">Cash Position</p>
+                <div className="space-y-1">
+                  {[{ d: '30d', v: '$285k' }, { d: '60d', v: '$312k' }, { d: '90d', v: '$340k' }].map(r => (
+                    <div key={r.d} className="flex justify-between text-xs">
+                      <span className="text-gray-500">{r.d}</span>
+                      <span className="font-semibold text-gray-900 dark:text-white">{r.v}</span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-            <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4 mb-4 border border-gray-100 dark:border-gray-700">
-              <p className="text-xs font-medium text-gray-500 mb-3">Monthly Recovery</p>
-              <div className="flex items-end gap-2 h-16">
-                {[30, 45, 60, 38, 72, 85, 68].map((h, i) => (
-                  <div key={i} className="flex-1 bg-blue-200 dark:bg-blue-900/40 rounded-t" style={{ height: `${h}%` }} />
-                ))}
               </div>
-              <div className="flex justify-between text-xs text-gray-300 mt-1">
-                {['Sep','Oct','Nov','Dec','Jan','Feb','Mar'].map((m) => <span key={m}>{m}</span>)}
+              <div className="bg-gray-50 dark:bg-[#111113] rounded-xl p-4 border border-gray-100 dark:border-white/[0.06]">
+                <p className="text-xs text-gray-400 mb-2">Cash Leakage</p>
+                <p className="text-lg font-bold text-red-600 dark:text-red-400">$18.2k</p>
+                <div className="w-full h-2 bg-gray-200 dark:bg-white/[0.03] rounded-full mt-2 flex overflow-hidden">
+                  <div className="bg-red-500 h-full" style={{ width: '45%' }} />
+                  <div className="bg-amber-500 h-full" style={{ width: '30%' }} />
+                  <div className="bg-purple-500 h-full" style={{ width: '25%' }} />
+                </div>
+                <div className="flex justify-between text-xs text-gray-400 mt-1">
+                  <span>Failed</span><span>Delays</span><span>Churn</span>
+                </div>
               </div>
             </div>
+            {/* Row 2: At-risk customers */}
             <div className="space-y-1.5">
               {[
                 { name: 'Acme Corp', amount: '$12,400', days: '42 days', risk: 94, color: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400' },
                 { name: 'TechFlow Inc', amount: '$8,200', days: '21 days', risk: 67, color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400' },
                 { name: 'GrowthCo', amount: '$3,100', days: '8 days', risk: 32, color: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' },
               ].map((row) => (
-                <div key={row.name} className="flex items-center justify-between bg-gray-50 dark:bg-gray-800 rounded-lg px-3 py-2 border border-gray-100 dark:border-gray-700">
+                <div key={row.name} className="flex items-center justify-between bg-gray-50 dark:bg-[#111113] rounded-lg px-3 py-2 border border-gray-100 dark:border-white/[0.06]">
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-300 w-24">{row.name}</span>
                   <span className="text-xs text-gray-400 hidden sm:block">{row.days} overdue</span>
                   <span className="text-sm font-medium text-gray-900 dark:text-white">{row.amount}</span>
@@ -243,8 +251,8 @@ const Landing: React.FC = () => {
             },
             {
               step: '2',
-              title: 'AI scores and prioritizes',
-              desc: 'Every invoice gets a risk score 0-100 based on days overdue, amount, and customer payment history.',
+              title: 'See your cash position instantly',
+              desc: 'Cash runway, 30/60/90 day forecast, and leakage analysis calculated in real-time from your AR data.',
               color: 'bg-blue-100 dark:bg-blue-900/40 text-brand-600',
             },
             {
@@ -254,7 +262,7 @@ const Landing: React.FC = () => {
               color: 'bg-green-100 dark:bg-green-900/40 text-green-600',
             },
           ].map((item) => (
-            <div key={item.step} className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6">
+            <div key={item.step} className="bg-white dark:bg-[#111113] rounded-2xl border border-gray-200 dark:border-white/[0.06] p-6">
               <div className={`w-10 h-10 rounded-xl ${item.color} flex items-center justify-center text-lg font-bold mb-4`}>
                 {item.step}
               </div>
@@ -266,25 +274,25 @@ const Landing: React.FC = () => {
       </section>
 
       {/* Features */}
-      <section className="bg-gray-50 dark:bg-gray-800/50 py-14">
+      <section className="bg-gray-50 dark:bg-white/[0.02] py-14">
         <div className="max-w-5xl mx-auto px-6">
           <h2 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white text-center mb-3">
-            Everything you need to recover AR
+            Your CFO command center
           </h2>
-          <p className="text-center text-gray-500 dark:text-gray-400 mb-10">Not a tool. An agent that does the work.</p>
+          <p className="text-center text-gray-500 dark:text-gray-400 mb-10">Cash visibility + autonomous recovery. Not a tool — an agent that does the work.</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             {[
-              { icon: '🤖', title: 'Autonomous Agent', desc: 'Runs every 6 hours, no manual trigger needed. Fully autonomous decision-making.' },
-              { icon: '📊', title: 'AI Risk Scoring', desc: 'Claude-powered 0-100 score per invoice. Prioritize high-risk customers first.' },
-              { icon: '✉️', title: '5-Email Dunning', desc: 'Personalized emails from friendly reminder to formal escalation — auto-sent.' },
+              { icon: '💰', title: 'Cash Position Forecast', desc: '30/60/90 day projections based on AR aging and customer payment history.' },
+              { icon: '📅', title: 'Cash Runway Calculator', desc: 'Know exactly when you run out of cash. Color-coded alerts for critical thresholds.' },
+              { icon: '🔮', title: 'What-If Scenarios', desc: 'Model "what if we lose Customer X?" or "what if we accelerate dunning?" in real-time.' },
+              { icon: '📉', title: 'Cash Leakage Analysis', desc: 'See where money is bleeding: failed payments, delays, and customer churn breakdown.' },
+              { icon: '📊', title: 'AI Risk Scoring', desc: '5-signal risk scoring (0-100) per customer. Identifies at-risk payments before they fail.' },
+              { icon: '🤖', title: 'Autonomous Agent', desc: 'Sends personalized dunning emails + SMS escalation autonomously. No human approval needed.' },
+              { icon: '✉️', title: '5-Email Dunning + SMS', desc: 'From friendly reminder to formal escalation. SMS fallback for higher response rates.' },
               { icon: '💳', title: 'Payment Plans', desc: 'Auto-offer installment plans based on risk. Customer clicks, Stripe charges automatically.' },
-              { icon: '🔗', title: 'Multi-source sync', desc: 'Stripe, QuickBooks, Chargebee, CSV. All invoices in one place.' },
-              { icon: '📈', title: 'Recovery Dashboard', desc: 'DSO trend, recovery funnel, risk list. Real-time data, no manual reporting.' },
-              { icon: '🔔', title: 'Slack Alerts', desc: 'Daily digest + real-time payment alerts. Know the moment money comes in.' },
-              { icon: '🛡️', title: 'Approval Queue', desc: 'Route high-risk actions for human review. Full audit trail for compliance.' },
-              { icon: '📋', title: 'GDPR Compliance', desc: 'Built-in data export/delete, RBAC, encrypted credentials. Enterprise-ready.' },
+              { icon: '🔗', title: 'Multi-source Sync', desc: 'Stripe + QuickBooks. All invoices, payments, and customer data in one place.' },
             ].map((f) => (
-              <div key={f.title} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
+              <div key={f.title} className="bg-white dark:bg-[#111113] rounded-xl border border-gray-200 dark:border-white/[0.06] p-5">
                 <div className="text-2xl mb-3">{f.icon}</div>
                 <h3 className="font-semibold text-gray-900 dark:text-white mb-1">{f.title}</h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400">{f.desc}</p>
@@ -295,14 +303,14 @@ const Landing: React.FC = () => {
       </section>
 
 {/* Early Access */}
-      <section className="bg-gray-50 dark:bg-gray-800/50 py-14">
+      <section className="bg-gray-50 dark:bg-white/[0.02] py-14">
         <div className="max-w-5xl mx-auto px-6 text-center">
           <div className="inline-flex items-center gap-2 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-xs font-medium px-3 py-1.5 rounded-full mb-6">
             <span className="w-2 h-2 rounded-full bg-green-500" />
-            Now accepting early access applications
+            Now onboarding founding customers
           </div>
           <h2 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mb-4">
-            Join as an early access customer
+            Join as a founding customer
           </h2>
           <p className="text-gray-500 dark:text-gray-400 mb-10 max-w-xl mx-auto">
             We're onboarding a limited number of B2B SaaS companies. First customers get
@@ -314,7 +322,7 @@ const Landing: React.FC = () => {
               { icon: '🤝', title: 'Founder onboarding', desc: 'I personally set up your first month. Not a support ticket queue.' },
               { icon: '🗺️', title: 'Shape the roadmap', desc: 'Direct line to the product team. Your use case gets priority.' },
             ].map((item) => (
-              <div key={item.title} className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 text-left">
+              <div key={item.title} className="bg-white dark:bg-[#111113] rounded-2xl border border-gray-200 dark:border-white/[0.06] p-6 text-left">
                 <div className="text-2xl mb-3">{item.icon}</div>
                 <h3 className="font-semibold text-gray-900 dark:text-white mb-1">{item.title}</h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400">{item.desc}</p>
@@ -322,7 +330,7 @@ const Landing: React.FC = () => {
             ))}
           </div>
           <Link to="/signup">
-            <Button size="lg" className="px-8">Apply for early access</Button>
+            <Button size="lg" className="px-8">Start free trial</Button>
           </Link>
           <p className="mt-3 text-xs text-gray-400">No credit card required. We'll reach out within 24 hours.</p>
         </div>
@@ -357,10 +365,10 @@ const Landing: React.FC = () => {
             },
             {
               q: 'How does outcome-based pricing work?',
-              a: 'You pay a base subscription + a success fee on recovered invoices. Starter ($499/mo + 1%), Growth ($999/mo + 0.75%), Enterprise (custom + 0.5%). If we recover $50k this month, you pay your base + the success fee. If we recover nothing, you just pay the base.',
+              a: 'You pay a base subscription + a tiered success fee only on recovered invoices. Growth ($2,500/mo + 5% first $50k, 3% next $100k, 2% above), Enterprise ($5,000/mo + 4% first $100k, 2.5% next $200k, 1.5% above). Start with a 21-day free trial — no credit card required. If we recover nothing, you just pay the base.',
             },
           ].map((item) => (
-            <details key={item.q} className="group bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
+            <details key={item.q} className="group bg-white dark:bg-[#111113] rounded-xl border border-gray-200 dark:border-white/[0.06] p-5">
               <summary className="flex items-center justify-between cursor-pointer font-medium text-gray-900 dark:text-white list-none">
                 {item.q}
                 <svg className="w-4 h-4 text-gray-400 group-open:rotate-180 transition-transform flex-shrink-0 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -377,9 +385,9 @@ const Landing: React.FC = () => {
       <section className="bg-brand-600 py-14">
         <div className="max-w-3xl mx-auto px-6 text-center">
           <h2 className="text-2xl md:text-3xl font-bold text-white mb-3">
-            Ready to stop chasing invoices?
+            Ready to control your cash flow?
           </h2>
-          <p className="text-blue-100 mb-8">Connect Stripe in 60 seconds. First recovery in 24 hours. 21-day free trial.</p>
+          <p className="text-blue-100 mb-8">See your cash runway in 60 seconds. First recovery in 24 hours. 21-day free trial.</p>
           <Link to="/signup">
             <Button size="lg" className="bg-white text-brand-600 hover:bg-brand-50 px-10">
               Start free trial — no credit card

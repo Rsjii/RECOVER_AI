@@ -4,7 +4,7 @@ const Refund: React.FC = () => {
   useEffect(() => { document.title = 'Refund & Cancellation Policy — RecoverAI'; }, []);
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-gray-50 dark:bg-[#09090b]">
       <div className="max-w-4xl mx-auto px-6 py-12">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Cancellation & Refund Policy</h1>
         <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Effective Date: March 1, 2026</p>
@@ -53,8 +53,8 @@ const Refund: React.FC = () => {
         </p>
         <ol className="list-decimal list-inside space-y-2 text-sm text-gray-700 dark:text-gray-300">
           <li>Log into your RecoverAI account</li>
-          <li>Go to <span className="font-mono bg-gray-100 dark:bg-gray-800 px-1 rounded">Billing</span> → <span className="font-mono bg-gray-100 dark:bg-gray-800 px-1 rounded">Current Plan</span></li>
-          <li>Click <span className="font-mono bg-gray-100 dark:bg-gray-800 px-1 rounded">Cancel Subscription</span></li>
+          <li>Go to <span className="font-mono bg-gray-100 dark:bg-[#111113] px-1 rounded">Billing</span> → <span className="font-mono bg-gray-100 dark:bg-[#111113] px-1 rounded">Current Plan</span></li>
+          <li>Click <span className="font-mono bg-gray-100 dark:bg-[#111113] px-1 rounded">Cancel Subscription</span></li>
           <li>Confirm cancellation</li>
           <li>Your access will end after the current billing cycle completes</li>
         </ol>
@@ -130,7 +130,7 @@ const Refund: React.FC = () => {
           <li>Phone: +91 75097 95114</li>
         </ul>
 
-        <p className="text-xs text-gray-500 dark:text-gray-400 mt-8 pt-8 border-t border-gray-200 dark:border-gray-700">
+        <p className="text-xs text-gray-500 dark:text-gray-400 mt-8 pt-8 border-t border-gray-200 dark:border-white/[0.06]">
           Last updated: March 17, 2026
         </p>
       </div>
