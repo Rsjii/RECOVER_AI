@@ -263,6 +263,14 @@ const Signup: React.FC = () => {
             Already have an account?{' '}
             <Link to="/login" className="text-brand-600 hover:text-blue-700 font-medium">Sign in</Link>
           </p>
+
+          {/* Back Button */}
+          <button
+            onClick={() => navigate('/landing', { replace: true })}
+            className="w-full text-center text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white text-sm font-medium transition py-2 mt-3"
+          >
+            ← Back to Home
+          </button>
         </div>
       </div>
     </div>

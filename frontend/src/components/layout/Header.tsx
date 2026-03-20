@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useNotification } from '../../hooks/useNotification';
 import { getInitials } from '../../lib/utils';
@@ -10,6 +10,7 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
+  const navigate = useNavigate();
   const { user, company, logout } = useAuth();
   const { addToast } = useNotification();
   const [showMenu, setShowMenu] = React.useState(false);
@@ -30,6 +31,7 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
     try {
       await logout();
       addToast({ type: 'success', message: 'Logged out successfully' });
+      navigate('/login', { replace: true });
     } catch {
       addToast({ type: 'error', message: 'Logout failed' });
     }

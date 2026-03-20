@@ -200,6 +200,14 @@ const Login: React.FC = () => {
               Sign up free
             </Link>
           </p>
+
+          {/* Back Button */}
+          <button
+            onClick={() => navigate('/landing', { replace: true })}
+            className="w-full text-center text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white text-sm font-medium transition py-2"
+          >
+            ← Back to Home
+          </button>
         </div>
       </div>
     </div>

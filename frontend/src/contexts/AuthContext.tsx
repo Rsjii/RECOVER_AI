@@ -55,6 +55,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Restore session from secure httpOnly cookie on page load
   useEffect(() => {
     const restoreSession = async () => {
+      // Check if user explicitly logged out (logout flag in sessionStorage)
+      const loggedOutFlag = sessionStorage.getItem('justLoggedOut');
+      if (loggedOutFlag) {
+        sessionStorage.removeItem('justLoggedOut');
+        dispatch({ type: 'LOGOUT_SUCCESS' });
+        dispatch({ type: 'SET_LOADING', payload: false });
+        return;
+      }
+
       dispatch({ type: 'SET_LOADING', payload: true });
       try {
         const response = await api.get<MeResponse>(API_ENDPOINTS.auth.me);
@@ -116,6 +125,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     dispatch({ type: 'SET_LOADING', payload: true });
     try { await api.post(API_ENDPOINTS.auth.logout); } catch {}
     localStorage.removeItem('isDemo');
+    // Prevent re-authentication on next mount
+    sessionStorage.setItem('justLoggedOut', 'true');
     dispatch({ type: 'LOGOUT_SUCCESS' });
     dispatch({ type: 'SET_LOADING', payload: false });
   }, []);
