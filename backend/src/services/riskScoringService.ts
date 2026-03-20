@@ -1,4 +1,5 @@
 import { pool } from '../config/database';
+import { redisClient } from '../config/redis';
 import { logInfo, logError } from '../utils/logger';
 
 const MODULE = 'RiskScoringService';
@@ -33,92 +34,49 @@ export async function scoreCustomerRisk(
   const signals: RiskSignal[] = [];
 
   try {
-    // Signal 1: Failed payment in last 90 days
-    const failedPayments = await pool.query(
-      `SELECT COUNT(*) AS cnt
-       FROM payments
-       WHERE company_id = $1
-         AND invoice_id IN (SELECT id FROM invoices WHERE customer_id = $2)
-         AND status = 'failed'
-         AND paid_at > NOW() - INTERVAL '90 days'`,
+    // ✅ Single CTE query — replaces 4 separate round-trips
+    const result = await pool.query(
+      `SELECT
+         (SELECT COUNT(*) FROM payments
+          WHERE company_id = $1
+            AND invoice_id IN (SELECT id FROM invoices WHERE customer_id = $2)
+            AND status = 'failed'
+            AND paid_at > NOW() - INTERVAL '90 days'
+         ) AS failed_count,
+         c.card_expires_at,
+         c.last_activity_at,
+         (SELECT AVG(amount) FROM invoices WHERE customer_id = $2 AND company_id = $1) AS avg_amount,
+         (SELECT MAX(amount) FROM invoices WHERE customer_id = $2 AND company_id = $1 AND status = 'unpaid') AS max_unpaid,
+         (SELECT COUNT(*) FROM invoices WHERE customer_id = $2 AND company_id = $1 AND last_decline_type = 'hard') AS hard_decline_count
+       FROM customers c
+       WHERE c.id = $2 AND c.company_id = $1`,
       [companyId, customerId]
     );
-    if (parseInt(failedPayments.rows[0].cnt) > 0) {
-      signals.push({
-        type: 'payment_failure_history',
-        description: 'Failed payment in last 90 days',
-        weight: 20,
-      });
+
+    if (result.rows.length === 0) return { score: 0, signals: [] };
+
+    const row = result.rows[0];
+
+    if (parseInt(row.failed_count) > 0) {
+      signals.push({ type: 'payment_failure_history', description: 'Failed payment in last 90 days', weight: 20 });
     }
-
-    // Signal 2: Card expires within 30 days
-    const customer = await pool.query(
-      `SELECT card_expires_at, last_activity_at FROM customers WHERE id = $1 AND company_id = $2`,
-      [customerId, companyId]
-    );
-    if (customer.rows.length > 0) {
-      const { card_expires_at, last_activity_at } = customer.rows[0];
-      if (card_expires_at) {
-        const daysUntilExpiry = Math.ceil(
-          (new Date(card_expires_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
-        );
-        if (daysUntilExpiry <= 30 && daysUntilExpiry >= 0) {
-          signals.push({
-            type: 'card_expiring',
-            description: `Card expires in ${daysUntilExpiry} days`,
-            weight: 20,
-          });
-        }
-      }
-
-      // Signal 4: No activity in last 21 days
-      if (last_activity_at) {
-        const daysSinceActivity = Math.ceil(
-          (Date.now() - new Date(last_activity_at).getTime()) / (1000 * 60 * 60 * 24)
-        );
-        if (daysSinceActivity >= 21) {
-          signals.push({
-            type: 'inactivity',
-            description: `No activity for ${daysSinceActivity} days`,
-            weight: 20,
-          });
-        }
+    if (row.card_expires_at) {
+      const daysUntilExpiry = Math.ceil((new Date(row.card_expires_at).getTime() - Date.now()) / 86400000);
+      if (daysUntilExpiry <= 30 && daysUntilExpiry >= 0) {
+        signals.push({ type: 'card_expiring', description: `Card expires in ${daysUntilExpiry} days`, weight: 20 });
       }
     }
-
-    // Signal 3: Invoice amount > avg by 40%+
-    const amountCheck = await pool.query(
-      `SELECT
-         AVG(amount) AS avg_amount,
-         MAX(CASE WHEN status = 'unpaid' THEN amount ELSE 0 END) AS current_unpaid
-       FROM invoices
-       WHERE customer_id = $1 AND company_id = $2`,
-      [customerId, companyId]
-    );
-    if (amountCheck.rows.length > 0) {
-      const { avg_amount, current_unpaid } = amountCheck.rows[0];
-      if (avg_amount && current_unpaid && parseFloat(current_unpaid) > parseFloat(avg_amount) * 1.4) {
-        signals.push({
-          type: 'amount_spike',
-          description: `Current invoice 40%+ above average`,
-          weight: 20,
-        });
+    if (row.avg_amount && row.max_unpaid && parseFloat(row.max_unpaid) > parseFloat(row.avg_amount) * 1.4) {
+      signals.push({ type: 'amount_spike', description: 'Current invoice 40%+ above average', weight: 20 });
+    }
+    if (row.last_activity_at) {
+      const daysSinceActivity = Math.ceil((Date.now() - new Date(row.last_activity_at).getTime()) / 86400000);
+      if (daysSinceActivity >= 21) {
+        signals.push({ type: 'inactivity', description: `No activity for ${daysSinceActivity} days`, weight: 20 });
       }
     }
-
-    // Signal 5: Hard decline on last attempt
-    const declineCheck = await pool.query(
-      `SELECT last_decline_type FROM invoices
-       WHERE customer_id = $1 AND company_id = $2 AND last_decline_type = 'hard'
-       LIMIT 1`,
-      [customerId, companyId]
-    );
-    if (declineCheck.rows.length > 0) {
-      signals.push({
-        type: 'hard_decline',
-        description: 'Hard decline on last payment attempt',
-        weight: 20,
-      });
+    if (parseInt(row.hard_decline_count) > 0) {
+      signals.push({ type: 'hard_decline', description: 'Hard decline on last payment attempt', weight: 20 });
     }
 
     const score = Math.min(signals.reduce((sum, s) => sum + s.weight, 0), 100);
@@ -134,6 +92,14 @@ export async function scoreCustomerRisk(
  * Returns sorted by score descending.
  */
 export async function getAtRiskCustomers(companyId: string): Promise<AtRiskCustomer[]> {
+  const cacheKey = `at-risk:${companyId}`;
+
+  // ✅ Return cached result if fresh (30s TTL)
+  try {
+    const cached = await redisClient.get(cacheKey);
+    if (cached) return JSON.parse(cached) as AtRiskCustomer[];
+  } catch { /* Redis unavailable — proceed without cache */ }
+
   try {
     // Fetch all customers with open invoices
     const customersResult = await pool.query(
@@ -155,29 +121,36 @@ export async function getAtRiskCustomers(companyId: string): Promise<AtRiskCusto
       [companyId]
     );
 
-    const atRiskList: AtRiskCustomer[] = [];
+    // ✅ Score all customers in PARALLEL (not sequential)
+    const scored = await Promise.all(
+      customersResult.rows.map(async (row) => {
+        const { score, signals } = await scoreCustomerRisk(companyId, row.customer_id);
+        return { row, score, signals };
+      })
+    );
 
-    for (const row of customersResult.rows) {
-      const { score, signals } = await scoreCustomerRisk(companyId, row.customer_id);
-      if (score >= 40) {
-        atRiskList.push({
-          customerId: row.customer_id,
-          name: row.name,
-          email: row.email,
-          score,
-          signals,
-          invoiceId: row.invoice_id,
-          invoiceAmount: parseFloat(row.invoice_amount),
-          daysUntilDue: row.days_until_due,
-          currency: row.currency || 'USD',
-        });
-      }
-    }
+    const atRiskList: AtRiskCustomer[] = scored
+      .filter(({ score }) => score >= 40)
+      .map(({ row, score, signals }) => ({
+        customerId: row.customer_id,
+        name: row.name,
+        email: row.email,
+        score,
+        signals,
+        invoiceId: row.invoice_id,
+        invoiceAmount: parseFloat(row.invoice_amount),
+        daysUntilDue: row.days_until_due,
+        currency: row.currency || 'USD',
+      }));
 
     logInfo(MODULE, 'getAtRiskCustomers', `Found ${atRiskList.length} at-risk customers`, { companyId });
 
-    // Sort by score descending
-    return atRiskList.sort((a, b) => b.score - a.score);
+    const sorted = atRiskList.sort((a, b) => b.score - a.score);
+
+    // ✅ Cache result for 30 seconds
+    try { await redisClient.setEx(cacheKey, 30, JSON.stringify(sorted)); } catch {}
+
+    return sorted;
   } catch (err: unknown) {
     logError(MODULE, 'getAtRiskCustomers', err instanceof Error ? err.message : String(err));
     return [];

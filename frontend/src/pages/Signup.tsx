@@ -85,6 +85,7 @@ const Signup: React.FC = () => {
     try {
       await signup(form.email, form.password, form.company_name, form.firstName, form.lastName);
       addToast({ type: 'success', message: 'Account created! Verify your email to continue.' });
+      // Use replace: true to remove signup page from history
       navigate('/verify-email', { replace: true });
     } catch (err: any) {
       setApiError(err.message || 'Signup failed. Please try again.');

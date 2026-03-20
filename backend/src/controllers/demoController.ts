@@ -312,9 +312,12 @@ export const demoLogin = async (req: Request, res: Response): Promise<void> => {
   try {
     logInfo(LOG_MODULE, handler, 'Demo login requested');
 
-    // ---- 1. Ensure demo user exists (signup or login) ----
+    // ---- 1. Ensure demo user exists — try login first (faster: demo user exists 99% of the time) ----
     let authResult;
     try {
+      authResult = await authService.login({ email: DEMO_EMAIL, password: DEMO_PASSWORD });
+    } catch {
+      // First time ever — create account
       authResult = await authService.signup({
         companyName: DEMO_COMPANY,
         email: DEMO_EMAIL,
@@ -322,9 +325,6 @@ export const demoLogin = async (req: Request, res: Response): Promise<void> => {
         firstName: 'Demo',
         lastName: 'User',
       });
-    } catch {
-      // Already exists — just login
-      authResult = await authService.login({ email: DEMO_EMAIL, password: DEMO_PASSWORD });
     }
 
     const companyId = authResult.company.id;
@@ -333,14 +333,18 @@ export const demoLogin = async (req: Request, res: Response): Promise<void> => {
     // ---- 1b. Mark demo user as email-verified (skip OTP requirement) ----
     await pool.query(`UPDATE users SET email_verified = true, otp_code = NULL, otp_expires = NULL WHERE id = $1`, [authResult.user.id]);
 
-    // ---- 2. Reset existing demo data ----
-    await client.query('BEGIN');
-    await client.query(`DELETE FROM email_logs   WHERE company_id = $1`, [companyId]);
-    await client.query(`DELETE FROM payments     WHERE company_id = $1`, [companyId]);
-    await client.query(`DELETE FROM payment_plans WHERE invoice_id IN (SELECT id FROM invoices WHERE company_id = $1)`, [companyId]);
-    await client.query(`DELETE FROM invoices     WHERE company_id = $1`, [companyId]);
-    await client.query(`DELETE FROM customers    WHERE company_id = $1`, [companyId]);
-    await client.query('COMMIT');
+    // ---- 2. Check if demo data already exists ----
+    const existingCount = await pool.query(
+      `SELECT COUNT(*) as cnt FROM customers WHERE company_id = $1`,
+      [companyId]
+    );
+    const hasExistingData = parseInt(existingCount.rows[0].cnt) > 0;
+
+    if (hasExistingData) {
+      logInfo(LOG_MODULE, handler, 'Demo data already exists, skipping creation', { companyId });
+      // Skip to email login and return
+    } else {
+      logInfo(LOG_MODULE, handler, 'Creating new demo data', { companyId });
 
     // ---- 3. Seed customers ----
     const now = Date.now();
@@ -363,7 +367,9 @@ export const demoLogin = async (req: Request, res: Response): Promise<void> => {
       const c = customers[i];
       const r = await client.query(
         `INSERT INTO customers (company_id, name, email, company_name, industry, payment_history, created_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id`,
+         VALUES ($1,$2,$3,$4,$5,$6,$7)
+         ON CONFLICT (company_id, email) DO UPDATE SET name=$2, company_name=$4, industry=$5, payment_history=$6, created_at=$7
+         RETURNING id`,
         [companyId, c.name, c.email, c.company, c.industry, JSON.stringify(c.history), d(90 - i * 5)]
       );
       custRows.push({ id: r.rows[0].id, idx: i });
@@ -450,7 +456,7 @@ export const demoLogin = async (req: Request, res: Response): Promise<void> => {
       );
     }
 
-    // ---- 7. Seed email logs ----
+    // ---- 7. Seed email logs (BATCH — one query instead of 50+ sequential) ----
     const emailSubjects: Record<string, string[]> = {
       dunning_1: ['Quick reminder: Invoice #{n} is due', 'Friendly reminder about your balance', 'Invoice #{n} — due today'],
       dunning_2: ['Following up on overdue invoice #{n}', 'Invoice #{n} is now past due', 'Action needed: Invoice #{n}'],
@@ -459,9 +465,11 @@ export const demoLogin = async (req: Request, res: Response): Promise<void> => {
       dunning_5: ['Last attempt before escalation — Invoice #{n}', 'Critical: Invoice #{n}', 'Invoice #{n} — Final escalation notice'],
     };
 
-    // Send emails for all non-fresh invoices
     const emailableInvs = invRows.filter(i => i.daysAgoDue > 5);
     let emailN = 1000;
+    const emailLogVals: any[] = [];
+    const emailLogPH: string[] = [];
+    let emailLogIdx = 0;
 
     for (const inv of emailableInvs) {
       const cust = customers[inv.custIdx];
@@ -480,51 +488,45 @@ export const demoLogin = async (req: Request, res: Response): Promise<void> => {
         const openedAt = opened ? d(inv.daysAgoDue - t * 7 - 1 + 0.2) : null;
         const clickedAt = clicked ? d(inv.daysAgoDue - t * 7 - 1 + 0.4) : null;
         const status = clicked ? 'clicked' : opened ? 'opened' : 'delivered';
+        const body = `Dear ${cust.name},\n\nThis is a reminder regarding your outstanding invoice of $${inv.amount.toLocaleString()}.\n\nPlease arrange payment at your earliest convenience.\n\nBest regards,\nRecoverAI`;
 
-        await client.query(
-          `INSERT INTO email_logs (invoice_id, company_id, email_type, recipient_email, subject, body, sent_at, opened_at, clicked_at, status, sendgrid_message_id)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
-          [
-            inv.id, companyId, emailType, cust.email, subject,
-            `Dear ${cust.name},\n\nThis is a reminder regarding your outstanding invoice of $${inv.amount.toLocaleString()}.\n\nPlease arrange payment at your earliest convenience.\n\nBest regards,\nRecoverAI`,
-            sentAt, openedAt, clickedAt, status,
-            `msg_demo_${inv.id.slice(0, 8)}_${t}`,
-          ]
-        );
+        const b = emailLogIdx * 11;
+        emailLogPH.push(`($${b+1},$${b+2},$${b+3},$${b+4},$${b+5},$${b+6},$${b+7},$${b+8},$${b+9},$${b+10},$${b+11})`);
+        emailLogVals.push(inv.id, companyId, emailType, cust.email, subject, body, sentAt, openedAt, clickedAt, status, `msg_demo_${inv.id.slice(0, 8)}_${t}`);
+        emailLogIdx++;
       }
+    }
+
+    if (emailLogPH.length > 0) {
+      await client.query(
+        `INSERT INTO email_logs (invoice_id,company_id,email_type,recipient_email,subject,body,sent_at,opened_at,clicked_at,status,sendgrid_message_id) VALUES ${emailLogPH.join(',')}`,
+        emailLogVals
+      );
     }
 
     await client.query('COMMIT');
 
-    // ---- 8. Seed recovery_timeline (30 days) ----
+    // ---- 8. Seed recovery_timeline (BATCH — one query instead of 30 sequential) ----
     await client.query(`DELETE FROM recovery_timeline WHERE company_id = $1`, [companyId]);
 
+    const tlVals: any[] = [];
+    const tlPH: string[] = [];
     for (let dayOffset = 29; dayOffset >= 0; dayOffset--) {
       const periodDate = new Date(now - dayOffset * 86400_000).toISOString().slice(0, 10);
       const progress = (29 - dayOffset) / 29;
-      // Simulate realistic growth: start slow, improve over 30 days
       const amountRecovered = Math.round(34200 * progress * (0.8 + Math.random() * 0.4));
       const invoicesRecovered = Math.round(8 * progress);
       const emailsSent = Math.round(3 + progress * 5);
       const emailsOpened = Math.round(emailsSent * (0.5 + Math.random() * 0.2));
-
-      await client.query(
-        `INSERT INTO recovery_timeline (
-           company_id, period_date, period_type,
-           invoices_created, invoices_recovered,
-           amount_created, amount_recovered,
-           emails_sent, emails_opened, emails_clicked,
-           avg_days_to_collect
-         ) VALUES ($1, $2, 'daily', $3, $4, $5, $6, $7, $8, $9, $10)
-         ON CONFLICT (company_id, period_date, period_type) DO UPDATE SET
-           invoices_recovered = EXCLUDED.invoices_recovered,
-           amount_recovered   = EXCLUDED.amount_recovered,
-           emails_sent        = EXCLUDED.emails_sent,
-           emails_opened      = EXCLUDED.emails_opened`,
-        [companyId, periodDate, invRows.length, invoicesRecovered, 87400, amountRecovered,
-         emailsSent, emailsOpened, Math.round(emailsOpened * 0.4), 42]
-      );
+      const i = tlPH.length;
+      const b = i * 10;
+      tlPH.push(`($${b+1},$${b+2},'daily',$${b+3},$${b+4},$${b+5},$${b+6},$${b+7},$${b+8},$${b+9},$${b+10})`);
+      tlVals.push(companyId, periodDate, invRows.length, invoicesRecovered, 87400, amountRecovered, emailsSent, emailsOpened, Math.round(emailsOpened * 0.4), 42);
     }
+    await pool.query(
+      `INSERT INTO recovery_timeline (company_id,period_date,period_type,invoices_created,invoices_recovered,amount_created,amount_recovered,emails_sent,emails_opened,emails_clicked,avg_days_to_collect) VALUES ${tlPH.join(',')}`,
+      tlVals
+    );
 
     logInfo(LOG_MODULE, handler, 'Demo data seeded', {
       customers: customers.length,
@@ -569,15 +571,15 @@ export const demoLogin = async (req: Request, res: Response): Promise<void> => {
     } catch (cacheErr) {
       logError(LOG_MODULE, handler, 'Failed to cache demo email previews (non-fatal)', cacheErr);
     }
+    } // ✅ Close else block for demo data creation
 
-    // ---- 10. Log in and return cookies ----
-    const loginResult = await authService.login({ email: DEMO_EMAIL, password: DEMO_PASSWORD });
-    setCookies(res, loginResult.tokens.accessToken, loginResult.tokens.refreshToken);
+    // ---- 10. Return cookies — reuse authResult from step 1, no second login needed ----
+    setCookies(res, authResult.tokens.accessToken, authResult.tokens.refreshToken);
 
     res.status(200).json({
       message: 'Demo account ready',
-      user: { ...loginResult.user, emailVerified: true },
-      company: loginResult.company,
+      user: { ...authResult.user, emailVerified: true },
+      company: authResult.company,
       isDemo: true,
     });
   } catch (error) {

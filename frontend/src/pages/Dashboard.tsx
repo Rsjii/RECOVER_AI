@@ -69,6 +69,20 @@ const EMAIL_TYPE_SHORT: Record<string, string> = {
   payment_plan_offer: 'Payment plan',
 };
 
+// Module-level cache — persists across tab switches within the same session
+interface DashCache {
+  stats: DashboardStats | null;
+  pipeline: InvoicePipeline | null;
+  riskList: CustomerRisk[];
+  atRisk: AtRiskCustomer[];
+  cashPosition: CashPosition | null;
+  runway: RunwayData | null;
+  leakage: CashLeakageData | null;
+  ts: number;
+}
+let dashCache: DashCache | null = null;
+const CACHE_TTL = 30_000; // 30 seconds — show cached data instantly on tab switch
+
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -115,6 +129,22 @@ const Dashboard: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    // ✅ Show cached data instantly if fresh (tab switch = no loading spinner)
+    if (dashCache && Date.now() - dashCache.ts < CACHE_TTL) {
+      setStats(dashCache.stats);
+      setPipeline(dashCache.pipeline);
+      setRiskList(dashCache.riskList);
+      setAtRisk(dashCache.atRisk);
+      if (dashCache.cashPosition) {
+        setCashPosition(dashCache.cashPosition);
+        setCashBalanceInput(String(dashCache.cashPosition.currentBalance || 0));
+      }
+      setRunway(dashCache.runway);
+      setLeakage(dashCache.leakage);
+      setLoading(false);
+      return;
+    }
+
     const fetchAll = async () => {
       setLoading(true);
       setError(null);
@@ -128,16 +158,27 @@ const Dashboard: React.FC = () => {
           api.get<{ data: RunwayData }>('/api/dashboard/runway').catch(() => ({ data: null as RunwayData | null })),
           api.get<{ data: CashLeakageData }>('/api/dashboard/cash-leakage').catch(() => ({ data: null as CashLeakageData | null })),
         ]);
-        setStats(statsRes.data);
-        setPipeline(pipelineRes.data);
-        setRiskList(riskRes.data);
-        setAtRisk(atRiskRes.data || []);
-        if (cashRes.data) {
-          setCashPosition(cashRes.data);
-          setCashBalanceInput(String(cashRes.data.currentBalance || 0));
+        const stats = statsRes.data;
+        const pipeline = pipelineRes.data;
+        const riskList = riskRes.data;
+        const atRisk = atRiskRes.data || [];
+        const cashPosition = cashRes.data;
+        const runway = runwayRes.data;
+        const leakage = leakageRes.data;
+
+        setStats(stats);
+        setPipeline(pipeline);
+        setRiskList(riskList);
+        setAtRisk(atRisk);
+        if (cashPosition) {
+          setCashPosition(cashPosition);
+          setCashBalanceInput(String(cashPosition.currentBalance || 0));
         }
-        setRunway(runwayRes.data);
-        setLeakage(leakageRes.data);
+        setRunway(runway);
+        setLeakage(leakage);
+
+        // ✅ Save to module-level cache
+        dashCache = { stats, pipeline, riskList, atRisk, cashPosition, runway, leakage, ts: Date.now() };
       } catch (err: any) {
         setError(err.message || 'Failed to load dashboard');
       } finally {
@@ -394,7 +435,7 @@ const Dashboard: React.FC = () => {
           )}
           {isDemo ? (
             <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg px-3 py-2 text-xs text-amber-800 dark:text-amber-400">
-              📌 Demo mode: Emails not sent. Click individual "Send →" buttons above to test, or <a href="/demo" className="underline font-medium">Try with your real data</a>.
+              📌 Demo mode: Emails not sent. Click individual "Send →" buttons to test. Use <strong>"Use my real data →"</strong> in the top bar to connect your Stripe account.
             </div>
           ) : (
             <div className="flex gap-3">

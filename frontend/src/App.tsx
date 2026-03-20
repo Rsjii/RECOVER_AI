@@ -26,7 +26,6 @@ import GoogleCallback from './pages/GoogleCallback';
 import Onboarding from './pages/Onboarding';
 import StripeCallback from './pages/StripeCallback';
 import Unsubscribe from './pages/Unsubscribe';
-import DemoLaunch from './pages/DemoLaunch';
 import BillingSuccess from './pages/BillingSuccess';
 
 // Placeholder pages (create empty files for now, fill in later phases)
@@ -106,7 +105,6 @@ const App: React.FC = () => {
             <Route path="/auth/google/callback" element={<GoogleCallback />} />
             <Route path="/stripe/oauth/callback" element={<StripeCallback />} />
             <Route path="/unsubscribe" element={<Unsubscribe />} />
-            <Route path="/demo" element={<DemoLaunch />} />
             <Route
               path="/verify-email"
               element={

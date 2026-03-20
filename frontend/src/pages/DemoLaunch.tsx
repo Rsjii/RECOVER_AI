@@ -64,7 +64,8 @@ const DemoLaunch: React.FC = () => {
   };
 
   const handleEnterDashboard = () => {
-    navigate('/dashboard');
+    // Navigate to dashboard with replace to clear demo-launch from history
+    navigate('/dashboard', { replace: true });
   };
 
   const handleSignup = () => {

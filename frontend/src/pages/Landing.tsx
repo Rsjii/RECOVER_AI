@@ -2,8 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 import { ThemeToggle } from '../components/ui/ThemeToggle';
-import { api } from '../lib/api';
 import { useAuth } from '../hooks/useAuth';
+import { api } from '../lib/api';
 
 const Landing: React.FC = () => {
   const navigate = useNavigate();
@@ -20,25 +20,18 @@ const Landing: React.FC = () => {
   }, [isAuthenticated, navigate]);
 
   /**
-   * Demo login handler
-   * For unauthenticated users: Create demo account + navigate to dashboard
-   * For authenticated users: Just navigate to dashboard (they're already authenticated)
+   * Demo handler — authenticate as demo user and go directly to dashboard
    */
   const handleTryDemo = async () => {
     setDemoLoading(true);
     try {
-      // Only call demo endpoint if not authenticated
-      if (!isAuthenticated) {
-        const response: any = await api.post('/api/demo/login');
-        // Update auth context directly from response (don't call refresh)
-        if (response.user && response.company) {
-          setAuthState(response.user, response.company);
-        }
-      }
-      navigate('/dashboard');
-    } catch (error) {
+      const result = await api.post<{ user: any; company: any }>('/api/demo/login');
+      localStorage.setItem('isDemo', 'true');
+      setAuthState(result.user, result.company);
+      navigate('/dashboard', { replace: true });
+    } catch (err: any) {
       setDemoLoading(false);
-      console.error('Demo login failed:', error);
+      alert('Failed to start demo. Please try again.');
     }
   };
 

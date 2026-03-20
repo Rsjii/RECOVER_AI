@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '../../lib/utils';
 import { api } from '../../lib/api';
 import { useAuth } from '../../hooks/useAuth';
+import { useNotification } from '../../hooks/useNotification';
 
 const navItems = [
   {
@@ -56,9 +57,11 @@ interface TrialInfo {
 export const Sidebar: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+  const { addToast } = useNotification();
   const [trial, setTrial] = useState<TrialInfo | null>(null);
   const [filteredNavItems, setFilteredNavItems] = useState(navItems);
+  const [loadingDemoModal, setLoadingDemoModal] = useState(false);
 
   useEffect(() => {
     // Try to access admin endpoint — if 403, user not admin
@@ -104,6 +107,18 @@ export const Sidebar: React.FC = () => {
     if (trial.status === 'past_due') return { title: 'Payment Due', sub: 'Update billing info' };
     if (trial.status === 'canceled') return { title: 'Canceled', sub: 'Reactivate your plan' };
     return { title: 'Free Plan', sub: 'Upgrade for full access' };
+  };
+
+  const handleTryWithMyData = async () => {
+    setLoadingDemoModal(true);
+    try {
+      addToast({ type: 'info', message: 'Logging out of demo...' });
+      await logout();
+      navigate('/signup', { replace: true });
+    } catch (err: any) {
+      addToast({ type: 'error', message: 'Failed to process. Please try again.' });
+      setLoadingDemoModal(false);
+    }
   };
 
   const isDemo = localStorage.getItem('isDemo') === 'true';
@@ -169,12 +184,17 @@ export const Sidebar: React.FC = () => {
       {/* Trial / Subscription Status */}
       <div className="p-4 border-t border-gray-200 dark:border-white/[0.06]">
         {isDemo ? (
-          <Link to="/signup">
-            <div className="rounded-lg p-3 bg-blue-50 dark:bg-blue-900/20 hover:opacity-90 transition-opacity cursor-pointer">
-              <p className="text-xs font-medium text-blue-700 dark:text-blue-300">Viewing demo</p>
-              <p className="text-xs mt-0.5 text-blue-600/70 dark:text-blue-400/70">Start 21-day free trial →</p>
-            </div>
-          </Link>
+          <div className="rounded-lg p-3 bg-blue-50 dark:bg-blue-900/20">
+            <p className="text-xs font-medium text-blue-700 dark:text-blue-300">Demo mode — Acme SaaS</p>
+            <p className="text-xs mt-0.5 text-blue-600/70 dark:text-blue-400/70">Emails are not sent. Use "Preview Agent" to see what would happen.</p>
+            <button
+              onClick={handleTryWithMyData}
+              disabled={loadingDemoModal}
+              className="mt-2 w-full py-1.5 rounded-md bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-semibold transition-colors"
+            >
+              {loadingDemoModal ? 'Logging out...' : 'Start with my data →'}
+            </button>
+          </div>
         ) : (
           <Link to="/billing">
             <div className={cn(
@@ -195,6 +215,7 @@ export const Sidebar: React.FC = () => {
           </Link>
         )}
       </div>
+
     </aside>
   );
 };
