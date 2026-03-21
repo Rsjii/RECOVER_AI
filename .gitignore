@@ -107,3 +107,11 @@ z_guides/
 # Dev files
 .env.example
 z_doubts.txt
+
+# Project documentation (analysis, planning, notes — kept locally only)
+CASH_FLOW_CONTROL_ENGINE_COMPLETE.md
+DASHBOARD_ANALYSIS_AND_RECOMMENDATIONS_*.md
+OUTREACH_PLAYBOOK.md
+PAYMENT_PLAN_FLOW_ANALYSIS.md
+RECOVERAI_FINAL_BUSINESS_ANALYSIS_*.md
+SMS_INTEGRATION_IMPLEMENTATION.md
