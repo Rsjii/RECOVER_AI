@@ -6,24 +6,18 @@ import { formatCurrency } from '../lib/utils';
 import { DashboardSkeleton } from '../components/ui/Skeleton';
 import { Button } from '../components/ui/Button';
 import { RecoveryChart } from '../components/dashboard/RecoveryChart';
-import { RiskBreakdownChart } from '../components/dashboard/RiskBreakdownChart';
 import { TopCustomersTable } from '../components/dashboard/TopCustomersTable';
-import { RunwayWidget } from '../components/dashboard/RunwayWidget';
 import type { RunwayData } from '../components/dashboard/RunwayWidget';
-import { CashPositionWidget } from '../components/dashboard/CashPositionWidget';
-import { WhatIfWidget } from '../components/dashboard/WhatIfWidget';
-import { CashLeakageWidget } from '../components/dashboard/CashLeakageWidget';
 import type { CashLeakageData } from '../components/dashboard/CashLeakageWidget';
-import { AtRiskWidget } from '../components/dashboard/AtRiskWidget';
 import { EmailPreviewModal } from '../components/invoices/EmailPreviewModal';
-import KpiRow from '../components/dashboard/KpiRow';
-import AgingAnalysisChart from '../components/dashboard/AgingAnalysisChart';
-import CollectionsTrendChart from '../components/dashboard/CollectionsTrendChart';
-import RecoveryFunnelChart from '../components/dashboard/RecoveryFunnelChart';
-import RiskDriversChart from '../components/dashboard/RiskDriversChart';
-import EmailAnalyticsRow from '../components/dashboard/EmailAnalyticsRow';
-import PaymentPlansSummary from '../components/dashboard/PaymentPlansSummary';
 import DashboardDetailTabs from '../components/dashboard/DashboardDetailTabs';
+import { KPIBanner } from '../components/dashboard/KPIBanner';
+import { BusinessImpactGrid } from '../components/dashboard/BusinessImpactGrid';
+import { RecoveryFunnelInteractive } from '../components/dashboard/RecoveryFunnelInteractive';
+import { CashFlowSection } from '../components/dashboard/CashFlowSection';
+import { RiskDriversSection } from '../components/dashboard/RiskDriversSection';
+import { AtRiskCustomersSection } from '../components/dashboard/AtRiskCustomersSection';
+import { AgentActivitySection } from '../components/dashboard/AgentActivitySection';
 import type { DashboardStats, InvoicePipeline, CustomerRisk } from '../types';
 
 interface AtRiskCustomer {
@@ -133,14 +127,6 @@ interface AgentPreview {
   }>;
 }
 
-const EMAIL_TYPE_SHORT: Record<string, string> = {
-  dunning_1: 'Reminder 1',
-  dunning_2: 'Reminder 2',
-  dunning_3: 'Reminder 3',
-  dunning_4: 'Formal notice',
-  dunning_5: 'Escalation',
-  payment_plan_offer: 'Payment plan',
-};
 
 // Module-level cache — persists across tab switches within the same session
 interface DashCache {
@@ -173,12 +159,8 @@ const Dashboard: React.FC = () => {
   const [agentMsg, setAgentMsg] = useState<string | null>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [agentPreview, setAgentPreview] = useState<AgentPreview | null>(null);
-  const [expandAll, setExpandAll] = useState(false);
   const [selectedEmailForModal, setSelectedEmailForModal] = useState<AgentPreview['previews'][0] | null>(null);
   const [isDemo, setIsDemo] = useState(false);
-  const [emailOverrides, setEmailOverrides] = useState<Record<string, string>>({}); // invoiceId → email
-  const [editingEmail, setEditingEmail] = useState<string | null>(null); // which invoiceId is being edited
-  const [sendingIndividual, setSendingIndividual] = useState<string | null>(null); // which invoiceId is sending
   const [atRisk, setAtRisk] = useState<AtRiskCustomer[]>([]);
   const [cashPosition, setCashPosition] = useState<CashPosition | null>(null);
   const [cashBalanceInput, setCashBalanceInput] = useState<string>('');
@@ -190,7 +172,6 @@ const Dashboard: React.FC = () => {
   const [emailAnalytics, setEmailAnalytics] = useState<EmailAnalytics | null>(null);
   const [riskDrivers, setRiskDrivers] = useState<RiskDrivers | null>(null);
   const [plansSummary, setPlansSummary] = useState<PaymentPlansSummaryData | null>(null);
-  const [timeline, setTimeline] = useState<any[]>([]);
 
   useEffect(() => {
     document.title = 'Dashboard — RecoverAI';
@@ -232,7 +213,6 @@ const Dashboard: React.FC = () => {
       setEmailAnalytics(dashCache.emailAnalytics);
       setRiskDrivers(dashCache.riskDrivers);
       setPlansSummary(dashCache.plansSummary);
-      setTimeline(dashCache.timeline);
       setLoading(false);
       return;
     }
@@ -242,7 +222,7 @@ const Dashboard: React.FC = () => {
       setError(null);
       try {
         const [statsRes, pipelineRes, riskRes, atRiskRes, cashRes, runwayRes, leakageRes,
-               kpiRes, agingRes, emailAnalyticsRes, riskDriversRes, plansSummaryRes, timelineRes] = await Promise.all([
+               kpiRes, agingRes, emailAnalyticsRes, riskDriversRes, plansSummaryRes] = await Promise.all([
           api.get<{ data: DashboardStats }>(API_ENDPOINTS.dashboard.stats),
           api.get<{ data: InvoicePipeline }>(API_ENDPOINTS.dashboard.pipeline),
           api.get<{ data: CustomerRisk[]; total: number }>(API_ENDPOINTS.dashboard.riskList + '?limit=10'),
@@ -255,7 +235,6 @@ const Dashboard: React.FC = () => {
           api.get<{ data: EmailAnalytics }>('/api/dashboard/email-analytics').catch(() => ({ data: null as EmailAnalytics | null })),
           api.get<{ data: RiskDrivers }>('/api/dashboard/risk-drivers').catch(() => ({ data: null as RiskDrivers | null })),
           api.get<{ data: PaymentPlansSummaryData }>('/api/dashboard/payment-plans-summary').catch(() => ({ data: null as PaymentPlansSummaryData | null })),
-          api.get<{ data: any[] }>('/api/dashboard/timeline?period=monthly&months=6').catch(() => ({ data: [] as any[] })),
         ]);
         const stats = statsRes.data;
         const pipeline = pipelineRes.data;
@@ -269,7 +248,6 @@ const Dashboard: React.FC = () => {
         const emailAnalyticsData = emailAnalyticsRes.data;
         const riskDriversData = riskDriversRes.data;
         const plansSummaryData = plansSummaryRes.data;
-        const timelineData = timelineRes.data || [];
 
         setStats(stats);
         setPipeline(pipeline);
@@ -286,13 +264,12 @@ const Dashboard: React.FC = () => {
         setEmailAnalytics(emailAnalyticsData);
         setRiskDrivers(riskDriversData);
         setPlansSummary(plansSummaryData);
-        setTimeline(timelineData);
 
         // ✅ Save to module-level cache
         dashCache = {
           stats, pipeline, riskList, atRisk, cashPosition, runway, leakage,
           kpi: kpiData, aging: agingData, emailAnalytics: emailAnalyticsData,
-          riskDrivers: riskDriversData, plansSummary: plansSummaryData, timeline: timelineData,
+          riskDrivers: riskDriversData, plansSummary: plansSummaryData, timeline: [],
           ts: Date.now(),
         };
       } catch (err: any) {
@@ -324,20 +301,6 @@ const Dashboard: React.FC = () => {
     } finally {
       setTriggeringAgent(false);
       setTimeout(() => setAgentMsg(null), 8000);
-    }
-  };
-
-  const handleSendIndividual = async (invoiceId: string, originalEmail: string) => {
-    setSendingIndividual(invoiceId);
-    try {
-      const email = emailOverrides[invoiceId] || originalEmail;
-      const res = await api.post<{ message: string; recipientEmail: string }>(`/api/dashboard/agent/trigger-single`, { invoiceId, emailOverride: email });
-      setAgentMsg(`Email queued for ${res.recipientEmail} ✓`);
-      setTimeout(() => setAgentMsg(null), 5000);
-    } catch (err: any) {
-      setAgentMsg(`Failed to send: ${err.message}`);
-    } finally {
-      setSendingIndividual(null);
     }
   };
 
@@ -432,214 +395,94 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* ═══ SECTION 1: EXECUTIVE KPIs ═══ */}
-      <KpiRow kpi={kpi ?? undefined} loading={loading} />
+      {/* ════════════════════════════════════════════════════════════════ */}
+      {/* TIER 1: EXECUTIVE SUMMARY — Always visible, above fold */}
+      {/* ════════════════════════════════════════════════════════════════ */}
+      <KPIBanner
+        data={kpi && stats ? {
+          dso: kpi.dso,
+          collectionEfficiencyIndex: kpi.cei,
+          recoveryRate: kpi.recoveryRate,
+          overdueCount: kpi.atRiskCustomerCount,
+          totalInvoices: kpi.totalCustomers,
+          totalOwed: stats.totalOwed,
+          totalRecovered: stats.totalRecovered,
+        } : undefined}
+        aging={aging}
+        emailAnalytics={emailAnalytics}
+        plansSummary={plansSummary}
+        loading={loading}
+      />
 
-      {/* ═══ SECTION 2: COLLECTIONS ANALYTICS ═══ */}
-      <div className="flex flex-col lg:flex-row gap-4">
-        <div className="lg:w-[58%]">
-          <AgingAnalysisChart
-            buckets={aging?.buckets ?? []}
-            totalAr={aging?.totalAr ?? 0}
-            loading={loading}
-          />
-        </div>
-        <div className="lg:w-[42%]">
-          <CollectionsTrendChart data={timeline} loading={loading} />
-        </div>
-      </div>
+      {/* ════════════════════════════════════════════════════════════════ */}
+      {/* TIER 2: PRIMARY BUSINESS DRIVERS — Recovery funnel + impact grid */}
+      {/* ════════════════════════════════════════════════════════════════ */}
 
-      {/* ═══ SECTION 3: RECOVERY & RISK ═══ */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <RecoveryFunnelChart
-          invoicesAtRisk={kpi?.atRiskCustomerCount ?? 0}
-          emailsSent={emailAnalytics?.sent ?? 0}
-          emailsOpened={emailAnalytics?.opened ?? 0}
-          emailsClicked={emailAnalytics?.clicked ?? 0}
-          invoicesPaid={stats ? Math.round((stats.totalRecovered / Math.max(stats.totalOwed + stats.totalRecovered, 1)) * (kpi?.atRiskCustomerCount ?? 0)) : 0}
-          loading={loading}
-        />
-        {pipeline && <RiskBreakdownChart pipeline={pipeline} />}
-        <RiskDriversChart drivers={riskDrivers ?? undefined} loading={loading} />
-      </div>
+      {/* Recovery Funnel */}
+      <RecoveryFunnelInteractive
+        invoicesAtRisk={kpi?.atRiskCustomerCount ?? 0}
+        emailsSent={emailAnalytics?.sent ?? 0}
+        emailsOpened={emailAnalytics?.opened ?? 0}
+        emailsClicked={emailAnalytics?.clicked ?? 0}
+        invoicesPaid={stats ? Math.round((stats.totalRecovered / Math.max(stats.totalOwed + stats.totalRecovered, 1)) * (kpi?.atRiskCustomerCount ?? 0)) : 0}
+        loading={loading}
+      />
 
-      {/* ═══ SECTION 4: DUNNING CAMPAIGN PERFORMANCE ═══ */}
-      <EmailAnalyticsRow analytics={emailAnalytics ?? undefined} loading={loading} />
+      {/* Collections + Campaign + Payment Plans */}
+      <BusinessImpactGrid
+        aging={aging}
+        emailAnalytics={emailAnalytics}
+        plansSummary={plansSummary}
+        loading={loading}
+      />
 
-      {/* ═══ SECTION 5: PAYMENT PLANS ═══ */}
-      <PaymentPlansSummary summary={plansSummary ?? undefined} loading={loading} />
+      {/* ════════════════════════════════════════════════════════════════ */}
+      {/* TIER 3: SUPPORTING METRICS — Collapsible sections */}
+      {/* ════════════════════════════════════════════════════════════════ */}
 
-      {/* Agent Preview Panel — shows what agent WOULD do, pending approval */}
-      {agentPreview && (
-        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-xl p-5">
-          <div className="flex items-start justify-between mb-4">
-            <div>
-              <h2 className="font-semibold text-gray-900 dark:text-white text-sm">
-                Agent Preview — Pending Your Approval
-              </h2>
-              <p className="text-xs text-gray-500 mt-0.5">
-                No emails sent yet. Review what the agent plans to do, then approve.
-              </p>
-            </div>
-            <button
-              onClick={() => setAgentPreview(null)}
-              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 ml-4"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-            {[
-              { label: 'Invoices scanned', value: agentPreview.invoicesScanned, color: 'text-gray-900 dark:text-white' },
-              { label: 'Emails to send', value: agentPreview.emailsWouldQueue, color: 'text-blue-600' },
-              { label: 'Payment plans', value: agentPreview.plansWouldOffer, color: 'text-purple-600' },
-              { label: 'Est. recovery', value: `$${agentPreview.estimatedRecoveryUsd.toLocaleString()}`, color: 'text-green-600' },
-            ].map(({ label, value, color }) => (
-              <div key={label} className="bg-white dark:bg-[#111113] rounded-lg p-3 text-center border border-gray-200 dark:border-white/[0.06]">
-                <div className={`text-xl font-bold ${color}`}>{value}</div>
-                <div className="text-xs text-gray-500 mt-0.5">{label}</div>
-              </div>
-            ))}
-          </div>
-          {agentPreview.previews.length > 0 && (
-            <div className="bg-white dark:bg-[#111113] rounded-lg border border-gray-200 dark:border-white/[0.06] mb-4 overflow-hidden">
-              <div className="divide-y divide-gray-100 dark:divide-gray-700">
-                {agentPreview.previews.slice(0, expandAll ? undefined : 5).map((item) => {
-                  const isEditing = editingEmail === item.invoiceId;
-                  const isSending = sendingIndividual === item.invoiceId;
-                  const overrideEmail = emailOverrides[item.invoiceId];
-                  return (
-                    <div key={`${item.invoiceId}-${item.emailType}`} className="px-4 py-3 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium text-gray-900 dark:text-white">{item.customerName}</span>
-                        <div className="flex items-center gap-2 flex-shrink-0 text-xs">
-                          <span className="text-gray-500">{item.daysOverdue}d</span>
-                          <span className="font-medium text-gray-700 dark:text-gray-300">${item.amount.toLocaleString()}</span>
-                          <span className={`px-1.5 py-0.5 rounded font-medium ${item.riskScore >= 80 ? 'bg-red-100 text-red-700' : item.riskScore >= 50 ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}`}>
-                            {item.riskScore}
-                          </span>
-                          <span className="bg-gray-100 dark:bg-white/[0.03] text-gray-600 dark:text-gray-300 px-1.5 py-0.5 rounded">
-                            {EMAIL_TYPE_SHORT[item.emailType] || item.emailType}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 text-xs">
-                        <span className="text-gray-500 flex-shrink-0">Email:</span>
-                        {isEditing ? (
-                          <input
-                            type="email"
-                            value={overrideEmail || item.recipientEmail}
-                            onChange={(e) => setEmailOverrides({ ...emailOverrides, [item.invoiceId]: e.target.value })}
-                            onBlur={() => setEditingEmail(null)}
-                            autoFocus
-                            className="flex-1 px-2 py-1 border border-blue-400 dark:border-blue-500 rounded bg-white dark:bg-white/[0.03] text-gray-900 dark:text-white text-xs focus:outline-none"
-                          />
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => setEditingEmail(item.invoiceId)}
-                            className="flex items-center gap-1 flex-1 min-w-0 px-2 py-1 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/[0.06] hover:text-gray-900 dark:hover:text-white rounded transition-colors group"
-                          >
-                            <span className="truncate">{overrideEmail || item.recipientEmail}</span>
-                            <svg className="w-3 h-3 flex-shrink-0 opacity-0 group-hover:opacity-60 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
-                          </button>
-                        )}
-                        <button
-                          onClick={() => setSelectedEmailForModal(item)}
-                          className="px-2 py-1 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors flex-shrink-0"
-                        >
-                          View
-                        </button>
-                        {!isDemo && (
-                          <button
-                            onClick={() => handleSendIndividual(item.invoiceId, item.recipientEmail)}
-                            disabled={isSending}
-                            className="px-2 py-1 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {isSending ? 'Sending...' : 'Send →'}
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-                {agentPreview.previews.length > 5 && !expandAll && (
-                  <button
-                    onClick={() => setExpandAll(true)}
-                    className="w-full px-4 py-2 text-xs text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-center transition-colors"
-                  >
-                    +{agentPreview.previews.length - 5} more
-                  </button>
-                )}
-                {expandAll && agentPreview.previews.length > 5 && (
-                  <button
-                    onClick={() => setExpandAll(false)}
-                    className="w-full px-4 py-2 text-xs text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-center transition-colors"
-                  >
-                    Show less
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-          {isDemo ? (
-            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg px-3 py-2 text-xs text-amber-800 dark:text-amber-400">
-              📌 Demo mode: Emails not sent. Click individual "Send →" buttons to test. Use <strong>"Use my real data →"</strong> in the top bar to connect your Stripe account.
-            </div>
-          ) : (
-            <div className="flex gap-3">
-              <Button size="sm" onClick={handleTriggerAgent} loading={triggeringAgent}>
-                <svg className="w-4 h-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-                Approve & Send {agentPreview.emailsWouldQueue} Email{agentPreview.emailsWouldQueue !== 1 ? 's' : ''}
-              </Button>
-              <Button variant="secondary" size="sm" onClick={() => setAgentPreview(null)}>
-                Skip This Batch
-              </Button>
-            </div>
-          )}
-        </div>
-      )}
+      {/* Cash Flow & Projections */}
+      <CashFlowSection
+        runway={runway}
+        cashPosition={cashPosition}
+        leakage={leakage}
+        customers={whatIfCustomers}
+        cashBalanceInput={cashBalanceInput}
+        onBalanceChange={setCashBalanceInput}
+        onBalanceSubmit={handleCashBalanceSubmit}
+        onWhatIf={handleWhatIf}
+        loading={loading}
+      />
 
-      {/* ═══ SECTION 6: CASH COMMAND CENTER ═══ */}
-      <div className="space-y-4">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Cash Command Center</h2>
-        <RunwayWidget runway={runway} loading={loading} />
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <CashPositionWidget
-            cashPosition={cashPosition}
-            cashBalanceInput={cashBalanceInput}
-            onBalanceChange={setCashBalanceInput}
-            onBalanceSubmit={handleCashBalanceSubmit}
-            loading={loading}
-          />
-          <WhatIfWidget onCalculate={handleWhatIf} customers={whatIfCustomers} />
-        </div>
-        <CashLeakageWidget leakage={leakage} loading={loading} />
-      </div>
+      {/* Risk Signals */}
+      <RiskDriversSection drivers={riskDrivers ?? undefined} loading={loading} />
 
-      {/* ═══ SECTION 7: AT-RISK + LEGACY STATS ═══ */}
-      <div className="space-y-4">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Risk Intelligence</h2>
-        <AtRiskWidget
-          atRiskCustomers={atRisk.map(c => ({
-            customerId: c.customerId,
-            customerName: c.name,
-            score: c.score,
-            signals: c.signals.map(s => s.description),
-            invoiceAmount: c.invoiceAmount || 0,
-            daysUntilDue: c.daysUntilDue || 0,
-          }))}
-          loading={loading}
-        />
-      </div>
+      {/* ════════════════════════════════════════════════════════════════ */}
+      {/* TIER 4: ACTION ITEMS & DETAILS — Collapsible sections */}
+      {/* ════════════════════════════════════════════════════════════════ */}
 
-      {/* ═══ SECTION 8: TABBED DETAIL TABLES ═══ */}
+      {/* At-Risk Customers with Quick Actions */}
+      <AtRiskCustomersSection
+        customers={atRisk.map(c => ({
+          customerId: c.customerId,
+          customerName: c.name,
+          score: c.score,
+          signals: c.signals.map(s => s.description),
+          invoiceAmount: c.invoiceAmount || 0,
+          daysUntilDue: c.daysUntilDue || 0,
+        }))}
+        loading={loading}
+      />
+
+      {/* Agent Activity Preview */}
+      <AgentActivitySection
+        preview={agentPreview}
+        loading={loading}
+        isDemo={isDemo}
+        onTrigger={handleTriggerAgent}
+        triggeringAgent={triggeringAgent}
+      />
+
+      {/* Detailed Analytics Tables (Optional, Collapsible) */}
       <DashboardDetailTabs
         atRiskList={riskList.map(c => ({
           customerId: c.customerId,

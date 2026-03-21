@@ -161,7 +161,9 @@ const Billing: React.FC = () => {
                     <Button variant="primary" onClick={() => setActiveTab('upgrade-plan')}>
                       Upgrade Plan →
                     </Button>
-                    <Button variant="outline">Manage Billing</Button>
+                    <Button variant="outline" onClick={() => setActiveTab('payment-methods')}>
+                      Manage Billing
+                    </Button>
                   </div>
                 </div>
 
