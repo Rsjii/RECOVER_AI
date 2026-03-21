@@ -5,6 +5,17 @@ import { api } from '../../lib/api';
 import { useAuth } from '../../hooks/useAuth';
 import { useNotification } from '../../hooks/useNotification';
 
+// Hide scrollbar but keep scrolling functional
+const scrollbarHideStyle = `
+  .sidebar-nav {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .sidebar-nav::-webkit-scrollbar {
+    display: none;
+  }
+`;
+
 interface SidebarSection {
   title: string;
   items: Array<{ path: string; label: string; icon: React.ReactNode }>;
@@ -69,11 +80,6 @@ const getSidebarSections = (isAdmin: boolean): SidebarSection[] => [
         label: 'Settings',
         icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>,
       },
-      {
-        path: '/policy',
-        label: 'Policy & Compliance',
-        icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m7-4a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
-      },
       ...(isAdmin
         ? [
             {
@@ -101,6 +107,8 @@ export const Sidebar: React.FC = () => {
   const [trial, setTrial] = useState<TrialInfo | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loadingDemoModal, setLoadingDemoModal] = useState(false);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'));
 
   useEffect(() => {
     api.get('/api/admin/metrics')
@@ -149,6 +157,34 @@ export const Sidebar: React.FC = () => {
     }
   };
 
+  const handleThemeToggle = () => {
+    const html = document.documentElement;
+    if (isDark) {
+      html.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+      setIsDark(false);
+      addToast({ type: 'info', message: 'Switched to light mode' });
+    } else {
+      html.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+      setIsDark(true);
+      addToast({ type: 'info', message: 'Switched to dark mode' });
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate('/login', { replace: true });
+    } catch (err: any) {
+      addToast({ type: 'error', message: 'Logout failed. Please try again.' });
+    }
+  };
+
+  const handleHelpClick = () => {
+    navigate('/support');
+  };
+
   const isDemo = localStorage.getItem('isDemo') === 'true';
   const { title, sub } = trialLabel();
   const isBadStatus = trial?.status === 'past_due' || trial?.status === 'canceled';
@@ -162,7 +198,9 @@ export const Sidebar: React.FC = () => {
   };
 
   return (
-    <aside className="w-64 bg-white dark:bg-[#111113] border-r border-gray-200 dark:border-white/[0.06] flex flex-col min-h-screen">
+    <>
+      <style>{scrollbarHideStyle}</style>
+      <aside className="w-64 bg-white dark:bg-[#111113] border-r border-gray-200 dark:border-white/[0.06] flex flex-col h-full">
       {/* Brand */}
       <div className="px-6 py-5 border-b border-gray-200 dark:border-white/[0.06] shrink-0">
         <Link to="/dashboard" className="flex items-center gap-2.5 hover:opacity-80 transition-opacity">
@@ -190,7 +228,7 @@ export const Sidebar: React.FC = () => {
       )}
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto">
+      <nav className="sidebar-nav flex-1 overflow-y-auto">
         {sections.map((section, idx) => (
           <div key={section.title} className={cn(idx > 0 && 'mt-4')}>
             {/* Section Header */}
@@ -295,23 +333,83 @@ export const Sidebar: React.FC = () => {
       </div>
 
       {/* Footer Actions */}
-      <div className="p-4 border-t border-gray-200 dark:border-white/[0.06] shrink-0 flex items-center justify-between">
-        <button className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors rounded-lg" title="Help">
+      <div className="p-4 border-t border-gray-200 dark:border-white/[0.06] shrink-0 flex items-center justify-between relative">
+        {/* Help Button */}
+        <button
+          onClick={handleHelpClick}
+          className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/[0.05] transition-colors rounded-lg"
+          title="Help & Documentation"
+        >
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.546-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
         </button>
-        <button className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors rounded-lg" title="Theme">
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-          </svg>
+
+        {/* Theme Toggle Button */}
+        <button
+          onClick={handleThemeToggle}
+          className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/[0.05] transition-colors rounded-lg"
+          title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+        >
+          {isDark ? (
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+            </svg>
+          ) : (
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+            </svg>
+          )}
         </button>
-        <button className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors rounded-lg" title="Profile">
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 12a3 3 0 11-6 0 3 3 0 016 0m6 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        </button>
+
+        {/* Profile Button with Dropdown */}
+        <div className="relative">
+          <button
+            onClick={() => setShowProfileMenu(!showProfileMenu)}
+            className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/[0.05] transition-colors rounded-lg"
+            title="Account"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 12a3 3 0 11-6 0 3 3 0 016 0m6 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </button>
+
+          {/* Profile Dropdown Menu */}
+          {showProfileMenu && (
+            <div className="absolute bottom-full right-0 mb-2 w-48 bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] rounded-lg shadow-lg z-50">
+              <div className="px-4 py-3 border-b border-gray-200 dark:border-white/[0.06]">
+                <p className="text-sm font-medium text-gray-900 dark:text-white">{user?.email?.split('@')[0] || 'User'}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{user?.email || 'email@example.com'}</p>
+              </div>
+              <button
+                onClick={() => {
+                  navigate('/settings?tab=profile');
+                  setShowProfileMenu(false);
+                }}
+                className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/[0.05] transition-colors flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                </svg>
+                Settings
+              </button>
+              <button
+                onClick={() => {
+                  handleLogout();
+                  setShowProfileMenu(false);
+                }}
+                className="w-full text-left px-4 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+                Sign Out
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </aside>
+    </>
   );
 };

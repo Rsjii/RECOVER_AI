@@ -62,7 +62,7 @@ const Customers: React.FC = () => {
     : customers;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Customers</h1>
         <div className="relative">

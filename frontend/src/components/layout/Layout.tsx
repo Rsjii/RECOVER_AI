@@ -25,8 +25,10 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         <Header onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
         <DemoBanner />
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6">
-          {children}
+        <main className="flex-1 overflow-y-auto bg-white dark:bg-[#09090b]">
+          <div className="p-4 sm:p-6 pb-8">
+            {children}
+          </div>
         </main>
       </div>
     </div>

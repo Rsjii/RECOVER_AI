@@ -10,7 +10,7 @@ export default function VerifyEmail() {
   const { addToast } = useNotification();
   const { setUser } = useAuth();
   const fromLocation = (location.state as any)?.from;
-  const from = typeof fromLocation === 'string' ? fromLocation : fromLocation?.pathname || '/dashboard';
+  const from = typeof fromLocation === 'string' ? fromLocation : fromLocation?.pathname || '/plan-selection';
   const [digits, setDigits] = useState(['', '', '', '', '', '']);
   const [loading, setLoading] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);

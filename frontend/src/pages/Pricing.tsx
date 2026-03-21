@@ -342,19 +342,19 @@ const Pricing: React.FC = () => {
       </section>
 
       {/* Footer */}
-      <footer className="bg-gray-900 text-gray-400 py-8">
+      <footer className="bg-gray-50 dark:bg-gray-900 text-gray-600 dark:text-gray-400 py-8 border-t border-gray-200 dark:border-white/[0.06]">
         <div className="max-w-6xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-3">
-          <Link to="/landing" className="text-white font-bold flex items-center gap-2">
-            <div className="w-5 h-5 rounded bg-blue-600 flex items-center justify-center text-xs">R</div>
+          <Link to="/landing" className="text-gray-900 dark:text-white font-bold flex items-center gap-2">
+            <div className="w-5 h-5 rounded bg-blue-600 flex items-center justify-center text-xs text-white">R</div>
             RecoverAI
           </Link>
           <div className="flex gap-4 text-sm">
-            <Link to="/terms" className="hover:text-white">Terms</Link>
-            <Link to="/privacy" className="hover:text-white">Privacy</Link>
-            <Link to="/security" className="hover:text-white">Security</Link>
-            <Link to="/dpa" className="hover:text-white">DPA</Link>
+            <Link to="/terms" className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">Terms</Link>
+            <Link to="/privacy" className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">Privacy</Link>
+            <Link to="/security" className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">Security</Link>
+            <Link to="/dpa" className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">DPA</Link>
           </div>
-          <p className="text-xs">2026 RecoverAI.</p>
+          <p className="text-xs text-gray-600 dark:text-gray-400">2026 RecoverAI.</p>
         </div>
       </footer>
     </div>

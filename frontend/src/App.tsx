@@ -24,6 +24,7 @@ import CookiePolicy from './pages/CookiePolicy';
 import Dpa from './pages/Dpa';
 import GoogleCallback from './pages/GoogleCallback';
 import Onboarding from './pages/Onboarding';
+import PlanSelection from './pages/PlanSelection';
 import StripeCallback from './pages/StripeCallback';
 import Unsubscribe from './pages/Unsubscribe';
 import BillingSuccess from './pages/BillingSuccess';
@@ -38,7 +39,6 @@ const Reports = React.lazy(() => import('./pages/Reports'));
 const Activity = React.lazy(() => import('./pages/Activity'));
 const Billing = React.lazy(() => import('./pages/Billing'));
 const Team = React.lazy(() => import('./pages/Team'));
-const PolicyCompliance = React.lazy(() => import('./pages/PolicyCompliance'));
 const Admin = React.lazy(() => import('./pages/Admin'));
 
 /**
@@ -137,7 +137,14 @@ const App: React.FC = () => {
                 </ProtectedRoute>
               }
             />
-            
+            <Route
+              path="/plan-selection"
+              element={
+                <ProtectedRoute>
+                  <PlanSelection />
+                </ProtectedRoute>
+              }
+            />
 
             {/* Protected routes (with Layout) — all require email verification */}
             {/* Root route "/" is handled by RootRedirect above */}
@@ -232,21 +239,6 @@ const App: React.FC = () => {
                 </ProtectedRoute>
               }
             />
-            <Route
-              path="/policy"
-              element={
-                <ProtectedRoute requireEmailVerification>
-                  <Layout>
-                    <PolicyCompliance />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/compliance"
-              element={<Navigate to="/policy" replace />}
-            />
-
             <Route
               path="/admin"
               element={

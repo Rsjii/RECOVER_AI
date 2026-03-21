@@ -73,9 +73,9 @@ type Tab = typeof TABS[number];
 
 const BUCKET_COLORS = ['#10b981', '#f59e0b', '#f97316', '#ef4444'];
 const STATUS_BADGE: Record<string, string> = {
-  active: 'bg-emerald-500/15 text-emerald-400',
-  completed: 'bg-blue-500/15 text-blue-400',
-  defaulted: 'bg-rose-500/15 text-rose-400',
+  active: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
+  completed: 'bg-blue-500/15 text-blue-600 dark:text-blue-400',
+  defaulted: 'bg-rose-500/15 text-rose-600 dark:text-rose-400',
 };
 
 const fmt = (v: number) => v >= 1000 ? `$${(v / 1000).toFixed(1)}K` : `$${v.toFixed(0)}`;
@@ -205,7 +205,7 @@ const Reports: React.FC = () => {
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col space-y-6 pb-6 min-h-full">
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Reports</h1>
@@ -215,7 +215,7 @@ const Reports: React.FC = () => {
               <select
                 value={months}
                 onChange={e => setMonths(Number(e.target.value))}
-                className="text-sm border border-white/10 rounded-lg px-3 py-2 bg-[#18181b] text-zinc-300"
+                className="text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 bg-white dark:bg-[#18181b] text-gray-700 dark:text-zinc-300"
               >
                 <option value={3}>Last 3 months</option>
                 <option value={6}>Last 6 months</option>
@@ -224,7 +224,7 @@ const Reports: React.FC = () => {
               <button
                 onClick={handleExportCSV}
                 disabled={!timeline.length}
-                className="flex items-center gap-2 px-4 py-2 bg-[#18181b] border border-white/10 rounded-lg text-sm text-zinc-300 hover:bg-white/[0.06] disabled:opacity-50"
+                className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-[#18181b] border border-gray-200 dark:border-white/10 rounded-lg text-sm text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-white/[0.06] disabled:opacity-50"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -237,7 +237,7 @@ const Reports: React.FC = () => {
             <select
               value={campaignPeriod}
               onChange={e => setCampaignPeriod(Number(e.target.value))}
-              className="text-sm border border-white/10 rounded-lg px-3 py-2 bg-[#18181b] text-zinc-300"
+              className="text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 bg-white dark:bg-[#18181b] text-gray-700 dark:text-zinc-300"
             >
               <option value={7}>Last 7 days</option>
               <option value={30}>Last 30 days</option>
@@ -248,15 +248,15 @@ const Reports: React.FC = () => {
       </div>
 
       {/* Tab Nav */}
-      <div className="flex border-b border-white/[0.06] overflow-x-auto">
+      <div className="flex border-b border-gray-200 dark:border-white/[0.06] overflow-x-auto">
         {TABS.map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
             className={`px-5 py-3 text-sm font-medium whitespace-nowrap transition-colors ${
               activeTab === tab
-                ? 'text-white border-b-2 border-indigo-500'
-                : 'text-zinc-400 hover:text-zinc-200'
+                ? 'text-gray-900 dark:text-white border-b-2 border-indigo-500'
+                : 'text-gray-500 dark:text-zinc-400 hover:text-gray-700 dark:hover:text-zinc-200'
             }`}
           >
             {tab}
@@ -279,19 +279,19 @@ const Reports: React.FC = () => {
                   { label: 'DSO', value: `${stats?.avgDaysToCollect ?? 0}d`, color: 'text-indigo-400', sub: 'days sales outstanding' },
                   { label: 'Overdue Invoices', value: String(stats?.overdueCount ?? 0), color: 'text-amber-400', sub: 'currently overdue' },
                 ].map(({ label, value, color, sub }) => (
-                  <div key={label} className="bg-[#111113] border border-white/[0.06] rounded-xl p-4">
-                    <p className="text-xs text-zinc-500 uppercase tracking-wide">{label}</p>
+                  <div key={label} className="bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] rounded-xl p-4">
+                    <p className="text-xs text-gray-500 dark:text-zinc-500 uppercase tracking-wide">{label}</p>
                     <p className={`text-2xl font-bold mt-1 ${color}`}>{value}</p>
-                    <p className="text-xs text-zinc-500 mt-0.5">{sub}</p>
+                    <p className="text-xs text-gray-500 dark:text-zinc-500 mt-0.5">{sub}</p>
                   </div>
                 ))}
               </div>
 
               {/* Recovery timeline area chart */}
-              <div className="bg-[#111113] border border-white/[0.06] rounded-xl p-5">
-                <h3 className="text-sm font-semibold text-white mb-4">Recovery Timeline</h3>
+              <div className="bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] rounded-xl p-5">
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-4">Recovery Timeline</h3>
                 {timeline.length === 0 ? (
-                  <div className="h-56 flex items-center justify-center text-zinc-500 text-sm">No data for this period</div>
+                  <div className="h-56 flex items-center justify-center text-gray-500 dark:text-zinc-500 text-sm">No data for this period</div>
                 ) : (
                   <ResponsiveContainer width="100%" height={220}>
                     <AreaChart data={timeline.map(r => ({ ...r, label: r.period.slice(0, 7) }))}>
@@ -302,7 +302,7 @@ const Reports: React.FC = () => {
                         formatter={(v: any, name: any) => [formatCurrency(v), name === 'recovered_amount' ? 'Recovered' : 'Invoiced']}
                         contentStyle={{ background: chartColors.tooltip.background, border: `1px solid ${chartColors.tooltip.border}`, borderRadius: 8, color: chartColors.tooltip.color }}
                       />
-                      <Legend formatter={v => <span className="text-xs text-zinc-400">{v === 'recovered_amount' ? 'Recovered' : 'Invoiced'}</span>} />
+                      <Legend formatter={v => <span className="text-xs text-gray-500 dark:text-zinc-400">{v === 'recovered_amount' ? 'Recovered' : 'Invoiced'}</span>} />
                       <Area type="monotone" dataKey="amount_created" stroke="#6366f1" fill={isDark ? 'rgba(99,102,241,0.1)' : '#e0e7ff'} strokeWidth={2} />
                       <Area type="monotone" dataKey="recovered_amount" stroke="#10b981" fill={isDark ? 'rgba(16,185,129,0.1)' : '#d1fae5'} strokeWidth={2} />
                     </AreaChart>
@@ -312,8 +312,8 @@ const Reports: React.FC = () => {
 
               {/* KPI trends line chart */}
               {kpiTrends.length > 0 && (
-                <div className="bg-[#111113] border border-white/[0.06] rounded-xl p-5">
-                  <h3 className="text-sm font-semibold text-white mb-4">Recovery Rate Trend</h3>
+                <div className="bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] rounded-xl p-5">
+                  <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-4">Recovery Rate Trend</h3>
                   <ResponsiveContainer width="100%" height={180}>
                     <LineChart data={kpiTrends}>
                       <CartesianGrid stroke={chartColors.grid} strokeDasharray="3 3" vertical={false} />
@@ -323,7 +323,7 @@ const Reports: React.FC = () => {
                         formatter={(v: any, name: any) => [`${v}%`, name === 'recoveryRate' ? 'Recovery Rate' : 'Email Open Rate']}
                         contentStyle={{ background: chartColors.tooltip.background, border: `1px solid ${chartColors.tooltip.border}`, borderRadius: 8, color: chartColors.tooltip.color }}
                       />
-                      <Legend formatter={v => <span className="text-xs text-zinc-400">{v === 'recoveryRate' ? 'Recovery Rate' : 'Email Open Rate'}</span>} />
+                      <Legend formatter={v => <span className="text-xs text-gray-500 dark:text-zinc-400">{v === 'recoveryRate' ? 'Recovery Rate' : 'Email Open Rate'}</span>} />
                       <Line type="monotone" dataKey="recoveryRate" name="Recovery Rate" stroke="#10b981" strokeWidth={2} dot={false} />
                       <Line type="monotone" dataKey="openRate" name="Email Open Rate" stroke="#6366f1" strokeWidth={2} dot={false} strokeDasharray="4 2" />
                     </LineChart>
@@ -333,14 +333,14 @@ const Reports: React.FC = () => {
 
               {/* Period breakdown table */}
               {timeline.length > 0 && (
-                <div className="bg-[#111113] border border-white/[0.06] rounded-xl overflow-hidden">
-                  <div className="px-5 py-4 border-b border-white/[0.05]">
-                    <h3 className="text-sm font-semibold text-white">Period Breakdown</h3>
+                <div className="bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] rounded-xl overflow-hidden">
+                  <div className="px-5 py-4 border-b border-gray-100 dark:border-white/[0.05]">
+                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Period Breakdown</h3>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-xs">
                       <thead>
-                        <tr className="text-zinc-500 border-b border-white/[0.05]">
+                        <tr className="text-gray-500 dark:text-zinc-500 border-b border-gray-100 dark:border-white/[0.05]">
                           <th className="text-left px-5 py-3 font-medium">Period</th>
                           <th className="text-right px-5 py-3 font-medium">Total Invoices</th>
                           <th className="text-right px-5 py-3 font-medium">Recovered</th>
@@ -353,14 +353,14 @@ const Reports: React.FC = () => {
                         {timeline.map((r, i) => {
                           const rate = r.total_count > 0 ? Math.round((r.recovered_count / r.total_count) * 100) : 0;
                           return (
-                            <tr key={i} className="border-b border-white/[0.03] hover:bg-white/[0.02]">
-                              <td className="px-5 py-3 text-white font-medium">{formatMonth(r.period.slice(0, 7))}</td>
-                              <td className="px-5 py-3 text-right text-zinc-400">{r.total_count}</td>
-                              <td className="px-5 py-3 text-right text-zinc-400">{r.recovered_count}</td>
-                              <td className="px-5 py-3 text-right text-zinc-400">{formatCurrency(r.amount_created)}</td>
-                              <td className="px-5 py-3 text-right text-emerald-400 font-medium">{formatCurrency(r.recovered_amount)}</td>
+                            <tr key={i} className="border-b border-gray-50 dark:border-white/[0.03] hover:bg-gray-50 dark:hover:bg-white/[0.02]">
+                              <td className="px-5 py-3 text-gray-900 dark:text-white font-medium">{formatMonth(r.period.slice(0, 7))}</td>
+                              <td className="px-5 py-3 text-right text-gray-600 dark:text-zinc-400">{r.total_count}</td>
+                              <td className="px-5 py-3 text-right text-gray-600 dark:text-zinc-400">{r.recovered_count}</td>
+                              <td className="px-5 py-3 text-right text-gray-600 dark:text-zinc-400">{formatCurrency(r.amount_created)}</td>
+                              <td className="px-5 py-3 text-right text-emerald-600 dark:text-emerald-400 font-medium">{formatCurrency(r.recovered_amount)}</td>
                               <td className="px-5 py-3 text-right">
-                                <span className={`font-medium ${rate >= 50 ? 'text-emerald-400' : rate >= 25 ? 'text-amber-400' : 'text-rose-400'}`}>{rate}%</span>
+                                <span className={`font-medium ${rate >= 50 ? 'text-emerald-600 dark:text-emerald-400' : rate >= 25 ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'}`}>{rate}%</span>
                               </td>
                             </tr>
                           );
@@ -385,7 +385,7 @@ const Reports: React.FC = () => {
               {/* Summary metric cards */}
               <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                 {[
-                  { label: 'Emails Sent', value: (campaignTotals?.sent ?? 0).toLocaleString(), color: 'text-white' },
+                  { label: 'Emails Sent', value: (campaignTotals?.sent ?? 0).toLocaleString(), color: 'text-gray-900 dark:text-white' },
                   {
                     label: 'Open Rate',
                     value: `${campaignTotals?.openRate ?? 0}%`,
@@ -401,25 +401,25 @@ const Reports: React.FC = () => {
                   { label: 'CTOR', value: `${campaignTotals?.ctor ?? 0}%`, color: 'text-indigo-400', sub: 'click-to-open' },
                   { label: 'Bounced', value: (campaignTotals?.bounced ?? 0).toLocaleString(), color: 'text-amber-400' },
                 ].map(({ label, value, color, sub }) => (
-                  <div key={label} className="bg-[#111113] border border-white/[0.06] rounded-xl p-4">
-                    <p className="text-[10px] text-zinc-500 uppercase tracking-wide">{label}</p>
+                  <div key={label} className="bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] rounded-xl p-4">
+                    <p className="text-[10px] text-gray-500 dark:text-zinc-500 uppercase tracking-wide">{label}</p>
                     <p className={`text-xl font-bold mt-1 ${color}`}>{value}</p>
-                    {sub && <p className="text-[11px] text-zinc-500 mt-0.5">{sub}</p>}
+                    {sub && <p className="text-[11px] text-gray-500 dark:text-zinc-500 mt-0.5">{sub}</p>}
                   </div>
                 ))}
               </div>
 
               {/* Bar chart: sent vs opened vs clicked by type */}
               {campaignByType.length > 0 && (
-                <div className="bg-[#111113] border border-white/[0.06] rounded-xl p-5">
-                  <h3 className="text-sm font-semibold text-white mb-4">Engagement by Email Type</h3>
+                <div className="bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] rounded-xl p-5">
+                  <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-4">Engagement by Email Type</h3>
                   <ResponsiveContainer width="100%" height={200}>
                     <BarChart data={campaignByType.map(r => ({ ...r, label: r.type.replace(/_/g, ' ') }))}>
                       <CartesianGrid stroke={chartColors.grid} strokeDasharray="3 3" vertical={false} />
                       <XAxis dataKey="label" tick={{ fill: chartColors.axis, fontSize: 10 }} axisLine={false} tickLine={false} />
                       <YAxis tick={{ fill: chartColors.axis, fontSize: 10 }} axisLine={false} tickLine={false} width={30} />
                       <Tooltip contentStyle={{ background: chartColors.tooltip.background, border: `1px solid ${chartColors.tooltip.border}`, borderRadius: 8, color: chartColors.tooltip.color }} />
-                      <Legend formatter={v => <span className="text-xs text-zinc-400 capitalize">{v}</span>} />
+                      <Legend formatter={v => <span className="text-xs text-gray-500 dark:text-zinc-400 capitalize">{v}</span>} />
                       <Bar dataKey="sent" fill="#6366f1" name="Sent" radius={[2,2,0,0]} />
                       <Bar dataKey="opened" fill="#10b981" name="Opened" radius={[2,2,0,0]} />
                       <Bar dataKey="clicked" fill="#f59e0b" name="Clicked" radius={[2,2,0,0]} />
@@ -430,14 +430,14 @@ const Reports: React.FC = () => {
 
               {/* Detailed table */}
               {campaignByType.length > 0 ? (
-                <div className="bg-[#111113] border border-white/[0.06] rounded-xl overflow-hidden">
-                  <div className="px-5 py-4 border-b border-white/[0.05]">
-                    <h3 className="text-sm font-semibold text-white">Campaign Breakdown</h3>
+                <div className="bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] rounded-xl overflow-hidden">
+                  <div className="px-5 py-4 border-b border-gray-100 dark:border-white/[0.05]">
+                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Campaign Breakdown</h3>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-xs">
                       <thead>
-                        <tr className="text-zinc-500 border-b border-white/[0.05]">
+                        <tr className="text-gray-500 dark:text-zinc-500 border-b border-gray-100 dark:border-white/[0.05]">
                           <th className="text-left px-5 py-3 font-medium">Email Type</th>
                           <th className="text-right px-5 py-3 font-medium">Sent</th>
                           <th className="text-right px-5 py-3 font-medium">Opened</th>
@@ -448,13 +448,13 @@ const Reports: React.FC = () => {
                       </thead>
                       <tbody>
                         {campaignByType.map((row, i) => (
-                          <tr key={i} className="border-b border-white/[0.03] hover:bg-white/[0.02]">
-                            <td className="px-5 py-3 text-zinc-200 capitalize">{row.type.replace(/_/g, ' ')}</td>
-                            <td className="px-5 py-3 text-right text-zinc-300">{row.sent}</td>
-                            <td className="px-5 py-3 text-right text-zinc-400">{row.opened}</td>
-                            <td className={`px-5 py-3 text-right font-medium ${row.openRate >= BENCHMARKS.emailOpenRate.target ? 'text-emerald-400' : 'text-zinc-400'}`}>{row.openRate}%</td>
-                            <td className="px-5 py-3 text-right text-zinc-400">{row.clicked}</td>
-                            <td className={`px-5 py-3 text-right font-medium ${row.ctr >= BENCHMARKS.emailCtr.target ? 'text-emerald-400' : 'text-zinc-400'}`}>{row.ctr}%</td>
+                          <tr key={i} className="border-b border-gray-50 dark:border-white/[0.03] hover:bg-gray-50 dark:hover:bg-white/[0.02]">
+                            <td className="px-5 py-3 text-gray-800 dark:text-zinc-200 capitalize">{row.type.replace(/_/g, ' ')}</td>
+                            <td className="px-5 py-3 text-right text-gray-700 dark:text-zinc-300">{row.sent}</td>
+                            <td className="px-5 py-3 text-right text-gray-600 dark:text-zinc-400">{row.opened}</td>
+                            <td className={`px-5 py-3 text-right font-medium ${row.openRate >= BENCHMARKS.emailOpenRate.target ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-500 dark:text-zinc-400'}`}>{row.openRate}%</td>
+                            <td className="px-5 py-3 text-right text-gray-600 dark:text-zinc-400">{row.clicked}</td>
+                            <td className={`px-5 py-3 text-right font-medium ${row.ctr >= BENCHMARKS.emailCtr.target ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-500 dark:text-zinc-400'}`}>{row.ctr}%</td>
                           </tr>
                         ))}
                       </tbody>
@@ -462,8 +462,8 @@ const Reports: React.FC = () => {
                   </div>
                 </div>
               ) : (
-                <div className="bg-[#111113] border border-white/[0.06] rounded-xl p-10 text-center">
-                  <p className="text-zinc-500 text-sm">No campaign data for this period</p>
+                <div className="bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] rounded-xl p-10 text-center">
+                  <p className="text-gray-500 dark:text-zinc-500 text-sm">No campaign data for this period</p>
                 </div>
               )}
             </>
@@ -477,27 +477,27 @@ const Reports: React.FC = () => {
           {loadingAging ? (
             <div className="flex justify-center py-20"><Spinner size="lg" text="Loading aging data..." /></div>
           ) : agingBuckets.length === 0 ? (
-            <div className="bg-[#111113] border border-white/[0.06] rounded-xl p-10 text-center">
-              <p className="text-zinc-500 text-sm">No outstanding invoices</p>
+            <div className="bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] rounded-xl p-10 text-center">
+              <p className="text-gray-500 dark:text-zinc-500 text-sm">No outstanding invoices</p>
             </div>
           ) : (
             <>
               {/* Summary cards */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {agingBuckets.map((b, i) => (
-                  <div key={i} className="bg-[#111113] border border-white/[0.06] rounded-xl p-4">
-                    <p className="text-[10px] text-zinc-500 uppercase tracking-wide">{b.bucket}</p>
-                    <p className="text-xl font-bold text-white mt-1">{fmt(b.totalAmount)}</p>
-                    <p className="text-[11px] text-zinc-500 mt-0.5">{b.invoiceCount} invoice{b.invoiceCount !== 1 ? 's' : ''} · {b.pctOfTotal}%</p>
+                  <div key={i} className="bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] rounded-xl p-4">
+                    <p className="text-[10px] text-gray-500 dark:text-zinc-500 uppercase tracking-wide">{b.bucket}</p>
+                    <p className="text-xl font-bold text-gray-900 dark:text-white mt-1">{fmt(b.totalAmount)}</p>
+                    <p className="text-[11px] text-gray-500 dark:text-zinc-500 mt-0.5">{b.invoiceCount} invoice{b.invoiceCount !== 1 ? 's' : ''} · {b.pctOfTotal}%</p>
                   </div>
                 ))}
               </div>
 
               {/* Horizontal bar chart */}
-              <div className="bg-[#111113] border border-white/[0.06] rounded-xl p-5">
+              <div className="bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] rounded-xl p-5">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-semibold text-white">A/R Aging Distribution</h3>
-                  <span className="text-xs text-zinc-400">Total: {fmt(agingTotal)}</span>
+                  <h3 className="text-sm font-semibold text-gray-900 dark:text-white">A/R Aging Distribution</h3>
+                  <span className="text-xs text-gray-600 dark:text-zinc-400">Total: {fmt(agingTotal)}</span>
                 </div>
                 <ResponsiveContainer width="100%" height={160}>
                   <BarChart data={agingBuckets} layout="vertical">
@@ -515,13 +515,13 @@ const Reports: React.FC = () => {
               </div>
 
               {/* Detail table */}
-              <div className="bg-[#111113] border border-white/[0.06] rounded-xl overflow-hidden">
-                <div className="px-5 py-4 border-b border-white/[0.05]">
-                  <h3 className="text-sm font-semibold text-white">Aging Detail</h3>
+              <div className="bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] rounded-xl overflow-hidden">
+                <div className="px-5 py-4 border-b border-gray-100 dark:border-white/[0.05]">
+                  <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Aging Detail</h3>
                 </div>
                 <table className="w-full text-xs">
                   <thead>
-                    <tr className="text-zinc-500 border-b border-white/[0.05]">
+                    <tr className="text-gray-500 dark:text-zinc-500 border-b border-gray-100 dark:border-white/[0.05]">
                       <th className="text-left px-5 py-3 font-medium">Bucket</th>
                       <th className="text-right px-5 py-3 font-medium">Invoices</th>
                       <th className="text-right px-5 py-3 font-medium">Amount</th>
@@ -531,19 +531,19 @@ const Reports: React.FC = () => {
                   </thead>
                   <tbody>
                     {agingBuckets.map((b, i) => (
-                      <tr key={i} className="border-b border-white/[0.03] hover:bg-white/[0.02]">
-                        <td className="px-5 py-3 text-white font-medium">{b.bucket}</td>
-                        <td className="px-5 py-3 text-right text-zinc-400">{b.invoiceCount}</td>
-                        <td className="px-5 py-3 text-right font-medium text-white">{fmt(b.totalAmount)}</td>
+                      <tr key={i} className="border-b border-gray-50 dark:border-white/[0.03] hover:bg-gray-50 dark:hover:bg-white/[0.02]">
+                        <td className="px-5 py-3 text-gray-900 dark:text-white font-medium">{b.bucket}</td>
+                        <td className="px-5 py-3 text-right text-gray-600 dark:text-zinc-400">{b.invoiceCount}</td>
+                        <td className="px-5 py-3 text-right font-medium text-gray-900 dark:text-white">{fmt(b.totalAmount)}</td>
                         <td className="px-5 py-3 text-right">
                           <div className="flex items-center justify-end gap-2">
-                            <div className="w-16 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                            <div className="w-16 h-1.5 bg-gray-200 dark:bg-white/10 rounded-full overflow-hidden">
                               <div className="h-full rounded-full" style={{ width: `${b.pctOfTotal}%`, background: BUCKET_COLORS[i] }} />
                             </div>
-                            <span className="text-zinc-300 w-8 text-right">{b.pctOfTotal}%</span>
+                            <span className="text-gray-700 dark:text-zinc-300 w-8 text-right">{b.pctOfTotal}%</span>
                           </div>
                         </td>
-                        <td className="px-5 py-3 text-right text-zinc-400">{b.avgDaysOverdue}d</td>
+                        <td className="px-5 py-3 text-right text-gray-600 dark:text-zinc-400">{b.avgDaysOverdue}d</td>
                       </tr>
                     ))}
                   </tbody>
@@ -560,8 +560,8 @@ const Reports: React.FC = () => {
           {loadingPlans ? (
             <div className="flex justify-center py-20"><Spinner size="lg" text="Loading payment plans..." /></div>
           ) : !plansSummary || (plansSummary.activePlans + plansSummary.completedPlans + plansSummary.defaultedPlans === 0) ? (
-            <div className="bg-[#111113] border border-white/[0.06] rounded-xl p-10 text-center">
-              <p className="text-zinc-500 text-sm">No payment plans created yet</p>
+            <div className="bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] rounded-xl p-10 text-center">
+              <p className="text-gray-500 dark:text-zinc-500 text-sm">No payment plans created yet</p>
             </div>
           ) : (
             <>
@@ -571,10 +571,10 @@ const Reports: React.FC = () => {
                   { label: 'Active Plans', value: plansSummary.activePlans, color: 'text-emerald-400' },
                   { label: 'Acceptance Rate', value: `${plansSummary.acceptanceRate}%`, color: plansSummary.acceptanceRate >= BENCHMARKS.planAcceptance.target ? 'text-emerald-400' : 'text-amber-400' },
                   { label: 'Completion Rate', value: `${plansSummary.completionRate}%`, color: plansSummary.completionRate >= BENCHMARKS.planCompletion.target ? 'text-emerald-400' : 'text-amber-400' },
-                  { label: 'Active Value', value: fmt(plansSummary.activeValue), color: 'text-white' },
+                  { label: 'Active Value', value: fmt(plansSummary.activeValue), color: 'text-gray-900 dark:text-white' },
                 ].map(({ label, value, color }) => (
-                  <div key={label} className="bg-[#111113] border border-white/[0.06] rounded-xl p-4">
-                    <p className="text-[10px] text-zinc-500 uppercase tracking-wide">{label}</p>
+                  <div key={label} className="bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] rounded-xl p-4">
+                    <p className="text-[10px] text-gray-500 dark:text-zinc-500 uppercase tracking-wide">{label}</p>
                     <p className={`text-xl font-bold mt-1 ${color}`}>{value}</p>
                   </div>
                 ))}
@@ -587,23 +587,23 @@ const Reports: React.FC = () => {
                   { label: 'Completed', count: plansSummary.completedPlans, color: 'text-blue-400', bg: 'bg-blue-500/10' },
                   { label: 'Defaulted', count: plansSummary.defaultedPlans, color: 'text-rose-400', bg: 'bg-rose-500/10' },
                 ].map(({ label, count, color, bg }) => (
-                  <div key={label} className={`${bg} border border-white/[0.06] rounded-xl p-4 text-center`}>
+                  <div key={label} className={`${bg} border border-gray-200 dark:border-white/[0.06] rounded-xl p-4 text-center`}>
                     <p className={`text-2xl font-bold ${color}`}>{count}</p>
-                    <p className="text-xs text-zinc-400 mt-1">{label}</p>
+                    <p className="text-xs text-gray-600 dark:text-zinc-400 mt-1">{label}</p>
                   </div>
                 ))}
               </div>
 
               {/* Plans table */}
               {plans.length > 0 && (
-                <div className="bg-[#111113] border border-white/[0.06] rounded-xl overflow-hidden">
-                  <div className="px-5 py-4 border-b border-white/[0.05]">
-                    <h3 className="text-sm font-semibold text-white">All Payment Plans</h3>
+                <div className="bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] rounded-xl overflow-hidden">
+                  <div className="px-5 py-4 border-b border-gray-100 dark:border-white/[0.05]">
+                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white">All Payment Plans</h3>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-xs">
                       <thead>
-                        <tr className="text-zinc-500 border-b border-white/[0.05]">
+                        <tr className="text-gray-500 dark:text-zinc-500 border-b border-gray-100 dark:border-white/[0.05]">
                           <th className="text-left px-5 py-3 font-medium">Customer</th>
                           <th className="text-right px-5 py-3 font-medium">Amount</th>
                           <th className="text-center px-5 py-3 font-medium">Status</th>
@@ -613,24 +613,24 @@ const Reports: React.FC = () => {
                       </thead>
                       <tbody>
                         {plans.map((p, i) => (
-                          <tr key={i} className="border-b border-white/[0.03] hover:bg-white/[0.02]">
+                          <tr key={i} className="border-b border-gray-50 dark:border-white/[0.03] hover:bg-gray-50 dark:hover:bg-white/[0.02]">
                             <td className="px-5 py-3">
-                              <p className="text-white font-medium">{p.customerName}</p>
-                              <p className="text-zinc-500 text-[10px]">{p.customerEmail}</p>
+                              <p className="text-gray-900 dark:text-white font-medium">{p.customerName}</p>
+                              <p className="text-gray-500 dark:text-zinc-500 text-[10px]">{p.customerEmail}</p>
                             </td>
-                            <td className="px-5 py-3 text-right text-white font-medium">{fmt(p.totalAmount)}</td>
+                            <td className="px-5 py-3 text-right text-gray-900 dark:text-white font-medium">{fmt(p.totalAmount)}</td>
                             <td className="px-5 py-3 text-center">
                               <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${STATUS_BADGE[p.status] ?? ''}`}>{p.status}</span>
                             </td>
                             <td className="px-5 py-3 text-right">
                               <div className="flex items-center justify-end gap-2">
-                                <div className="w-16 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                                <div className="w-16 h-1.5 bg-gray-200 dark:bg-white/10 rounded-full overflow-hidden">
                                   <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${p.pctComplete}%` }} />
                                 </div>
-                                <span className="text-zinc-400 w-8 text-right">{p.pctComplete}%</span>
+                                <span className="text-gray-600 dark:text-zinc-400 w-8 text-right">{p.pctComplete}%</span>
                               </div>
                             </td>
-                            <td className="px-5 py-3 text-right text-zinc-400">
+                            <td className="px-5 py-3 text-right text-gray-600 dark:text-zinc-400">
                               {p.nextDueDate ? new Date(p.nextDueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}
                             </td>
                           </tr>

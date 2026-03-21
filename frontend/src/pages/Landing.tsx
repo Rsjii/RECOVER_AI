@@ -390,22 +390,22 @@ const Landing: React.FC = () => {
       </section>
 
       {/* Footer */}
-      <footer className="bg-gray-900 text-gray-400 py-10">
+      <footer className="bg-gray-50 dark:bg-gray-900 text-gray-600 dark:text-gray-400 py-10 border-t border-gray-200 dark:border-white/[0.06]">
         <div className="max-w-6xl mx-auto px-6">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-2 text-white font-bold">
-              <div className="w-6 h-6 rounded bg-blue-600 flex items-center justify-center text-xs">R</div>
+            <div className="flex items-center gap-2 text-gray-900 dark:text-white font-bold">
+              <div className="w-6 h-6 rounded bg-blue-600 flex items-center justify-center text-xs text-white">R</div>
               RecoverAI
             </div>
             <div className="flex flex-wrap gap-4 text-sm justify-center">
-              <Link to="/pricing" className="hover:text-white">Pricing</Link>
-              <Link to="/security" className="hover:text-white">Security</Link>
-              <Link to="/terms" className="hover:text-white">Terms</Link>
-              <Link to="/privacy" className="hover:text-white">Privacy</Link>
-              <Link to="/cookie-policy" className="hover:text-white">Cookies</Link>
-              <Link to="/dpa" className="hover:text-white">DPA</Link>
+              <Link to="/pricing" className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">Pricing</Link>
+              <Link to="/security" className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">Security</Link>
+              <Link to="/terms" className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">Terms</Link>
+              <Link to="/privacy" className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">Privacy</Link>
+              <Link to="/cookie-policy" className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">Cookies</Link>
+              <Link to="/dpa" className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">DPA</Link>
             </div>
-            <p className="text-xs">2026 RecoverAI. All rights reserved.</p>
+            <p className="text-xs text-gray-600 dark:text-gray-400">2026 RecoverAI. All rights reserved.</p>
           </div>
         </div>
       </footer>

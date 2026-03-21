@@ -24,7 +24,7 @@ function CustomTooltip({ active, payload }: any) {
   if (!active || !payload?.length) return null;
   const d = payload[0].payload as AgingBucket;
   return (
-    <div className="bg-[#18181b] border border-white/10 rounded-lg px-3 py-2 text-xs shadow-xl">
+    <div className="bg-gray-900 border border-white/10 rounded-lg px-3 py-2 text-xs shadow-xl">
       <p className="font-semibold text-white mb-1">{d.label} ({d.days})</p>
       <p className="text-zinc-300">{fmt(d.amount)}</p>
       <p className="text-zinc-400">{d.invoiceCount} invoice{d.invoiceCount !== 1 ? 's' : ''}</p>
@@ -40,13 +40,13 @@ export default function AgingAnalysisChart({ buckets, totalAr, loading = false }
 
   if (loading) {
     return (
-      <div className="bg-[#111113] border border-white/[0.06] rounded-xl p-5 animate-pulse h-56">
-        <div className="h-3 w-36 bg-white/10 rounded mb-4" />
+      <div className="bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] rounded-xl p-5 animate-pulse h-56">
+        <div className="h-3 w-36 bg-gray-200 dark:bg-white/10 rounded mb-4" />
         <div className="space-y-3 mt-6">
           {[80, 35, 20, 12].map((w, i) => (
             <div key={i} className="flex items-center gap-3">
-              <div className="h-3 w-16 bg-white/10 rounded" />
-              <div className="h-5 bg-white/10 rounded" style={{ width: `${w}%` }} />
+              <div className="h-3 w-16 bg-gray-200 dark:bg-white/10 rounded" />
+              <div className="h-5 bg-gray-200 dark:bg-white/10 rounded" style={{ width: `${w}%` }} />
             </div>
           ))}
         </div>
@@ -57,12 +57,12 @@ export default function AgingAnalysisChart({ buckets, totalAr, loading = false }
   const data = buckets.map((b, i) => ({ ...b, color: BUCKET_COLORS[i] }));
 
   return (
-    <div className="bg-[#111113] border border-white/[0.06] rounded-xl p-5 flex-1">
+    <div className="bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] rounded-xl p-5 flex-1">
       <div className="flex items-center justify-between mb-1">
-        <h3 className="text-sm font-semibold text-white">A/R Aging</h3>
-        <span className="text-xs text-zinc-400">Total: {fmt(totalAr)}</span>
+        <h3 className="text-sm font-semibold text-gray-900 dark:text-white">A/R Aging</h3>
+        <span className="text-xs text-gray-500 dark:text-zinc-400">Total: {fmt(totalAr)}</span>
       </div>
-      <p className="text-xs text-zinc-500 mb-4">Unpaid invoices by days outstanding</p>
+      <p className="text-xs text-gray-500 dark:text-zinc-500 mb-4">Unpaid invoices by days outstanding</p>
 
       <ResponsiveContainer width="100%" height={160}>
         <BarChart data={data} layout="vertical" margin={{ top: 0, right: 48, left: 0, bottom: 0 }}>
@@ -75,7 +75,7 @@ export default function AgingAnalysisChart({ buckets, totalAr, loading = false }
             tickLine={false}
             width={62}
           />
-          <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
+          <Tooltip content={<CustomTooltip />} cursor={{ fill: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)' }} />
           <Bar dataKey="amount" radius={[0, 4, 4, 0]} maxBarSize={22}>
             {data.map((entry, i) => (
               <Cell key={i} fill={entry.color} />
@@ -95,7 +95,7 @@ export default function AgingAnalysisChart({ buckets, totalAr, loading = false }
         {buckets.map((b, i) => (
           <div key={i} className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-sm flex-shrink-0" style={{ background: BUCKET_COLORS[i] }} />
-            <span className="text-[11px] text-zinc-400">{b.label} ({b.pctOfTotal}%)</span>
+            <span className="text-[11px] text-gray-500 dark:text-zinc-400">{b.label} ({b.pctOfTotal}%)</span>
           </div>
         ))}
       </div>

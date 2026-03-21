@@ -257,7 +257,7 @@ const DemoLaunch: React.FC = () => {
           </ul>
           <button
             onClick={handleSignup}
-            className="w-full bg-gray-900 dark:bg-white hover:bg-gray-800 dark:hover:bg-gray-100 text-white dark:text-gray-900 text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors"
+            className="w-full bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors"
           >
             Connect Stripe →
           </button>

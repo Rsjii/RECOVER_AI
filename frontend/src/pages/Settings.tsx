@@ -106,7 +106,7 @@ const Settings: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-white dark:bg-[#09090b]">
+    <div className="bg-white dark:bg-[#09090b]">
       {/* Header */}
       <div className="border-b border-gray-200 dark:border-white/[0.06] bg-white dark:bg-[#111113]">
         <div className="max-w-6xl mx-auto px-6 sm:px-8 py-16">
@@ -139,7 +139,7 @@ const Settings: React.FC = () => {
       </div>
 
       {/* Content */}
-      <div className="max-w-6xl mx-auto px-6 sm:px-8 py-12">
+      <div className="max-w-6xl mx-auto px-6 sm:px-8 py-8">
         <div className="max-w-3xl">
           {/* Profile Tab */}
           {activeTab === 'profile' && (
@@ -316,7 +316,7 @@ const Settings: React.FC = () => {
               <div className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-white/[0.03] dark:to-white/[0.01] rounded-2xl border border-gray-200 dark:border-white/[0.06] p-8 opacity-60">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-2xl font-bold text-gray-900 dark:text-white">API Keys</h2>
-                  <span className="text-xs bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-3 py-1 rounded-full font-semibold">Enterprise</span>
+                  <span className="text-xs bg-gray-100 dark:bg-white/[0.08] text-gray-700 dark:text-gray-300 px-3 py-1 rounded-full font-semibold">Enterprise</span>
                 </div>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">Programmatic access for custom integrations and automation. Coming soon for enterprise customers.</p>
               </div>
@@ -325,7 +325,7 @@ const Settings: React.FC = () => {
               <div className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-white/[0.03] dark:to-white/[0.01] rounded-2xl border border-gray-200 dark:border-white/[0.06] p-8 opacity-60">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Webhooks</h2>
-                  <span className="text-xs bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-3 py-1 rounded-full font-semibold">Enterprise</span>
+                  <span className="text-xs bg-gray-100 dark:bg-white/[0.08] text-gray-700 dark:text-gray-300 px-3 py-1 rounded-full font-semibold">Enterprise</span>
                 </div>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">Real-time events for payments, recoveries, and alerts. Coming soon for enterprise customers.</p>
               </div>

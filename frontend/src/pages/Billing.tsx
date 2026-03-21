@@ -3,6 +3,7 @@ import { api } from '../lib/api';
 import { API_ENDPOINTS } from '../lib/constants';
 import { Button } from '../components/ui/Button';
 import { Spinner } from '../components/ui/Spinner';
+import { useNotification } from '../hooks/useNotification';
 import type { BillingInvoice } from '../types';
 import { formatCurrency, formatDate } from '../lib/utils';
 
@@ -14,11 +15,13 @@ const Billing: React.FC = () => {
     document.title = 'Billing — RecoverAI';
   }, []);
 
+  const { addToast } = useNotification();
   const [activeTab, setActiveTab] = useState<BillingTab>('subscription');
   const [billingInterval, setBillingInterval] = useState<BillingInterval>('monthly');
   const [subscription, setSubscription] = useState<any>(null);
   const [invoices, setInvoices] = useState<BillingInvoice[]>([]);
   const [loading, setLoading] = useState(true);
+  const [upgradeLoading, setUpgradeLoading] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -40,21 +43,39 @@ const Billing: React.FC = () => {
   };
 
   const handleChangePlan = async (planCode: string) => {
+    setUpgradeLoading(true);
     try {
+      console.log('Initiating plan change:', { planCode, billingInterval });
       const res = await api.post(API_ENDPOINTS.billing.checkout, {
         plan: planCode,
         billingInterval,
       });
-      if ((res as any).checkoutUrl) {
-        window.location.href = (res as any).checkoutUrl;
+      console.log('Checkout response:', res);
+
+      const data = (res as any).data;
+      if (data?.checkoutUrl) {
+        console.log('Redirecting to:', data.checkoutUrl);
+        window.location.href = data.checkoutUrl;
+      } else {
+        console.error('No checkoutUrl in response:', data);
+        addToast({
+          type: 'error',
+          message: 'Failed to generate checkout link. Please try again.',
+        });
       }
-    } catch (err) {
-      console.error('Upgrade failed:', err);
+    } catch (err: any) {
+      console.error('Plan upgrade failed:', err);
+      addToast({
+        type: 'error',
+        message: err?.response?.data?.error || 'Failed to upgrade plan. Please try again.',
+      });
+    } finally {
+      setUpgradeLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-[#09090b] py-8 px-4">
+    <div className="bg-gray-50 dark:bg-[#09090b] py-8 px-4">
       <div className="max-w-5xl mx-auto">
         {/* Header */}
         <div className="mb-8">
@@ -337,7 +358,8 @@ const Billing: React.FC = () => {
 
                     <Button
                       variant={subscription?.plan_code === 'phase_0' ? 'outline' : 'primary'}
-                      disabled={subscription?.plan_code === 'phase_0'}
+                      disabled={subscription?.plan_code === 'phase_0' || upgradeLoading}
+                      loading={upgradeLoading}
                       onClick={() => handleChangePlan('phase_0')}
                       className="w-full"
                     >
@@ -397,7 +419,8 @@ const Billing: React.FC = () => {
 
                     <Button
                       variant={subscription?.plan_code === 'growth' ? 'outline' : 'primary'}
-                      disabled={subscription?.plan_code === 'growth'}
+                      disabled={subscription?.plan_code === 'growth' || upgradeLoading}
+                      loading={upgradeLoading}
                       onClick={() => handleChangePlan('growth')}
                       className="w-full"
                     >
