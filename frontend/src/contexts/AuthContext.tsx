@@ -5,7 +5,7 @@ import { API_ENDPOINTS } from '../lib/constants';
 
 export interface AuthContextType extends AuthState {
   login: (email: string, password: string) => Promise<void>;
-  signup: (email: string, password: string, companyName: string, firstName?: string, lastName?: string) => Promise<void>;
+  signup: (email: string, password: string, companyName: string, firstName?: string, lastName?: string, planCode?: string) => Promise<void>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
   setUser: (user: User | null) => void;
@@ -99,6 +99,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     companyName: string,
     firstName?: string,
     lastName?: string,
+    planCode?: string,
   ) => {
     localStorage.removeItem('isDemo');
     dispatch({ type: 'SET_LOADING', payload: true });
@@ -110,6 +111,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         companyName,
         firstName,
         lastName,
+        planCode,
       });
       const { user, company } = response;
       dispatch({ type: 'LOGIN_SUCCESS', payload: { user, company } });

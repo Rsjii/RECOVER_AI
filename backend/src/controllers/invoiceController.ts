@@ -24,15 +24,15 @@ export const listInvoices = async (req: Request, res: Response) => {
 
   try {
     const companyId = (req as any).companyId;
-    const { status, customerId, page = '1', limit = '50' } = req.query as Record<string, string>;
+    const { status, customerId, agingBucket, page = '1', limit = '50' } = req.query as Record<string, string>;
 
     const pageNum = Math.max(1, parseInt(page) || 1);
     const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 50));
     const offset = (pageNum - 1) * limitNum;
 
-    logInfo(handler, 'Request received', { companyId, status, customerId, page: pageNum, limit: limitNum });
+    logInfo(handler, 'Request received', { companyId, status, customerId, agingBucket, page: pageNum, limit: limitNum });
 
-    const { data, total } = await InvoiceDB.listInvoices(companyId, { status, customerId }, limitNum, offset);
+    const { data, total } = await InvoiceDB.listInvoices(companyId, { status, customerId, agingBucket }, limitNum, offset);
 
     logInfo(handler, `Completed in ${Date.now() - startTime}ms`, { total, returned: data.length });
 

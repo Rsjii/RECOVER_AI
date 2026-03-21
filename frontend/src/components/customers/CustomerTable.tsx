@@ -10,6 +10,47 @@ interface CustomerTableProps {
   onRowClick: (customer: Customer) => void;
 }
 
+function getRiskColor(score: number | null | undefined) {
+  if (score == null) return 'bg-gray-400';
+  if (score > 60) return 'bg-rose-500';
+  if (score > 30) return 'bg-amber-500';
+  return 'bg-emerald-500';
+}
+
+function getRiskLabel(score: number | null | undefined) {
+  if (score == null) return '—';
+  if (score > 60) return 'High';
+  if (score > 30) return 'Med';
+  return 'Low';
+}
+
+function RiskSignals({ customer }: { customer: Customer }) {
+  const badges: { title: string; icon: string }[] = [];
+
+  const now = new Date();
+  if (customer.card_expires_at) {
+    const expiry = new Date(customer.card_expires_at);
+    const daysUntil = Math.floor((expiry.getTime() - now.getTime()) / 86400000);
+    if (daysUntil < 30) badges.push({ title: `Card expires ${daysUntil < 0 ? 'expired' : `in ${daysUntil}d`}`, icon: '💳' });
+  }
+
+  if (customer.last_activity_at) {
+    const daysSince = Math.floor((now.getTime() - new Date(customer.last_activity_at).getTime()) / 86400000);
+    if (daysSince > 21) badges.push({ title: `Inactive ${daysSince}d`, icon: '😴' });
+  }
+
+  if (customer.last_decline_type === 'hard') badges.push({ title: 'Hard decline', icon: '📉' });
+
+  if (badges.length === 0) return null;
+  return (
+    <div className="flex gap-1 flex-wrap">
+      {badges.map((b) => (
+        <span key={b.title} title={b.title} className="text-sm cursor-default">{b.icon}</span>
+      ))}
+    </div>
+  );
+}
+
 export const CustomerTable: React.FC<CustomerTableProps> = ({ customers, loading, pagination, onRowClick }) => {
   if (loading) return <div className="flex justify-center py-12"><Spinner text="Loading..." /></div>;
   if (customers.length === 0) return <div className="text-center py-12 text-gray-500 dark:text-gray-400">No customers found</div>;
@@ -21,9 +62,10 @@ export const CustomerTable: React.FC<CustomerTableProps> = ({ customers, loading
           <tr>
             <th className="px-6 py-3 font-semibold text-gray-900 dark:text-white">Customer</th>
             <th className="px-6 py-3 font-semibold text-gray-900 dark:text-white">Company</th>
+            <th className="px-6 py-3 font-semibold text-gray-900 dark:text-white">Risk</th>
+            <th className="px-6 py-3 font-semibold text-gray-900 dark:text-white">Signals</th>
             <th className="px-6 py-3 font-semibold text-gray-900 dark:text-white">On-Time Rate</th>
             <th className="px-6 py-3 font-semibold text-gray-900 dark:text-white">Invoices</th>
-            <th className="px-6 py-3 font-semibold text-gray-900 dark:text-white">Avg Days Late</th>
           </tr>
         </thead>
         <tbody>
@@ -36,6 +78,16 @@ export const CustomerTable: React.FC<CustomerTableProps> = ({ customers, loading
               </td>
               <td className="px-6 py-4 text-gray-600 dark:text-gray-300">{c.company_name || '—'}</td>
               <td className="px-6 py-4">
+                <div className="flex items-center gap-1.5">
+                  <div className={`w-2 h-2 rounded-full ${getRiskColor(c.max_risk_score)}`} />
+                  <span className="text-xs font-medium">{getRiskLabel(c.max_risk_score)}</span>
+                  {c.max_risk_score != null && (
+                    <span className="text-xs text-gray-400">({Math.round(c.max_risk_score)})</span>
+                  )}
+                </div>
+              </td>
+              <td className="px-6 py-4"><RiskSignals customer={c} /></td>
+              <td className="px-6 py-4">
                 <div className="flex items-center gap-2">
                   <div className="w-16 h-2 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
                     <div className={`h-full rounded-full ${
@@ -47,7 +99,6 @@ export const CustomerTable: React.FC<CustomerTableProps> = ({ customers, loading
                 </div>
               </td>
               <td className="px-6 py-4">{c.payment_history.total_invoices}</td>
-              <td className="px-6 py-4">{c.payment_history.avg_days_late}d</td>
             </tr>
           ))}
         </tbody>

@@ -10,6 +10,10 @@ export interface Customer {
   phone?: string;
   phone_opt_in?: boolean;
   industry?: string;
+  card_expires_at?: string | null;
+  last_activity_at?: string | null;
+  max_risk_score?: number | null;
+  last_decline_type?: string | null;
   payment_history: {
     on_time_rate: number;
     avg_days_late: number;

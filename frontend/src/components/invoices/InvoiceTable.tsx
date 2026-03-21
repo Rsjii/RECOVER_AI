@@ -80,8 +80,15 @@ export const InvoiceTable: React.FC<InvoiceTableProps> = ({
     },
   ];
 
+  const rowClassName = (inv: Invoice) => {
+    const score = Number(inv.risk_score) || 0;
+    if (score > 60) return 'border-l-2 border-l-rose-500';
+    if (score > 30) return 'border-l-2 border-l-amber-500';
+    return '';
+  };
+
   return (
     <Table<Invoice> data={invoices} columns={columns}
-      onRowClick={onRowClick} loading={loading} pagination={pagination} />
+      onRowClick={onRowClick} loading={loading} pagination={pagination} rowClassName={rowClassName} />
   );
 };

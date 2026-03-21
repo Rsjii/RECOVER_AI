@@ -7,6 +7,14 @@ import { CustomerModal } from '../components/customers/CustomerModal';
 import { Button } from '../components/ui/Button';
 import type { Customer } from '../types';
 
+const riskTiers = [
+  { value: '', label: 'All' },
+  { value: 'high', label: 'High Risk' },
+  { value: 'medium', label: 'Medium Risk' },
+  { value: 'low', label: 'Low Risk' },
+  { value: 'none', label: 'No Risk' },
+];
+
 const Customers: React.FC = () => {
   useEffect(() => {
     document.title = 'Customers — RecoverAI';
@@ -20,17 +28,20 @@ const Customers: React.FC = () => {
   const [selected, setSelected] = useState<Customer | null>(null);
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [riskTier, setRiskTier] = useState('');
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search.trim().toLowerCase()), 250);
     return () => clearTimeout(t);
   }, [search]);
 
-  const fetchCustomers = useCallback(async (p: number) => {
+  const fetchCustomers = useCallback(async (p: number, tier: string) => {
     setLoading(true);
     try {
+      const params = new URLSearchParams({ page: String(p), limit: String(PAGINATION_LIMIT) });
+      if (tier) params.set('riskTier', tier);
       const res = await api.get<{ data: Customer[]; total: number; page: number; totalPages: number }>(
-        `${API_ENDPOINTS.customers.list}?page=${p}&limit=${PAGINATION_LIMIT}`
+        `${API_ENDPOINTS.customers.list}?${params}`
       );
       setCustomers(res.data);
       setTotal(res.total);
@@ -42,7 +53,7 @@ const Customers: React.FC = () => {
     }
   }, [addToast]);
 
-  useEffect(() => { fetchCustomers(page); }, [page]);
+  useEffect(() => { fetchCustomers(page, riskTier); }, [page, riskTier]);
 
   const filtered = debouncedSearch
     ? customers.filter(
@@ -64,15 +75,34 @@ const Customers: React.FC = () => {
         </div>
       </div>
 
+      {/* Risk tier filter pills */}
+      <div className="flex gap-2 flex-wrap">
+        {riskTiers.map((t) => (
+          <button
+            key={t.value}
+            onClick={() => { setRiskTier(t.value); setPage(1); }}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+              riskTier === t.value
+                ? 'bg-indigo-600 text-white'
+                : 'bg-gray-100 dark:bg-white/[0.06] text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-white/[0.1]'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
       {!loading && total === 0 && (
         <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-xl p-8 text-center">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">No customers yet</h3>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">No customers found</h3>
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-            Customers will appear automatically after your first invoice sync.
+            {riskTier ? 'No customers match this risk tier filter.' : 'Customers will appear automatically after your first invoice sync.'}
           </p>
-          <Button variant="outline" onClick={() => window.location.assign('/invoices')}>
-            Go to Invoices
-          </Button>
+          {!riskTier && (
+            <Button variant="outline" onClick={() => window.location.assign('/invoices')}>
+              Go to Invoices
+            </Button>
+          )}
         </div>
       )}
 

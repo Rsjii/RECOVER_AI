@@ -78,6 +78,7 @@ export const API_ENDPOINTS = {
     syncRecovered: '/api/billing/usage/sync-recovered',
     reconcileUsage: '/api/billing/usage/reconcile',
     entitlements: '/api/billing/entitlements',
+    checkout: '/api/billing/checkout',
   },
   team: {
     members: '/api/team/members',

@@ -4,7 +4,7 @@ import { cn } from '../../lib/utils';
 import { Button } from './Button';
 
 export const Table = <T extends Record<string, any>>({
-  data, columns, onRowClick, loading = false, pagination,
+  data, columns, onRowClick, loading = false, rowClassName, pagination,
 }: TableProps<T>): React.ReactElement => {
   const [sortKey, setSortKey] = useState<keyof T | null>(null);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
@@ -76,7 +76,7 @@ export const Table = <T extends Record<string, any>>({
         <tbody>
           {sortedData.map((row, idx) => (
             <tr key={idx} onClick={() => onRowClick?.(row)}
-              className={cn('border-b border-gray-200 dark:border-white/[0.06]', onRowClick && 'hover:bg-gray-50 dark:hover:bg-white/[0.03] cursor-pointer transition-colors')}>
+              className={cn('border-b border-gray-200 dark:border-white/[0.06]', onRowClick && 'hover:bg-gray-50 dark:hover:bg-white/[0.03] cursor-pointer transition-colors', rowClassName?.(row))}>
               {columns.map((col) => (
                 <td key={String(col.key)} className="px-6 py-4">
                   {col.render ? col.render(row[col.key], row) : String(row[col.key] ?? '')}

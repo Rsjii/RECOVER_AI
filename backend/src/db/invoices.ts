@@ -59,7 +59,7 @@ export async function createManualInvoice(input: CreateInvoiceInput): Promise<In
 
 export async function listInvoices(
   companyId: string,
-  filters: { status?: string; customerId?: string } = {},
+  filters: { status?: string; customerId?: string; agingBucket?: string } = {},
   limit = 50,
   offset = 0
 ): Promise<{ data: InvoiceRow[]; total: number }> {
@@ -75,6 +75,23 @@ export async function listInvoices(
   if (filters.customerId) {
     conditions.push(`i.customer_id = $${paramIndex++}`);
     params.push(filters.customerId);
+  }
+
+  if (filters.agingBucket) {
+    switch (filters.agingBucket) {
+      case '0-30':
+        conditions.push(`i.due_date >= NOW() - INTERVAL '30 days'`);
+        break;
+      case '31-60':
+        conditions.push(`i.due_date < NOW() - INTERVAL '30 days' AND i.due_date >= NOW() - INTERVAL '60 days'`);
+        break;
+      case '61-90':
+        conditions.push(`i.due_date < NOW() - INTERVAL '60 days' AND i.due_date >= NOW() - INTERVAL '90 days'`);
+        break;
+      case '90+':
+        conditions.push(`i.due_date < NOW() - INTERVAL '90 days'`);
+        break;
+    }
   }
 
   const where = conditions.join(' AND ');

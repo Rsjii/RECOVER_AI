@@ -33,6 +33,7 @@ const Signup: React.FC = () => {
     password?: string;
     company_name?: string;
   }>({});
+  const [planCode, setPlanCode] = useState<'phase_0' | 'growth'>('phase_0');
   const [submitting, setSubmitting] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
 
@@ -83,7 +84,7 @@ const Signup: React.FC = () => {
     setApiError(null);
     setSubmitting(true);
     try {
-      await signup(form.email, form.password, form.company_name, form.firstName, form.lastName);
+      await signup(form.email, form.password, form.company_name, form.firstName, form.lastName, planCode);
       addToast({ type: 'success', message: 'Account created! Verify your email to continue.' });
       // Use replace: true to remove signup page from history
       navigate('/verify-email', { replace: true });
@@ -221,6 +222,32 @@ const Signup: React.FC = () => {
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{strength.message}</p>
                 </div>
               )}
+            </div>
+
+            {/* Plan Selector */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Choose your plan</label>
+              <div className="grid grid-cols-2 gap-3">
+                {([
+                  { code: 'phase_0', label: 'Free Trial', price: '$0 for 30 days', sub: 'Then Growth pricing' },
+                  { code: 'growth', label: 'Growth', price: '$2,500/mo', sub: '+ tiered success fees' },
+                ] as const).map((plan) => (
+                  <button
+                    key={plan.code}
+                    type="button"
+                    onClick={() => setPlanCode(plan.code)}
+                    className={`text-left p-3 rounded-lg border-2 transition-colors ${
+                      planCode === plan.code
+                        ? 'border-brand-600 bg-brand-50 dark:bg-brand-600/10'
+                        : 'border-gray-200 dark:border-white/[0.08] hover:border-gray-300 dark:hover:border-white/20'
+                    }`}
+                  >
+                    <p className={`text-sm font-semibold ${planCode === plan.code ? 'text-brand-700 dark:text-brand-300' : 'text-gray-900 dark:text-white'}`}>{plan.label}</p>
+                    <p className={`text-xs mt-0.5 font-medium ${planCode === plan.code ? 'text-brand-600 dark:text-brand-400' : 'text-gray-600 dark:text-gray-400'}`}>{plan.price}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-500">{plan.sub}</p>
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Submit */}

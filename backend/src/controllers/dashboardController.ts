@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
-import { getRecoveryStats, getInvoicePipeline, getCustomerRiskList } from '../db/dashboard';
+import { getRecoveryStats, getInvoicePipeline, getCustomerRiskList, getDashboardKpi, getAgingAnalysis, getEmailAnalytics, getRiskDrivers, getPaymentPlansSummary } from '../db/dashboard';
+import { listPaymentsByCompany } from '../db/payments';
 import { pool } from '../config/database';
 import { logError, logInfo } from '../utils/logger';
 import { sendErrorResponse, parseError } from '../utils/errorHandler';
@@ -223,6 +224,152 @@ export const getCashLeakageHandler = async (req: Request, res: Response): Promis
     res.status(200).json({ data: result });
   } catch (error) {
     logError(LOG_MODULE, handler, 'Failed to analyze cash leakage', error);
+    const { statusCode, message } = parseError(error);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
+
+/**
+ * GET /api/dashboard/kpi
+ * CFO-level KPIs: DSO, CEI, Recovery Rate, Revenue at Risk, Involuntary Churn, At-Risk Count
+ */
+export const getKpi = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'getKpi';
+  const companyId = (req as any).companyId;
+  try {
+    const kpi = await getDashboardKpi(companyId);
+    logInfo(LOG_MODULE, handler, 'KPIs fetched', { companyId });
+    res.status(200).json({ data: kpi });
+  } catch (error) {
+    logError(LOG_MODULE, handler, 'Failed to get KPIs', error);
+    const { statusCode, message } = parseError(error);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
+
+/**
+ * GET /api/dashboard/aging-analysis
+ * A/R breakdown by aging bucket (0–30, 31–60, 61–90, 90+)
+ */
+export const getAgingAnalysisHandler = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'getAgingAnalysis';
+  const companyId = (req as any).companyId;
+  try {
+    const aging = await getAgingAnalysis(companyId);
+    logInfo(LOG_MODULE, handler, 'Aging analysis fetched', { companyId, totalAr: aging.totalAr });
+    res.status(200).json({ data: aging });
+  } catch (error) {
+    logError(LOG_MODULE, handler, 'Failed to get aging analysis', error);
+    const { statusCode, message } = parseError(error);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
+
+/**
+ * GET /api/dashboard/email-analytics
+ * Email open rate, CTR, CTOR, conversions by type (last 30 days)
+ */
+export const getEmailAnalyticsHandler = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'getEmailAnalytics';
+  const companyId = (req as any).companyId;
+  try {
+    const analytics = await getEmailAnalytics(companyId);
+    logInfo(LOG_MODULE, handler, 'Email analytics fetched', { companyId, sent: analytics.sent });
+    res.status(200).json({ data: analytics });
+  } catch (error) {
+    logError(LOG_MODULE, handler, 'Failed to get email analytics', error);
+    const { statusCode, message } = parseError(error);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
+
+/**
+ * GET /api/dashboard/risk-drivers
+ * Count of customers by risk signal type
+ */
+export const getRiskDriversHandler = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'getRiskDrivers';
+  const companyId = (req as any).companyId;
+  try {
+    const drivers = await getRiskDrivers(companyId);
+    logInfo(LOG_MODULE, handler, 'Risk drivers fetched', { companyId, total: drivers.total });
+    res.status(200).json({ data: drivers });
+  } catch (error) {
+    logError(LOG_MODULE, handler, 'Failed to get risk drivers', error);
+    const { statusCode, message } = parseError(error);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
+
+/**
+ * GET /api/dashboard/payment-plans-summary
+ * Active plans, acceptance %, completion %, total value, recent plans list
+ */
+export const getPaymentPlansSummaryHandler = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'getPaymentPlansSummary';
+  const companyId = (req as any).companyId;
+  try {
+    const summary = await getPaymentPlansSummary(companyId);
+    logInfo(LOG_MODULE, handler, 'Payment plans summary fetched', { companyId, active: summary.activePlans });
+    res.status(200).json({ data: summary });
+  } catch (error) {
+    logError(LOG_MODULE, handler, 'Failed to get payment plans summary', error);
+    const { statusCode, message } = parseError(error);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
+
+/**
+ * GET /api/dashboard/payment-events
+ * Recent payment events for the Activity page
+ */
+export const getPaymentEvents = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'getPaymentEvents';
+  const companyId = (req as any).companyId;
+  const limit = Math.min(100, parseInt(req.query.limit as string) || 50);
+  try {
+    const result = await pool.query(
+      `SELECT p.*, i.amount AS invoice_amount, c.name AS customer_name, c.email AS customer_email
+       FROM payments p
+       JOIN invoices i ON i.id = p.invoice_id
+       JOIN customers c ON c.id = i.customer_id
+       WHERE p.company_id = $1
+       ORDER BY p.paid_at DESC
+       LIMIT $2`,
+      [companyId, limit]
+    );
+    logInfo(LOG_MODULE, handler, 'Payment events fetched', { companyId, count: result.rowCount });
+    res.status(200).json({ data: result.rows });
+  } catch (error) {
+    logError(LOG_MODULE, handler, 'Failed to get payment events', error);
+    const { statusCode, message } = parseError(error);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
+
+/**
+ * GET /api/dashboard/sms-activity
+ * Invoices with SMS sent, ordered by last SMS date
+ */
+export const getSmsActivity = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'getSmsActivity';
+  const companyId = (req as any).companyId;
+  const limit = Math.min(100, parseInt(req.query.limit as string) || 50);
+  try {
+    const result = await pool.query(
+      `SELECT i.id, i.sms_count, i.last_sms_sent_at, i.amount, i.currency,
+              c.name AS customer_name, c.email AS customer_email, c.phone AS customer_phone
+       FROM invoices i
+       JOIN customers c ON c.id = i.customer_id
+       WHERE i.company_id = $1 AND i.sms_count > 0
+       ORDER BY i.last_sms_sent_at DESC
+       LIMIT $2`,
+      [companyId, limit]
+    );
+    logInfo(LOG_MODULE, handler, 'SMS activity fetched', { companyId, count: result.rowCount });
+    res.status(200).json({ data: result.rows });
+  } catch (error) {
+    logError(LOG_MODULE, handler, 'Failed to get SMS activity', error);
     const { statusCode, message } = parseError(error);
     sendErrorResponse(res, statusCode, message);
   }

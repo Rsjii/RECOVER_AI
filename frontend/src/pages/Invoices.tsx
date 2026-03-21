@@ -27,6 +27,7 @@ const Invoices: React.FC = () => {
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selected, setSelected] = useState<Invoice | null>(null);
+  const [agingBucket, setAgingBucket] = useState('');
   const [syncing, setSyncing] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showCSVModal, setShowCSVModal] = useState(false);
@@ -36,11 +37,12 @@ const Invoices: React.FC = () => {
     return () => clearTimeout(t);
   }, [search]);
 
-  const fetchInvoices = useCallback(async (p: number, s: string) => {
+  const fetchInvoices = useCallback(async (p: number, s: string, bucket: string) => {
     setLoading(true);
     try {
       const params = new URLSearchParams({ page: String(p), limit: String(PAGINATION_LIMIT) });
       if (s) params.set('status', s);
+      if (bucket) params.set('agingBucket', bucket);
       const res = await api.get<{ data: Invoice[]; total: number; page: number; totalPages: number }>(
         `${API_ENDPOINTS.invoices.list}?${params}`
       );
@@ -54,14 +56,14 @@ const Invoices: React.FC = () => {
     }
   }, [addToast]);
 
-  useEffect(() => { fetchInvoices(page, status); }, [page, status]);
+  useEffect(() => { fetchInvoices(page, status, agingBucket); }, [page, status, agingBucket]);
 
   const handleSync = async () => {
     setSyncing(true);
     try {
       await api.post(API_ENDPOINTS.stripe.sync);
       addToast({ type: 'success', message: 'Invoices synced from Stripe' });
-      fetchInvoices(1, status);
+      fetchInvoices(1, status, agingBucket);
       setPage(1);
     } catch (err: any) {
       addToast({ type: 'error', message: err.message || 'Sync failed' });
@@ -104,9 +106,17 @@ const Invoices: React.FC = () => {
           <BulkActions onSync={handleSync} onScheduleEmails={handleSchedule} syncing={syncing} />
         </div>
       </div>
-      <FilterBar status={status} onStatusChange={(s) => { setStatus(s); setPage(1); }}
-        search={search} onSearchChange={setSearch}
-        onRefresh={() => fetchInvoices(page, status)} loading={loading} />
+
+      <FilterBar
+        status={status}
+        onStatusChange={(s) => { setStatus(s); setPage(1); }}
+        agingBucket={agingBucket}
+        onAgingBucketChange={(b) => { setAgingBucket(b); setPage(1); }}
+        search={search}
+        onSearchChange={setSearch}
+        onRefresh={() => fetchInvoices(page, status, agingBucket)}
+        loading={loading}
+      />
 
       {!loading && total === 0 && (
         <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-8 text-center">
@@ -125,11 +135,11 @@ const Invoices: React.FC = () => {
         pagination={{ page, pages: totalPages, limit: PAGINATION_LIMIT, total, onPageChange: setPage }}
         onRowClick={setSelected} />
       <InvoiceModal invoice={selected} isOpen={!!selected}
-        onClose={() => setSelected(null)} onStatusUpdate={() => fetchInvoices(page, status)} />
+        onClose={() => setSelected(null)} onStatusUpdate={() => fetchInvoices(page, status, agingBucket)} />
       <ManualInvoiceModal isOpen={showCreateModal} onClose={() => setShowCreateModal(false)}
-        onCreated={() => fetchInvoices(1, status)} />
+        onCreated={() => fetchInvoices(1, status, agingBucket)} />
       <CSVUploadModal isOpen={showCSVModal} onClose={() => setShowCSVModal(false)}
-        onSuccess={() => fetchInvoices(1, status)} />
+        onSuccess={() => fetchInvoices(1, status, agingBucket)} />
     </div>
   );
 };

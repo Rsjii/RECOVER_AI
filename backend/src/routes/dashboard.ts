@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { authMiddleware } from '../middleware/auth';
 import { requireActiveSubscription } from '../middleware/subscriptionGate';
-import { getStats, getPipeline, getRiskList, getRecoveryTimeline, getAtRisk, getCashPositionHandler, updateCashBalanceHandler, getWhatIfHandler, getRunwayHandler, getCashLeakageHandler } from '../controllers/dashboardController';
+import { getStats, getPipeline, getRiskList, getRecoveryTimeline, getAtRisk, getCashPositionHandler, updateCashBalanceHandler, getWhatIfHandler, getRunwayHandler, getCashLeakageHandler, getKpi, getAgingAnalysisHandler, getEmailAnalyticsHandler, getRiskDriversHandler, getPaymentPlansSummaryHandler, getPaymentEvents, getSmsActivity } from '../controllers/dashboardController';
 import { runDecisionEngineNow, runDecisionEngineDryRun } from '../queue/agentLoop';
 import { findInvoiceById } from '../db/invoices';
 import { queueEmailNow } from '../queue/dunningQueue';
@@ -21,6 +21,13 @@ router.put('/cash-balance', updateCashBalanceHandler);
 router.post('/cash-whatif', getWhatIfHandler);
 router.get('/runway', getRunwayHandler);
 router.get('/cash-leakage', getCashLeakageHandler);
+router.get('/kpi', getKpi);
+router.get('/aging-analysis', getAgingAnalysisHandler);
+router.get('/email-analytics', getEmailAnalyticsHandler);
+router.get('/risk-drivers', getRiskDriversHandler);
+router.get('/payment-plans-summary', getPaymentPlansSummaryHandler);
+router.get('/payment-events', getPaymentEvents);
+router.get('/sms-activity', getSmsActivity);
 
 /**
  * POST /api/dashboard/agent/trigger

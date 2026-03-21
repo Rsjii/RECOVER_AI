@@ -59,6 +59,7 @@ export interface TableProps<T> {
   columns: TableColumn<T>[];
   onRowClick?: (row: T) => void;
   loading?: boolean;
+  rowClassName?: (row: T) => string;
   pagination?: {
     page: number;
     pages: number;

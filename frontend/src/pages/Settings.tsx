@@ -11,7 +11,7 @@ import { GeneralSection } from '../components/settings/GeneralSection';
 import { cn } from '../lib/utils';
 import type { CompanySettings } from '../types';
 
-type SettingsTab = 'account' | 'notifications' | 'integrations' | 'automation' | 'security' | 'billing' | 'general';
+type SettingsTab = 'account' | 'notifications' | 'integrations' | 'automation' | 'security' | 'general';
 
 const TABS: Array<{ id: SettingsTab; label: string; icon: React.ReactNode; description: string }> = [
   {
@@ -45,30 +45,12 @@ const TABS: Array<{ id: SettingsTab; label: string; icon: React.ReactNode; descr
     description: 'Sessions, API keys, and security',
   },
   {
-    id: 'billing',
-    label: 'Billing',
-    icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8c-1.657 0-3 .672-3 1.5S10.343 11 12 11s3-.672 3-1.5S13.657 8 12 8z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11.5c0 2.485-3.134 4.5-7 4.5s-7-2.015-7-4.5m14 0V8.5C19 6.015 15.866 4 12 4S5 6.015 5 8.5v7c0 2.485 3.134 4.5 7 4.5s7-2.015 7-4.5v-4z" /></svg>,
-    description: 'Plan, usage, and billing info',
-  },
-  {
     id: 'general',
     label: 'General',
     icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>,
     description: 'Timezone, currency, and preferences',
   },
 ];
-
-const PLAN_LABELS: Record<string, string> = {
-  phase_0: 'Free Trial',
-  growth: 'Growth',
-  enterprise: 'Enterprise',
-};
-
-const PLAN_PRICING: Record<string, string> = {
-  phase_0: '$0/month (21-day trial)',
-  growth: '$2,500/month + tiered success fee (5% / 3% / 2%)',
-  enterprise: '$5,000/month + tiered success fee (4% / 2.5% / 1.5%)',
-};
 
 const EMAIL_TEMPLATES = [
   { id: 'dunning_1', name: 'First Reminder', delay: 'Day 1 past due', desc: 'Friendly payment reminder with invoice details' },
@@ -78,18 +60,58 @@ const EMAIL_TEMPLATES = [
   { id: 'dunning_5', name: 'Account Action', delay: 'Day 30 past due', desc: 'Service suspension warning with escalation' },
 ];
 
+interface TemplatePreviewModalProps {
+  template: typeof EMAIL_TEMPLATES[0] | null;
+  onClose: () => void;
+}
+
+const TemplatePreviewModal: React.FC<TemplatePreviewModalProps> = ({ template, onClose }) => {
+  if (!template) return null;
+
+  const sampleBodies: Record<string, string> = {
+    dunning_1: `Hi [Customer Name],\n\nThis is a friendly reminder that invoice #INV-1234 for $3,500.00 was due on March 15, 2026.\n\nWe understand things get busy — please take a moment to process payment at your earliest convenience.\n\n[Pay Now →]\n\nIf you have any questions, just reply to this email.\n\nBest regards,\n[Company Name]`,
+    dunning_2: `Hi [Customer Name],\n\nWe noticed invoice #INV-1234 ($3,500.00) is now 8 days past due.\n\nTo avoid any disruption to your service, please process payment today:\n\n[Pay Now →]\n\nIf you're experiencing any issues, we're happy to discuss a payment arrangement.\n\nRegards,\n[Company Name]`,
+    dunning_3: `Hi [Customer Name],\n\nInvoice #INV-1234 ($3,500.00) is now 15 days past due. We'd like to help you resolve this.\n\nWould a payment plan work better for your situation? We can split this into 3 monthly payments with no additional fees.\n\n[Pay in Full →]  [Set Up Payment Plan →]\n\nPlease respond by [Date] to avoid account action.\n\n[Company Name]`,
+    dunning_4: `Hi [Customer Name],\n\nThis is your final notice regarding invoice #INV-1234 ($3,500.00), now 22 days past due.\n\nYour account will be reviewed for service changes if payment is not received within 72 hours.\n\n[Pay Now →]\n\nTo discuss options, call us at [Phone] or reply to this email immediately.\n\n[Company Name]`,
+    dunning_5: `Hi [Customer Name],\n\nDue to non-payment of invoice #INV-1234 ($3,500.00), now 30 days past due, we are initiating account review.\n\nTo prevent service suspension, payment must be received within 24 hours.\n\n[Pay Now to Avoid Suspension →]\n\nIf you believe this is an error, contact us immediately.\n\n[Company Name]`,
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-white dark:bg-[#111113] rounded-2xl border border-gray-200 dark:border-white/[0.08] shadow-2xl w-full max-w-lg mx-4 p-6" onClick={e => e.stopPropagation()}>
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{template.name}</h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{template.delay} · AI-generated per customer</p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div className="bg-gray-50 dark:bg-white/[0.04] rounded-xl p-4 font-mono text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed max-h-80 overflow-y-auto">
+          {sampleBodies[template.id] || template.desc}
+        </div>
+        <p className="text-xs text-gray-400 dark:text-gray-500 mt-3">
+          Actual emails are personalized by AI using customer name, invoice amount, due date, and payment history.
+        </p>
+      </div>
+    </div>
+  );
+};
+
 const Settings: React.FC = () => {
   useEffect(() => {
     document.title = 'Settings — RecoverAI';
   }, []);
 
   const [activeTab, setActiveTab] = useState<SettingsTab>('account');
+  const [previewTemplate, setPreviewTemplate] = useState<typeof EMAIL_TEMPLATES[0] | null>(null);
   const [settings, setSettings] = useState<CompanySettings | null>(null);
   const [sessions, setSessions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [sessionLoading, setSessionLoading] = useState(false);
-  const [billingData, setBillingData] = useState<{ subscription: any; usage: any[]; stats: any } | null>(null);
-  const [billingLoading, setBillingLoading] = useState(false);
 
   const fetch = async () => {
     setLoading(true);
@@ -117,30 +139,8 @@ const Settings: React.FC = () => {
   if (loading) return <div className="flex justify-center py-20"><Spinner size="lg" text="Loading settings..." /></div>;
   if (!settings) return <p className="text-red-500 text-center py-20">Failed to load settings</p>;
 
-  const fetchBillingData = async () => {
-    if (billingData) return; // already fetched
-    setBillingLoading(true);
-    try {
-      const [subRes, usageRes, statsRes] = await Promise.all([
-        api.get(API_ENDPOINTS.billing.subscription).catch(() => ({ data: null })),
-        api.get(API_ENDPOINTS.billing.usage).catch(() => ({ data: [] })),
-        api.get(API_ENDPOINTS.dashboard.stats).catch(() => ({ data: null })),
-      ]);
-      setBillingData({
-        subscription: (subRes as any).data?.data || (subRes as any).data || null,
-        usage: (usageRes as any).data?.data || [],
-        stats: (statsRes as any).data?.data || (statsRes as any).data || null,
-      });
-    } catch {
-      /* handled by global interceptor */
-    } finally {
-      setBillingLoading(false);
-    }
-  };
-
   const handleTabChange = (tab: SettingsTab) => {
     setActiveTab(tab);
-    if (tab === 'billing') fetchBillingData();
   };
 
   const revokeSession = async (sessionId: string) => {
@@ -169,6 +169,7 @@ const Settings: React.FC = () => {
 
   return (
     <div className="flex flex-col lg:flex-row gap-8">
+      <TemplatePreviewModal template={previewTemplate} onClose={() => setPreviewTemplate(null)} />
       {/* Sidebar Navigation */}
       <aside className="w-full lg:w-64 flex-shrink-0">
         <div className="sticky top-20 space-y-0.5">
@@ -308,7 +309,12 @@ const Settings: React.FC = () => {
                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{tpl.desc}</p>
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0 ml-3">
-                        <span className="text-xs text-gray-400 dark:text-gray-500">AI-generated (default)</span>
+                        <button
+                          onClick={() => setPreviewTemplate(tpl)}
+                          className="text-xs text-indigo-600 dark:text-indigo-400 font-medium hover:underline"
+                        >
+                          Preview
+                        </button>
                         <button disabled className="text-xs text-gray-400 dark:text-gray-500 font-medium cursor-not-allowed opacity-60">
                           Customize
                         </button>
@@ -387,76 +393,6 @@ const Settings: React.FC = () => {
             </>
           )}
 
-          {/* Billing Tab */}
-          {activeTab === 'billing' && (
-            <>
-              {billingLoading ? (
-                <div className="flex justify-center py-12"><Spinner size="md" text="Loading billing data..." /></div>
-              ) : (
-                <>
-                  {/* Current Plan */}
-                  <div className="bg-brand-50 dark:bg-brand-600/[0.08] border border-brand-200 dark:border-brand-500/[0.2] rounded-xl p-6">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <h3 className="text-lg font-semibold text-brand-900 dark:text-brand-100 mb-2">Current Plan</h3>
-                        <p className="text-sm text-brand-800 dark:text-brand-200">
-                          {billingData?.subscription
-                            ? `${PLAN_LABELS[billingData.subscription.plan_code] || billingData.subscription.plan_name || 'Unknown'} • ${PLAN_PRICING[billingData.subscription.plan_code] || ''}`
-                            : 'No active subscription'}
-                        </p>
-                      </div>
-                      <span className={`px-3 py-1 text-white text-xs font-medium rounded-full ${
-                        billingData?.subscription?.status === 'active' ? 'bg-brand-600' :
-                        billingData?.subscription?.status === 'trialing' ? 'bg-amber-500' : 'bg-gray-400'
-                      }`}>
-                        {billingData?.subscription?.status === 'active' ? 'Active' :
-                         billingData?.subscription?.status === 'trialing' ? 'Trial' : 'Inactive'}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Usage This Month */}
-                  <div className="bg-white dark:bg-[#111113] rounded-xl border border-gray-200 dark:border-white/[0.06] p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Usage This Month</h3>
-                    <div className="grid grid-cols-3 gap-4">
-                      <div>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">Emails Sent</p>
-                        <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
-                          {billingData?.stats?.totalInvoices != null
-                            ? Number(billingData.stats.totalInvoices).toLocaleString()
-                            : '—'}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">Recovered</p>
-                        <p className="text-2xl font-bold text-green-600 mt-1">
-                          {billingData?.stats?.totalRecovered != null
-                            ? `$${Number(billingData.stats.totalRecovered).toLocaleString()}`
-                            : '—'}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">Recovery Rate</p>
-                        <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
-                          {billingData?.stats?.recoveryRate != null
-                            ? `${Number(billingData.stats.recoveryRate).toFixed(1)}%`
-                            : '—'}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Billing History */}
-                  <div className="bg-white dark:bg-[#111113] rounded-xl border border-gray-200 dark:border-white/[0.06] p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Billing History</h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      Billing invoices will appear here once your first billing cycle completes.
-                    </p>
-                  </div>
-                </>
-              )}
-            </>
-          )}
 
           {/* General Tab */}
           {activeTab === 'general' && (

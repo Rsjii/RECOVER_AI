@@ -15,8 +15,9 @@ export const listCustomers = async (req: Request, res: Response): Promise<void> 
     const page = Math.max(1, parseInt(req.query.page as string) || 1);
     const limit = Math.min(100, parseInt(req.query.limit as string) || 50);
     const offset = (page - 1) * limit;
+    const riskTier = req.query.riskTier as string | undefined;
 
-    const { data, total } = await CustomerDB.listCustomers(companyId, limit, offset);
+    const { data, total } = await CustomerDB.listCustomers(companyId, limit, offset, riskTier);
 
     res.status(200).json({
       data,

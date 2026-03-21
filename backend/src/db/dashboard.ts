@@ -1,5 +1,84 @@
 import { pool } from '../config/database';
 
+// ─── New Analytics Types ───────────────────────────────────────────────────
+
+export interface DashboardKpi {
+  dso: number;
+  cei: number;
+  recoveryRate: number;
+  revenueAtRisk: number;
+  revenueAtRiskPct: number;
+  involuntaryChurnRate: number;
+  atRiskCustomerCount: number;
+  totalCustomers: number;
+}
+
+export interface AgingBucket {
+  label: string;
+  days: string;
+  amount: number;
+  invoiceCount: number;
+  pctOfTotal: number;
+}
+
+export interface AgingAnalysis {
+  buckets: AgingBucket[];
+  totalAr: number;
+}
+
+export interface EmailAnalyticsByType {
+  type: string;
+  sent: number;
+  opened: number;
+  clicked: number;
+  openRate: number;
+  ctr: number;
+}
+
+export interface EmailAnalytics {
+  period: string;
+  sent: number;
+  opened: number;
+  clicked: number;
+  openRate: number;
+  ctr: number;
+  ctor: number;
+  openRateBenchmark: number;
+  ctrBenchmark: number;
+  byEmailType: EmailAnalyticsByType[];
+}
+
+export interface RiskDrivers {
+  failedPayment: number;
+  expiringCard: number;
+  inactivity: number;
+  hardDecline: number;
+  total: number;
+}
+
+export interface PaymentPlanSummaryItem {
+  planId: string;
+  customerName: string;
+  totalAmount: number;
+  status: string;
+  installmentsTotal: number;
+  installmentsPaid: number;
+  pctComplete: number;
+}
+
+export interface PaymentPlansSummary {
+  activePlans: number;
+  completedPlans: number;
+  defaultedPlans: number;
+  totalOffered: number;
+  acceptanceRate: number;
+  completionRate: number;
+  totalValueActive: number;
+  recentPlans: PaymentPlanSummaryItem[];
+}
+
+// ─── Existing Types ────────────────────────────────────────────────────────
+
 export interface RecoveryStats {
   totalInvoices: number;
   totalOwed: number;
@@ -139,4 +218,281 @@ export async function getCustomerRiskList(
     maxRiskScore: parseInt(row.max_risk_score) || 0,
     oldestDueDays: Math.floor(parseFloat(row.oldest_due_days)),
   }));
+}
+
+// ─── New Analytics DB Functions ────────────────────────────────────────────
+
+export async function getDashboardKpi(companyId: string): Promise<DashboardKpi> {
+  // DSO: avg days from issue to payment
+  const dsoResult = await pool.query(
+    `SELECT COALESCE(AVG(EXTRACT(EPOCH FROM (p.paid_at - i.issued_date)) / 86400), 0) AS dso
+     FROM payments p
+     JOIN invoices i ON p.invoice_id = i.id
+     WHERE i.company_id = $1 AND p.status = 'succeeded'`,
+    [companyId]
+  );
+  const dso = Math.round(parseFloat(dsoResult.rows[0]?.dso || '0'));
+
+  // CEI + Recovery Rate + Revenue at Risk
+  const arResult = await pool.query(
+    `SELECT
+       COALESCE(SUM(CASE WHEN status = 'paid' AND due_date < NOW() THEN amount ELSE 0 END), 0) AS paid_overdue,
+       COALESCE(SUM(CASE WHEN status != 'paid' AND due_date < NOW() THEN amount ELSE 0 END), 0) AS still_unpaid,
+       COALESCE(SUM(CASE WHEN status NOT IN ('paid','uncollectable') AND risk_score >= 40 THEN amount ELSE 0 END), 0) AS at_risk_amount,
+       COALESCE(SUM(amount), 0) AS total_amount
+     FROM invoices WHERE company_id = $1`,
+    [companyId]
+  );
+  const row = arResult.rows[0];
+  const paidOverdue = parseFloat(row.paid_overdue);
+  const stillUnpaid = parseFloat(row.still_unpaid);
+  const totalOverdue = paidOverdue + stillUnpaid;
+  const totalAmount = parseFloat(row.total_amount);
+  const atRiskAmount = parseFloat(row.at_risk_amount);
+
+  const recoveryRate = totalOverdue > 0 ? Math.round((paidOverdue / totalOverdue) * 100) : 0;
+  const cei = totalAmount > 0 ? Math.round((paidOverdue / (paidOverdue + stillUnpaid || 1)) * 100) : 0;
+  const revenueAtRiskPct = totalAmount > 0 ? parseFloat(((atRiskAmount / totalAmount) * 100).toFixed(1)) : 0;
+
+  // Involuntary churn: customers with invoices gone uncollectable in last 30 days / total customers
+  const churnResult = await pool.query(
+    `SELECT
+       COUNT(DISTINCT c.id) FILTER (
+         WHERE i.status = 'uncollectable' AND i.updated_at > NOW() - INTERVAL '30 days'
+       ) AS churned_customers,
+       COUNT(DISTINCT c.id) AS total_customers
+     FROM customers c
+     LEFT JOIN invoices i ON i.customer_id = c.id AND i.company_id = $1
+     WHERE c.company_id = $1`,
+    [companyId]
+  );
+  const churnRow = churnResult.rows[0];
+  const churnedCustomers = parseInt(churnRow.churned_customers || '0');
+  const totalCustomers = parseInt(churnRow.total_customers || '0');
+  const involuntaryChurnRate = totalCustomers > 0
+    ? parseFloat(((churnedCustomers / totalCustomers) * 100).toFixed(1))
+    : 0;
+
+  // At-risk customer count (risk_score >= 40, unpaid)
+  const atRiskResult = await pool.query(
+    `SELECT COUNT(DISTINCT customer_id) AS at_risk_count
+     FROM invoices
+     WHERE company_id = $1 AND status NOT IN ('paid','uncollectable') AND risk_score >= 40`,
+    [companyId]
+  );
+  const atRiskCustomerCount = parseInt(atRiskResult.rows[0]?.at_risk_count || '0');
+
+  return {
+    dso,
+    cei,
+    recoveryRate,
+    revenueAtRisk: Math.round(atRiskAmount),
+    revenueAtRiskPct,
+    involuntaryChurnRate,
+    atRiskCustomerCount,
+    totalCustomers,
+  };
+}
+
+export async function getAgingAnalysis(companyId: string): Promise<AgingAnalysis> {
+  const result = await pool.query(
+    `SELECT
+       SUM(CASE WHEN due_date >= NOW() - INTERVAL '30 days' THEN amount ELSE 0 END) AS current_30,
+       COUNT(CASE WHEN due_date >= NOW() - INTERVAL '30 days' THEN 1 END) AS current_30_count,
+       SUM(CASE WHEN due_date < NOW() - INTERVAL '30 days' AND due_date >= NOW() - INTERVAL '60 days' THEN amount ELSE 0 END) AS days_31_60,
+       COUNT(CASE WHEN due_date < NOW() - INTERVAL '30 days' AND due_date >= NOW() - INTERVAL '60 days' THEN 1 END) AS days_31_60_count,
+       SUM(CASE WHEN due_date < NOW() - INTERVAL '60 days' AND due_date >= NOW() - INTERVAL '90 days' THEN amount ELSE 0 END) AS days_61_90,
+       COUNT(CASE WHEN due_date < NOW() - INTERVAL '60 days' AND due_date >= NOW() - INTERVAL '90 days' THEN 1 END) AS days_61_90_count,
+       SUM(CASE WHEN due_date < NOW() - INTERVAL '90 days' THEN amount ELSE 0 END) AS over_90,
+       COUNT(CASE WHEN due_date < NOW() - INTERVAL '90 days' THEN 1 END) AS over_90_count
+     FROM invoices
+     WHERE company_id = $1 AND status IN ('unpaid', 'arranged')`,
+    [companyId]
+  );
+
+  const r = result.rows[0];
+  const current30 = parseFloat(r.current_30 || '0');
+  const days3160 = parseFloat(r.days_31_60 || '0');
+  const days6190 = parseFloat(r.days_61_90 || '0');
+  const over90 = parseFloat(r.over_90 || '0');
+  const totalAr = current30 + days3160 + days6190 + over90;
+
+  const pct = (v: number) => totalAr > 0 ? parseFloat(((v / totalAr) * 100).toFixed(1)) : 0;
+
+  return {
+    totalAr,
+    buckets: [
+      { label: 'Current', days: '0–30d', amount: current30, invoiceCount: parseInt(r.current_30_count || '0'), pctOfTotal: pct(current30) },
+      { label: '31–60 Days', days: '31–60d', amount: days3160, invoiceCount: parseInt(r.days_31_60_count || '0'), pctOfTotal: pct(days3160) },
+      { label: '61–90 Days', days: '61–90d', amount: days6190, invoiceCount: parseInt(r.days_61_90_count || '0'), pctOfTotal: pct(days6190) },
+      { label: '90+ Days', days: '90+d', amount: over90, invoiceCount: parseInt(r.over_90_count || '0'), pctOfTotal: pct(over90) },
+    ],
+  };
+}
+
+export async function getEmailAnalytics(companyId: string): Promise<EmailAnalytics> {
+  const periodDays = 30;
+
+  const totalResult = await pool.query(
+    `SELECT
+       COUNT(*) AS sent,
+       COUNT(opened_at) AS opened,
+       COUNT(clicked_at) AS clicked
+     FROM email_logs
+     WHERE company_id = $1 AND sent_at > NOW() - ($2 || ' days')::INTERVAL`,
+    [companyId, periodDays]
+  );
+
+  const t = totalResult.rows[0];
+  const sent = parseInt(t.sent || '0');
+  const opened = parseInt(t.opened || '0');
+  const clicked = parseInt(t.clicked || '0');
+  const openRate = sent > 0 ? parseFloat(((opened / sent) * 100).toFixed(1)) : 0;
+  const ctr = sent > 0 ? parseFloat(((clicked / sent) * 100).toFixed(1)) : 0;
+  const ctor = opened > 0 ? parseFloat(((clicked / opened) * 100).toFixed(1)) : 0;
+
+  const byTypeResult = await pool.query(
+    `SELECT
+       email_type,
+       COUNT(*) AS sent,
+       COUNT(opened_at) AS opened,
+       COUNT(clicked_at) AS clicked
+     FROM email_logs
+     WHERE company_id = $1 AND sent_at > NOW() - ($2 || ' days')::INTERVAL
+     GROUP BY email_type
+     ORDER BY sent DESC`,
+    [companyId, periodDays]
+  );
+
+  const byEmailType: EmailAnalyticsByType[] = byTypeResult.rows.map(row => {
+    const s = parseInt(row.sent || '0');
+    const o = parseInt(row.opened || '0');
+    const c = parseInt(row.clicked || '0');
+    return {
+      type: row.email_type,
+      sent: s,
+      opened: o,
+      clicked: c,
+      openRate: s > 0 ? parseFloat(((o / s) * 100).toFixed(1)) : 0,
+      ctr: s > 0 ? parseFloat(((c / s) * 100).toFixed(1)) : 0,
+    };
+  });
+
+  return {
+    period: `Last ${periodDays} days`,
+    sent,
+    opened,
+    clicked,
+    openRate,
+    ctr,
+    ctor,
+    openRateBenchmark: 28,
+    ctrBenchmark: 2.5,
+    byEmailType,
+  };
+}
+
+export async function getRiskDrivers(companyId: string): Promise<RiskDrivers> {
+  const result = await pool.query(
+    `SELECT
+       COUNT(DISTINCT c.id) FILTER (
+         WHERE c.payment_history->>'on_time_rate' IS NOT NULL
+           AND (c.payment_history->>'on_time_rate')::numeric < 0.8
+       ) AS failed_payment,
+       COUNT(DISTINCT c.id) FILTER (
+         WHERE c.card_expires_at IS NOT NULL AND c.card_expires_at < NOW() + INTERVAL '30 days'
+       ) AS expiring_card,
+       COUNT(DISTINCT c.id) FILTER (
+         WHERE c.last_activity_at IS NOT NULL AND c.last_activity_at < NOW() - INTERVAL '21 days'
+       ) AS inactivity,
+       COUNT(DISTINCT i.customer_id) FILTER (
+         WHERE i.last_decline_type = 'hard'
+       ) AS hard_decline
+     FROM customers c
+     LEFT JOIN invoices i ON i.customer_id = c.id AND i.company_id = $1
+     WHERE c.company_id = $1`,
+    [companyId]
+  );
+
+  const r = result.rows[0];
+  const failedPayment = parseInt(r.failed_payment || '0');
+  const expiringCard = parseInt(r.expiring_card || '0');
+  const inactivity = parseInt(r.inactivity || '0');
+  const hardDecline = parseInt(r.hard_decline || '0');
+
+  return {
+    failedPayment,
+    expiringCard,
+    inactivity,
+    hardDecline,
+    total: failedPayment + expiringCard + inactivity + hardDecline,
+  };
+}
+
+export async function getPaymentPlansSummary(companyId: string): Promise<PaymentPlansSummary> {
+  const result = await pool.query(
+    `SELECT
+       pp.id,
+       pp.status,
+       pp.total_amount,
+       pp.installments,
+       c.name AS customer_name,
+       pp.created_at
+     FROM payment_plans pp
+     JOIN invoices i ON i.id = pp.invoice_id
+     JOIN customers c ON c.id = i.customer_id
+     WHERE i.company_id = $1
+     ORDER BY pp.created_at DESC`,
+    [companyId]
+  );
+
+  // Count emails that offered payment plans (to calculate acceptance rate)
+  const offersResult = await pool.query(
+    `SELECT COUNT(*) AS offers_sent
+     FROM email_logs
+     WHERE company_id = $1 AND email_type = 'payment_plan_offer'`,
+    [companyId]
+  );
+  const offersSent = parseInt(offersResult.rows[0]?.offers_sent || '0');
+
+  const plans = result.rows;
+  const activePlans = plans.filter(p => p.status === 'active').length;
+  const completedPlans = plans.filter(p => p.status === 'completed').length;
+  const defaultedPlans = plans.filter(p => p.status === 'defaulted').length;
+  const totalOffered = offersSent;
+  const acceptanceRate = totalOffered > 0
+    ? Math.round((plans.length / totalOffered) * 100)
+    : plans.length > 0 ? 100 : 0;
+  const completionRate = (activePlans + completedPlans) > 0
+    ? Math.round((completedPlans / (activePlans + completedPlans)) * 100)
+    : 0;
+  const totalValueActive = plans
+    .filter(p => p.status === 'active')
+    .reduce((sum, p) => sum + parseFloat(p.total_amount || '0'), 0);
+
+  const recentPlans: PaymentPlanSummaryItem[] = plans.slice(0, 5).map(p => {
+    const installments: Array<{ paid: boolean }> = Array.isArray(p.installments) ? p.installments : [];
+    const paidCount = installments.filter(i => i.paid).length;
+    const totalCount = installments.length;
+    return {
+      planId: p.id,
+      customerName: p.customer_name,
+      totalAmount: parseFloat(p.total_amount || '0'),
+      status: p.status,
+      installmentsTotal: totalCount,
+      installmentsPaid: paidCount,
+      pctComplete: totalCount > 0 ? Math.round((paidCount / totalCount) * 100) : 0,
+    };
+  });
+
+  return {
+    activePlans,
+    completedPlans,
+    defaultedPlans,
+    totalOffered,
+    acceptanceRate,
+    completionRate,
+    totalValueActive,
+    recentPlans,
+  };
 }

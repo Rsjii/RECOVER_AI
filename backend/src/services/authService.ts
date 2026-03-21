@@ -14,7 +14,7 @@ import resendService from './resendService';
 
 class AuthService {
   async signup(input: SignupInput): Promise<AuthResponse> {
-    const { companyName, email, password, timezone = 'UTC', preferredCurrency = 'USD' } = input;
+    const { companyName, email, password, timezone = 'UTC', preferredCurrency = 'USD', planCode = 'phase_0' } = input;
 
     // Validation
     if (!companyName || !email || !password) {
@@ -59,7 +59,7 @@ class AuthService {
     await BillingDB.ensureDefaultPlans();
     await BillingDB.upsertCompanySubscription({
       companyId: company.id,
-      planCode: 'phase_0',
+      planCode,
       status: 'trialing',
       trialEndsAt: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000),
       periodStart: new Date(),

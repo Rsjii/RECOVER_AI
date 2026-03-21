@@ -50,7 +50,7 @@ export async function findUserWithCompany(userId: string) {
 
 export async function findUserWithCompanyByEmail(email: string) {
   const result = await pool.query(
-    `SELECT u.id, u.company_id, u.email, u.password_hash, u.is_active, u.first_name, u.last_name, u.role,
+    `SELECT u.id, u.company_id, u.email, u.password_hash, u.is_active, u.first_name, u.last_name, u.role, u.email_verified,
             c.name as company_name, c.timezone, c.preferred_currency
      FROM users u
      JOIN companies c ON u.company_id = c.id

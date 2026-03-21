@@ -5,6 +5,7 @@ import { pool } from '../config/database';
 import { logError, logInfo, logWarn } from '../utils/logger';
 import { normalizePhone } from '../services/smsService';
 import { scoreCustomerRisk } from '../services/riskScoringService';
+import { createPlanForInvoice } from '../services/paymentPlanService';
 import type { DunningEmailType } from '../types/email';
 
 // SMS thresholds: send SMS when email alone isn't working
@@ -217,6 +218,19 @@ async function runDecisionEngine(): Promise<{
         !invoice.has_active_plan &&
         !invoice.plan_offer_sent
       ) {
+        // Create the DB record first so paymentPlanChargeJob can pick it up
+        try {
+          await createPlanForInvoice(invoice.id, invoice.company_id, 3);
+          logInfo(LOG_MODULE, method, 'Payment plan created', {
+            invoiceId: invoice.id,
+            numInstallments: 3,
+          });
+        } catch (planErr) {
+          logWarn(LOG_MODULE, method, 'Could not create payment plan (may already exist)', {
+            invoiceId: invoice.id,
+            error: String(planErr),
+          });
+        }
         await queueEmailNow({
           companyId: invoice.company_id,
           customerId: invoice.customer_id,

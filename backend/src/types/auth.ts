@@ -14,6 +14,7 @@ export interface SignupInput {
   lastName?: string;
   timezone?: string;
   preferredCurrency?: string;
+  planCode?: string;
 }
 
 export interface LoginInput {

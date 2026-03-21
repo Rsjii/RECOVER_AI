@@ -42,14 +42,29 @@ export async function findCustomerById(id: string, companyId: string): Promise<C
 export async function listCustomers(
   companyId: string,
   limit = 50,
-  offset = 0
+  offset = 0,
+  riskTier?: string
 ): Promise<{ data: CustomerRow[]; total: number }> {
+  let riskFilter = '';
+  if (riskTier === 'high') riskFilter = 'HAVING MAX(i.risk_score) > 60';
+  else if (riskTier === 'medium') riskFilter = 'HAVING MAX(i.risk_score) BETWEEN 30 AND 60';
+  else if (riskTier === 'low') riskFilter = 'HAVING MAX(i.risk_score) < 30 AND MAX(i.risk_score) IS NOT NULL';
+  else if (riskTier === 'none') riskFilter = 'HAVING MAX(i.risk_score) IS NULL';
+
+  const baseQuery = `
+    SELECT c.*,
+      MAX(i.risk_score) AS max_risk_score,
+      MAX(i.last_decline_type) AS last_decline_type
+    FROM customers c
+    LEFT JOIN invoices i ON i.customer_id = c.id AND i.company_id = c.company_id
+    WHERE c.company_id = $1
+    GROUP BY c.id
+    ${riskFilter}
+  `;
+
   const [data, count] = await Promise.all([
-    pool.query(
-      'SELECT * FROM customers WHERE company_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3',
-      [companyId, limit, offset]
-    ),
-    pool.query('SELECT COUNT(*) FROM customers WHERE company_id = $1', [companyId]),
+    pool.query(`${baseQuery} ORDER BY c.created_at DESC LIMIT $2 OFFSET $3`, [companyId, limit, offset]),
+    pool.query(`SELECT COUNT(*) FROM (${baseQuery}) AS sub`, [companyId]),
   ]);
 
   return { data: data.rows, total: parseInt(count.rows[0].count) };

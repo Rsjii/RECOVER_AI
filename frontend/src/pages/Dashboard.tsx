@@ -2,10 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { API_ENDPOINTS } from '../lib/constants';
-import { formatCurrency, formatNumber } from '../lib/utils';
+import { formatCurrency } from '../lib/utils';
 import { DashboardSkeleton } from '../components/ui/Skeleton';
 import { Button } from '../components/ui/Button';
-import { StatsCard } from '../components/dashboard/StatsCard';
 import { RecoveryChart } from '../components/dashboard/RecoveryChart';
 import { RiskBreakdownChart } from '../components/dashboard/RiskBreakdownChart';
 import { TopCustomersTable } from '../components/dashboard/TopCustomersTable';
@@ -17,6 +16,14 @@ import { CashLeakageWidget } from '../components/dashboard/CashLeakageWidget';
 import type { CashLeakageData } from '../components/dashboard/CashLeakageWidget';
 import { AtRiskWidget } from '../components/dashboard/AtRiskWidget';
 import { EmailPreviewModal } from '../components/invoices/EmailPreviewModal';
+import KpiRow from '../components/dashboard/KpiRow';
+import AgingAnalysisChart from '../components/dashboard/AgingAnalysisChart';
+import CollectionsTrendChart from '../components/dashboard/CollectionsTrendChart';
+import RecoveryFunnelChart from '../components/dashboard/RecoveryFunnelChart';
+import RiskDriversChart from '../components/dashboard/RiskDriversChart';
+import EmailAnalyticsRow from '../components/dashboard/EmailAnalyticsRow';
+import PaymentPlansSummary from '../components/dashboard/PaymentPlansSummary';
+import DashboardDetailTabs from '../components/dashboard/DashboardDetailTabs';
 import type { DashboardStats, InvoicePipeline, CustomerRisk } from '../types';
 
 interface AtRiskCustomer {
@@ -41,6 +48,72 @@ interface CashPosition {
   pendingInvoices90: number;
   invoiceCount: number;
   asOfDate: string;
+}
+
+interface DashboardKpi {
+  dso: number;
+  cei: number;
+  recoveryRate: number;
+  revenueAtRisk: number;
+  revenueAtRiskPct: number;
+  involuntaryChurnRate: number;
+  atRiskCustomerCount: number;
+  totalCustomers: number;
+}
+
+interface AgingBucket {
+  label: string;
+  days: string;
+  amount: number;
+  invoiceCount: number;
+  pctOfTotal: number;
+}
+
+interface AgingAnalysis {
+  buckets: AgingBucket[];
+  totalAr: number;
+}
+
+interface EmailAnalytics {
+  period: string;
+  sent: number;
+  opened: number;
+  clicked: number;
+  openRate: number;
+  ctr: number;
+  ctor: number;
+  openRateBenchmark: number;
+  ctrBenchmark: number;
+  byEmailType: Array<{ type: string; sent: number; opened: number; clicked: number; openRate: number; ctr: number }>;
+}
+
+interface RiskDrivers {
+  failedPayment: number;
+  expiringCard: number;
+  inactivity: number;
+  hardDecline: number;
+  total: number;
+}
+
+interface PlanItem {
+  planId: string;
+  customerName: string;
+  totalAmount: number;
+  status: string;
+  installmentsTotal: number;
+  installmentsPaid: number;
+  pctComplete: number;
+}
+
+interface PaymentPlansSummaryData {
+  activePlans: number;
+  completedPlans: number;
+  defaultedPlans: number;
+  totalOffered: number;
+  acceptanceRate: number;
+  completionRate: number;
+  totalValueActive: number;
+  recentPlans: PlanItem[];
 }
 
 interface AgentPreview {
@@ -78,6 +151,12 @@ interface DashCache {
   cashPosition: CashPosition | null;
   runway: RunwayData | null;
   leakage: CashLeakageData | null;
+  kpi: DashboardKpi | null;
+  aging: AgingAnalysis | null;
+  emailAnalytics: EmailAnalytics | null;
+  riskDrivers: RiskDrivers | null;
+  plansSummary: PaymentPlansSummaryData | null;
+  timeline: any[];
   ts: number;
 }
 let dashCache: DashCache | null = null;
@@ -105,6 +184,13 @@ const Dashboard: React.FC = () => {
   const [cashBalanceInput, setCashBalanceInput] = useState<string>('');
   const [runway, setRunway] = useState<RunwayData | null>(null);
   const [leakage, setLeakage] = useState<CashLeakageData | null>(null);
+  // New analytics state
+  const [kpi, setKpi] = useState<DashboardKpi | null>(null);
+  const [aging, setAging] = useState<AgingAnalysis | null>(null);
+  const [emailAnalytics, setEmailAnalytics] = useState<EmailAnalytics | null>(null);
+  const [riskDrivers, setRiskDrivers] = useState<RiskDrivers | null>(null);
+  const [plansSummary, setPlansSummary] = useState<PaymentPlansSummaryData | null>(null);
+  const [timeline, setTimeline] = useState<any[]>([]);
 
   useEffect(() => {
     document.title = 'Dashboard — RecoverAI';
@@ -141,6 +227,12 @@ const Dashboard: React.FC = () => {
       }
       setRunway(dashCache.runway);
       setLeakage(dashCache.leakage);
+      setKpi(dashCache.kpi);
+      setAging(dashCache.aging);
+      setEmailAnalytics(dashCache.emailAnalytics);
+      setRiskDrivers(dashCache.riskDrivers);
+      setPlansSummary(dashCache.plansSummary);
+      setTimeline(dashCache.timeline);
       setLoading(false);
       return;
     }
@@ -149,7 +241,8 @@ const Dashboard: React.FC = () => {
       setLoading(true);
       setError(null);
       try {
-        const [statsRes, pipelineRes, riskRes, atRiskRes, cashRes, runwayRes, leakageRes] = await Promise.all([
+        const [statsRes, pipelineRes, riskRes, atRiskRes, cashRes, runwayRes, leakageRes,
+               kpiRes, agingRes, emailAnalyticsRes, riskDriversRes, plansSummaryRes, timelineRes] = await Promise.all([
           api.get<{ data: DashboardStats }>(API_ENDPOINTS.dashboard.stats),
           api.get<{ data: InvoicePipeline }>(API_ENDPOINTS.dashboard.pipeline),
           api.get<{ data: CustomerRisk[]; total: number }>(API_ENDPOINTS.dashboard.riskList + '?limit=10'),
@@ -157,6 +250,12 @@ const Dashboard: React.FC = () => {
           api.get<{ data: CashPosition }>('/api/dashboard/cash-position').catch(() => ({ data: null as CashPosition | null })),
           api.get<{ data: RunwayData }>('/api/dashboard/runway').catch(() => ({ data: null as RunwayData | null })),
           api.get<{ data: CashLeakageData }>('/api/dashboard/cash-leakage').catch(() => ({ data: null as CashLeakageData | null })),
+          api.get<{ data: DashboardKpi }>('/api/dashboard/kpi').catch(() => ({ data: null as DashboardKpi | null })),
+          api.get<{ data: AgingAnalysis }>('/api/dashboard/aging-analysis').catch(() => ({ data: null as AgingAnalysis | null })),
+          api.get<{ data: EmailAnalytics }>('/api/dashboard/email-analytics').catch(() => ({ data: null as EmailAnalytics | null })),
+          api.get<{ data: RiskDrivers }>('/api/dashboard/risk-drivers').catch(() => ({ data: null as RiskDrivers | null })),
+          api.get<{ data: PaymentPlansSummaryData }>('/api/dashboard/payment-plans-summary').catch(() => ({ data: null as PaymentPlansSummaryData | null })),
+          api.get<{ data: any[] }>('/api/dashboard/timeline?period=monthly&months=6').catch(() => ({ data: [] as any[] })),
         ]);
         const stats = statsRes.data;
         const pipeline = pipelineRes.data;
@@ -165,6 +264,12 @@ const Dashboard: React.FC = () => {
         const cashPosition = cashRes.data;
         const runway = runwayRes.data;
         const leakage = leakageRes.data;
+        const kpiData = kpiRes.data;
+        const agingData = agingRes.data;
+        const emailAnalyticsData = emailAnalyticsRes.data;
+        const riskDriversData = riskDriversRes.data;
+        const plansSummaryData = plansSummaryRes.data;
+        const timelineData = timelineRes.data || [];
 
         setStats(stats);
         setPipeline(pipeline);
@@ -176,9 +281,20 @@ const Dashboard: React.FC = () => {
         }
         setRunway(runway);
         setLeakage(leakage);
+        setKpi(kpiData);
+        setAging(agingData);
+        setEmailAnalytics(emailAnalyticsData);
+        setRiskDrivers(riskDriversData);
+        setPlansSummary(plansSummaryData);
+        setTimeline(timelineData);
 
         // ✅ Save to module-level cache
-        dashCache = { stats, pipeline, riskList, atRisk, cashPosition, runway, leakage, ts: Date.now() };
+        dashCache = {
+          stats, pipeline, riskList, atRisk, cashPosition, runway, leakage,
+          kpi: kpiData, aging: agingData, emailAnalytics: emailAnalyticsData,
+          riskDrivers: riskDriversData, plansSummary: plansSummaryData, timeline: timelineData,
+          ts: Date.now(),
+        };
       } catch (err: any) {
         setError(err.message || 'Failed to load dashboard');
       } finally {
@@ -315,6 +431,43 @@ const Dashboard: React.FC = () => {
           </p>
         </div>
       </div>
+
+      {/* ═══ SECTION 1: EXECUTIVE KPIs ═══ */}
+      <KpiRow kpi={kpi ?? undefined} loading={loading} />
+
+      {/* ═══ SECTION 2: COLLECTIONS ANALYTICS ═══ */}
+      <div className="flex flex-col lg:flex-row gap-4">
+        <div className="lg:w-[58%]">
+          <AgingAnalysisChart
+            buckets={aging?.buckets ?? []}
+            totalAr={aging?.totalAr ?? 0}
+            loading={loading}
+          />
+        </div>
+        <div className="lg:w-[42%]">
+          <CollectionsTrendChart data={timeline} loading={loading} />
+        </div>
+      </div>
+
+      {/* ═══ SECTION 3: RECOVERY & RISK ═══ */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <RecoveryFunnelChart
+          invoicesAtRisk={kpi?.atRiskCustomerCount ?? 0}
+          emailsSent={emailAnalytics?.sent ?? 0}
+          emailsOpened={emailAnalytics?.opened ?? 0}
+          emailsClicked={emailAnalytics?.clicked ?? 0}
+          invoicesPaid={stats ? Math.round((stats.totalRecovered / Math.max(stats.totalOwed + stats.totalRecovered, 1)) * (kpi?.atRiskCustomerCount ?? 0)) : 0}
+          loading={loading}
+        />
+        {pipeline && <RiskBreakdownChart pipeline={pipeline} />}
+        <RiskDriversChart drivers={riskDrivers ?? undefined} loading={loading} />
+      </div>
+
+      {/* ═══ SECTION 4: DUNNING CAMPAIGN PERFORMANCE ═══ */}
+      <EmailAnalyticsRow analytics={emailAnalytics ?? undefined} loading={loading} />
+
+      {/* ═══ SECTION 5: PAYMENT PLANS ═══ */}
+      <PaymentPlansSummary summary={plansSummary ?? undefined} loading={loading} />
 
       {/* Agent Preview Panel — shows what agent WOULD do, pending approval */}
       {agentPreview && (
@@ -453,14 +606,10 @@ const Dashboard: React.FC = () => {
         </div>
       )}
 
-      {/* ═══ CASH COMMAND CENTER ═══ */}
+      {/* ═══ SECTION 6: CASH COMMAND CENTER ═══ */}
       <div className="space-y-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Cash Command Center</h2>
-
-        {/* Runway Widget — full width, prominent */}
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Cash Command Center</h2>
         <RunwayWidget runway={runway} loading={loading} />
-
-        {/* Cash Position + What-If side by side */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <CashPositionWidget
             cashPosition={cashPosition}
@@ -471,14 +620,12 @@ const Dashboard: React.FC = () => {
           />
           <WhatIfWidget onCalculate={handleWhatIf} customers={whatIfCustomers} />
         </div>
-
-        {/* Cash Leakage — full width */}
         <CashLeakageWidget leakage={leakage} loading={loading} />
       </div>
 
-      {/* ═══ RISK INTELLIGENCE ═══ */}
+      {/* ═══ SECTION 7: AT-RISK + LEGACY STATS ═══ */}
       <div className="space-y-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Risk Intelligence</h2>
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Risk Intelligence</h2>
         <AtRiskWidget
           atRiskCustomers={atRisk.map(c => ({
             customerId: c.customerId,
@@ -492,49 +639,22 @@ const Dashboard: React.FC = () => {
         />
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatsCard label="Total Owed" value={formatCurrency(stats?.totalOwed || 0)}
-          subtitle={`${stats?.totalInvoices || 0} total invoices`}
-          icon={<span className="text-2xl">💰</span>} color="text-red-600" />
-        <StatsCard label="Recovered" value={formatCurrency(stats?.totalRecovered || 0)}
-          subtitle={`${stats?.recoveryRate || 0}% recovery rate`}
-          icon={<span className="text-2xl">✅</span>} color="text-green-600" />
-        <StatsCard label="Overdue" value={formatNumber(stats?.overdueCount || 0)}
-          subtitle={formatCurrency(stats?.overdueAmount || 0) + ' at risk'}
-          icon={<span className="text-2xl">⚠️</span>} color="text-orange-600" />
-        <StatsCard label="Avg Collection" value={`${stats?.avgDaysToCollect || 0} days`}
-          subtitle="Days sales outstanding"
-          icon={<span className="text-2xl">📊</span>} />
-      </div>
+      {/* ═══ SECTION 8: TABBED DETAIL TABLES ═══ */}
+      <DashboardDetailTabs
+        atRiskList={riskList.map(c => ({
+          customerId: c.customerId,
+          customerName: c.customerName,
+          customerEmail: c.customerEmail,
+          unpaidInvoices: c.unpaidInvoices,
+          totalOwed: c.totalOwed,
+          maxRiskScore: c.maxRiskScore,
+          oldestDueDays: c.oldestDueDays,
+        }))}
+        agingBuckets={aging?.buckets ?? []}
+        loading={loading}
+      />
 
-      {/* Activation Path */}
-      {isDemo && (
-        <div className="bg-white dark:bg-[#111113] rounded-xl border border-gray-200 dark:border-white/[0.06] p-4">
-          <h2 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Activation Path</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
-            <div className="rounded border border-gray-200 dark:border-white/[0.06] p-3">
-              <div className="text-gray-500 dark:text-gray-400">Signup to Integration</div>
-              <div className="text-gray-900 dark:text-white font-medium mt-1">
-                {stats && stats.totalInvoices > 0 ? 'Completed' : 'Pending'}
-              </div>
-            </div>
-            <div className="rounded border border-gray-200 dark:border-white/[0.06] p-3">
-              <div className="text-gray-500 dark:text-gray-400">Integration to First Recovery</div>
-              <div className="text-gray-900 dark:text-white font-medium mt-1">
-                {stats && stats.totalRecovered > 0 ? 'Completed' : 'In progress'}
-              </div>
-            </div>
-            <div className="rounded border border-gray-200 dark:border-white/[0.06] p-3">
-              <div className="text-gray-500 dark:text-gray-400">Estimated ROI This Month</div>
-              <div className="text-gray-900 dark:text-white font-medium mt-1">
-                {formatCurrency(stats?.totalRecovered || 0)}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
+      {/* Empty state */}
       {stats?.totalInvoices === 0 && (
         <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-8 text-center">
           <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/40 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -552,15 +672,32 @@ const Dashboard: React.FC = () => {
         </div>
       )}
 
-      {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {pipeline && <RecoveryChart pipeline={pipeline} />}
-        {pipeline && <RiskBreakdownChart pipeline={pipeline} />}
-      </div>
+      {/* Legacy: pipeline funnel + top customers (kept for reference) */}
+      {pipeline && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <RecoveryChart pipeline={pipeline} />
+          <TopCustomersTable customers={riskList} onCustomerClick={(id) => navigate(`/customers?id=${id}`)} />
+        </div>
+      )}
 
-      {/* Top At-Risk Customers */}
-      <TopCustomersTable customers={riskList}
-        onCustomerClick={(id) => navigate(`/customers?id=${id}`)} />
+      {/* Demo activation path */}
+      {isDemo && stats && stats.totalInvoices > 0 && (
+        <div className="bg-[#111113] rounded-xl border border-white/[0.06] p-4">
+          <h2 className="text-sm font-semibold text-white mb-2">Activation Path</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+            {[
+              { label: 'Signup to Integration', value: stats.totalInvoices > 0 ? '✅ Completed' : 'Pending' },
+              { label: 'Integration to First Recovery', value: stats.totalRecovered > 0 ? '✅ Completed' : 'In progress' },
+              { label: 'Estimated ROI This Month', value: formatCurrency(stats.totalRecovered) },
+            ].map(({ label, value }) => (
+              <div key={label} className="rounded border border-white/[0.06] p-3">
+                <div className="text-zinc-400 text-xs">{label}</div>
+                <div className="text-white font-medium mt-1 text-sm">{value}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Email Preview Modal */}
       {selectedEmailForModal && (
