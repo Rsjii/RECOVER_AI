@@ -11,103 +11,45 @@ import { GeneralSection } from '../components/settings/GeneralSection';
 import { cn } from '../lib/utils';
 import type { CompanySettings } from '../types';
 
-type SettingsTab = 'account' | 'notifications' | 'integrations' | 'automation' | 'security' | 'general';
+type SettingsTab = 'profile' | 'integrations' | 'automation' | 'advanced';
 
-const TABS: Array<{ id: SettingsTab; label: string; icon: React.ReactNode; description: string }> = [
+const TABS: Array<{ id: SettingsTab; label: string; icon: React.ReactNode }> = [
   {
-    id: 'account',
-    label: 'Account',
+    id: 'profile',
+    label: 'Profile',
     icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>,
-    description: 'Manage profile and account settings',
-  },
-  {
-    id: 'notifications',
-    label: 'Notifications',
-    icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>,
-    description: 'Configure how you receive updates',
   },
   {
     id: 'integrations',
     label: 'Integrations',
     icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>,
-    description: 'Connect external services',
   },
   {
     id: 'automation',
     label: 'Automation',
     icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>,
-    description: 'Dunning strategy and automation',
   },
   {
-    id: 'security',
-    label: 'Security',
-    icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m7.773-4.3a10 10 0 10-.5.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
-    description: 'Sessions, API keys, and security',
-  },
-  {
-    id: 'general',
-    label: 'General',
+    id: 'advanced',
+    label: 'Advanced',
     icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>,
-    description: 'Timezone, currency, and preferences',
   },
 ];
 
 const EMAIL_TEMPLATES = [
-  { id: 'dunning_1', name: 'First Reminder', delay: 'Day 1 past due', desc: 'Friendly payment reminder with invoice details' },
-  { id: 'dunning_2', name: 'Second Follow-up', delay: 'Day 8 past due', desc: 'Escalated tone with payment link emphasis' },
-  { id: 'dunning_3', name: 'Urgent Notice', delay: 'Day 15 past due', desc: 'Urgency messaging with payment plan offer' },
-  { id: 'dunning_4', name: 'Final Warning', delay: 'Day 22 past due', desc: 'Final notice before account action' },
-  { id: 'dunning_5', name: 'Account Action', delay: 'Day 30 past due', desc: 'Service suspension warning with escalation' },
+  { id: 'dunning_1', name: 'First Reminder', delay: 'Day 1 past due', desc: 'Friendly payment reminder' },
+  { id: 'dunning_2', name: 'Second Follow-up', delay: 'Day 8 past due', desc: 'Escalated tone with payment link' },
+  { id: 'dunning_3', name: 'Urgent Notice', delay: 'Day 15 past due', desc: 'Urgency + payment plan offer' },
+  { id: 'dunning_4', name: 'Final Warning', delay: 'Day 22 past due', desc: 'Final notice before action' },
+  { id: 'dunning_5', name: 'Account Action', delay: 'Day 30 past due', desc: 'Service suspension warning' },
 ];
-
-interface TemplatePreviewModalProps {
-  template: typeof EMAIL_TEMPLATES[0] | null;
-  onClose: () => void;
-}
-
-const TemplatePreviewModal: React.FC<TemplatePreviewModalProps> = ({ template, onClose }) => {
-  if (!template) return null;
-
-  const sampleBodies: Record<string, string> = {
-    dunning_1: `Hi [Customer Name],\n\nThis is a friendly reminder that invoice #INV-1234 for $3,500.00 was due on March 15, 2026.\n\nWe understand things get busy — please take a moment to process payment at your earliest convenience.\n\n[Pay Now →]\n\nIf you have any questions, just reply to this email.\n\nBest regards,\n[Company Name]`,
-    dunning_2: `Hi [Customer Name],\n\nWe noticed invoice #INV-1234 ($3,500.00) is now 8 days past due.\n\nTo avoid any disruption to your service, please process payment today:\n\n[Pay Now →]\n\nIf you're experiencing any issues, we're happy to discuss a payment arrangement.\n\nRegards,\n[Company Name]`,
-    dunning_3: `Hi [Customer Name],\n\nInvoice #INV-1234 ($3,500.00) is now 15 days past due. We'd like to help you resolve this.\n\nWould a payment plan work better for your situation? We can split this into 3 monthly payments with no additional fees.\n\n[Pay in Full →]  [Set Up Payment Plan →]\n\nPlease respond by [Date] to avoid account action.\n\n[Company Name]`,
-    dunning_4: `Hi [Customer Name],\n\nThis is your final notice regarding invoice #INV-1234 ($3,500.00), now 22 days past due.\n\nYour account will be reviewed for service changes if payment is not received within 72 hours.\n\n[Pay Now →]\n\nTo discuss options, call us at [Phone] or reply to this email immediately.\n\n[Company Name]`,
-    dunning_5: `Hi [Customer Name],\n\nDue to non-payment of invoice #INV-1234 ($3,500.00), now 30 days past due, we are initiating account review.\n\nTo prevent service suspension, payment must be received within 24 hours.\n\n[Pay Now to Avoid Suspension →]\n\nIf you believe this is an error, contact us immediately.\n\n[Company Name]`,
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-white dark:bg-[#111113] rounded-2xl border border-gray-200 dark:border-white/[0.08] shadow-2xl w-full max-w-lg mx-4 p-6" onClick={e => e.stopPropagation()}>
-        <div className="flex items-start justify-between mb-4">
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{template.name}</h3>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{template.delay} · AI-generated per customer</p>
-          </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-        <div className="bg-gray-50 dark:bg-white/[0.04] rounded-xl p-4 font-mono text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed max-h-80 overflow-y-auto">
-          {sampleBodies[template.id] || template.desc}
-        </div>
-        <p className="text-xs text-gray-400 dark:text-gray-500 mt-3">
-          Actual emails are personalized by AI using customer name, invoice amount, due date, and payment history.
-        </p>
-      </div>
-    </div>
-  );
-};
 
 const Settings: React.FC = () => {
   useEffect(() => {
     document.title = 'Settings — RecoverAI';
   }, []);
 
-  const [activeTab, setActiveTab] = useState<SettingsTab>('account');
-  const [previewTemplate, setPreviewTemplate] = useState<typeof EMAIL_TEMPLATES[0] | null>(null);
+  const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
   const [settings, setSettings] = useState<CompanySettings | null>(null);
   const [sessions, setSessions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -139,10 +81,6 @@ const Settings: React.FC = () => {
   if (loading) return <div className="flex justify-center py-20"><Spinner size="lg" text="Loading settings..." /></div>;
   if (!settings) return <p className="text-red-500 text-center py-20">Failed to load settings</p>;
 
-  const handleTabChange = (tab: SettingsTab) => {
-    setActiveTab(tab);
-  };
-
   const revokeSession = async (sessionId: string) => {
     setSessionLoading(true);
     try {
@@ -168,196 +106,193 @@ const Settings: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col lg:flex-row gap-8">
-      <TemplatePreviewModal template={previewTemplate} onClose={() => setPreviewTemplate(null)} />
-      {/* Sidebar Navigation */}
-      <aside className="w-full lg:w-64 flex-shrink-0">
-        <div className="sticky top-20 space-y-0.5">
-          {TABS.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => handleTabChange(tab.id)}
-              className={cn(
-                'w-full flex flex-col gap-1 px-4 py-3 rounded-lg transition-all duration-150 text-left',
-                activeTab === tab.id
-                  ? 'bg-brand-50 dark:bg-brand-600/[0.12]'
-                  : 'hover:bg-gray-50 dark:hover:bg-white/[0.04]'
-              )}
-            >
-              <div className="flex items-center gap-3">
-                <span className={cn('text-gray-400 transition-colors', activeTab === tab.id && 'text-brand-600 dark:text-brand-400')}>
-                  {tab.icon}
-                </span>
-                <div className="flex-1">
-                  <p className={cn('font-medium text-sm', activeTab === tab.id ? 'text-brand-600 dark:text-brand-400' : 'text-gray-700 dark:text-gray-300')}>
-                    {tab.label}
-                  </p>
-                </div>
-              </div>
-            </button>
-          ))}
+    <div className="min-h-screen bg-white dark:bg-[#09090b]">
+      {/* Header */}
+      <div className="border-b border-gray-200 dark:border-white/[0.06] bg-white dark:bg-[#111113]">
+        <div className="max-w-6xl mx-auto px-6 sm:px-8 py-16">
+          <h1 className="text-5xl font-bold text-gray-900 dark:text-white mb-3">Settings</h1>
+          <p className="text-lg text-gray-600 dark:text-gray-400">Manage your workspace, integrations, and preferences</p>
         </div>
-      </aside>
+      </div>
 
-      {/* Main Content */}
-      <main className="flex-1 min-w-0">
-        {/* Header */}
-        <div className="mb-8 border-b border-gray-200 dark:border-white/[0.06] pb-6">
-          <div className="flex items-start justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-                {TABS.find((t) => t.id === activeTab)?.label}
-              </h1>
-              <p className="text-gray-600 dark:text-gray-400 mt-2">
-                {TABS.find((t) => t.id === activeTab)?.description}
-              </p>
-            </div>
+      {/* Tabs Navigation */}
+      <div className="border-b border-gray-200 dark:border-white/[0.06] bg-white dark:bg-[#111113] sticky top-0 z-20">
+        <div className="max-w-6xl mx-auto px-6 sm:px-8">
+          <div className="flex gap-2 overflow-x-auto">
+            {TABS.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={cn(
+                  'flex items-center gap-2 py-4 px-4 font-medium text-sm border-b-2 transition-all duration-200 whitespace-nowrap',
+                  activeTab === tab.id
+                    ? 'text-blue-600 dark:text-blue-400 border-blue-600 dark:border-blue-400'
+                    : 'text-gray-600 dark:text-gray-400 border-transparent hover:text-gray-900 dark:hover:text-gray-300'
+                )}
+              >
+                <span className="w-5 h-5">{tab.icon}</span>
+                {tab.label}
+              </button>
+            ))}
           </div>
         </div>
+      </div>
 
-        {/* Content Sections */}
-        <div className="space-y-6 max-w-2xl">
-          {/* Account Tab */}
-          {activeTab === 'account' && (
-            <>
-              <ProfileSection onUpdated={fetch} />
-              <div className="bg-white dark:bg-[#111113] rounded-xl border border-gray-200 dark:border-white/[0.06] p-6">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Company Info</h3>
-                <div className="space-y-4">
+      {/* Content */}
+      <div className="max-w-6xl mx-auto px-6 sm:px-8 py-12">
+        <div className="max-w-3xl">
+          {/* Profile Tab */}
+          {activeTab === 'profile' && (
+            <div className="space-y-8">
+              {/* Profile Section */}
+              <div className="bg-white dark:bg-[#111113] rounded-2xl border border-gray-200 dark:border-white/[0.06] p-8">
+                <div className="flex items-center justify-between mb-8">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Company Name</label>
-                    <p className="text-gray-900 dark:text-white font-medium">{settings.companyName || 'Not set'}</p>
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Your Profile</h2>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Manage your account information</p>
+                  </div>
+                </div>
+                <ProfileSection onUpdated={fetch} />
+              </div>
+
+              {/* Company Info Section */}
+              <div className="bg-white dark:bg-[#111113] rounded-2xl border border-gray-200 dark:border-white/[0.06] p-8">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-8">Company Information</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Company Name</label>
+                    <p className="text-lg font-semibold text-gray-900 dark:text-white">{settings.companyName || '—'}</p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Plan Type</label>
-                    <p className="text-gray-900 dark:text-white font-medium">Starter / Growth / Enterprise</p>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Current Plan</label>
+                    <div className="flex items-center gap-2">
+                      <p className="text-lg font-semibold text-gray-900 dark:text-white">Growth</p>
+                      <span className="text-xs bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 px-2 py-1 rounded-full font-medium">Active</span>
+                    </div>
                   </div>
                 </div>
               </div>
-            </>
-          )}
 
-          {/* Notifications Tab */}
-          {activeTab === 'notifications' && (
-            <>
-              <NotificationsSection slackConnected={settings.integrations.slack} onUpdated={fetch} />
-              <div className="bg-white dark:bg-[#111113] rounded-xl border border-gray-200 dark:border-white/[0.06] p-6">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Notification Frequency</h3>
-                <div className="space-y-3">
-                  <label className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-white/[0.02] cursor-pointer">
-                    <input type="radio" name="frequency" className="accent-brand-600" defaultChecked />
-                    <div>
-                      <p className="font-medium text-gray-900 dark:text-white">Instant</p>
-                      <p className="text-xs text-gray-500">Get notified immediately</p>
-                    </div>
-                  </label>
-                  <label className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-white/[0.02] cursor-pointer">
-                    <input type="radio" name="frequency" className="accent-brand-600" />
-                    <div>
-                      <p className="font-medium text-gray-900 dark:text-white">Daily Digest</p>
-                      <p className="text-xs text-gray-500">Daily summary at 9 AM</p>
-                    </div>
-                  </label>
-                  <label className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-white/[0.02] cursor-pointer">
-                    <input type="radio" name="frequency" className="accent-brand-600" />
-                    <div>
-                      <p className="font-medium text-gray-900 dark:text-white">Weekly Digest</p>
-                      <p className="text-xs text-gray-500">Weekly summary every Monday</p>
-                    </div>
-                  </label>
-                </div>
+              {/* Notifications Section */}
+              <div className="bg-white dark:bg-[#111113] rounded-2xl border border-gray-200 dark:border-white/[0.06] p-8">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-8">Notifications</h2>
+                <NotificationsSection slackConnected={settings.integrations.slack} onUpdated={fetch} />
               </div>
-            </>
+            </div>
           )}
 
           {/* Integrations Tab */}
           {activeTab === 'integrations' && (
-            <IntegrationSection
-              stripeConnected={settings.integrations.stripe}
-              stripeLastSyncedAt={(settings.integrations as any).stripeLastSyncedAt || null}
-              slackConnected={settings.integrations.slack}
-              quickbooksConnected={!!(settings.integrations as any).quickbooks}
-              chargebeeConnected={!!(settings.integrations as any).chargebee}
-              onRefresh={fetch}
-            />
+            <div className="space-y-8">
+              <div className="bg-white dark:bg-[#111113] rounded-2xl border border-gray-200 dark:border-white/[0.06] p-8">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-8">Connected Services</h2>
+                <IntegrationSection
+                  stripeConnected={settings.integrations.stripe}
+                  stripeLastSyncedAt={(settings.integrations as any).stripeLastSyncedAt || null}
+                  slackConnected={settings.integrations.slack}
+                  quickbooksConnected={!!(settings.integrations as any).quickbooks}
+                  chargebeeConnected={!!(settings.integrations as any).chargebee}
+                  onRefresh={fetch}
+                />
+              </div>
+            </div>
           )}
 
           {/* Automation Tab */}
           {activeTab === 'automation' && (
-            <>
-              <DunningSection
-                strategy={settings.dunningStrategy || { num_emails: 5, days_between: 7, approval_required: false }}
-                onSaved={fetch}
-              />
-              <SlackSection connected={settings.integrations.slack} onSaved={fetch} />
-              <div className="bg-white dark:bg-[#111113] rounded-xl border border-gray-200 dark:border-white/[0.06] p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Email Templates</h3>
-                  <span className="text-xs bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 px-2 py-1 rounded-full">AI-generated</span>
+            <div className="space-y-8">
+              {/* Dunning Strategy */}
+              <div className="bg-white dark:bg-[#111113] rounded-2xl border border-gray-200 dark:border-white/[0.06] p-8">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-8">Dunning Strategy</h2>
+                <DunningSection
+                  strategy={settings.dunningStrategy || { num_emails: 5, days_between: 7, approval_required: false }}
+                  onSaved={fetch}
+                />
+              </div>
+
+              {/* Slack Integration */}
+              <div className="bg-white dark:bg-[#111113] rounded-2xl border border-gray-200 dark:border-white/[0.06] p-8">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-8">Slack Notifications</h2>
+                <SlackSection connected={settings.integrations.slack} onSaved={fetch} />
+              </div>
+
+              {/* Email Templates */}
+              <div className="bg-white dark:bg-[#111113] rounded-2xl border border-gray-200 dark:border-white/[0.06] p-8">
+                <div className="flex items-center justify-between mb-8">
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Email Templates</h2>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">AI-generated for each customer</p>
+                  </div>
+                  <span className="text-xs bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300 px-3 py-1 rounded-full font-semibold">AI-Powered</span>
                 </div>
-                <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
-                  Each dunning email is generated by AI based on the customer's context, payment history, and invoice details. Templates below show the default sequence.
-                </p>
-                <div className="space-y-2">
-                  {EMAIL_TEMPLATES.map((tpl) => (
-                    <div key={tpl.id} className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-white/[0.03] border border-gray-200 dark:border-white/[0.05]">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-medium text-gray-900 dark:text-white">{tpl.name}</p>
-                          <span className="text-xs text-gray-400 dark:text-gray-500">{tpl.delay}</span>
+                <div className="space-y-4">
+                  {EMAIL_TEMPLATES.map((tpl, idx) => (
+                    <div key={tpl.id} className="group relative p-5 rounded-xl border border-gray-200 dark:border-white/[0.06] hover:border-gray-300 dark:hover:border-white/[0.12] hover:bg-gray-50 dark:hover:bg-white/[0.02] transition-all duration-200">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-3 mb-2">
+                            <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300 text-sm font-semibold">
+                              {idx + 1}
+                            </span>
+                            <div>
+                              <p className="font-semibold text-gray-900 dark:text-white">{tpl.name}</p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{tpl.delay}</p>
+                            </div>
+                          </div>
+                          <p className="text-sm text-gray-600 dark:text-gray-400 ml-11">{tpl.desc}</p>
                         </div>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{tpl.desc}</p>
-                      </div>
-                      <div className="flex items-center gap-2 flex-shrink-0 ml-3">
-                        <button
-                          onClick={() => setPreviewTemplate(tpl)}
-                          className="text-xs text-indigo-600 dark:text-indigo-400 font-medium hover:underline"
-                        >
-                          Preview
-                        </button>
-                        <button disabled className="text-xs text-gray-400 dark:text-gray-500 font-medium cursor-not-allowed opacity-60">
-                          Customize
-                        </button>
-                        <span className="text-xs bg-gray-100 dark:bg-white/[0.06] text-gray-500 dark:text-gray-400 px-1.5 py-0.5 rounded">Enterprise</span>
                       </div>
                     </div>
                   ))}
                 </div>
+                <p className="text-xs text-gray-600 dark:text-gray-400 mt-6 italic">
+                  💡 Each email is personalized by AI using customer name, invoice amount, payment history, and risk profile.
+                </p>
               </div>
-            </>
+            </div>
           )}
 
-          {/* Security Tab */}
-          {activeTab === 'security' && (
-            <>
-              <div className="bg-white dark:bg-[#111113] rounded-xl border border-gray-200 dark:border-white/[0.06] p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Active Sessions</h2>
-                  <button
-                    type="button"
-                    className="text-sm text-red-600 hover:text-red-700 dark:hover:text-red-400 font-medium disabled:opacity-50"
-                    disabled={sessionLoading}
-                    onClick={revokeAllSessions}
-                  >
-                    Revoke all
-                  </button>
+          {/* Advanced Tab */}
+          {activeTab === 'advanced' && (
+            <div className="space-y-8">
+              {/* Sessions */}
+              <div className="bg-white dark:bg-[#111113] rounded-2xl border border-gray-200 dark:border-white/[0.06] p-8">
+                <div className="flex items-center justify-between mb-8">
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Active Sessions</h2>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Manage your login sessions</p>
+                  </div>
+                  {sessions.length > 0 && (
+                    <button
+                      onClick={revokeAllSessions}
+                      disabled={sessionLoading}
+                      className="text-sm text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 font-semibold disabled:opacity-50 transition-colors"
+                    >
+                      Revoke All
+                    </button>
+                  )}
                 </div>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                  {sessions.length === 0 ? 'No active sessions.' : `You have ${sessions.length} active session${sessions.length !== 1 ? 's' : ''}.`}
-                </p>
-                {sessions.length > 0 && (
-                  <div className="space-y-2">
+
+                {sessions.length === 0 ? (
+                  <div className="text-center py-8">
+                    <div className="text-4xl mb-3">🔒</div>
+                    <p className="text-gray-600 dark:text-gray-400 font-medium">No active sessions</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
                     {sessions.map((s) => (
-                      <div key={s.id} className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-white/[0.03] border border-gray-200 dark:border-white/[0.05]">
-                        <div>
-                          <div className="text-sm font-medium text-gray-900 dark:text-white">{s.user_agent || 'Unknown device'}</div>
-                          <div className="text-xs text-gray-500 dark:text-gray-500 mt-0.5">{s.ip_address || 'Unknown IP'}</div>
+                      <div key={s.id} className="flex items-center justify-between p-5 rounded-xl border border-gray-200 dark:border-white/[0.06] hover:bg-gray-50 dark:hover:bg-white/[0.02] transition-colors">
+                        <div className="flex-1">
+                          <p className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                            <span className="text-lg">💻</span>
+                            {s.user_agent || 'Unknown device'}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{s.ip_address || 'Unknown IP'}</p>
                         </div>
                         <button
-                          type="button"
-                          className="text-sm text-red-600 hover:text-red-700 dark:hover:text-red-400 font-medium disabled:opacity-50"
-                          disabled={sessionLoading}
                           onClick={() => revokeSession(s.id)}
+                          disabled={sessionLoading}
+                          className="text-sm text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 font-semibold disabled:opacity-50 transition-colors"
                         >
                           Revoke
                         </button>
@@ -366,59 +301,53 @@ const Settings: React.FC = () => {
                   </div>
                 )}
               </div>
-              <div className="bg-white dark:bg-[#111113] rounded-xl border border-gray-200 dark:border-white/[0.06] p-6 opacity-60">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">API Keys</h3>
-                  <span className="text-xs bg-gray-100 dark:bg-white/[0.06] text-gray-500 dark:text-gray-400 px-2 py-1 rounded-full">Enterprise plan</span>
-                </div>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                  Programmatic access to RecoverAI for custom integrations and automation workflows.
-                </p>
-                <button disabled className="text-sm text-gray-400 dark:text-gray-500 font-medium cursor-not-allowed">
-                  Create API key →
-                </button>
-              </div>
-              <div className="bg-white dark:bg-[#111113] rounded-xl border border-gray-200 dark:border-white/[0.06] p-6 opacity-60">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Webhooks</h3>
-                  <span className="text-xs bg-gray-100 dark:bg-white/[0.06] text-gray-500 dark:text-gray-400 px-2 py-1 rounded-full">Enterprise plan</span>
-                </div>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                  Receive real-time events about payments, recoveries, and risk alerts via HTTP webhooks.
-                </p>
-                <button disabled className="text-sm text-gray-400 dark:text-gray-500 font-medium cursor-not-allowed">
-                  Configure webhooks →
-                </button>
-              </div>
-            </>
-          )}
 
+              {/* General Settings */}
+              <div className="bg-white dark:bg-[#111113] rounded-2xl border border-gray-200 dark:border-white/[0.06] p-8">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-8">General Preferences</h2>
+                <GeneralSection
+                  timezone={settings.timezone}
+                  preferredCurrency={settings.preferredCurrency}
+                  onSaved={fetch}
+                />
+              </div>
 
-          {/* General Tab */}
-          {activeTab === 'general' && (
-            <>
-              <GeneralSection
-                timezone={settings.timezone}
-                preferredCurrency={settings.preferredCurrency}
-                onSaved={fetch}
-              />
-              <div className="bg-white dark:bg-[#111113] rounded-xl border border-gray-200 dark:border-white/[0.06] p-6">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Data & Privacy</h3>
+              {/* API Keys */}
+              <div className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-white/[0.03] dark:to-white/[0.01] rounded-2xl border border-gray-200 dark:border-white/[0.06] p-8 opacity-60">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white">API Keys</h2>
+                  <span className="text-xs bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-3 py-1 rounded-full font-semibold">Enterprise</span>
+                </div>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">Programmatic access for custom integrations and automation. Coming soon for enterprise customers.</p>
+              </div>
+
+              {/* Webhooks */}
+              <div className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-white/[0.03] dark:to-white/[0.01] rounded-2xl border border-gray-200 dark:border-white/[0.06] p-8 opacity-60">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Webhooks</h2>
+                  <span className="text-xs bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-3 py-1 rounded-full font-semibold">Enterprise</span>
+                </div>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">Real-time events for payments, recoveries, and alerts. Coming soon for enterprise customers.</p>
+              </div>
+
+              {/* Data & Privacy */}
+              <div className="bg-white dark:bg-[#111113] rounded-2xl border border-gray-200 dark:border-white/[0.06] p-8">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-8">Data & Privacy</h2>
                 <div className="space-y-3">
-                  <button className="w-full text-left px-4 py-3 rounded-lg hover:bg-gray-50 dark:hover:bg-white/[0.02] transition-colors">
-                    <p className="font-medium text-gray-900 dark:text-white">Export Data</p>
-                    <p className="text-xs text-gray-500 mt-0.5">Download all your data as CSV</p>
+                  <button className="w-full text-left px-5 py-4 rounded-xl border border-gray-200 dark:border-white/[0.06] hover:bg-gray-50 dark:hover:bg-white/[0.02] transition-colors group">
+                    <p className="font-semibold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">📊 Export Data</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Download all your data as CSV</p>
                   </button>
-                  <button className="w-full text-left px-4 py-3 rounded-lg hover:bg-gray-50 dark:hover:bg-white/[0.02] transition-colors">
-                    <p className="font-medium text-gray-900 dark:text-white">GDPR Request</p>
-                    <p className="text-xs text-gray-500 mt-0.5">Submit a data access or deletion request</p>
+                  <button className="w-full text-left px-5 py-4 rounded-xl border border-gray-200 dark:border-white/[0.06] hover:bg-gray-50 dark:hover:bg-white/[0.02] transition-colors group">
+                    <p className="font-semibold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">⚖️ GDPR Request</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Submit a data access or deletion request</p>
                   </button>
                 </div>
               </div>
-            </>
+            </div>
           )}
         </div>
-      </main>
+      </div>
     </div>
   );
 };
