@@ -12,6 +12,8 @@ import { startPaymentPlanChargeJob, stopPaymentPlanChargeJob } from './queue/pay
 import { startTrialExpiryJob, stopTrialExpiryJob } from './queue/trialExpiryJob';
 import { startBillingInvoiceJob, stopBillingInvoiceJob } from './queue/billingInvoiceJob';
 import { startBillingOptimizationJob, stopBillingOptimizationJob } from './queue/billingOptimizationJob';
+import { startRetryWorker, stopRetryWorker } from './queue/retryQueue';
+import { startSegmentationJob } from './queue/segmentationJob';
 import { snapshotRedisStats } from './queue/redisStatsJob';
 import { logError, logInfo } from './utils/logger';
 import { initObservability } from './config/observability';
@@ -53,6 +55,8 @@ async function startServer() {
       startTrialExpiryJob();
       startBillingInvoiceJob();
       startBillingOptimizationJob();
+      startRetryWorker();
+      startSegmentationJob();
       // Redis stats snapshot: run once on boot + every 24h
       snapshotRedisStats().catch(() => {});
       setInterval(() => snapshotRedisStats().catch(() => {}), 24 * 60 * 60 * 1000);
@@ -79,6 +83,7 @@ async function startServer() {
       await stopAgentLoop();
       await stopRecoveryTimelineJob();
       await stopPaymentPlanChargeJob();
+      await stopRetryWorker();
       stopTrialExpiryJob();
       stopBillingInvoiceJob();
       stopBillingOptimizationJob();

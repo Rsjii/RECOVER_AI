@@ -57,6 +57,9 @@ export interface CustomerRow {
   notes: string | null;
   created_at: string;
   updated_at: string;
+  // Phase 3: Behavioral segmentation
+  risk_tier: number | null;
+  risk_tier_updated_at: string | null;
 }
 
 // ============ Invoices ============
@@ -78,6 +81,10 @@ export interface InvoiceRow {
   // Dunning control fields
   dunning_paused_until: string | null;
   dunning_stopped: boolean;
+  // Phase 1: Decline code intelligence
+  decline_code: string | null;
+  last_decline_type: 'soft' | 'hard' | 'fraud' | null;
+  decline_confidence: number | null;
   // Fields added by JOIN queries in invoices.ts
   customer_name?: string;
   customer_email?: string;

@@ -164,3 +164,80 @@ export async function updateCustomerPaymentHistory(customerId: string): Promise<
     ]
   );
 }
+
+/**
+ * Update the risk_tier for a customer and log the change if tier changed.
+ */
+export async function updateCustomerTier(
+  customerId: string,
+  companyId: string,
+  newTier: number,
+  reason?: string
+): Promise<void> {
+  // Fetch current tier first to detect change
+  const current = await pool.query(
+    'SELECT risk_tier FROM customers WHERE id = $1 AND company_id = $2',
+    [customerId, companyId]
+  );
+  if (current.rows.length === 0) return;
+
+  const oldTier = current.rows[0].risk_tier;
+
+  await pool.query(
+    `UPDATE customers
+     SET risk_tier = $1, risk_tier_updated_at = NOW(), updated_at = NOW()
+     WHERE id = $2 AND company_id = $3`,
+    [newTier, customerId, companyId]
+  );
+
+  if (oldTier !== newTier) {
+    await pool.query(
+      `INSERT INTO customer_tier_history (customer_id, company_id, old_tier, new_tier, reason)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [customerId, companyId, oldTier, newTier, reason ?? 'scheduled_recalculation']
+    ).catch(() => {});  // non-blocking
+  }
+}
+
+/**
+ * List customers grouped by tier for a company.
+ */
+export async function listCustomersByTier(
+  companyId: string
+): Promise<{ tier: number; customers: Array<{ id: string; name: string; email: string; risk_tier: number }> }[]> {
+  const result = await pool.query(
+    `SELECT id, name, email, COALESCE(risk_tier, 2) AS risk_tier
+     FROM customers
+     WHERE company_id = $1
+     ORDER BY risk_tier ASC, name ASC`,
+    [companyId]
+  );
+
+  const groups: Record<number, typeof result.rows> = { 1: [], 2: [], 3: [], 4: [] };
+  for (const row of result.rows) {
+    const t = Math.min(4, Math.max(1, Number(row.risk_tier)));
+    groups[t].push(row);
+  }
+
+  return [1, 2, 3, 4].map(tier => ({ tier, customers: groups[tier] }));
+}
+
+/**
+ * Get tier distribution counts for a company.
+ */
+export async function getCustomerTierDistribution(companyId: string): Promise<Record<number, number>> {
+  const result = await pool.query(
+    `SELECT COALESCE(risk_tier, 2) AS tier, COUNT(*)::int AS count
+     FROM customers
+     WHERE company_id = $1
+     GROUP BY 1`,
+    [companyId]
+  );
+
+  const dist: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0 };
+  for (const row of result.rows) {
+    const t = Math.min(4, Math.max(1, Number(row.tier)));
+    dist[t] = row.count;
+  }
+  return dist;
+}

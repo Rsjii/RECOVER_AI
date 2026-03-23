@@ -1,6 +1,7 @@
 import cron from 'node-cron';
-import { queueEmailNow } from './dunningQueue';
+import { queueEmailNow, TIER_DUNNING_TREES } from './dunningQueue';
 import { queueSMSNow } from './smsQueue';
+import { queueVoiceCall } from './voiceCallQueue';
 import { pool } from '../config/database';
 import { logError, logInfo, logWarn } from '../utils/logger';
 import { normalizePhone } from '../services/smsService';
@@ -42,6 +43,7 @@ async function getOverdueInvoicesForProcessing(): Promise<Array<{
   customer_phone_opt_in: boolean;
   company_name: string;
   risk_score: number;
+  risk_tier: number;
   dunning_emails_sent: number;
   email_types_sent: string[];
   has_active_plan: boolean;
@@ -65,6 +67,7 @@ async function getOverdueInvoicesForProcessing(): Promise<Array<{
       c.name            AS customer_name,
       c.phone           AS customer_phone,
       COALESCE(c.phone_opt_in, false) AS customer_phone_opt_in,
+      COALESCE(c.risk_tier, 2)::int AS risk_tier,
       co.name           AS company_name,
       COUNT(DISTINCT el.id) FILTER (
         WHERE el.email_type LIKE 'dunning_%' AND el.status != 'failed'
@@ -88,7 +91,7 @@ async function getOverdueInvoicesForProcessing(): Promise<Array<{
       AND COALESCE(c.do_not_email, false) = false
     GROUP BY i.id, i.company_id, i.customer_id, i.amount, i.due_date, i.risk_score,
              i.dunning_paused_until, i.dunning_stopped, i.sms_count,
-             c.email, c.name, c.phone, c.phone_opt_in, co.name
+             c.email, c.name, c.phone, c.phone_opt_in, c.risk_tier, co.name
     ORDER BY i.due_date ASC
   `);
 
@@ -166,10 +169,13 @@ async function runDecisionEngine(): Promise<{
       const emailTypesSent = new Set<string>(invoice.email_types_sent || []);
 
       // ── Find next dunning step to send ──
-      // Pick the first step (lowest dayOffset) that is due and not yet sent.
-      // This ensures emails go out in sequence (1→2→3→4→5), one per agent run.
+      // Use tier-specific cadence (Phase 3): Tier 1=7d gaps, 2=6d, 3=5d, 4=4d
+      // Fall back to default DUNNING_DECISION_TREE for unknown tiers.
+      const tier = Math.min(4, Math.max(1, invoice.risk_tier || 2)) as 1 | 2 | 3 | 4;
+      const activeDunningTree = TIER_DUNNING_TREES[tier] ?? DUNNING_DECISION_TREE;
+
       let nextStep: { dayOffset: number; emailType: DunningEmailType } | null = null;
-      for (const step of DUNNING_DECISION_TREE) {
+      for (const step of activeDunningTree) {
         if (daysOverdue >= step.dayOffset && !emailTypesSent.has(step.emailType)) {
           nextStep = step;
           break;
@@ -276,6 +282,29 @@ async function runDecisionEngine(): Promise<{
             daysOverdue,
             dunningEmailsSent: invoice.dunning_emails_sent,
           });
+        }
+      }
+
+      // ── Tier 4: queue voice call (Phase 5 stub) ──
+      if (
+        tier === 4 &&
+        invoice.customer_phone &&
+        invoice.customer_phone_opt_in &&
+        daysOverdue >= 5
+      ) {
+        const normalizedPhone = normalizePhone(invoice.customer_phone);
+        if (normalizedPhone) {
+          queueVoiceCall({
+            invoiceId: invoice.id,
+            companyId: invoice.company_id,
+            customerId: invoice.customer_id,
+            customerPhone: normalizedPhone,
+            customerName: invoice.customer_name,
+            invoiceAmount: invoice.amount,
+            daysOverdue,
+          }).catch(err =>
+            logWarn(LOG_MODULE, method, 'Voice call queue failed (non-blocking)', { invoiceId: invoice.id, error: String(err) })
+          );
         }
       }
 

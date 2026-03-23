@@ -93,6 +93,8 @@ CREATE TABLE IF NOT EXISTS customers (
   industry        VARCHAR,
   notes           TEXT,
   do_not_email    BOOLEAN DEFAULT false,
+  risk_tier       INT DEFAULT 2,
+  risk_tier_updated_at TIMESTAMPTZ,
   created_at      TIMESTAMPTZ DEFAULT NOW(),
   updated_at      TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(company_id, email)
@@ -119,6 +121,8 @@ CREATE TABLE IF NOT EXISTS invoices (
   sms_count            INTEGER DEFAULT 0,
   last_sms_sent_at     TIMESTAMPTZ,
   last_decline_type    VARCHAR(10),
+  decline_code         VARCHAR(50),           -- Phase 1: Stripe decline code classification
+  decline_confidence   INT DEFAULT 100,       -- Phase 1: confidence 0-100
   created_at           TIMESTAMPTZ DEFAULT NOW(),
   updated_at           TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(company_id, source, source_id)
@@ -738,4 +742,80 @@ CREATE INDEX IF NOT EXISTS idx_billing_anomalies_company
 CREATE INDEX IF NOT EXISTS idx_billing_anomalies_status
   ON billing_anomalies(company_id, status)
   WHERE status = 'pending';
+
+-- ============================================================
+-- PHASE 1: DECLINE CODE INTELLIGENCE
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS decline_code_stats (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  decline_code VARCHAR(50) NOT NULL,
+  total_occurrences INT DEFAULT 0,
+  successful_retries INT DEFAULT 0,
+  success_rate DECIMAL(5,2) DEFAULT 0,
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(company_id, decline_code)
+);
+
+CREATE INDEX IF NOT EXISTS idx_decline_code_stats_company ON decline_code_stats(company_id);
+
+ALTER TABLE decline_code_stats ENABLE ROW LEVEL SECURITY;
+ALTER TABLE decline_code_stats FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS decline_code_stats_tenant_isolation ON decline_code_stats;
+CREATE POLICY decline_code_stats_tenant_isolation ON decline_code_stats
+  USING (company_id = app.current_company_id())
+  WITH CHECK (company_id = app.current_company_id());
+
+-- ============================================================
+-- PHASE 2: DATA-DRIVEN RETRY LOGIC
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS payment_retries (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  invoice_id UUID NOT NULL REFERENCES invoices(id) ON DELETE CASCADE,
+  company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  attempt_number INT NOT NULL DEFAULT 1,
+  retry_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  scheduled_reason VARCHAR(50),   -- 'soft_decline' | 'manual'
+  ab_variant VARCHAR(20) DEFAULT 'generic',  -- 'optimized' | 'generic'
+  result VARCHAR(20) DEFAULT 'pending',      -- 'pending' | 'success' | 'failed' | 'skipped'
+  result_at TIMESTAMPTZ,
+  decline_code VARCHAR(50),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_payment_retries_company ON payment_retries(company_id, retry_at DESC);
+CREATE INDEX IF NOT EXISTS idx_payment_retries_invoice ON payment_retries(invoice_id);
+
+ALTER TABLE payment_retries ENABLE ROW LEVEL SECURITY;
+ALTER TABLE payment_retries FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS payment_retries_tenant_isolation ON payment_retries;
+CREATE POLICY payment_retries_tenant_isolation ON payment_retries
+  USING (company_id = app.current_company_id())
+  WITH CHECK (company_id = app.current_company_id());
+
+-- ============================================================
+-- PHASE 3: BEHAVIORAL SEGMENTATION
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS customer_tier_history (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  customer_id UUID NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+  company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  old_tier INT,
+  new_tier INT NOT NULL,
+  reason VARCHAR(200),
+  changed_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_customers_risk_tier ON customers(company_id, risk_tier);
+CREATE INDEX IF NOT EXISTS idx_customer_tier_history_customer ON customer_tier_history(customer_id, changed_at DESC);
+
+ALTER TABLE customer_tier_history ENABLE ROW LEVEL SECURITY;
+ALTER TABLE customer_tier_history FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS customer_tier_history_tenant_isolation ON customer_tier_history;
+CREATE POLICY customer_tier_history_tenant_isolation ON customer_tier_history
+  USING (company_id = app.current_company_id())
+  WITH CHECK (company_id = app.current_company_id());
 

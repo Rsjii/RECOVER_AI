@@ -5,6 +5,7 @@ import emailService from '../services/emailService';
 import { countEmailsSentForInvoice } from '../db/emailLogs';
 import { logError, logInfo, logWarn } from '../utils/logger';
 import { findInvoiceById } from '../db/invoices';
+import { createPlanForInvoice } from '../services/paymentPlanService';
 
 const LOG_MODULE = 'dunningQueue';
 const QUEUE_NAME = 'dunning-emails';
@@ -71,6 +72,41 @@ const DUNNING_SCHEDULE: Array<{ dayOffset: number; emailType: DunningEmailType }
   { dayOffset: 30, emailType: 'dunning_4' },
   { dayOffset: 60, emailType: 'dunning_5' },
 ];
+
+// ============================================================
+// Phase 3: Tier-based dunning decision trees
+// Used by agentLoop to pick the correct cadence per customer tier.
+// ============================================================
+export const TIER_DUNNING_TREES: Record<number, Array<{ dayOffset: number; emailType: DunningEmailType }>> = {
+  1: [  // Tier 1 (Green) — gentle, 7d gaps
+    { dayOffset: 1,  emailType: 'dunning_1' },
+    { dayOffset: 8,  emailType: 'dunning_2' },
+    { dayOffset: 15, emailType: 'dunning_3' },
+    { dayOffset: 22, emailType: 'dunning_4' },
+    { dayOffset: 29, emailType: 'dunning_5' },
+  ],
+  2: [  // Tier 2 (Yellow) — standard, 6d gaps (existing behaviour)
+    { dayOffset: 1,  emailType: 'dunning_1' },
+    { dayOffset: 7,  emailType: 'dunning_2' },
+    { dayOffset: 13, emailType: 'dunning_3' },
+    { dayOffset: 19, emailType: 'dunning_4' },
+    { dayOffset: 25, emailType: 'dunning_5' },
+  ],
+  3: [  // Tier 3 (Orange) — aggressive, 5d gaps
+    { dayOffset: 1,  emailType: 'dunning_1' },
+    { dayOffset: 6,  emailType: 'dunning_2' },
+    { dayOffset: 11, emailType: 'dunning_3' },
+    { dayOffset: 16, emailType: 'dunning_4' },
+    { dayOffset: 21, emailType: 'dunning_5' },
+  ],
+  4: [  // Tier 4 (Red) — critical, 4d gaps
+    { dayOffset: 1,  emailType: 'dunning_1' },
+    { dayOffset: 5,  emailType: 'dunning_2' },
+    { dayOffset: 9,  emailType: 'dunning_3' },
+    { dayOffset: 13, emailType: 'dunning_4' },
+    { dayOffset: 17, emailType: 'dunning_5' },
+  ],
+};
 
 export async function scheduleDunningEmails(
   invoiceId: string,
@@ -204,6 +240,29 @@ export function startDunningWorker(): Worker<DunningEmailJob> {
           invoiceId: data.invoiceId,
         });
         return { skipped: true, reason: 'Invoice already paid' };
+      }
+
+      // Dunning stopped (fraud detected) — discard job
+      if (invoice.dunning_stopped) {
+        logInfo(LOG_MODULE, 'worker', 'Dunning stopped — discarding job', {
+          jobId: job.id,
+          invoiceId: data.invoiceId,
+        });
+        return { skipped: true, reason: 'Dunning stopped' };
+      }
+
+      // Hard decline — payment plan already created by webhook handler; skip email
+      if ((invoice as any).last_decline_type === 'hard') {
+        logInfo(LOG_MODULE, 'worker', 'Hard decline — ensuring payment plan exists, skipping email', {
+          jobId: job.id,
+          invoiceId: data.invoiceId,
+        });
+        try {
+          await createPlanForInvoice(data.invoiceId, data.companyId, 3);
+        } catch (_err) {
+          // Plan likely already exists — safe to ignore
+        }
+        return { skipped: true, reason: 'Hard decline — payment plan created' };
       }
 
       // Check how many emails already sent for this invoice

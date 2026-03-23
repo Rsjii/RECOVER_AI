@@ -24,10 +24,15 @@ export const connectStripe = async (req: Request, res: Response) => {
   try {
     const companyId = (req as any).companyId;
     const userId = (req as any).userId;
+    const { stripe_api_key } = req.body;
 
     logInfo(handler, 'Request received', { companyId, userId });
 
-    await stripeService.connectStripe(companyId, userId, req.body);
+    if (!stripe_api_key || typeof stripe_api_key !== 'string') {
+      return sendErrorResponse(res, 400, 'stripe_api_key is required and must be a string');
+    }
+
+    await stripeService.connectStripe(companyId, userId, { stripe_api_key });
 
     const elapsed = Date.now() - startTime;
     logInfo(handler, `Completed in ${elapsed}ms`, { companyId });

@@ -7,10 +7,15 @@ import * as AuditDB from '../db/auditLogs';
 import * as PaymentDB from '../db/payments';
 import * as SecurityDB from '../db/security';
 import crypto from 'crypto';
+import { pool } from '../config/database';
 import { sendPaymentAlert } from './slackService';
 import { ConnectStripeInput, SyncInvoicesResult } from '../types/stripe';
 import { encryptField, decryptField } from '../lib/encryption';
-import { logError, logInfo } from '../utils/logger';
+import { logError, logInfo, logWarn } from '../utils/logger';
+import { classifyDeclineCode, recordDeclineOccurrence } from './declineCodeService';
+import { createPlanForInvoice } from './paymentPlanService';
+import { getOptimalRetryTime } from './paymentBehaviorService';
+import { addRetryJob } from '../queue/retryQueue';
 import { logIntegrationSync } from '../db/integrationLogs';
 
 function getStripeClient(apiKey: string): Stripe {
@@ -219,6 +224,7 @@ class StripeService {
             chargeId: charge.id,
             failureMessage: charge.failure_message,
           });
+          await this.handleChargeFailed(charge);
           break;
         }
         default:
@@ -308,6 +314,112 @@ class StripeService {
       amount: charge.amount / 100,
       currency: charge.currency,
     });
+  }
+
+  private async handleChargeFailed(charge: Stripe.Charge): Promise<void> {
+    const method = 'handleChargeFailed';
+
+    // Only process if this charge is tied to a Stripe invoice
+    // Note: Stripe types don't expose `invoice` on Charge; cast via any
+    const rawInvoice = (charge as any).invoice;
+    const stripeInvoiceId: string | null = typeof rawInvoice === 'string' ? rawInvoice : rawInvoice?.id ?? null;
+    if (!stripeInvoiceId) {
+      logInfo('stripeService', method, 'Charge failed but not invoice-linked — skipping', { chargeId: charge.id });
+      return;
+    }
+
+    // Find our internal invoice by Stripe invoice ID
+    const invoice = await InvoiceDB.findInvoiceBySourceId(stripeInvoiceId, 'stripe');
+    if (!invoice) {
+      logInfo('stripeService', method, 'Internal invoice not found for failed charge', { stripeInvoiceId });
+      return;
+    }
+
+    if (invoice.status === 'paid') {
+      logInfo('stripeService', method, 'Invoice already paid — ignoring failed charge', { invoiceId: invoice.id });
+      return;
+    }
+
+    // Extract decline code from charge outcome (more specific) or failure_code (general)
+    const declineCode = (charge.outcome as any)?.decline_code || charge.failure_code || null;
+    const classification = classifyDeclineCode(declineCode, charge.failure_code);
+
+    // Persist decline classification on the invoice
+    await pool.query(
+      `UPDATE invoices
+       SET decline_code = $1, last_decline_type = $2, decline_confidence = $3, updated_at = NOW()
+       WHERE id = $4 AND company_id = $5`,
+      [declineCode, classification.type, classification.confidence, invoice.id, invoice.company_id]
+    );
+
+    // Record analytics (non-blocking)
+    if (declineCode) {
+      recordDeclineOccurrence(invoice.company_id, declineCode).catch(() => {});
+    }
+
+    logInfo('stripeService', method, 'Charge failure classified', {
+      invoiceId: invoice.id,
+      declineCode,
+      type: classification.type,
+      confidence: classification.confidence,
+    });
+
+    if (classification.type === 'fraud') {
+      // Stop all dunning — no point retrying
+      await InvoiceDB.stopInvoiceDunning(invoice.id, invoice.company_id);
+      logInfo('stripeService', method, 'Dunning stopped — fraud decline', { invoiceId: invoice.id });
+      return;
+    }
+
+    if (classification.type === 'hard') {
+      // Create payment plan immediately — card can't be retried
+      try {
+        await createPlanForInvoice(invoice.id, invoice.company_id, 3);
+        logInfo('stripeService', method, 'Payment plan created for hard decline', { invoiceId: invoice.id });
+      } catch (err) {
+        logWarn('stripeService', method, 'Payment plan creation skipped (may already exist)', {
+          invoiceId: invoice.id,
+          error: String(err),
+        });
+      }
+      return;
+    }
+
+    // Soft decline — schedule intelligent retry
+    try {
+      const variant: 'optimized' | 'generic' = Math.random() < 0.7 ? 'optimized' : 'generic';
+      let delayMs = 24 * 60 * 60 * 1000;  // default: 24h
+
+      if (variant === 'optimized') {
+        try {
+          const optimalTime = await getOptimalRetryTime(invoice.company_id, invoice.customer_id);
+          const computed = optimalTime.getTime() - Date.now();
+          delayMs = Math.max(60 * 60 * 1000, computed);  // at least 1h in the future
+        } catch (err) {
+          logWarn('stripeService', method, 'Optimal retry time failed — using generic 24h', { error: String(err) });
+        }
+      }
+
+      await addRetryJob(
+        {
+          invoiceId: invoice.id,
+          companyId: invoice.company_id,
+          customerId: invoice.customer_id,
+          attempt: 1,
+          variant,
+          declineCode: declineCode || undefined,
+        },
+        { delay: delayMs }
+      );
+
+      logInfo('stripeService', method, 'Retry job queued', {
+        invoiceId: invoice.id,
+        variant,
+        delayHours: Math.round(delayMs / 3600000),
+      });
+    } catch (err) {
+      logError('stripeService', method, 'Failed to queue retry job (non-blocking)', err);
+    }
   }
 
   // OAuth: Exchange authorization code for access token

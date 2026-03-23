@@ -87,6 +87,29 @@ export async function scoreCustomerRisk(
   }
 }
 
+// ============================================================
+// PHASE 3: Tier classification (pure function — no DB calls)
+// ============================================================
+
+/**
+ * Assign a 1-4 tier to a customer based on risk score + days overdue.
+ * Uses a weighted blend: 60% risk score, 40% DSO (capped at 90d).
+ *
+ *  Tier 1 (Green):  combined < 30  → gentle 7d-gap dunning
+ *  Tier 2 (Yellow): combined 30-54 → standard 6d-gap dunning
+ *  Tier 3 (Orange): combined 55-74 → aggressive 5d-gap + SMS
+ *  Tier 4 (Red):    combined >= 75 → critical: 4d-gap + SMS + voice queue
+ */
+export function calculateCustomerTier(riskScore: number, daysOverdue: number): 1 | 2 | 3 | 4 {
+  const dsoScore = Math.min(100, (daysOverdue / 90) * 100);
+  const combined = riskScore * 0.6 + dsoScore * 0.4;
+
+  if (combined < 30) return 1;
+  if (combined < 55) return 2;
+  if (combined < 75) return 3;
+  return 4;
+}
+
 /**
  * Get all at-risk customers for a company (score >= 40).
  * Returns sorted by score descending.
