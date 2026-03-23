@@ -183,21 +183,45 @@ const Reports: React.FC = () => {
     if (activeTab === 'Payment Plans') fetchPlans();
   }, [activeTab, fetchOverview, fetchCampaign, fetchAging, fetchPlans]);
 
+  const downloadCsv = (rows: (string | number)[][], filename: string) => {
+    const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
   const handleExportCSV = () => {
     if (!timeline.length) return;
-    const rows = timeline.map(r => [
-      r.period.slice(0, 7),
-      r.recovered_amount.toFixed(2),
-      r.amount_created.toFixed(2),
-      r.recovered_count,
-      r.total_count,
-    ]);
-    const csv = [['Period', 'Recovered', 'Invoiced', 'Count Recovered', 'Count Total'], ...rows]
-      .map(r => r.join(',')).join('\n');
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
-    link.download = `recoverai-report-${new Date().toISOString().slice(0, 10)}.csv`;
-    link.click();
+    const headers = ['Period', 'Recovered', 'Invoiced', 'Count Recovered', 'Count Total'];
+    const rows = timeline.map(r => [r.period.slice(0, 7), r.recovered_amount.toFixed(2), r.amount_created.toFixed(2), r.recovered_count, r.total_count]);
+    downloadCsv([headers, ...rows], `recoverai-overview-${new Date().toISOString().slice(0, 10)}.csv`);
+  };
+
+  const handleExportCampaignCSV = () => {
+    if (!campaignByType.length) return;
+    const headers = ['Email Type', 'Sent', 'Opened', 'Clicked', 'Open Rate', 'CTR'];
+    const rows = campaignByType.map(r => [r.type, r.sent, r.opened, r.clicked, `${r.openRate.toFixed(1)}%`, `${r.ctr.toFixed(1)}%`]);
+    downloadCsv([headers, ...rows], `recoverai-campaigns-${new Date().toISOString().slice(0, 10)}.csv`);
+  };
+
+  const handleExportAgingCSV = () => {
+    if (!agingBuckets.length) return;
+    const headers = ['Bucket', 'Invoice Count', 'Total Amount', '% of Total', 'Avg Days Overdue'];
+    const rows = agingBuckets.map(r => [r.bucket, r.invoiceCount, r.totalAmount.toFixed(2), `${r.pctOfTotal.toFixed(1)}%`, r.avgDaysOverdue]);
+    downloadCsv([headers, ...rows], `recoverai-aging-${new Date().toISOString().slice(0, 10)}.csv`);
+  };
+
+  const handleExportPlansCSV = () => {
+    if (!plans.length) return;
+    const headers = ['Customer', 'Email', 'Total Amount', 'Status', 'Progress', 'Next Due Date', 'Created'];
+    const rows = plans.map(r => [r.customerName, r.customerEmail, r.totalAmount.toFixed(2), r.status, `${r.pctComplete}%`, r.nextDueDate ?? '—', r.createdAt.slice(0, 10)]);
+    downloadCsv([headers, ...rows], `recoverai-plans-${new Date().toISOString().slice(0, 10)}.csv`);
+  };
+
+  const handleExportPDF = () => {
+    window.print();
   };
 
   const formatMonth = (s: string) => { try { return format(parseISO(s + '-01'), 'MMM yy'); } catch { return s; } };
@@ -233,16 +257,63 @@ const Reports: React.FC = () => {
               </button>
             </>
           )}
-          {activeTab === 'Campaigns' && (
-            <select
-              value={campaignPeriod}
-              onChange={e => setCampaignPeriod(Number(e.target.value))}
-              className="text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 bg-white dark:bg-[#18181b] text-gray-700 dark:text-zinc-300"
+          {activeTab === 'Overview' && (
+            <button
+              onClick={handleExportPDF}
+              className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-[#18181b] border border-gray-200 dark:border-white/10 rounded-lg text-sm text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-white/[0.06] no-print"
             >
-              <option value={7}>Last 7 days</option>
-              <option value={30}>Last 30 days</option>
-              <option value={90}>Last 90 days</option>
-            </select>
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+              </svg>
+              Export PDF
+            </button>
+          )}
+          {activeTab === 'Campaigns' && (
+            <>
+              <select
+                value={campaignPeriod}
+                onChange={e => setCampaignPeriod(Number(e.target.value))}
+                className="text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 bg-white dark:bg-[#18181b] text-gray-700 dark:text-zinc-300"
+              >
+                <option value={7}>Last 7 days</option>
+                <option value={30}>Last 30 days</option>
+                <option value={90}>Last 90 days</option>
+              </select>
+              <button
+                onClick={handleExportCampaignCSV}
+                disabled={!campaignByType.length}
+                className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-[#18181b] border border-gray-200 dark:border-white/10 rounded-lg text-sm text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-white/[0.06] disabled:opacity-50"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Export CSV
+              </button>
+            </>
+          )}
+          {activeTab === 'Aging' && (
+            <button
+              onClick={handleExportAgingCSV}
+              disabled={!agingBuckets.length}
+              className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-[#18181b] border border-gray-200 dark:border-white/10 rounded-lg text-sm text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-white/[0.06] disabled:opacity-50"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Export CSV
+            </button>
+          )}
+          {activeTab === 'Payment Plans' && (
+            <button
+              onClick={handleExportPlansCSV}
+              disabled={!plans.length}
+              className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-[#18181b] border border-gray-200 dark:border-white/10 rounded-lg text-sm text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-white/[0.06] disabled:opacity-50"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Export CSV
+            </button>
           )}
         </div>
       </div>

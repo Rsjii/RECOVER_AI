@@ -18,31 +18,117 @@ function logError(handler: string, msg: string, error?: unknown): void {
   baseLogError(LOG_MODULE, handler, msg, error);
 }
 
+const DUNNING_EMAIL_TYPES = ['dunning_1', 'dunning_2', 'dunning_3', 'dunning_4', 'dunning_5'];
+
+function computeDunningFields(emailTypesSent: string[], daysOverdue: number): { dunning_stage: number; next_action: string } {
+  const sentSet = new Set(emailTypesSent);
+  const dunning_stage = DUNNING_EMAIL_TYPES.filter(t => sentSet.has(t)).length;
+
+  const nextTreeStep = DUNNING_DECISION_TREE.find(s => !sentSet.has(s.emailType));
+  let next_action: string;
+  if (!nextTreeStep) {
+    next_action = 'All stages complete';
+  } else if (daysOverdue < nextTreeStep.dayOffset) {
+    const daysUntil = nextTreeStep.dayOffset - daysOverdue;
+    next_action = `Stage ${dunning_stage + 1} email in ${daysUntil}d`;
+  } else {
+    next_action = `Send Stage ${dunning_stage + 1} now`;
+  }
+
+  return { dunning_stage, next_action };
+}
+
 export const listInvoices = async (req: Request, res: Response) => {
   const handler = 'listInvoices';
   const startTime = Date.now();
 
   try {
     const companyId = (req as any).companyId;
-    const { status, customerId, agingBucket, page = '1', limit = '50' } = req.query as Record<string, string>;
+    const { status, customerId, agingBucket, dunningStage, page = '1', limit = '50' } = req.query as Record<string, string>;
 
     const pageNum = Math.max(1, parseInt(page) || 1);
     const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 50));
     const offset = (pageNum - 1) * limitNum;
 
-    logInfo(handler, 'Request received', { companyId, status, customerId, agingBucket, page: pageNum, limit: limitNum });
+    logInfo(handler, 'Request received', { companyId, status, customerId, agingBucket, dunningStage, page: pageNum, limit: limitNum });
 
-    const { data, total } = await InvoiceDB.listInvoices(companyId, { status, customerId, agingBucket }, limitNum, offset);
+    let { data, total } = await InvoiceDB.listInvoices(companyId, { status, customerId, agingBucket }, limitNum, offset);
 
-    logInfo(handler, `Completed in ${Date.now() - startTime}ms`, { total, returned: data.length });
+    // Compute dunning_stage + next_action and optionally filter by dunningStage
+    const enriched = data.map(row => {
+      const daysOverdue = Math.max(0, Math.floor((Date.now() - new Date(row.due_date).getTime()) / 86400000));
+      const { dunning_stage, next_action } = computeDunningFields(row.email_types_sent ?? [], daysOverdue);
+      return { ...row, dunning_stage, next_action };
+    });
+
+    // App-layer dunningStage filter (0 = Not Started, 1-5 = Stage N)
+    const filtered = dunningStage !== undefined
+      ? enriched.filter(r => r.dunning_stage === parseInt(dunningStage))
+      : enriched;
+
+    logInfo(handler, `Completed in ${Date.now() - startTime}ms`, { total, returned: filtered.length });
 
     return res.status(200).json({
-      data,
-      total,
+      data: filtered,
+      total: dunningStage !== undefined ? filtered.length : total,
       page: pageNum,
       limit: limitNum,
-      totalPages: Math.ceil(total / limitNum),
+      totalPages: Math.ceil((dunningStage !== undefined ? filtered.length : total) / limitNum),
     });
+  } catch (err: any) {
+    logError(handler, `Failed after ${Date.now() - startTime}ms`, err);
+    const { statusCode, message } = parseError(err);
+    return sendErrorResponse(res, statusCode, message);
+  }
+};
+
+export const exportInvoicesCSV = async (req: Request, res: Response) => {
+  const handler = 'exportInvoicesCSV';
+  const startTime = Date.now();
+
+  try {
+    const companyId = (req as any).companyId;
+    const { status, customerId, agingBucket, dunningStage } = req.query as Record<string, string>;
+
+    logInfo(handler, 'Export requested', { companyId, status, customerId, agingBucket, dunningStage });
+
+    const { data } = await InvoiceDB.listInvoices(companyId, { status, customerId, agingBucket }, 9999, 0);
+
+    const enriched = data.map(row => {
+      const daysOverdue = Math.max(0, Math.floor((Date.now() - new Date(row.due_date).getTime()) / 86400000));
+      const { dunning_stage, next_action } = computeDunningFields(row.email_types_sent ?? [], daysOverdue);
+      return { ...row, dunning_stage, next_action };
+    });
+
+    const filtered = dunningStage !== undefined
+      ? enriched.filter(r => r.dunning_stage === parseInt(dunningStage))
+      : enriched;
+
+    const header = ['Invoice #', 'Customer', 'Email', 'Amount', 'Currency', 'Due Date', 'Days Overdue', 'Status', 'Dunning Stage', 'Risk Score', 'Next Action'].join(',');
+    const rows = filtered.map(r => {
+      const daysOverdue = Math.max(0, Math.floor((Date.now() - new Date(r.due_date).getTime()) / 86400000));
+      return [
+        r.source_id ?? r.id.slice(0, 8),
+        `"${(r.customer_name ?? '').replace(/"/g, '""')}"`,
+        r.customer_email ?? '',
+        r.amount,
+        r.currency,
+        r.due_date.slice(0, 10),
+        daysOverdue,
+        r.status,
+        r.dunning_stage,
+        r.risk_score ?? 0,
+        `"${r.next_action.replace(/"/g, '""')}"`,
+      ].join(',');
+    });
+
+    const csv = [header, ...rows].join('\n');
+    const date = new Date().toISOString().slice(0, 10);
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="invoices-${date}.csv"`);
+    logInfo(handler, `Exported ${filtered.length} rows in ${Date.now() - startTime}ms`);
+    return res.status(200).send(csv);
   } catch (err: any) {
     logError(handler, `Failed after ${Date.now() - startTime}ms`, err);
     const { statusCode, message } = parseError(err);

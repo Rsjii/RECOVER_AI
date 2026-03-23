@@ -5,6 +5,7 @@ import { useNotification } from '../hooks/useNotification';
 import { CustomerTable } from '../components/customers/CustomerTable';
 import { CustomerModal } from '../components/customers/CustomerModal';
 import { Button } from '../components/ui/Button';
+import { formatCurrency } from '../lib/utils';
 import type { Customer } from '../types';
 
 const riskTiers = [
@@ -14,6 +15,27 @@ const riskTiers = [
   { value: 'low', label: 'Low Risk' },
   { value: 'none', label: 'No Risk' },
 ];
+
+function exportCustomersCSV(customers: Customer[]) {
+  const headers = ['Name', 'Email', 'Company', 'AR Balance', 'Risk Score', 'On-Time Rate', 'Last Payment', 'Total Invoices'];
+  const rows = customers.map(c => [
+    c.name,
+    c.email,
+    c.company_name ?? '',
+    String(Number(c.total_ar_balance ?? 0).toFixed(2)),
+    String(c.max_risk_score ?? ''),
+    String(c.payment_history.on_time_rate) + '%',
+    c.last_payment_date ?? 'Never',
+    String(c.payment_history.total_invoices),
+  ]);
+  const csv = [headers, ...rows].map(r => r.map(v => `"${v.replace(/"/g, '""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `customers-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
 
 const Customers: React.FC = () => {
   useEffect(() => {
@@ -61,17 +83,38 @@ const Customers: React.FC = () => {
       )
     : customers;
 
+  const totalAR = filtered.reduce((sum, c) => sum + Number(c.total_ar_balance ?? 0), 0);
+  const atRiskCount = filtered.filter(c => (c.max_risk_score ?? 0) > 60).length;
+
+  const handleEmailClick = (c: Customer) => {
+    addToast({ type: 'info', message: `Email actions for ${c.name} — open their profile to send` });
+    setSelected(c);
+  };
+
+  const handlePaymentPlanClick = (c: Customer) => {
+    addToast({ type: 'info', message: `Payment plan for ${c.name} — open their profile to set up` });
+    setSelected(c);
+  };
+
   return (
     <div className="space-y-6 pb-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Customers</h1>
-        <div className="relative">
-          <input type="text" placeholder="Search customers..." value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9 pr-4 py-2 border border-gray-300 dark:border-white/[0.08] rounded-lg bg-white dark:bg-white/[0.03] text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none w-64" />
-          <svg className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
+        <div className="flex items-center gap-2">
+          <Button variant="secondary" size="sm" onClick={() => exportCustomersCSV(filtered)}>
+            <svg className="w-4 h-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            Export CSV
+          </Button>
+          <div className="relative">
+            <input type="text" placeholder="Search customers..." value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9 pr-4 py-2 border border-gray-300 dark:border-white/[0.08] rounded-lg bg-white dark:bg-white/[0.03] text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none w-56" />
+            <svg className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
         </div>
       </div>
 
@@ -92,6 +135,15 @@ const Customers: React.FC = () => {
         ))}
       </div>
 
+      {!loading && filtered.length > 0 && (
+        <div className="text-sm text-gray-500 dark:text-gray-400">
+          {filtered.length} customer{filtered.length !== 1 ? 's' : ''} &middot; {formatCurrency(totalAR)} total AR
+          {atRiskCount > 0 && (
+            <span className="ml-1 text-rose-500 font-medium">&middot; {atRiskCount} at risk</span>
+          )}
+        </div>
+      )}
+
       {!loading && total === 0 && (
         <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-xl p-8 text-center">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">No customers found</h3>
@@ -106,9 +158,14 @@ const Customers: React.FC = () => {
         </div>
       )}
 
-      <CustomerTable customers={filtered} loading={loading}
+      <CustomerTable
+        customers={filtered}
+        loading={loading}
         pagination={{ page, pages: totalPages, total, onPageChange: setPage }}
-        onRowClick={setSelected} />
+        onRowClick={setSelected}
+        onEmailClick={handleEmailClick}
+        onPaymentPlanClick={handlePaymentPlanClick}
+      />
       <CustomerModal customer={selected} isOpen={!!selected} onClose={() => setSelected(null)} />
     </div>
   );

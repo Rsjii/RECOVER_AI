@@ -13,6 +13,7 @@ interface AgingAnalysisChartProps {
   buckets: AgingBucket[];
   totalAr: number;
   loading?: boolean;
+  hideHeader?: boolean;
 }
 
 const BUCKET_COLORS = ['#10b981', '#f59e0b', '#f97316', '#ef4444'];
@@ -33,7 +34,7 @@ function CustomTooltip({ active, payload }: any) {
   );
 }
 
-export default function AgingAnalysisChart({ buckets, totalAr, loading = false }: AgingAnalysisChartProps) {
+export default function AgingAnalysisChart({ buckets, totalAr, loading = false, hideHeader = false }: AgingAnalysisChartProps) {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const labelColor = isDark ? '#a1a1aa' : '#71717a';
@@ -58,11 +59,15 @@ export default function AgingAnalysisChart({ buckets, totalAr, loading = false }
 
   return (
     <div className="bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] rounded-xl p-5 flex-1">
-      <div className="flex items-center justify-between mb-1">
-        <h3 className="text-sm font-semibold text-gray-900 dark:text-white">A/R Aging</h3>
-        <span className="text-xs text-gray-500 dark:text-zinc-400">Total: {fmt(totalAr)}</span>
-      </div>
-      <p className="text-xs text-gray-500 dark:text-zinc-500 mb-4">Unpaid invoices by days outstanding</p>
+      {!hideHeader && (
+        <>
+          <div className="flex items-center justify-between mb-1">
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-white">A/R Aging</h3>
+            <span className="text-xs text-gray-500 dark:text-zinc-400">Total: {fmt(totalAr)}</span>
+          </div>
+          <p className="text-xs text-gray-500 dark:text-zinc-500 mb-4">Unpaid invoices by days outstanding</p>
+        </>
+      )}
 
       <ResponsiveContainer width="100%" height={160}>
         <BarChart data={data} layout="vertical" margin={{ top: 0, right: 48, left: 0, bottom: 0 }}>

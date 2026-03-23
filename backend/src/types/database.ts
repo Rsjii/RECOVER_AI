@@ -84,6 +84,8 @@ export interface InvoiceRow {
   // Fields added by agentLoop aggregation
   email_types_sent?: string[];
   dunning_emails_sent?: number;
+  // Fields added by listInvoices JOIN queries
+  last_payment_date?: string | null;
 }
 
 // ============ Payments ============

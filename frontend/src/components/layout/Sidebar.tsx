@@ -108,6 +108,13 @@ export const Sidebar: React.FC = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'));
+  const [collapsed, setCollapsed] = useState(() => localStorage.getItem('sidebarCollapsed') === 'true');
+
+  const toggleCollapsed = () => {
+    const next = !collapsed;
+    setCollapsed(next);
+    localStorage.setItem('sidebarCollapsed', String(next));
+  };
 
   useEffect(() => {
     api.get('/api/admin/metrics')
@@ -187,15 +194,25 @@ export const Sidebar: React.FC = () => {
   return (
     <>
       <style>{scrollbarHideStyle}</style>
-      <aside className="w-64 bg-white dark:bg-[#111113] border-r border-gray-200 dark:border-white/[0.06] flex flex-col h-full">
+      <aside className={cn(
+        'bg-white dark:bg-[#111113] border-r border-gray-200 dark:border-white/[0.06] flex flex-col h-full transition-all duration-200',
+        collapsed ? 'w-16' : 'w-64'
+      )}>
       {/* Brand */}
-      <div className="px-6 py-5 border-b border-gray-200 dark:border-white/[0.06] shrink-0">
-        <Link to="/dashboard" className="flex items-center gap-2.5 hover:opacity-80 transition-opacity">
+      <div className="px-3 py-5 border-b border-gray-200 dark:border-white/[0.06] shrink-0 flex items-center justify-between">
+        <Link to="/dashboard" className={cn('flex items-center gap-2.5 hover:opacity-80 transition-opacity', collapsed && 'justify-center w-full')}>
           <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center flex-shrink-0">
             <span className="text-white font-bold text-sm">R</span>
           </div>
-          <span className="text-lg font-bold text-gray-900 dark:text-white">RecoverAI</span>
+          {!collapsed && <span className="text-lg font-bold text-gray-900 dark:text-white">RecoverAI</span>}
         </Link>
+        {!collapsed && (
+          <button onClick={toggleCollapsed} className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded transition-colors" title="Collapse sidebar">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+            </svg>
+          </button>
+        )}
       </div>
 
       {/* Email Verification Banner */}
@@ -216,32 +233,45 @@ export const Sidebar: React.FC = () => {
 
       {/* Navigation */}
       <nav className="sidebar-nav flex-1 overflow-y-auto">
+        {collapsed && (
+          <div className="px-2 py-3 flex justify-center">
+            <button onClick={toggleCollapsed} className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded transition-colors" title="Expand sidebar">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
+        )}
         {sections.map((section, idx) => (
           <div key={section.title} className={cn(idx > 0 && 'mt-4')}>
-            {/* Section Header */}
-            <div className="px-6 py-2 mt-2">
-              <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
-                {section.title}
-              </h3>
-            </div>
+            {/* Section Header — hidden when collapsed */}
+            {!collapsed && (
+              <div className="px-6 py-2 mt-2">
+                <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+                  {section.title}
+                </h3>
+              </div>
+            )}
 
             {/* Section Items */}
-            <div className="px-3 space-y-1">
+            <div className={cn('space-y-1', collapsed ? 'px-2' : 'px-3')}>
               {section.items.map((item) => {
                 const isActive = isActiveItem(item.path);
                 return (
                   <Link
                     key={item.path}
                     to={item.path}
+                    title={collapsed ? item.label : undefined}
                     className={cn(
                       'relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group',
+                      collapsed && 'justify-center px-2',
                       isActive
                         ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
                         : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/[0.05] hover:text-gray-900 dark:hover:text-white'
                     )}
                   >
                     {/* Active Indicator (Left Border) */}
-                    {isActive && (
+                    {isActive && !collapsed && (
                       <span className="absolute left-0 top-1.5 bottom-1.5 w-0.5 bg-blue-600 dark:bg-blue-400 rounded-r" />
                     )}
 
@@ -257,8 +287,8 @@ export const Sidebar: React.FC = () => {
                       {item.icon}
                     </span>
 
-                    {/* Label */}
-                    <span className="flex-1">{item.label}</span>
+                    {/* Label — hidden when collapsed */}
+                    {!collapsed && <span className="flex-1">{item.label}</span>}
                   </Link>
                 );
               })}
@@ -272,8 +302,8 @@ export const Sidebar: React.FC = () => {
         ))}
       </nav>
 
-      {/* Trial / Subscription Status — Hidden for demo users */}
-      {!isDemo && (
+      {/* Trial / Subscription Status — Hidden for demo users or when collapsed */}
+      {!isDemo && !collapsed && (
       <div className="p-4 border-t border-gray-200 dark:border-white/[0.06] shrink-0">
         <Link to="/billing">
           <div

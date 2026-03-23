@@ -108,11 +108,8 @@ const Settings: React.FC = () => {
   return (
     <div className="bg-white dark:bg-[#09090b]">
       {/* Header */}
-      <div className="border-b border-gray-200 dark:border-white/[0.06] bg-white dark:bg-[#111113]">
-        <div className="max-w-6xl mx-auto px-6 sm:px-8 py-16">
-          <h1 className="text-5xl font-bold text-gray-900 dark:text-white mb-3">Settings</h1>
-          <p className="text-lg text-gray-600 dark:text-gray-400">Manage your workspace, integrations, and preferences</p>
-        </div>
+      <div className="max-w-6xl mx-auto px-6 sm:px-8 py-6">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Settings</h1>
       </div>
 
       {/* Tabs Navigation */}
@@ -192,6 +189,7 @@ const Settings: React.FC = () => {
                   slackConnected={settings.integrations.slack}
                   quickbooksConnected={!!(settings.integrations as any).quickbooks}
                   chargebeeConnected={!!(settings.integrations as any).chargebee}
+                  twilioConfigured={!!(settings.integrations as any).twilioConfigured}
                   onRefresh={fetch}
                 />
               </div>

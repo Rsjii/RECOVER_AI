@@ -26,6 +26,7 @@ interface PlansSummary {
 interface PaymentPlansSummaryProps {
   summary?: PlansSummary;
   loading?: boolean;
+  hideHeader?: boolean;
 }
 
 const statusBadge: Record<string, string> = {
@@ -37,13 +38,13 @@ const statusBadge: Record<string, string> = {
 const fmt = (v: number) =>
   v >= 1000 ? `$${(v / 1000).toFixed(1)}K` : `$${v.toFixed(0)}`;
 
-export default function PaymentPlansSummary({ summary, loading = false }: PaymentPlansSummaryProps) {
+export default function PaymentPlansSummary({ summary, loading = false, hideHeader = false }: PaymentPlansSummaryProps) {
   const [showDetails, setShowDetails] = useState(false);
   if (loading) {
     return (
       <div className="bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] rounded-xl p-3 md:p-4 lg:p-5 animate-pulse">
         <div className="h-3 w-32 bg-gray-200 dark:bg-white/10 rounded mb-4" />
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-3 mb-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3 mb-4">
           {Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="bg-gray-100 dark:bg-[#18181b] rounded-lg h-16" />
           ))}
@@ -71,21 +72,23 @@ export default function PaymentPlansSummary({ summary, loading = false }: Paymen
 
   return (
     <div className="bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] rounded-xl p-3 md:p-4 lg:p-5">
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Payment Plans</h3>
-        {!isEmpty && (
-          <button onClick={() => setShowDetails(true)} className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium">
-            View All →
-          </button>
-        )}
-      </div>
+      {!hideHeader && (
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Payment Plans</h3>
+          {!isEmpty && (
+            <button onClick={() => setShowDetails(true)} className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium">
+              View All →
+            </button>
+          )}
+        </div>
+      )}
 
       {isEmpty ? (
         <p className="text-xs text-gray-500 dark:text-zinc-500 py-4">No payment plans created yet</p>
       ) : (
         <>
           {/* 4-card summary */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-3 mb-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3 mb-4">
             <div className="bg-gray-50 dark:bg-[#18181b] rounded-lg px-2 md:px-3 py-2 md:py-3">
               <p className="text-[8px] md:text-[9px] text-gray-500 dark:text-zinc-500 uppercase tracking-wide truncate">Active</p>
               <p className="text-base md:text-lg lg:text-xl font-bold text-gray-900 dark:text-white">{summary?.activePlans ?? 0}</p>

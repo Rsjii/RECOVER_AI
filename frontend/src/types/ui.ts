@@ -48,7 +48,7 @@ export interface ToastProps {
 
 export interface TableColumn<T> {
   key: keyof T;
-  label: string;
+  label: ReactNode;
   sortable?: boolean;
   render?: (value: any, row: T) => ReactNode;
   width?: string;

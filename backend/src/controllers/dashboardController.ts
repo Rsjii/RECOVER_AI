@@ -1,11 +1,11 @@
 import { Request, Response } from 'express';
-import { getRecoveryStats, getInvoicePipeline, getCustomerRiskList, getDashboardKpi, getAgingAnalysis, getEmailAnalytics, getRiskDrivers, getPaymentPlansSummary } from '../db/dashboard';
+import { getRecoveryStats, getInvoicePipeline, getCustomerRiskList, getDashboardKpi, getAgingAnalysis, getEmailAnalytics, getRiskDrivers, getPaymentPlansSummary, getWorkingCapitalFreed, getDSOReduction } from '../db/dashboard';
 import { listPaymentsByCompany } from '../db/payments';
 import { pool } from '../config/database';
 import { logError, logInfo } from '../utils/logger';
 import { sendErrorResponse, parseError } from '../utils/errorHandler';
 import { getAtRiskCustomers } from '../services/riskScoringService';
-import { getCashPosition, updateCashBalance, calculateWhatIf, calculateRunway, getCashLeakage } from '../services/cashPositionService';
+import { getCashPosition, updateCashBalance, calculateWhatIf, calculateRunway, getCashLeakage, getEnhancedCashForecast } from '../services/cashPositionService';
 import type { WhatIfScenario } from '../services/cashPositionService';
 
 const LOG_MODULE = 'dashboardController';
@@ -370,6 +370,62 @@ export const getSmsActivity = async (req: Request, res: Response): Promise<void>
     res.status(200).json({ data: result.rows });
   } catch (error) {
     logError(LOG_MODULE, handler, 'Failed to get SMS activity', error);
+    const { statusCode, message } = parseError(error);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
+
+// ─── Financial Operations Agent — new endpoints ───────────────────────────────
+
+/**
+ * GET /api/dashboard/working-capital-freed
+ * AR recovered + billing errors confirmed in last 30 days.
+ */
+export const getWorkingCapitalFreedHandler = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'getWorkingCapitalFreedHandler';
+  const companyId = (req as any).companyId;
+  try {
+    const data = await getWorkingCapitalFreed(companyId);
+    logInfo(LOG_MODULE, handler, 'Working capital freed fetched', { companyId, total: data.total });
+    res.status(200).json({ data });
+  } catch (error) {
+    logError(LOG_MODULE, handler, 'Failed to get working capital freed', error);
+    const { statusCode, message } = parseError(error);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
+
+/**
+ * GET /api/dashboard/dso-reduction
+ * Current DSO vs. historical DSO from 30-60 days ago.
+ */
+export const getDSOReductionHandler = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'getDSOReductionHandler';
+  const companyId = (req as any).companyId;
+  try {
+    const data = await getDSOReduction(companyId);
+    logInfo(LOG_MODULE, handler, 'DSO reduction fetched', { companyId, reductionDays: data.reductionDays });
+    res.status(200).json({ data });
+  } catch (error) {
+    logError(LOG_MODULE, handler, 'Failed to get DSO reduction', error);
+    const { statusCode, message } = parseError(error);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
+
+/**
+ * GET /api/dashboard/cash-forecast
+ * 90-day day-by-day cash balance forecast with trend.
+ */
+export const getCashForecastHandler = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'getCashForecastHandler';
+  const companyId = (req as any).companyId;
+  try {
+    const data = await getEnhancedCashForecast(companyId);
+    logInfo(LOG_MODULE, handler, 'Cash forecast generated', { companyId, trend: data.trend, days: data.forecastDays.length });
+    res.status(200).json({ data });
+  } catch (error) {
+    logError(LOG_MODULE, handler, 'Failed to generate cash forecast', error);
     const { statusCode, message } = parseError(error);
     sendErrorResponse(res, statusCode, message);
   }

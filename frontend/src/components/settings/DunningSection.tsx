@@ -60,6 +60,38 @@ export const DunningSection: React.FC<DunningSectionProps> = ({ strategy, onSave
         </div>
         <Button size="sm" onClick={handleSave} loading={saving}>Save Dunning Settings</Button>
       </div>
+
+      {/* Visual dunning pipeline */}
+      <div className="mt-6 pt-6 border-t border-gray-200 dark:border-white/[0.06]">
+        <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-4">Dunning Journey Preview</h4>
+        <div className="flex flex-col items-start gap-0">
+          {[
+            { stage: 1, name: 'Friendly Reminder', day: 1 },
+            { stage: 2, name: 'Second Follow-up', day: 1 + form.days_between },
+            { stage: 3, name: 'Urgency Notice', day: 1 + form.days_between * 2 },
+            { stage: 4, name: 'Escalation', day: 1 + form.days_between * 3 },
+            { stage: 5, name: 'Account Action', day: 1 + form.days_between * 4 },
+          ].slice(0, Math.min(form.num_emails, 5)).map((s, idx, arr) => (
+            <div key={s.stage} className="flex flex-col items-start w-full">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center text-sm font-bold flex-shrink-0">
+                  {s.stage}
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">{s.name}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Day {s.day} overdue</p>
+                </div>
+              </div>
+              {idx < arr.length - 1 && (
+                <div className="flex items-center gap-3 my-1 ml-4">
+                  <div className="w-px h-6 bg-gray-300 dark:bg-white/[0.12]" />
+                  <span className="text-xs text-gray-400 dark:text-gray-500 -ml-2.5 pl-3">{form.days_between} days later</span>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
     </Card>
   );
 };

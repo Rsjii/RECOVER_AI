@@ -18,7 +18,9 @@ import { CashFlowSection } from '../components/dashboard/CashFlowSection';
 import { RiskDriversSection } from '../components/dashboard/RiskDriversSection';
 import { AtRiskCustomersSection } from '../components/dashboard/AtRiskCustomersSection';
 import { AgentActivitySection } from '../components/dashboard/AgentActivitySection';
+import { BillingOptimizationSection } from '../components/dashboard/BillingOptimizationSection';
 import type { DashboardStats, InvoicePipeline, CustomerRisk } from '../types';
+import type { WorkingCapitalFreed, DSOReduction, BillingAnomaly, EnhancedCashForecast } from '../types/invoice';
 
 interface AtRiskCustomer {
   customerId: string;
@@ -143,6 +145,10 @@ interface DashCache {
   riskDrivers: RiskDrivers | null;
   plansSummary: PaymentPlansSummaryData | null;
   timeline: any[];
+  workingCapital: WorkingCapitalFreed | null;
+  dsoReduction: DSOReduction | null;
+  billingAnomalies: BillingAnomaly[];
+  cashForecast: EnhancedCashForecast | null;
   ts: number;
 }
 let dashCache: DashCache | null = null;
@@ -172,6 +178,10 @@ const Dashboard: React.FC = () => {
   const [emailAnalytics, setEmailAnalytics] = useState<EmailAnalytics | null>(null);
   const [riskDrivers, setRiskDrivers] = useState<RiskDrivers | null>(null);
   const [plansSummary, setPlansSummary] = useState<PaymentPlansSummaryData | null>(null);
+  const [workingCapital, setWorkingCapital] = useState<WorkingCapitalFreed | null>(null);
+  const [dsoReduction, setDsoReduction] = useState<DSOReduction | null>(null);
+  const [billingAnomalies, setBillingAnomalies] = useState<BillingAnomaly[]>([]);
+  const [cashForecast, setCashForecast] = useState<EnhancedCashForecast | null>(null);
 
   useEffect(() => {
     document.title = 'Dashboard — RecoverAI';
@@ -213,6 +223,10 @@ const Dashboard: React.FC = () => {
       setEmailAnalytics(dashCache.emailAnalytics);
       setRiskDrivers(dashCache.riskDrivers);
       setPlansSummary(dashCache.plansSummary);
+      setWorkingCapital(dashCache.workingCapital);
+      setDsoReduction(dashCache.dsoReduction);
+      setBillingAnomalies(dashCache.billingAnomalies);
+      setCashForecast(dashCache.cashForecast);
       setLoading(false);
       return;
     }
@@ -222,7 +236,8 @@ const Dashboard: React.FC = () => {
       setError(null);
       try {
         const [statsRes, pipelineRes, riskRes, atRiskRes, cashRes, runwayRes, leakageRes,
-               kpiRes, agingRes, emailAnalyticsRes, riskDriversRes, plansSummaryRes] = await Promise.all([
+               kpiRes, agingRes, emailAnalyticsRes, riskDriversRes, plansSummaryRes,
+               workingCapitalRes, dsoReductionRes, billingAnomaliesRes, cashForecastRes] = await Promise.all([
           api.get<{ data: DashboardStats }>(API_ENDPOINTS.dashboard.stats),
           api.get<{ data: InvoicePipeline }>(API_ENDPOINTS.dashboard.pipeline),
           api.get<{ data: CustomerRisk[]; total: number }>(API_ENDPOINTS.dashboard.riskList + '?limit=10'),
@@ -235,6 +250,10 @@ const Dashboard: React.FC = () => {
           api.get<{ data: EmailAnalytics }>('/api/dashboard/email-analytics').catch(() => ({ data: null as EmailAnalytics | null })),
           api.get<{ data: RiskDrivers }>('/api/dashboard/risk-drivers').catch(() => ({ data: null as RiskDrivers | null })),
           api.get<{ data: PaymentPlansSummaryData }>('/api/dashboard/payment-plans-summary').catch(() => ({ data: null as PaymentPlansSummaryData | null })),
+          api.get<{ data: WorkingCapitalFreed }>('/api/dashboard/working-capital-freed').catch(() => ({ data: null as WorkingCapitalFreed | null })),
+          api.get<{ data: DSOReduction }>('/api/dashboard/dso-reduction').catch(() => ({ data: null as DSOReduction | null })),
+          api.get<{ data: BillingAnomaly[] }>('/api/billing-optimization').catch(() => ({ data: [] as BillingAnomaly[] })),
+          api.get<{ data: EnhancedCashForecast }>('/api/dashboard/cash-forecast').catch(() => ({ data: null as EnhancedCashForecast | null })),
         ]);
         const stats = statsRes.data;
         const pipeline = pipelineRes.data;
@@ -248,6 +267,10 @@ const Dashboard: React.FC = () => {
         const emailAnalyticsData = emailAnalyticsRes.data;
         const riskDriversData = riskDriversRes.data;
         const plansSummaryData = plansSummaryRes.data;
+        const workingCapitalData = workingCapitalRes.data;
+        const dsoReductionData = dsoReductionRes.data;
+        const billingAnomaliesData = billingAnomaliesRes.data || [];
+        const cashForecastData = cashForecastRes.data;
 
         setStats(stats);
         setPipeline(pipeline);
@@ -264,12 +287,18 @@ const Dashboard: React.FC = () => {
         setEmailAnalytics(emailAnalyticsData);
         setRiskDrivers(riskDriversData);
         setPlansSummary(plansSummaryData);
+        setWorkingCapital(workingCapitalData);
+        setDsoReduction(dsoReductionData);
+        setBillingAnomalies(billingAnomaliesData);
+        setCashForecast(cashForecastData);
 
         // ✅ Save to module-level cache
         dashCache = {
           stats, pipeline, riskList, atRisk, cashPosition, runway, leakage,
           kpi: kpiData, aging: agingData, emailAnalytics: emailAnalyticsData,
           riskDrivers: riskDriversData, plansSummary: plansSummaryData, timeline: [],
+          workingCapital: workingCapitalData, dsoReduction: dsoReductionData,
+          billingAnomalies: billingAnomaliesData, cashForecast: cashForecastData,
           ts: Date.now(),
         };
       } catch (err: any) {
@@ -346,6 +375,23 @@ const Dashboard: React.FC = () => {
     }
   };
 
+  const handleConfirmAnomaly = async (id: string) => {
+    try {
+      await api.patch(`/api/billing-optimization/${id}`, { status: 'confirmed' });
+      setBillingAnomalies(prev => prev.map(a => a.id === id ? { ...a, status: 'confirmed' as const } : a));
+      // Refresh working capital since confirming an anomaly may affect it
+      const wcRes = await api.get<{ data: WorkingCapitalFreed }>('/api/dashboard/working-capital-freed').catch(() => null);
+      if (wcRes?.data) setWorkingCapital(wcRes.data);
+    } catch { /* non-critical */ }
+  };
+
+  const handleDismissAnomaly = async (id: string) => {
+    try {
+      await api.patch(`/api/billing-optimization/${id}`, { status: 'dismissed' });
+      setBillingAnomalies(prev => prev.map(a => a.id === id ? { ...a, status: 'dismissed' as const } : a));
+    } catch { /* non-critical */ }
+  };
+
   // Build customer options for WhatIf widget from risk list
   const whatIfCustomers = riskList.map(c => ({
     id: c.customerId,
@@ -365,9 +411,14 @@ const Dashboard: React.FC = () => {
   }
 
   return (
-    <div className="flex flex-col space-y-6 pb-6 min-h-full">
-      <div className="flex items-center justify-between">
+    <div className="bg-white dark:bg-[#09090b] min-h-full">
+      <div className="max-w-7xl mx-auto px-6 sm:px-8 py-6">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-6 sm:px-8 pb-6 flex flex-col space-y-6">
+      <div className="flex items-center justify-between">
+        <div></div>
         <div className="flex items-center gap-3">
           {agentMsg && (
             <p className="text-xs text-green-600 dark:text-green-400 max-w-xs text-right">{agentMsg}</p>
@@ -411,6 +462,8 @@ const Dashboard: React.FC = () => {
         aging={aging}
         emailAnalytics={emailAnalytics}
         plansSummary={plansSummary}
+        workingCapital={workingCapital}
+        dsoReduction={dsoReduction}
         loading={loading}
       />
 
@@ -440,6 +493,14 @@ const Dashboard: React.FC = () => {
       {/* TIER 3: SUPPORTING METRICS — Collapsible sections */}
       {/* ════════════════════════════════════════════════════════════════ */}
 
+      {/* Billing Optimization Agent */}
+      <BillingOptimizationSection
+        anomalies={billingAnomalies}
+        loading={loading}
+        onConfirm={handleConfirmAnomaly}
+        onDismiss={handleDismissAnomaly}
+      />
+
       {/* Cash Flow & Projections */}
       <CashFlowSection
         runway={runway}
@@ -450,6 +511,7 @@ const Dashboard: React.FC = () => {
         onBalanceChange={setCashBalanceInput}
         onBalanceSubmit={handleCashBalanceSubmit}
         onWhatIf={handleWhatIf}
+        forecast={cashForecast}
         loading={loading}
       />
 
@@ -551,6 +613,7 @@ const Dashboard: React.FC = () => {
           onClose={() => setSelectedEmailForModal(null)}
         />
       )}
+      </div>
     </div>
   );
 };

@@ -59,7 +59,7 @@ export async function createManualInvoice(input: CreateInvoiceInput): Promise<In
 
 export async function listInvoices(
   companyId: string,
-  filters: { status?: string; customerId?: string; agingBucket?: string } = {},
+  filters: { status?: string; customerId?: string; agingBucket?: string; dunningStage?: string } = {},
   limit = 50,
   offset = 0
 ): Promise<{ data: InvoiceRow[]; total: number }> {
@@ -98,10 +98,15 @@ export async function listInvoices(
 
   const [data, count] = await Promise.all([
     pool.query(
-      `SELECT i.*, c.name as customer_name, c.email as customer_email
+      `SELECT i.*, c.name as customer_name, c.email as customer_email,
+         ARRAY_AGG(DISTINCT el.email_type) FILTER (WHERE el.email_type IS NOT NULL) AS email_types_sent,
+         MAX(p.paid_at) AS last_payment_date
        FROM invoices i
        JOIN customers c ON i.customer_id = c.id
+       LEFT JOIN email_logs el ON el.invoice_id = i.id AND el.company_id = i.company_id
+       LEFT JOIN payments p ON p.invoice_id = i.id AND p.company_id = i.company_id
        WHERE ${where}
+       GROUP BY i.id, c.name, c.email
        ORDER BY i.due_date ASC
        LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
       [...params, limit, offset]

@@ -3,6 +3,7 @@ import { authMiddleware } from '../middleware/auth';
 import { tenantScopeGuard } from '../middleware/tenantScope';
 import {
   listInvoices,
+  exportInvoicesCSV,
   getInvoice,
   getInvoiceDetail,
   createManualInvoice,
@@ -21,6 +22,7 @@ router.use(authMiddleware);
 router.use(tenantScopeGuard);
 
 router.get('/', listInvoices);
+router.get('/export', exportInvoicesCSV);
 router.get('/:id/detail', getInvoiceDetail);
 router.get('/:id/dunning-status', getDunningStatus);
 router.get('/:id', getInvoice);

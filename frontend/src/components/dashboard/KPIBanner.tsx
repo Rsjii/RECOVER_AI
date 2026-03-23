@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
 import { BENCHMARKS } from '../../constants/benchmarks';
 import { DashboardDetailModal } from './DashboardDetailModal';
+import type { WorkingCapitalFreed, DSOReduction } from '../../types/invoice';
+
+const fmtCurrency = (v: number) =>
+  v >= 1_000_000 ? `$${(v / 1_000_000).toFixed(1)}M` : v >= 1_000 ? `$${Math.round(v / 1_000)}k` : `$${v}`;
 
 interface KPIBannerProps {
   data?: {
@@ -18,13 +22,27 @@ interface KPIBannerProps {
   } | null;
   emailAnalytics?: any;
   plansSummary?: any;
+  workingCapital?: WorkingCapitalFreed | null;
+  dsoReduction?: DSOReduction | null;
   loading?: boolean;
 }
 
-export const KPIBanner: React.FC<KPIBannerProps> = ({ data, aging, loading = false }) => {
+export const KPIBanner: React.FC<KPIBannerProps> = ({ data, aging, workingCapital, dsoReduction, loading = false }) => {
   const [selectedMetric, setSelectedMetric] = useState<string | null>(null);
 
-  const metrics = [
+  const dsoReductionDays = dsoReduction?.reductionDays ?? 0;
+  const wcTotal = workingCapital?.total ?? 0;
+  const wcPrev = workingCapital?.previousTotal;
+  const wcDelta = wcPrev != null ? wcTotal - wcPrev : null;
+
+  const metrics: Array<{
+    id: string; label: string; value: number;
+    format: (v: number) => string;
+    benchmark?: number | string;
+    description?: string;
+    subtext?: string;
+    color: string;
+  }> = [
     {
       id: 'dso',
       label: 'Days Sales Outstanding',
@@ -60,13 +78,32 @@ export const KPIBanner: React.FC<KPIBannerProps> = ({ data, aging, loading = fal
       description: `${data?.totalInvoices ?? 0} total invoices`,
       color: 'text-gray-900 dark:text-white',
     },
+    {
+      id: 'working-capital',
+      label: 'Working Capital Freed',
+      value: workingCapital?.total ?? 0,
+      format: fmtCurrency,
+      description: 'Last 30 days',
+      subtext: wcDelta != null
+        ? `vs ${fmtCurrency(wcPrev!)} last period ${wcDelta > 0 ? '↗' : '↘'}`
+        : undefined,
+      color: 'text-emerald-500',
+    },
+    {
+      id: 'dso-reduction',
+      label: 'DSO Reduction',
+      value: dsoReductionDays,
+      format: (v: number) => `${v > 0 ? '+' : ''}${v}d`,
+      description: dsoReduction?.trend ?? 'vs. prior 30d',
+      color: dsoReductionDays > 0 ? 'text-emerald-500' : dsoReductionDays < 0 ? 'text-rose-500' : 'text-amber-500',
+    },
   ];
 
   if (loading) {
     return (
       <div className="bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] rounded-xl p-5 animate-pulse">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {Array.from({ length: 4 }).map((_, i) => (
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="h-24 bg-gray-100 dark:bg-white/[0.04] rounded-lg" />
           ))}
         </div>
@@ -78,7 +115,7 @@ export const KPIBanner: React.FC<KPIBannerProps> = ({ data, aging, loading = fal
     <>
       <div className="bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] rounded-xl p-3 md:p-4 lg:p-5">
         <h3 className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider mb-4">Executive Summary</h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3 lg:gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2 md:gap-3 lg:gap-4">
           {metrics.map((metric) => (
             <button
               key={metric.id}
@@ -89,6 +126,9 @@ export const KPIBanner: React.FC<KPIBannerProps> = ({ data, aging, loading = fal
               <p className={`text-base md:text-xl lg:text-2xl font-bold mt-2 ${metric.color}`}>{metric.format(metric.value)}</p>
               {metric.benchmark && (
                 <p className="text-[8px] md:text-[9px] lg:text-[10px] text-gray-500 dark:text-gray-500 mt-1 truncate">Target: {metric.benchmark}</p>
+              )}
+              {metric.subtext && (
+                <p className="text-[8px] md:text-[9px] text-gray-400 dark:text-gray-500 mt-1 truncate">{metric.subtext}</p>
               )}
               <p className="text-[8px] md:text-[9px] text-blue-600 dark:text-blue-400 mt-1.5">Click →</p>
             </button>
@@ -101,27 +141,31 @@ export const KPIBanner: React.FC<KPIBannerProps> = ({ data, aging, loading = fal
         <DashboardDetailModal
           isOpen={true}
           onClose={() => setSelectedMetric(null)}
-          title="Days Sales Outstanding Breakdown"
-          subtitle="What's making up your {data?.dso ?? 0}d collection time"
+          title="Days Sales Outstanding"
+          subtitle="Collection efficiency metric"
         >
-          <div className="space-y-6">
+          <div className="space-y-8">
             {/* Current DSO with Target */}
-            <div>
-              <div className="flex items-baseline gap-4 mb-4">
+            <div className="bg-gray-50 dark:bg-white/[0.02] rounded-xl p-5 border border-gray-200 dark:border-white/[0.06]">
+              <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-3">Current DSO</p>
+              <div className="flex items-baseline justify-between mb-4">
                 <div className="text-5xl font-bold text-gray-900 dark:text-white">{data?.dso ?? 0}d</div>
-                <div className="text-sm text-gray-600 dark:text-gray-400">
-                  vs Target: <span className="font-bold">{BENCHMARKS.dso.target}d</span>
+                <div className="text-right">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Target</p>
+                  <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{BENCHMARKS.dso.target}d</p>
                 </div>
               </div>
-              <div className="h-3 bg-gray-200 dark:bg-white/[0.06] rounded-full overflow-hidden">
-                <div
-                  className={`h-3 rounded-full transition-all ${data && data.dso <= BENCHMARKS.dso.target ? 'bg-emerald-500' : 'bg-amber-500'}`}
-                  style={{ width: `${Math.min((data?.dso ?? 0) / 60, 1) * 100}%` }}
-                />
+              <div className="space-y-2">
+                <div className="h-2 bg-gray-300 dark:bg-white/[0.08] rounded-full overflow-hidden">
+                  <div
+                    className={`h-2 rounded-full transition-all ${data && data.dso <= BENCHMARKS.dso.target ? 'bg-emerald-500' : data && data.dso <= 50 ? 'bg-amber-500' : 'bg-rose-500'}`}
+                    style={{ width: `${Math.min((data?.dso ?? 0) / 60, 1) * 100}%` }}
+                  />
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 text-right">
+                  {data && data.dso <= BENCHMARKS.dso.target ? '✅ On target' : `⚠️ ${data?.dso! - BENCHMARKS.dso.target}d above target`}
+                </p>
               </div>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                {data && data.dso <= BENCHMARKS.dso.target ? '✅ On target' : `⚠️ ${data?.dso! - BENCHMARKS.dso.target}d above target`}
-              </p>
             </div>
 
             {/* Breakdown by Aging Bucket - What's causing the DSO */}
@@ -201,23 +245,31 @@ export const KPIBanner: React.FC<KPIBannerProps> = ({ data, aging, loading = fal
           isOpen={true}
           onClose={() => setSelectedMetric(null)}
           title="Collection Efficiency Index"
-          subtitle="Revenue recovered vs. outstanding balance"
+          subtitle="Revenue recovered per dollar outstanding"
         >
-          <div className="space-y-6">
-            <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">Current CEI</p>
-              <div className="text-5xl font-bold text-gray-900 dark:text-white mb-4">
-                {(data?.collectionEfficiencyIndex ?? 0).toFixed(2)}x
+          <div className="space-y-8">
+            <div className="bg-gray-50 dark:bg-white/[0.02] rounded-xl p-5 border border-gray-200 dark:border-white/[0.06]">
+              <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-3">Current CEI</p>
+              <div className="flex items-baseline justify-between mb-4">
+                <div className="text-5xl font-bold text-gray-900 dark:text-white">
+                  {(data?.collectionEfficiencyIndex ?? 0).toFixed(2)}x
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Target</p>
+                  <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{BENCHMARKS.cei.target}x</p>
+                </div>
               </div>
-              <div className="h-4 bg-gray-200 dark:bg-white/[0.06] rounded-full overflow-hidden">
-                <div
-                  className={`h-4 rounded-full transition-all ${data && data.collectionEfficiencyIndex >= BENCHMARKS.cei.target ? 'bg-emerald-500' : 'bg-amber-500'}`}
-                  style={{ width: `${Math.min((data?.collectionEfficiencyIndex ?? 0) / 2, 1) * 100}%` }}
-                />
+              <div className="space-y-2">
+                <div className="h-2 bg-gray-300 dark:bg-white/[0.08] rounded-full overflow-hidden">
+                  <div
+                    className={`h-2 rounded-full transition-all ${data && data.collectionEfficiencyIndex >= BENCHMARKS.cei.target ? 'bg-emerald-500' : 'bg-amber-500'}`}
+                    style={{ width: `${Math.min((data?.collectionEfficiencyIndex ?? 0) / 2, 1) * 100}%` }}
+                  />
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 text-right">
+                  {data && data.collectionEfficiencyIndex >= BENCHMARKS.cei.target ? '✅ On target' : `⚠️ Target: ${BENCHMARKS.cei.target}x`}
+                </p>
               </div>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
-                {data && data.collectionEfficiencyIndex >= BENCHMARKS.cei.target ? '✅ On target' : `⚠️ Target: ${BENCHMARKS.cei.target}x`}
-              </p>
             </div>
 
             <div className="flex gap-4">
@@ -280,19 +332,29 @@ export const KPIBanner: React.FC<KPIBannerProps> = ({ data, aging, loading = fal
           title="Recovery Rate"
           subtitle="Percentage of invoices successfully recovered"
         >
-          <div className="space-y-6">
-            <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">Current Recovery Rate</p>
-              <div className="text-5xl font-bold text-gray-900 dark:text-white mb-4">
-                {data?.recoveryRate ?? 0}%
+          <div className="space-y-8">
+            <div className="bg-gray-50 dark:bg-white/[0.02] rounded-xl p-5 border border-gray-200 dark:border-white/[0.06]">
+              <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-3">Recovery Rate</p>
+              <div className="flex items-baseline justify-between mb-4">
+                <div className="text-5xl font-bold text-gray-900 dark:text-white">
+                  {data?.recoveryRate ?? 0}%
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Target</p>
+                  <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{BENCHMARKS.recoveryRate.target}%</p>
+                </div>
               </div>
-              <div className="h-4 bg-gray-200 dark:bg-white/[0.06] rounded-full overflow-hidden">
-                <div
-                  className={`h-4 rounded-full transition-all ${data && data.recoveryRate >= BENCHMARKS.recoveryRate.target ? 'bg-emerald-500' : 'bg-amber-500'}`}
-                  style={{ width: `${data?.recoveryRate ?? 0}%` }}
-                />
+              <div className="space-y-2">
+                <div className="h-2 bg-gray-300 dark:bg-white/[0.08] rounded-full overflow-hidden">
+                  <div
+                    className={`h-2 rounded-full transition-all ${data && data.recoveryRate >= BENCHMARKS.recoveryRate.target ? 'bg-emerald-500' : 'bg-amber-500'}`}
+                    style={{ width: `${data?.recoveryRate ?? 0}%` }}
+                  />
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 text-right">
+                  {data && data.recoveryRate >= BENCHMARKS.recoveryRate.target ? '✅ On target' : `⚠️ ${BENCHMARKS.recoveryRate.target - (data?.recoveryRate ?? 0)}% away from target`}
+                </p>
               </div>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">Target: {BENCHMARKS.recoveryRate.target}%</p>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -350,6 +412,106 @@ export const KPIBanner: React.FC<KPIBannerProps> = ({ data, aging, loading = fal
         </DashboardDetailModal>
       )}
 
+      {selectedMetric === 'working-capital' && (
+        <DashboardDetailModal
+          isOpen={true}
+          onClose={() => setSelectedMetric(null)}
+          title="Working Capital Freed"
+          subtitle="Financial value unlocked in last 30 days"
+        >
+          <div className="space-y-8">
+            <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-xl p-5 border border-emerald-200 dark:border-emerald-800">
+              <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide mb-3">Total Freed</p>
+              <div className="text-5xl font-bold text-emerald-700 dark:text-emerald-300">
+                {fmtCurrency(workingCapital?.total ?? 0)}
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-lg p-4 border border-emerald-200 dark:border-emerald-800">
+                <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium uppercase tracking-wide">AR Recovered</p>
+                <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300 mt-1">
+                  {fmtCurrency(workingCapital?.recoveredAR ?? 0)}
+                </p>
+                <p className="text-xs text-emerald-600/70 dark:text-emerald-400/70 mt-1">Invoices paid via dunning agent</p>
+              </div>
+              <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
+                <p className="text-xs text-blue-600 dark:text-blue-400 font-medium uppercase tracking-wide">Billing Errors Confirmed</p>
+                <p className="text-2xl font-bold text-blue-700 dark:text-blue-300 mt-1">
+                  {fmtCurrency(workingCapital?.billingErrorsConfirmed ?? 0)}
+                </p>
+                <p className="text-xs text-blue-600/70 dark:text-blue-400/70 mt-1">Anomalies you confirmed as real</p>
+              </div>
+            </div>
+            <div className="bg-gray-50 dark:bg-white/[0.02] rounded-lg p-4 border border-gray-200 dark:border-white/[0.05]">
+              <p className="text-sm font-medium text-gray-900 dark:text-white mb-2">📊 How This is Calculated</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400 font-mono bg-white dark:bg-white/[0.02] p-2 rounded">
+                AR Recovered + Billing Errors Confirmed = Working Capital Freed
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">
+                {fmtCurrency(workingCapital?.recoveredAR ?? 0)} + {fmtCurrency(workingCapital?.billingErrorsConfirmed ?? 0)} = {fmtCurrency(workingCapital?.total ?? 0)}
+              </p>
+            </div>
+          </div>
+        </DashboardDetailModal>
+      )}
+
+      {selectedMetric === 'dso-reduction' && (
+        <DashboardDetailModal
+          isOpen={true}
+          onClose={() => setSelectedMetric(null)}
+          title="DSO Reduction"
+          subtitle="Collection speed change vs 30 days ago"
+        >
+          <div className="space-y-8">
+            <div className={`rounded-xl p-5 border ${
+              dsoReductionDays > 0
+                ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800'
+                : dsoReductionDays < 0
+                ? 'bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-800'
+                : 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800'
+            }`}>
+              <p className={`text-xs font-semibold uppercase tracking-wide mb-3 ${
+                dsoReductionDays > 0
+                  ? 'text-emerald-600 dark:text-emerald-400'
+                  : dsoReductionDays < 0
+                  ? 'text-rose-600 dark:text-rose-400'
+                  : 'text-amber-600 dark:text-amber-400'
+              }`}>Collection Speed Change</p>
+              <div className={`text-5xl font-bold ${
+                dsoReductionDays > 0
+                  ? 'text-emerald-700 dark:text-emerald-300'
+                  : dsoReductionDays < 0
+                  ? 'text-rose-700 dark:text-rose-300'
+                  : 'text-amber-700 dark:text-amber-300'
+              }`}>
+                {dsoReductionDays > 0 ? '+' : ''}{dsoReductionDays}d
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-gray-50 dark:bg-white/[0.02] rounded-lg p-4 border border-gray-200 dark:border-white/[0.05]">
+                <p className="text-xs text-gray-600 dark:text-gray-400 font-medium uppercase tracking-wide">Current DSO</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{dsoReduction?.currentDSO ?? 0}d</p>
+              </div>
+              <div className="bg-gray-50 dark:bg-white/[0.02] rounded-lg p-4 border border-gray-200 dark:border-white/[0.05]">
+                <p className="text-xs text-gray-600 dark:text-gray-400 font-medium uppercase tracking-wide">Historical DSO</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{dsoReduction?.historicalDSO ?? 0}d</p>
+                <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">30–60 days ago</p>
+              </div>
+            </div>
+            <div className={`rounded-lg p-4 border ${dsoReductionDays > 0 ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800' : 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800'}`}>
+              <p className={`text-sm font-medium ${dsoReductionDays > 0 ? 'text-emerald-900 dark:text-emerald-200' : 'text-amber-900 dark:text-amber-200'}`}>
+                {dsoReductionDays > 0 ? '✅ Improving — you\'re collecting faster' : dsoReductionDays < 0 ? '⚠️ DSO is increasing — review dunning cadence' : '➡️ Stable — no significant change'}
+              </p>
+              {dsoReductionDays > 0 && (
+                <p className={`text-sm mt-2 text-emerald-800 dark:text-emerald-300`}>
+                  Collecting {dsoReductionDays} days faster reduces cash cycle and improves runway.
+                </p>
+              )}
+            </div>
+          </div>
+        </DashboardDetailModal>
+      )}
+
       {selectedMetric === 'overdue' && (
         <DashboardDetailModal
           isOpen={true}
@@ -357,15 +519,20 @@ export const KPIBanner: React.FC<KPIBannerProps> = ({ data, aging, loading = fal
           title="Overdue Invoices"
           subtitle="Invoices requiring immediate action"
         >
-          <div className="space-y-6">
-            <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">Total Overdue</p>
-              <div className="text-5xl font-bold text-rose-600 mb-4">
-                {data?.overdueCount ?? 0}
+          <div className="space-y-8">
+            <div className="bg-rose-50 dark:bg-rose-900/20 rounded-xl p-5 border border-rose-200 dark:border-rose-800">
+              <p className="text-xs font-semibold text-rose-600 dark:text-rose-400 uppercase tracking-wide mb-3">Total Overdue</p>
+              <div className="flex items-baseline justify-between">
+                <div className="text-5xl font-bold text-rose-700 dark:text-rose-300">
+                  {data?.overdueCount ?? 0}
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-rose-600/70 dark:text-rose-400/70 mb-1">of {data?.totalInvoices ?? 0}</p>
+                  <p className="text-xl font-bold text-rose-600 dark:text-rose-400">
+                    {data && data.totalInvoices > 0 ? (((data.overdueCount / data.totalInvoices) * 100).toFixed(0)) : 0}%
+                  </p>
+                </div>
               </div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                Out of {data?.totalInvoices ?? 0} total invoices ({data && data.totalInvoices > 0 ? (((data.overdueCount / data.totalInvoices) * 100).toFixed(1)) : 0}%)
-              </p>
             </div>
 
             {/* Breakdown by Aging Bucket - Show which ones are overdue */}

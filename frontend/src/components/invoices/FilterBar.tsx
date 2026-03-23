@@ -6,6 +6,8 @@ interface FilterBarProps {
   onStatusChange: (status: string) => void;
   agingBucket: string;
   onAgingBucketChange: (bucket: string) => void;
+  dunningStage: string;
+  onDunningStageChange: (stage: string) => void;
   search: string;
   onSearchChange: (search: string) => void;
   onRefresh: () => void;
@@ -29,23 +31,42 @@ const agingBuckets = [
   { value: '90+', label: '90+ Days' },
 ];
 
+const dunningStages = [
+  { value: '', label: 'All Stages' },
+  { value: '0', label: 'Not Started' },
+  { value: '1', label: 'Stage 1' },
+  { value: '2', label: 'Stage 2' },
+  { value: '3', label: 'Stage 3' },
+  { value: '4', label: 'Stage 4' },
+  { value: '5', label: 'Stage 5' },
+];
+
+const pillClass = (active: boolean) =>
+  `px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+    active
+      ? 'bg-indigo-600 text-white'
+      : 'bg-gray-100 dark:bg-white/[0.06] text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-white/[0.1]'
+  }`;
+
 export const FilterBar: React.FC<FilterBarProps> = ({
-  status, onStatusChange, agingBucket, onAgingBucketChange, search, onSearchChange, onRefresh, loading,
+  status, onStatusChange, agingBucket, onAgingBucketChange, dunningStage, onDunningStageChange, search, onSearchChange, onRefresh, loading,
 }) => (
   <div className="flex flex-col gap-3">
     {/* Aging bucket pills */}
     <div className="flex gap-2 flex-wrap">
       {agingBuckets.map((b) => (
-        <button
-          key={b.value}
-          onClick={() => onAgingBucketChange(b.value)}
-          className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-            agingBucket === b.value
-              ? 'bg-indigo-600 text-white'
-              : 'bg-gray-100 dark:bg-white/[0.06] text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-white/[0.1]'
-          }`}
-        >
+        <button key={b.value} onClick={() => onAgingBucketChange(b.value)} className={pillClass(agingBucket === b.value)}>
           {b.label}
+        </button>
+      ))}
+    </div>
+
+    {/* Dunning stage pills */}
+    <div className="flex gap-2 flex-wrap items-center">
+      <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">Dunning:</span>
+      {dunningStages.map((s) => (
+        <button key={s.value} onClick={() => onDunningStageChange(s.value)} className={pillClass(dunningStage === s.value)}>
+          {s.label}
         </button>
       ))}
     </div>

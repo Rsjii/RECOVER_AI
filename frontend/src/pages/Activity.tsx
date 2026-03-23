@@ -30,6 +30,27 @@ const statusBadge = (status: string) =>
     ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
     : 'bg-gray-100 text-gray-600 dark:bg-white/[0.06] dark:text-gray-300';
 
+function groupByDate<T extends { sent_at?: string; paid_at?: string; created_at?: string }>(
+  items: T[],
+  dateKey: keyof T = 'sent_at' as keyof T
+): Array<{ dateLabel: string; items: T[] }> {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
+  const groups = new Map<string, T[]>();
+  for (const item of items) {
+    const raw = item[dateKey] as string | undefined;
+    if (!raw) continue;
+    const d = new Date(raw); d.setHours(0, 0, 0, 0);
+    let label: string;
+    if (d.getTime() === today.getTime()) label = 'Today';
+    else if (d.getTime() === yesterday.getTime()) label = 'Yesterday';
+    else label = new Date(raw).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    if (!groups.has(label)) groups.set(label, []);
+    groups.get(label)!.push(item);
+  }
+  return Array.from(groups.entries()).map(([dateLabel, items]) => ({ dateLabel, items }));
+}
+
 const Activity: React.FC = () => {
   useEffect(() => { document.title = 'Activity — RecoverAI'; }, []);
 
@@ -114,29 +135,43 @@ const Activity: React.FC = () => {
           {/* Emails Tab */}
           {activeTab === 'emails' && (
             <Card>
-              <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-4">Recent Emails</h3>
+              <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-3">Recent Emails</h3>
               {emailLogs.length === 0 ? (
                 <p className="text-gray-500 text-center py-8">No emails sent yet. Start the dunning agent from the Invoices page.</p>
               ) : (
-                <div className="space-y-3 max-h-[600px] overflow-y-auto">
-                  {emailLogs.map((log: any) => (
-                    <div key={log.id} className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-white/[0.04] rounded-lg">
-                      <span className="text-lg mt-0.5">{statusIcon(log.status)}</span>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{log.subject}</p>
-                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ml-2 ${statusBadge(log.status)}`}>{log.status}</span>
+                <>
+                  <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg mb-4 text-sm text-blue-700 dark:text-blue-300">
+                    All emails include a CAN-SPAM compliant unsubscribe link. Replies and opt-outs are tracked automatically.
+                  </div>
+                  <div className="space-y-1 max-h-[600px] overflow-y-auto">
+                    {groupByDate(emailLogs, 'sent_at').map(({ dateLabel, items }) => (
+                      <div key={dateLabel}>
+                        <div className="text-xs font-semibold text-gray-400 dark:text-gray-500 py-2 px-1 sticky top-0 bg-white dark:bg-[#09090b] z-10">
+                          {dateLabel}
                         </div>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                          To: {log.recipient_email} · {log.email_type} · {formatDate(log.sent_at)}
-                        </p>
-                        {log.opened_at && (
-                          <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-0.5">Opened {formatDate(log.opened_at)}</p>
-                        )}
+                        <div className="space-y-2">
+                          {items.map((log: any) => (
+                            <div key={log.id} className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-white/[0.04] rounded-lg">
+                              <span className="text-lg mt-0.5">{statusIcon(log.status)}</span>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between">
+                                  <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{log.subject}</p>
+                                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ml-2 ${statusBadge(log.status)}`}>{log.status}</span>
+                                </div>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                  To: {log.recipient_email} · {log.email_type} · {formatDate(log.sent_at)}
+                                </p>
+                                {log.opened_at && (
+                                  <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-0.5">Opened {formatDate(log.opened_at)}</p>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                </>
               )}
             </Card>
           )}

@@ -709,3 +709,33 @@ CREATE INDEX IF NOT EXISTS idx_customers_last_activity
 CREATE INDEX IF NOT EXISTS idx_payments_status_company
   ON payments(company_id, status, paid_at DESC);
 
+-- ============================================================
+-- BILLING ANOMALIES TABLE (Financial Operations Agent)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS billing_anomalies (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  invoice_id UUID REFERENCES invoices(id) ON DELETE SET NULL,
+  duplicate_invoice_id UUID REFERENCES invoices(id) ON DELETE SET NULL,
+  customer_id UUID REFERENCES customers(id) ON DELETE SET NULL,
+  anomaly_type VARCHAR(50) NOT NULL,
+  severity VARCHAR(20) NOT NULL DEFAULT 'medium',
+  description TEXT NOT NULL,
+  estimated_impact_usd DECIMAL(12,2) DEFAULT 0,
+  status VARCHAR(20) NOT NULL DEFAULT 'pending',
+  detected_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  reviewed_at TIMESTAMPTZ,
+  reviewed_by_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  metadata JSONB,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_billing_anomalies_company
+  ON billing_anomalies(company_id);
+
+CREATE INDEX IF NOT EXISTS idx_billing_anomalies_status
+  ON billing_anomalies(company_id, status)
+  WHERE status = 'pending';
+

@@ -60,6 +60,19 @@ Route → Controller (validate input) → Service (business logic) → DB (param
 - Skeleton loaders for async content (not just spinners)
 - Toast notifications via `useNotification()` hook
 
+## Agent Architecture (4 Agents)
+
+1. **AR Agent** — `queue/agentLoop.ts` — runs every 6h, scores invoices, queues dunning emails
+2. **Dunning Agent** — `queue/dunningQueue.ts` — BullMQ worker, sends emails via Resend
+3. **Billing Optimization Agent** — `queue/billingOptimizationJob.ts` — weekly Sunday 02:00 UTC, detects anomalies (duplicates, amount spikes, billing gaps, failed payment clusters), stores in `billing_anomalies` table
+4. **Cash Forecasting Agent** — `services/cashPositionService.getEnhancedCashForecast()` — on-demand, linear regression on `recovery_timeline`, returns 90-day day-by-day forecast
+
+### Hero Metric: Working Capital Freed
+= AR Recovered (last 30d) + Billing Errors Confirmed (last 30d)
+Shown in KPIBanner card 5. Powers the $2,499 + 1% pricing story for CFOs.
+
+---
+
 ## Critical Bugs (as of 2026-03-09)
 
 1. `/stripe/oauth/callback` — NO frontend route → customer connecting Stripe gets 404

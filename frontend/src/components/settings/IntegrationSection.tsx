@@ -26,6 +26,7 @@ interface IntegrationSectionProps {
   slackConnected: boolean;
   quickbooksConnected: boolean;
   chargebeeConnected: boolean;
+  twilioConfigured?: boolean;
   onRefresh: () => void;
 }
 
@@ -45,6 +46,7 @@ export const IntegrationSection: React.FC<IntegrationSectionProps> = ({
   slackConnected,
   quickbooksConnected,
   chargebeeConnected,
+  twilioConfigured = false,
   onRefresh,
 }) => {
   const { addToast } = useNotification();
@@ -270,6 +272,24 @@ export const IntegrationSection: React.FC<IntegrationSectionProps> = ({
               </div>
             )}
           </div>
+        </div>
+
+        {/* Twilio */}
+        <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-white/[0.06] rounded-lg">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-red-100 dark:bg-red-900/40 flex items-center justify-center">
+              <span className="text-red-600 dark:text-red-400 font-bold text-xs">TW</span>
+            </div>
+            <div>
+              <p className="font-medium text-gray-900 dark:text-white">Twilio SMS</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                {twilioConfigured ? 'Active — SMS dunning enabled' : 'Add TWILIO_ACCOUNT_SID + TWILIO_AUTH_TOKEN + TWILIO_PHONE_NUMBER to env'}
+              </p>
+            </div>
+          </div>
+          {twilioConfigured
+            ? <span className="text-xs bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 px-2 py-1 rounded-full">Active</span>
+            : <span className="text-xs bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 px-2 py-1 rounded-full">Not Configured</span>}
         </div>
 
         {/* Slack */}

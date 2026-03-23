@@ -11,6 +11,7 @@ import { startRecoveryTimelineJob, stopRecoveryTimelineJob } from './queue/recov
 import { startPaymentPlanChargeJob, stopPaymentPlanChargeJob } from './queue/paymentPlanChargeJob';
 import { startTrialExpiryJob, stopTrialExpiryJob } from './queue/trialExpiryJob';
 import { startBillingInvoiceJob, stopBillingInvoiceJob } from './queue/billingInvoiceJob';
+import { startBillingOptimizationJob, stopBillingOptimizationJob } from './queue/billingOptimizationJob';
 import { snapshotRedisStats } from './queue/redisStatsJob';
 import { logError, logInfo } from './utils/logger';
 import { initObservability } from './config/observability';
@@ -51,6 +52,7 @@ async function startServer() {
       startPaymentPlanChargeJob();
       startTrialExpiryJob();
       startBillingInvoiceJob();
+      startBillingOptimizationJob();
       // Redis stats snapshot: run once on boot + every 24h
       snapshotRedisStats().catch(() => {});
       setInterval(() => snapshotRedisStats().catch(() => {}), 24 * 60 * 60 * 1000);
@@ -79,6 +81,7 @@ async function startServer() {
       await stopPaymentPlanChargeJob();
       stopTrialExpiryJob();
       stopBillingInvoiceJob();
+      stopBillingOptimizationJob();
       server.close(() => {
         logInfo('server', 'shutdown', 'Server closed');
         process.exit(0);

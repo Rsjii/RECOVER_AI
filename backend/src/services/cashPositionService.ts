@@ -465,3 +465,153 @@ export async function getCashLeakage(companyId: string): Promise<CashLeakageResu
     };
   }
 }
+
+// ─── Enhanced Cash Forecast (90-day day-by-day) ──────────────────────────────
+
+export interface ForecastDay {
+  date: string;
+  projectedBalance: number;
+  confidenceBand: { low: number; high: number };
+}
+
+export interface EnhancedCashForecast {
+  forecastDays: ForecastDay[];
+  trend: 'improving' | 'stable' | 'declining';
+  historicalAvgCollectionRate: number;
+  trendSlope: number;
+  asOfDate: string;
+}
+
+/**
+ * Generate a 90-day day-by-day cash balance forecast using linear regression
+ * on the company's historical collection rate from recovery_timeline.
+ * Falls back to flat 65% rate if fewer than 7 days of history exist.
+ */
+export async function getEnhancedCashForecast(companyId: string): Promise<EnhancedCashForecast> {
+  try {
+    // 1. Fetch last 60 days of daily recovery timeline
+    const timelineResult = await pool.query<{
+      period_date: string;
+      amount_created: string;
+      amount_recovered: string;
+    }>(
+      `SELECT period_date, amount_created, amount_recovered
+       FROM recovery_timeline
+       WHERE company_id = $1
+         AND period_type = 'daily'
+         AND period_date >= NOW() - INTERVAL '60 days'
+       ORDER BY period_date ASC`,
+      [companyId]
+    );
+
+    const rows = timelineResult.rows;
+
+    // 2. Current balance
+    const balanceResult = await pool.query<{ cash_balance: string }>(
+      `SELECT COALESCE(cash_balance_usd, 0) AS cash_balance FROM companies WHERE id = $1`,
+      [companyId]
+    );
+    const currentBalance = parseFloat(balanceResult.rows[0]?.cash_balance ?? '0');
+
+    // 3. Pending invoices per day for next 90 days
+    const pendingResult = await pool.query<{ due_day: string; expected: string }>(
+      `SELECT due_date::date AS due_day, SUM(amount) AS expected
+       FROM invoices
+       WHERE company_id = $1
+         AND status = 'unpaid'
+         AND due_date BETWEEN NOW() AND NOW() + INTERVAL '90 days'
+       GROUP BY due_date::date
+       ORDER BY due_day`,
+      [companyId]
+    );
+
+    const pendingByDay: Record<string, number> = {};
+    for (const r of pendingResult.rows) {
+      pendingByDay[r.due_day] = parseFloat(r.expected);
+    }
+
+    // 4. Compute collection rates and linear regression
+    let baseRate = 0.65;
+    let slope = 0;
+    let trend: EnhancedCashForecast['trend'] = 'stable';
+
+    if (rows.length >= 7) {
+      const rates: number[] = rows.map((r) => {
+        const created = parseFloat(r.amount_created);
+        const recovered = parseFloat(r.amount_recovered);
+        return created > 0 ? Math.min(recovered / created, 1) : 0.65;
+      });
+
+      const n = rates.length;
+      const xMean = (n - 1) / 2;
+      const yMean = rates.reduce((s, v) => s + v, 0) / n;
+
+      let numerator = 0;
+      let denominator = 0;
+      for (let i = 0; i < n; i++) {
+        numerator += (i - xMean) * (rates[i] - yMean);
+        denominator += (i - xMean) ** 2;
+      }
+
+      slope = denominator !== 0 ? numerator / denominator : 0;
+      baseRate = yMean;
+
+      if (slope > 0.002) trend = 'improving';
+      else if (slope < -0.002) trend = 'declining';
+      else trend = 'stable';
+    }
+
+    // 5. Estimate monthly burn from runway data (daily amount outstanding - daily recovery)
+    const dailyBurn = 0; // conservative: assume net-zero operating burn for forecast purposes
+
+    // 6. Build day-by-day forecast
+    const forecastDays: ForecastDay[] = [];
+    let runningBalance = currentBalance;
+
+    for (let dayIndex = 1; dayIndex <= 90; dayIndex++) {
+      const date = new Date();
+      date.setDate(date.getDate() + dayIndex);
+      const dateStr = date.toISOString().slice(0, 10);
+
+      const pendingToday = pendingByDay[dateStr] ?? 0;
+      const predictedRate = Math.min(Math.max(baseRate + slope * dayIndex, 0.3), 0.95);
+      const inflow = pendingToday * predictedRate;
+
+      runningBalance = Math.max(runningBalance + inflow - dailyBurn, 0);
+
+      forecastDays.push({
+        date: dateStr,
+        projectedBalance: Math.round(runningBalance * 100) / 100,
+        confidenceBand: {
+          low: Math.round(runningBalance * 0.85 * 100) / 100,
+          high: Math.round(runningBalance * 1.15 * 100) / 100,
+        },
+      });
+    }
+
+    logInfo(MODULE, 'getEnhancedCashForecast', 'Forecast generated', {
+      companyId,
+      trend,
+      baseRate: baseRate.toFixed(3),
+      slope: slope.toFixed(5),
+      days: forecastDays.length,
+    });
+
+    return {
+      forecastDays,
+      trend,
+      historicalAvgCollectionRate: Math.round(baseRate * 1000) / 1000,
+      trendSlope: Math.round(slope * 100000) / 100000,
+      asOfDate: new Date().toISOString(),
+    };
+  } catch (err: unknown) {
+    logError(MODULE, 'getEnhancedCashForecast', err instanceof Error ? err.message : String(err));
+    return {
+      forecastDays: [],
+      trend: 'stable',
+      historicalAvgCollectionRate: 0.65,
+      trendSlope: 0,
+      asOfDate: new Date().toISOString(),
+    };
+  }
+}

@@ -496,3 +496,158 @@ export async function getPaymentPlansSummary(companyId: string): Promise<Payment
     recentPlans,
   };
 }
+
+// ─── Financial Operations Agent — new query functions ─────────────────────────
+
+export interface WorkingCapitalFreedData {
+  recoveredAR: number;
+  billingErrorsConfirmed: number;
+  total: number;
+  period: string;
+}
+
+/**
+ * Total working capital freed in the last 30 days:
+ * AR recovered (payments.succeeded) + billing anomalies confirmed.
+ */
+export async function getWorkingCapitalFreed(companyId: string): Promise<WorkingCapitalFreedData> {
+  const { rows } = await pool.query<{ recovered_30d: string; billing_confirmed_30d: string }>(
+    `SELECT
+       COALESCE((
+         SELECT SUM(p.amount)
+         FROM payments p
+         JOIN invoices i ON p.invoice_id = i.id
+         WHERE i.company_id = $1
+           AND p.status = 'succeeded'
+           AND p.paid_at >= NOW() - INTERVAL '30 days'
+       ), 0) AS recovered_30d,
+       COALESCE((
+         SELECT SUM(estimated_impact_usd)
+         FROM billing_anomalies
+         WHERE company_id = $1
+           AND status = 'confirmed'
+           AND reviewed_at >= NOW() - INTERVAL '30 days'
+       ), 0) AS billing_confirmed_30d`,
+    [companyId]
+  );
+
+  const recoveredAR = Math.round(parseFloat(rows[0]?.recovered_30d ?? '0') * 100) / 100;
+  const billingErrorsConfirmed = Math.round(parseFloat(rows[0]?.billing_confirmed_30d ?? '0') * 100) / 100;
+
+  return {
+    recoveredAR,
+    billingErrorsConfirmed,
+    total: Math.round((recoveredAR + billingErrorsConfirmed) * 100) / 100,
+    period: 'Last 30 days',
+  };
+}
+
+export interface DSOReductionData {
+  currentDSO: number;
+  historicalDSO: number;
+  reductionDays: number;
+  trend: 'improving' | 'stable' | 'worsening';
+}
+
+/**
+ * DSO reduction: compare current avg days-to-collect vs. 30-60 days ago.
+ * Positive reductionDays = improvement (DSO went down).
+ */
+export async function getDSOReduction(companyId: string): Promise<DSOReductionData> {
+  const [currentRes, historicalRes] = await Promise.all([
+    pool.query<{ dso: string }>(
+      `SELECT COALESCE(AVG(EXTRACT(EPOCH FROM (p.paid_at - i.issued_date)) / 86400), 0) AS dso
+       FROM payments p
+       JOIN invoices i ON p.invoice_id = i.id
+       WHERE i.company_id = $1
+         AND p.status = 'succeeded'
+         AND p.paid_at >= NOW() - INTERVAL '30 days'`,
+      [companyId]
+    ),
+    pool.query<{ dso: string }>(
+      `SELECT COALESCE(AVG(avg_days_to_collect), 0) AS dso
+       FROM recovery_timeline
+       WHERE company_id = $1
+         AND period_type = 'daily'
+         AND period_date BETWEEN NOW() - INTERVAL '60 days' AND NOW() - INTERVAL '30 days'`,
+      [companyId]
+    ),
+  ]);
+
+  const currentDSO = Math.round(parseFloat(currentRes.rows[0]?.dso ?? '0'));
+  const historicalDSO = Math.round(parseFloat(historicalRes.rows[0]?.dso ?? '0'));
+  const reductionDays = historicalDSO - currentDSO; // positive = improved
+
+  let trend: DSOReductionData['trend'];
+  if (reductionDays >= 2) trend = 'improving';
+  else if (reductionDays <= -2) trend = 'worsening';
+  else trend = 'stable';
+
+  return { currentDSO, historicalDSO, reductionDays, trend };
+}
+
+export interface BillingAnomalyRow {
+  id: string;
+  anomalyType: string;
+  severity: string;
+  description: string;
+  estimatedImpactUsd: number;
+  status: string;
+  customerName: string | null;
+  invoiceAmount: number | null;
+  detectedAt: string;
+}
+
+/**
+ * Fetch billing anomalies for a company, ordered by severity then date.
+ * Optional status filter ('pending' | 'confirmed' | 'dismissed').
+ */
+export async function getBillingAnomalies(
+  companyId: string,
+  status?: string
+): Promise<BillingAnomalyRow[]> {
+  const { rows } = await pool.query<{
+    id: string;
+    anomaly_type: string;
+    severity: string;
+    description: string;
+    estimated_impact_usd: string;
+    status: string;
+    customer_name: string | null;
+    invoice_amount: string | null;
+    detected_at: string;
+  }>(
+    `SELECT
+       ba.id,
+       ba.anomaly_type,
+       ba.severity,
+       ba.description,
+       ba.estimated_impact_usd,
+       ba.status,
+       c.name   AS customer_name,
+       i.amount AS invoice_amount,
+       ba.detected_at
+     FROM billing_anomalies ba
+     LEFT JOIN customers c ON ba.customer_id = c.id AND c.company_id = $1
+     LEFT JOIN invoices  i ON ba.invoice_id  = i.id AND i.company_id = $1
+     WHERE ba.company_id = $1
+       AND ($2::text IS NULL OR ba.status = $2)
+     ORDER BY
+       CASE ba.severity WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END,
+       ba.detected_at DESC
+     LIMIT 50`,
+    [companyId, status ?? null]
+  );
+
+  return rows.map((r) => ({
+    id: r.id,
+    anomalyType: r.anomaly_type,
+    severity: r.severity,
+    description: r.description,
+    estimatedImpactUsd: Math.round(parseFloat(r.estimated_impact_usd ?? '0') * 100) / 100,
+    status: r.status,
+    customerName: r.customer_name ?? null,
+    invoiceAmount: r.invoice_amount != null ? parseFloat(r.invoice_amount) : null,
+    detectedAt: r.detected_at,
+  }));
+}

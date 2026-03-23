@@ -25,10 +25,11 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, 
   const sizes = { sm: 'max-w-sm', md: 'max-w-md', lg: 'max-w-lg', xl: 'max-w-2xl' };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
       <div className={cn(
-        'relative bg-white dark:bg-[#1c1c1f] rounded-xl shadow-2xl max-h-[90vh] overflow-y-auto w-full border border-transparent dark:border-white/[0.08]',
+        'relative bg-white dark:bg-[#1c1c1f] shadow-2xl w-full overflow-y-auto border border-transparent dark:border-white/[0.08]',
+        'rounded-t-2xl sm:rounded-xl h-[92vh] sm:h-auto sm:max-h-[90vh]',
         sizes[size as keyof typeof sizes] || sizes.md
       )}>
         <div className="sticky top-0 bg-white dark:bg-[#1c1c1f] flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-white/[0.08] z-10">

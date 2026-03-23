@@ -25,6 +25,7 @@ import chargebeeRoutes from './routes/chargebee';
 import demoRoutes from './routes/demo';
 import adminRoutes from './routes/admin';
 import reportsRoutes from './routes/reports';
+import billingOptimizationRoutes from './routes/billingOptimization';
 import { getRequestContext, logError, logInfo, logWarn, withRequestContext } from './utils/logger';
 import { apiLimiter, authLimiter, authSlowDown, syncLimiter, aiLimiter } from './middleware/rateLimiter';
 
@@ -174,6 +175,7 @@ app.use('/api/chargebee', chargebeeRoutes);
 app.use('/api/demo', demoRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/reports', reportsRoutes);
+app.use('/api/billing-optimization', billingOptimizationRoutes);
 
 // Health check
 app.get('/health', (_req: Request, res: Response) => {
