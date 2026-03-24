@@ -34,6 +34,7 @@ import attributionRoutes from './routes/attribution';
 import unsubscribeRoutes from './routes/unsubscribe';
 import pilotRoutes from './routes/pilots';
 import adminPilotRoutes from './routes/adminPilot';
+import pilotManagementRoutes from './routes/pilotManagement';
 import { getRequestContext, logError, logInfo, logWarn, withRequestContext } from './utils/logger';
 import { apiLimiter, authLimiter, authSlowDown, syncLimiter, aiLimiter } from './middleware/rateLimiter';
 
@@ -192,6 +193,7 @@ app.use('/api/voice', voiceRoutes);
 app.use('/api/attribution', attributionRoutes);
 app.use('/api/unsubscribe', unsubscribeRoutes);
 app.use('/api/pilots', pilotRoutes);
+app.use('/api/admin/pilots', pilotManagementRoutes);
 
 // Health check
 app.get('/health', (_req: Request, res: Response) => {

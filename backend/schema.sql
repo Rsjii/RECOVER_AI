@@ -894,13 +894,32 @@ CREATE TABLE IF NOT EXISTS pilots (
   company_name VARCHAR NOT NULL,
   phone VARCHAR NOT NULL,
   invoices_per_month VARCHAR,
-  status VARCHAR(20) DEFAULT 'pending',  -- pending | approved | rejected | signed
+  use_case TEXT,  -- What problem they need to solve
+  status VARCHAR(20) DEFAULT 'pending',  -- pending | approved | rejected | demo_scheduled | audit_in_progress | pilot_active | converted | churned
+
+  -- Demo & Audit tracking
+  demo_scheduled_at TIMESTAMPTZ,
+  demo_completed_at TIMESTAMPTZ,
+  audit_started_at TIMESTAMPTZ,
+  audit_completed_at TIMESTAMPTZ,
+  estimated_recovery_usd NUMERIC(12,2),  -- Calculated after audit
+
+  -- Pilot timeline
+  pilot_start_date TIMESTAMPTZ,
+  pilot_end_date TIMESTAMPTZ,  -- NOW() + 14-21 days
+
+  -- Conversion result
   company_id UUID REFERENCES companies(id) ON DELETE SET NULL,
+  conversion_decision VARCHAR(20),  -- converted | ended | negotiating
+  conversion_date TIMESTAMPTZ,
+
   created_at TIMESTAMPTZ DEFAULT NOW(),
   approved_at TIMESTAMPTZ,
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(email)
 );
 
 CREATE INDEX IF NOT EXISTS idx_pilots_status ON pilots(status);
 CREATE INDEX IF NOT EXISTS idx_pilots_email ON pilots(email);
 CREATE INDEX IF NOT EXISTS idx_pilots_created ON pilots(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_pilots_company ON pilots(company_id);

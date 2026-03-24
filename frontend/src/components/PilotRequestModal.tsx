@@ -16,11 +16,12 @@ export const PilotRequestModal: React.FC<PilotRequestModalProps> = ({ isOpen, on
     companyName: '',
     phone: '',
     invoicesPerMonth: '100-500',
+    useCase: '',
   });
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
@@ -52,6 +53,7 @@ export const PilotRequestModal: React.FC<PilotRequestModalProps> = ({ isOpen, on
             companyName: '',
             phone: '',
             invoicesPerMonth: '100-500',
+            useCase: '',
           });
         }, 3000);
       } else {
@@ -81,12 +83,21 @@ export const PilotRequestModal: React.FC<PilotRequestModalProps> = ({ isOpen, on
         {submitted ? (
           <div className="text-center">
             <div className="text-4xl mb-4">🎉</div>
-            <h2 className="text-2xl font-bold mb-4 text-gray-900 dark:text-white">You're In!</h2>
+            <h2 className="text-2xl font-bold mb-4 text-gray-900 dark:text-white">Application Received!</h2>
             <p className="text-gray-600 dark:text-gray-400 mb-4">
-              Thanks for applying. Our team will review your application and contact you within 24 hours.
+              Thanks for applying. We'll review your application and schedule a demo within 24 hours.
             </p>
+            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 mb-4">
+              <p className="text-sm text-blue-900 dark:text-blue-100">
+                <strong>What's next:</strong><br />
+                1. Demo call (1 hour)<br />
+                2. Data audit (3-5 days)<br />
+                3. 2-week pilot (live results)<br />
+                4. Convert to paid or end
+              </p>
+            </div>
             <p className="text-sm text-gray-500 dark:text-gray-500">
-              Look for an email from hello@recoverai.com
+              Check your email for a calendar invite
             </p>
           </div>
         ) : (
@@ -104,7 +115,7 @@ export const PilotRequestModal: React.FC<PilotRequestModalProps> = ({ isOpen, on
             </div>
 
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
-              Get 3 months free in exchange for a case study. Help us validate the product while you recover your AR.
+              Join our 2-week pilot program. We'll run a demo, audit your data, and show you live results.
             </p>
 
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -199,6 +210,21 @@ export const PilotRequestModal: React.FC<PilotRequestModalProps> = ({ isOpen, on
                   <option value="500-1000">500-1000</option>
                   <option value="1000+">1000+</option>
                 </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  What's your biggest AR challenge? *
+                </label>
+                <textarea
+                  name="useCase"
+                  value={formData.useCase}
+                  onChange={handleChange}
+                  placeholder="e.g., High DSO, payment delays, need visibility into recovery..."
+                  required
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
               </div>
 
               <Button

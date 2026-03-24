@@ -6,11 +6,11 @@ const MODULE = 'pilotController';
 
 export const requestPilot = async (req: Request, res: Response): Promise<void> => {
   const handler = 'requestPilot';
-  const { firstName, lastName, email, companyName, phone, invoicesPerMonth } = req.body;
+  const { firstName, lastName, email, companyName, phone, invoicesPerMonth, useCase } = req.body;
 
   try {
     // Validate required fields
-    if (!firstName || !lastName || !email || !companyName || !phone) {
+    if (!firstName || !lastName || !email || !companyName || !phone || !useCase) {
       res.status(400).json({ error: 'Missing required fields' });
       return;
     }
@@ -19,6 +19,7 @@ export const requestPilot = async (req: Request, res: Response): Promise<void> =
       email,
       companyName,
       invoicesPerMonth,
+      useCase: useCase.substring(0, 50),
     });
 
     // Check if email already exists
@@ -34,10 +35,10 @@ export const requestPilot = async (req: Request, res: Response): Promise<void> =
 
     // Insert into pilots table
     const result = await pool.query(
-      `INSERT INTO pilots (first_name, last_name, email, company_name, phone, invoices_per_month, status)
-       VALUES ($1, $2, $3, $4, $5, $6, 'pending')
+      `INSERT INTO pilots (first_name, last_name, email, company_name, phone, invoices_per_month, use_case, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending')
        RETURNING id`,
-      [firstName, lastName, email, companyName, phone, invoicesPerMonth]
+      [firstName, lastName, email, companyName, phone, invoicesPerMonth, useCase]
     );
 
     const pilotId = result.rows[0].id;

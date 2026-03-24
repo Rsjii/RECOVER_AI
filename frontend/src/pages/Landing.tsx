@@ -57,7 +57,7 @@ const Landing: React.FC = () => {
           <Link to="/security" className="text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">Security</Link>
           <ThemeToggle />
           <Link to="/login" className="text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">Sign in</Link>
-          <Link to="/signup"><Button size="sm">Start free trial</Button></Link>
+          <Button size="sm" onClick={() => setIsPilotModalOpen(true)}>Become a Pilot</Button>
         </nav>
         <div className="flex md:hidden items-center gap-2">
           <ThemeToggle className="p-2 text-gray-500 dark:text-gray-400 rounded-lg hover:bg-gray-100 dark:hover:bg-white/[0.06] transition-colors" />
@@ -76,7 +76,7 @@ const Landing: React.FC = () => {
           <Link to="/pricing" onClick={() => setMobileMenuOpen(false)} className="text-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">Pricing</Link>
           <Link to="/security" onClick={() => setMobileMenuOpen(false)} className="text-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">Security</Link>
           <Link to="/login" onClick={() => setMobileMenuOpen(false)} className="text-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">Sign in</Link>
-          <Link to="/signup" onClick={() => setMobileMenuOpen(false)}><Button size="sm" className="w-full">Start free trial</Button></Link>
+          <Button size="sm" className="w-full" onClick={() => { setMobileMenuOpen(false); setIsPilotModalOpen(true); }}>Become a Pilot</Button>
         </div>
       )}
 
@@ -308,10 +308,8 @@ const Landing: React.FC = () => {
               </div>
             ))}
           </div>
-          <Link to="/signup">
-            <Button size="lg" className="px-8">Start free trial</Button>
-          </Link>
-          <p className="mt-3 text-xs text-gray-400">No credit card required. We'll reach out within 24 hours.</p>
+          <Button size="lg" className="px-8" onClick={() => setIsPilotModalOpen(true)}>Become a Pilot</Button>
+          <p className="mt-3 text-xs text-gray-400">2-week pilot. We'll schedule a demo within 24 hours.</p>
         </div>
       </section>
 
@@ -364,14 +362,12 @@ const Landing: React.FC = () => {
       <section className="bg-brand-600 py-14">
         <div className="max-w-3xl mx-auto px-6 text-center">
           <h2 className="text-2xl md:text-3xl font-bold text-white mb-3">
-            Ready to control your cash flow?
+            Ready to recover more cash?
           </h2>
-          <p className="text-blue-100 mb-8">See your cash runway in 60 seconds. First recovery in 24 hours. 21-day free trial.</p>
-          <Link to="/signup">
-            <Button size="lg" className="bg-white text-brand-600 hover:bg-brand-50 px-10">
-              Start free trial — no credit card
-            </Button>
-          </Link>
+          <p className="text-blue-100 mb-8">Join our pilot program. See results in 2 weeks. Convert to paid if it works.</p>
+          <Button size="lg" className="bg-white text-brand-600 hover:bg-brand-50 px-10" onClick={() => setIsPilotModalOpen(true)}>
+            Become a Pilot
+          </Button>
         </div>
       </section>
 
