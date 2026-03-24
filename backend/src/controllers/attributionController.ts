@@ -17,42 +17,60 @@ export const getRecoveryByStage = async (req: Request, res: Response): Promise<v
     const monthStart = new Date(`${month}-01`);
     const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 1);
 
+    // Get all payments with related invoices and email logs
     const result = await pool.query(
       `SELECT
-        COALESCE(i.dunning_stage, 'unknown') as stage,
-        COUNT(DISTINCT p.invoice_id) as invoices_count,
-        COUNT(p.id) as payment_count,
-        SUM(p.amount) as total_recovered
+        p.id as payment_id,
+        p.invoice_id,
+        p.amount,
+        i.due_date,
+        COALESCE(array_agg(DISTINCT el.email_type) FILTER (WHERE el.email_type IS NOT NULL), '{}') as email_types_sent
        FROM payments p
        JOIN invoices i ON p.invoice_id = i.id
+       LEFT JOIN email_logs el ON i.id = el.invoice_id
        WHERE i.company_id = $1
          AND p.paid_at >= $2
          AND p.paid_at < $3
          AND p.status = 'succeeded'
-       GROUP BY i.dunning_stage
-       ORDER BY total_recovered DESC`,
+       GROUP BY p.id, p.invoice_id, p.amount, i.due_date`,
       [companyId, monthStart.toISOString(), monthEnd.toISOString()]
     );
 
-    const stages = result.rows;
-    const total = stages.reduce((sum, s) => sum + parseFloat(s.total_recovered || '0'), 0);
+    // Calculate dunning_stage in app layer
+    const DUNNING_EMAIL_TYPES = ['dunning_1', 'dunning_2', 'dunning_3', 'dunning_4', 'dunning_5'];
+    const breakdown: Record<number, { stage: number; invoices_count: number; payment_count: number; amount_recovered: number }> = {};
 
-    const breakdown = stages.map(s => ({
-      stage: s.stage || 'Unknown',
-      invoices_count: parseInt(s.invoices_count, 10),
-      payment_count: parseInt(s.payment_count, 10),
-      amount_recovered: parseFloat(s.total_recovered || '0'),
-      percentage: total > 0 ? Math.round((parseFloat(s.total_recovered || '0') / total) * 100) : 0
+    result.rows.forEach((row: any) => {
+      const emailTypes = row.email_types_sent || [];
+      const dunning_stage = DUNNING_EMAIL_TYPES.filter((t: string) => emailTypes.includes(t)).length;
+
+      if (!breakdown[dunning_stage]) {
+        breakdown[dunning_stage] = { stage: dunning_stage, invoices_count: 0, payment_count: 0, amount_recovered: 0 };
+      }
+      breakdown[dunning_stage].invoices_count += 1;
+      breakdown[dunning_stage].payment_count += 1;
+      breakdown[dunning_stage].amount_recovered += parseFloat(row.amount || '0');
+    });
+
+    const stages = Object.values(breakdown).sort((a: any, b: any) => b.amount_recovered - a.amount_recovered);
+    const total = stages.reduce((sum, s) => sum + s.amount_recovered, 0);
+
+    const enriched = stages.map(s => ({
+      stage: s.stage,
+      invoices_count: s.invoices_count,
+      payment_count: s.payment_count,
+      amount_recovered: s.amount_recovered,
+      percentage: total > 0 ? Math.round((s.amount_recovered / total) * 100) : 0
     }));
 
-    logInfo(MODULE, handler, 'Recovery by stage fetched', { companyId, month, stages: breakdown.length });
+    logInfo(MODULE, handler, 'Recovery by stage fetched', { companyId, month, stages: enriched.length });
 
     res.json({
       data: {
         month,
-        breakdown,
+        breakdown: enriched,
         total_recovered: total,
-        total_invoices: stages.reduce((sum, s) => sum + parseInt(s.invoices_count, 10), 0)
+        total_invoices: stages.reduce((sum, s) => sum + s.invoices_count, 0)
       }
     });
   } catch (error) {

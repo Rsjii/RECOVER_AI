@@ -32,6 +32,7 @@ import segmentationRoutes from './routes/segmentation';
 import voiceRoutes from './routes/voice';
 import attributionRoutes from './routes/attribution';
 import unsubscribeRoutes from './routes/unsubscribe';
+import pilotRoutes from './routes/pilots';
 import { getRequestContext, logError, logInfo, logWarn, withRequestContext } from './utils/logger';
 import { apiLimiter, authLimiter, authSlowDown, syncLimiter, aiLimiter } from './middleware/rateLimiter';
 
@@ -188,6 +189,7 @@ app.use('/api/segmentation', segmentationRoutes);
 app.use('/api/voice', voiceRoutes);
 app.use('/api/attribution', attributionRoutes);
 app.use('/api/unsubscribe', unsubscribeRoutes);
+app.use('/api/pilots', pilotRoutes);
 
 // Health check
 app.get('/health', (_req: Request, res: Response) => {

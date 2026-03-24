@@ -876,3 +876,31 @@ CREATE POLICY payment_plans_tenant_isolation ON payment_plans
 ALTER TABLE payment_plan_charges ENABLE ROW LEVEL SECURITY;
 ALTER TABLE payment_plan_charges FORCE ROW LEVEL SECURITY;
 
+
+-- ============================================================
+-- PILOT PROGRAM
+-- ============================================================
+
+-- Add account_type column to companies (if not exists)
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS account_type VARCHAR(20) DEFAULT 'paid';  -- 'pilot' or 'paid'
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS pilot_ends_at TIMESTAMPTZ;
+
+-- Pilots table - stores applications from prospects
+CREATE TABLE IF NOT EXISTS pilots (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  first_name VARCHAR NOT NULL,
+  last_name VARCHAR NOT NULL,
+  email VARCHAR NOT NULL UNIQUE,
+  company_name VARCHAR NOT NULL,
+  phone VARCHAR NOT NULL,
+  invoices_per_month VARCHAR,
+  status VARCHAR(20) DEFAULT 'pending',  -- pending | approved | rejected | signed
+  company_id UUID REFERENCES companies(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  approved_at TIMESTAMPTZ,
+  UNIQUE(email)
+);
+
+CREATE INDEX IF NOT EXISTS idx_pilots_status ON pilots(status);
+CREATE INDEX IF NOT EXISTS idx_pilots_email ON pilots(email);
+CREATE INDEX IF NOT EXISTS idx_pilots_created ON pilots(created_at DESC);

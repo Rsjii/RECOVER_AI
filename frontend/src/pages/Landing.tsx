@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 import { ThemeToggle } from '../components/ui/ThemeToggle';
+import { PilotRequestModal } from '../components/PilotRequestModal';
 import { useAuth } from '../hooks/useAuth';
 import { api } from '../lib/api';
 
@@ -10,6 +11,7 @@ const Landing: React.FC = () => {
   const { isAuthenticated, setAuthState } = useAuth();
   const [demoLoading, setDemoLoading] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isPilotModalOpen, setIsPilotModalOpen] = useState(false);
 
   useEffect(() => {
     document.title = 'RecoverAI — Autonomous AR Recovery for B2B SaaS';
@@ -92,40 +94,24 @@ const Landing: React.FC = () => {
           Real-time cash position, runway forecasting, and automated AR recovery — the daily financial command center your SaaS needs.
         </p>
         <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
-          {!isAuthenticated ? (
-            <>
-              <Link to="/signup"><Button size="lg" className="px-8">Start 21-day free trial</Button></Link>
-              <Button
-                size="lg"
-                variant="outline"
-                className="px-8"
-                onClick={handleTryDemo}
-                disabled={demoLoading}
-              >
-                {demoLoading ? 'Loading demo...' : 'Try live demo'}
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button
-                size="lg"
-                className="px-8"
-                onClick={() => navigate('/dashboard')}
-              >
-                Go to Dashboard
-              </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                className="px-8"
-                onClick={handleTryDemo}
-              >
-                Try demo data
-              </Button>
-            </>
-          )}
+          <Button
+            size="lg"
+            className="px-8"
+            onClick={() => setIsPilotModalOpen(true)}
+          >
+            Become a Pilot
+          </Button>
+          <Button
+            size="lg"
+            variant="outline"
+            className="px-8"
+            onClick={handleTryDemo}
+            disabled={demoLoading}
+          >
+            {demoLoading ? 'Loading demo...' : 'Try live demo'}
+          </Button>
         </div>
-        <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">No credit card required. Cancel anytime.</p>
+        <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">3 months free + case study exchange</p>
       </main>
 
       {/* Trust signals */}
@@ -409,6 +395,11 @@ const Landing: React.FC = () => {
           </div>
         </div>
       </footer>
+
+      <PilotRequestModal
+        isOpen={isPilotModalOpen}
+        onClose={() => setIsPilotModalOpen(false)}
+      />
     </div>
   );
 };
