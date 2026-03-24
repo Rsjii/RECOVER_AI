@@ -5,6 +5,7 @@ import { pool } from '../config/database';
 import { logError, logInfo } from '../utils/logger';
 import { sendErrorResponse, parseError } from '../utils/errorHandler';
 import { getAtRiskCustomers } from '../services/riskScoringService';
+import { getVoiceCallStats, getRecentVoiceCalls } from '../services/twilioService';
 import { getCashPosition, updateCashBalance, calculateWhatIf, calculateRunway, getCashLeakage, getEnhancedCashForecast } from '../services/cashPositionService';
 import type { WhatIfScenario } from '../services/cashPositionService';
 
@@ -426,6 +427,25 @@ export const getCashForecastHandler = async (req: Request, res: Response): Promi
     res.status(200).json({ data });
   } catch (error) {
     logError(LOG_MODULE, handler, 'Failed to generate cash forecast', error);
+    const { statusCode, message } = parseError(error);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
+
+/**
+ * GET /api/dashboard/voice-stats
+ * Voice calling metrics: calls this month, acceptance rate, duration, etc.
+ */
+export const getVoiceStatsHandler = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'getVoiceStatsHandler';
+  const companyId = (req as any).companyId;
+  try {
+    const stats = await getVoiceCallStats(companyId, 30);
+    const recentCalls = await getRecentVoiceCalls(companyId, 5);
+    logInfo(LOG_MODULE, handler, 'Voice stats fetched', { companyId, totalCalls: stats.calls_this_month });
+    res.status(200).json({ data: { stats, recent_calls: recentCalls } });
+  } catch (error) {
+    logError(LOG_MODULE, handler, 'Failed to get voice stats', error);
     const { statusCode, message } = parseError(error);
     sendErrorResponse(res, statusCode, message);
   }

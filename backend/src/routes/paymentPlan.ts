@@ -1,16 +1,22 @@
 import { Router } from 'express';
+import {
+  getPaymentPlansStats,
+  getRecentPlans,
+  getPlanDetails,
+  acceptPlan,
+  completePlan
+} from '../controllers/paymentPlanController';
 import { authMiddleware } from '../middleware/auth';
-import { tenantScopeGuard } from '../middleware/tenantScope';
-import { createPlan, getPlan, listPlans, updatePlanStatus } from '../controllers/paymentPlanController';
 
 const router = Router();
 
-router.use(authMiddleware);
-router.use(tenantScopeGuard);
+// Authenticated endpoints
+router.get('/stats', authMiddleware, getPaymentPlansStats);
+router.get('/recent', authMiddleware, getRecentPlans);
+router.get('/:planId', authMiddleware, getPlanDetails);
+router.patch('/:planId/complete', authMiddleware, completePlan);
 
-router.post('/', createPlan);
-router.get('/', getPlan);
-router.get('/list', listPlans);
-router.patch('/:planId/status', updatePlanStatus);
+// Public endpoint for plan acceptance (no auth needed - token-based)
+router.post('/:planId/accept', acceptPlan);
 
 export default router;

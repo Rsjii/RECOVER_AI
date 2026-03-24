@@ -1,132 +1,125 @@
 import { Request, Response } from 'express';
-import { createPlanForInvoice } from '../services/paymentPlanService';
 import {
-  findPaymentPlanByInvoice,
-  listPaymentPlans,
-  updatePaymentPlanStatus,
-} from '../db/paymentPlans';
-import { logError, logInfo } from '../utils/logger';
-import { sendErrorResponse, parseError } from '../utils/errorHandler';
+  getPaymentPlanStats,
+  getRecentPaymentPlans,
+  getPaymentPlanById,
+  acceptPaymentPlan,
+  completePaymentPlan
+} from '../services/paymentPlanService';
+import { logInfo } from '../utils/logger';
 
-const LOG_MODULE = 'paymentPlanController';
+const MODULE = 'PaymentPlanController';
 
 /**
- * Create a payment plan for an invoice
- * POST /api/payment-plans
- * Body: { invoiceId, numInstallments }
+ * GET /api/payment-plans/stats
+ * Get payment plan statistics for authenticated company
  */
-export const createPlan = async (req: Request, res: Response): Promise<void> => {
-  const handler = 'createPlan';
+export const getPaymentPlansStats = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'getPaymentPlansStats';
   const companyId = (req as any).companyId;
 
   try {
-    const { invoiceId, numInstallments } = req.body;
+    const daysBackParam = req.query.daysBack;
+    const daysBack = typeof daysBackParam === 'string' ? parseInt(daysBackParam) : 30;
+    const stats = await getPaymentPlanStats(companyId, daysBack);
 
-    if (!invoiceId) {
-      sendErrorResponse(res, 400, 'invoiceId is required');
-      return;
-    }
+    logInfo(MODULE, handler, 'Fetched payment plan stats', { companyId, daysBack });
 
-    const count = parseInt(numInstallments) || 3;
-    if (count < 2 || count > 12) {
-      sendErrorResponse(res, 400, 'numInstallments must be between 2 and 12');
-      return;
-    }
-
-    const plan = await createPlanForInvoice(invoiceId, companyId, count);
-
-    logInfo(LOG_MODULE, handler, 'Payment plan created', { planId: plan.id, invoiceId });
-
-    res.status(201).json({ data: plan });
+    res.json({ data: stats });
   } catch (error) {
-    logError(LOG_MODULE, handler, 'Create plan failed', error);
-    const { statusCode, message } = parseError(error);
-    sendErrorResponse(res, statusCode, message);
+    console.error('Error fetching payment plan stats:', error);
+    res.status(500).json({ error: 'Failed to fetch payment plan stats', code: 'INTERNAL_ERROR' });
   }
 };
 
 /**
- * Get payment plan for an invoice
- * GET /api/payment-plans?invoiceId=xxx
+ * GET /api/payment-plans/recent
+ * Get recent payment plans for authenticated company
  */
-export const getPlan = async (req: Request, res: Response): Promise<void> => {
-  const handler = 'getPlan';
+export const getRecentPlans = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'getRecentPlans';
   const companyId = (req as any).companyId;
 
   try {
-    const invoiceId = req.query.invoiceId as string;
+    const limitParam = req.query.limit;
+    const limit = typeof limitParam === 'string' ? parseInt(limitParam) : 5;
+    const plans = await getRecentPaymentPlans(companyId, limit);
 
-    if (!invoiceId) {
-      sendErrorResponse(res, 400, 'invoiceId query param is required');
-      return;
-    }
+    logInfo(MODULE, handler, 'Fetched recent payment plans', { companyId, count: plans.length });
 
-    const plan = await findPaymentPlanByInvoice(invoiceId, companyId);
-    if (!plan) {
-      sendErrorResponse(res, 404, 'No payment plan found for this invoice');
-      return;
-    }
-
-    res.status(200).json({ data: plan });
+    res.json({ data: plans });
   } catch (error) {
-    logError(LOG_MODULE, handler, 'Get plan failed', error);
-    const { statusCode, message } = parseError(error);
-    sendErrorResponse(res, statusCode, message);
+    console.error('Error fetching recent payment plans:', error);
+    res.status(500).json({ error: 'Failed to fetch recent payment plans', code: 'INTERNAL_ERROR' });
   }
 };
 
 /**
- * List all payment plans for the company
- * GET /api/payment-plans/list
+ * GET /api/payment-plans/:planId
+ * Get payment plan details including charges
  */
-export const listPlans = async (req: Request, res: Response): Promise<void> => {
-  const handler = 'listPlans';
+export const getPlanDetails = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'getPlanDetails';
   const companyId = (req as any).companyId;
+  const planId = Array.isArray(req.params.planId) ? req.params.planId[0] : req.params.planId;
 
   try {
-    const plans = await listPaymentPlans(companyId);
-    res.status(200).json({ data: plans, total: plans.length });
+    const plan = await getPaymentPlanById(planId, companyId);
+
+    logInfo(MODULE, handler, 'Fetched payment plan details', { planId });
+
+    res.json({ data: plan });
   } catch (error) {
-    logError(LOG_MODULE, handler, 'List plans failed', error);
-    const { statusCode, message } = parseError(error);
-    sendErrorResponse(res, statusCode, message);
+    console.error('Error fetching payment plan:', error);
+    res.status(500).json({ error: 'Failed to fetch payment plan', code: 'INTERNAL_ERROR' });
   }
 };
 
 /**
- * Mark a plan as defaulted (manual override)
- * PATCH /api/payment-plans/:planId/status
- * Body: { status: 'defaulted' | 'completed' | 'active' }
+ * POST /api/payment-plans/:planId/accept
+ * Accept a payment plan using acceptance token (public endpoint)
+ * Body: { acceptanceToken }
  */
-export const updatePlanStatus = async (req: Request, res: Response): Promise<void> => {
-  const handler = 'updatePlanStatus';
-  const companyId = (req as any).companyId;
+export const acceptPlan = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'acceptPlan';
+  const planId = Array.isArray(req.params.planId) ? req.params.planId[0] : req.params.planId;
+  const { acceptanceToken } = req.body;
 
   try {
-    const planIdParam = req.params.planId;
-    const { status } = req.body;
-
-    if (typeof planIdParam !== 'string' || planIdParam.trim() === '') {
-      sendErrorResponse(res, 400, 'planId route param is required');
-      return;
-    }
-    const planId = planIdParam;
-
-    if (!['active', 'completed', 'defaulted'].includes(status)) {
-      sendErrorResponse(res, 400, 'status must be active | completed | defaulted');
+    if (!acceptanceToken) {
+      res.status(400).json({ error: 'acceptanceToken is required', code: 'VALIDATION_ERROR' });
       return;
     }
 
-    const plan = await updatePaymentPlanStatus(planId, companyId, status);
-    if (!plan) {
-      sendErrorResponse(res, 404, 'Payment plan not found');
-      return;
-    }
-    logInfo(LOG_MODULE, handler, 'Plan status updated', { planId, status });
-    res.status(200).json({ data: plan });
+    const plan = await acceptPaymentPlan(planId, acceptanceToken);
+
+    logInfo(MODULE, handler, 'Payment plan accepted', { planId, customerId: plan.customer_id });
+
+    res.json({ data: plan });
   } catch (error) {
-    logError(LOG_MODULE, handler, 'Update plan status failed', error);
-    const { statusCode, message } = parseError(error);
-    sendErrorResponse(res, statusCode, message);
+    console.error('Error accepting payment plan:', error);
+    const message = (error as Error).message || 'Failed to accept payment plan';
+    res.status(400).json({ error: message, code: 'ACCEPTANCE_FAILED' });
+  }
+};
+
+/**
+ * PATCH /api/payment-plans/:planId/complete
+ * Mark payment plan as completed (admin only, authenticated)
+ */
+export const completePlan = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'completePlan';
+  const companyId = (req as any).companyId;
+  const planId = Array.isArray(req.params.planId) ? req.params.planId[0] : req.params.planId;
+
+  try {
+    const plan = await completePaymentPlan(planId, companyId);
+
+    logInfo(MODULE, handler, 'Payment plan marked as completed', { planId });
+
+    res.json({ data: plan });
+  } catch (error) {
+    console.error('Error completing payment plan:', error);
+    res.status(500).json({ error: 'Failed to complete payment plan', code: 'INTERNAL_ERROR' });
   }
 };

@@ -23,6 +23,11 @@ export const config = {
     apiKey: process.env.RESEND_API_KEY,
     fromEmail: process.env.RESEND_FROM_EMAIL || 'noreply@recoverai.com',
   },
+  razorpay: {
+    keyId: process.env.RAZORPAY_KEY_ID,
+    keySecret: process.env.RAZORPAY_KEY_SECRET,
+    webhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET,
+  },
   lemonSqueezy: {
     apiKey: process.env.LEMON_SQUEEZY_API_KEY,
     storeId: process.env.LEMON_SQUEEZY_STORE_ID,

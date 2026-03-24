@@ -4,6 +4,7 @@ import { pool } from '../config/database';
 import { logError, logInfo } from '../utils/logger';
 import { sendErrorResponse, parseError } from '../utils/errorHandler';
 import lemonSqueezyService from '../services/lemonSqueezyService';
+import * as RazorpayService from '../services/razorpayService';
 
 const LOG_MODULE = 'billingController';
 
@@ -393,6 +394,194 @@ export const handleLemonSqueezyWebhook = async (req: Request, res: Response): Pr
     res.status(200).json({ success: true });
   } catch (error) {
     logError(LOG_MODULE, 'handleLemonSqueezyWebhook', 'Webhook processing failed', error);
+    const { statusCode, message } = parseError(error);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
+
+// ============================================================
+// RAZORPAY ENDPOINTS
+// ============================================================
+
+/**
+ * POST /api/billing/razorpay/generate-invoices
+ * Admin: generate monthly invoices for all active companies and create Razorpay payment links.
+ */
+export const generateRazorpayInvoices = async (req: Request, res: Response): Promise<void> => {
+  const fn = 'generateRazorpayInvoices';
+  try {
+    const now = new Date();
+    const { year, month } = req.body as { year?: number; month?: number };
+
+    // Default to previous calendar month
+    const targetYear = year ?? (now.getUTCMonth() === 0 ? now.getUTCFullYear() - 1 : now.getUTCFullYear());
+    const targetMonth = month ?? (now.getUTCMonth() === 0 ? 12 : now.getUTCMonth()); // 1-indexed
+
+    const periodStart = new Date(Date.UTC(targetYear, targetMonth - 1, 1));
+    const periodEnd = new Date(Date.UTC(targetYear, targetMonth, 0)); // last day
+
+    logInfo(LOG_MODULE, fn, 'Generating invoices', {
+      periodStart: periodStart.toISOString().slice(0, 10),
+      periodEnd: periodEnd.toISOString().slice(0, 10),
+    });
+
+    const results = await RazorpayService.generateAllMonthlyInvoices(periodStart, periodEnd);
+
+    res.status(200).json({
+      data: results,
+      summary: {
+        total: results.length,
+        generated: results.filter((r) => r.status === 'generated').length,
+        errors: results.filter((r) => r.status === 'error').length,
+        period: `${periodStart.toISOString().slice(0, 7)}`,
+      },
+    });
+  } catch (error) {
+    logError(LOG_MODULE, fn, 'Failed to generate invoices', error);
+    const { statusCode, message } = parseError(error);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
+
+/**
+ * POST /api/billing/razorpay/generate-invoice/:companyId
+ * Admin: generate invoice for a single company (manual / custom quote).
+ */
+export const generateRazorpayInvoiceForCompany = async (req: Request, res: Response): Promise<void> => {
+  const fn = 'generateRazorpayInvoiceForCompany';
+  try {
+    const targetCompanyId = req.params.companyId as string;
+    const { baseFeeUsd, recoveryPercentage, year, month, currency } = req.body as {
+      baseFeeUsd?: number;
+      recoveryPercentage?: number;
+      year?: number;
+      month?: number;
+      currency?: string;
+    };
+
+    if (!baseFeeUsd) {
+      sendErrorResponse(res, 400, 'baseFeeUsd is required');
+      return;
+    }
+
+    const companyRes = await pool.query(
+      'SELECT id, name, email, billing_tier, recovery_percentage FROM companies WHERE id = $1',
+      [targetCompanyId]
+    );
+    if (!companyRes.rows[0]) {
+      sendErrorResponse(res, 404, 'Company not found');
+      return;
+    }
+    const company = companyRes.rows[0];
+
+    const now = new Date();
+    const targetYear = year ?? now.getUTCFullYear();
+    const targetMonth = month ?? (now.getUTCMonth() + 1);
+    const periodStart = new Date(Date.UTC(targetYear, targetMonth - 1, 1));
+    const periodEnd = new Date(Date.UTC(targetYear, targetMonth, 0));
+
+    // Calculate recovery for the period
+    const recoveredRes = await pool.query<{ total: string }>(
+      `SELECT COALESCE(SUM(amount), 0)::text AS total
+       FROM payments
+       WHERE company_id = $1 AND status = 'succeeded' AND paid_at >= $2 AND paid_at < $3`,
+      [targetCompanyId, periodStart, periodEnd]
+    );
+    const recoveredAmountUsd = Number(recoveredRes.rows[0]?.total || 0);
+    const finalRecoveryPct = recoveryPercentage ?? Number(company.recovery_percentage || 1.2);
+
+    logInfo(LOG_MODULE, fn, 'Generating single-company invoice', {
+      companyId: targetCompanyId,
+      baseFeeUsd,
+      recoveredAmountUsd,
+      finalRecoveryPct,
+    });
+
+    const invoice = await RazorpayService.generateMonthlyInvoice({
+      companyId: targetCompanyId,
+      customerName: company.name,
+      customerEmail: company.email,
+      baseFeeUsd,
+      recoveredAmountUsd,
+      recoveryPercentage: finalRecoveryPct,
+      periodStart,
+      periodEnd,
+      currency,
+    });
+
+    res.status(200).json({ data: invoice });
+  } catch (error) {
+    logError(LOG_MODULE, fn, 'Failed to generate company invoice', error);
+    const { statusCode, message } = parseError(error);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
+
+/**
+ * POST /api/billing/razorpay/webhook
+ * Handle Razorpay webhook events (payment_link.paid, etc.)
+ */
+export const handleRazorpayWebhook = async (req: Request, res: Response): Promise<void> => {
+  const fn = 'handleRazorpayWebhook';
+  try {
+    const signature = req.headers['x-razorpay-signature'] as string;
+    const rawBody = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
+
+    const isValid = RazorpayService.validateWebhookSignature(rawBody, signature);
+    if (!isValid) {
+      logError(LOG_MODULE, fn, 'Invalid webhook signature');
+      sendErrorResponse(res, 400, 'Invalid webhook signature');
+      return;
+    }
+
+    const event = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+    await RazorpayService.handleWebhookEvent(event);
+
+    logInfo(LOG_MODULE, fn, 'Webhook processed', { event: event.event });
+    res.status(200).json({ received: true });
+  } catch (error) {
+    logError(LOG_MODULE, fn, 'Webhook processing failed', error);
+    const { statusCode, message } = parseError(error);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
+
+/**
+ * PUT /api/billing/razorpay/company/:companyId/tier
+ * Admin: set custom billing tier + recovery % for a company.
+ */
+export const setCompanyBillingTier = async (req: Request, res: Response): Promise<void> => {
+  const fn = 'setCompanyBillingTier';
+  try {
+    const targetCompanyId = req.params.companyId as string;
+    const { billingTier, recoveryPercentage } = req.body as {
+      billingTier: number;
+      recoveryPercentage: number;
+    };
+
+    if (!billingTier || billingTier < 1 || billingTier > 4) {
+      sendErrorResponse(res, 400, 'billingTier must be 1–4');
+      return;
+    }
+    if (recoveryPercentage == null || recoveryPercentage < 0 || recoveryPercentage > 10) {
+      sendErrorResponse(res, 400, 'recoveryPercentage must be between 0 and 10');
+      return;
+    }
+
+    await pool.query(
+      `UPDATE companies SET billing_tier = $1, recovery_percentage = $2, updated_at = NOW() WHERE id = $3`,
+      [billingTier, recoveryPercentage, targetCompanyId]
+    );
+
+    logInfo(LOG_MODULE, fn, 'Company billing tier updated', {
+      companyId: targetCompanyId,
+      billingTier,
+      recoveryPercentage,
+    });
+
+    res.status(200).json({ data: { companyId: targetCompanyId, billingTier, recoveryPercentage } });
+  } catch (error) {
+    logError(LOG_MODULE, fn, 'Failed to set billing tier', error);
     const { statusCode, message } = parseError(error);
     sendErrorResponse(res, statusCode, message);
   }

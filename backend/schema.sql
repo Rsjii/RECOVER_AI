@@ -32,6 +32,10 @@ CREATE TABLE IF NOT EXISTS companies (
   -- Subscription & Billing (RecoverAI platform SaaS)
   subscription_status        VARCHAR(50) DEFAULT 'trial',  -- trial | active | past_due | canceled
   lemon_squeezy_customer_id  VARCHAR(255),
+  razorpay_customer_id       VARCHAR(120),
+  razorpay_subscription_id   VARCHAR(120),
+  billing_tier               INT DEFAULT 1,                -- 1=startup, 2=smb, 3=midmarket, 4=enterprise
+  recovery_percentage        DECIMAL(4,2) DEFAULT 1.20,   -- % charged on recovered amount
 
   -- Preferences
   timezone                   VARCHAR DEFAULT 'UTC',
@@ -131,16 +135,6 @@ CREATE TABLE IF NOT EXISTS invoices (
 -- ============================================================
 -- PAYMENT PLANS (installment agreements)
 -- ============================================================
-CREATE TABLE IF NOT EXISTS payment_plans (
-  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  invoice_id  UUID NOT NULL REFERENCES invoices(id) ON DELETE CASCADE,
-  status      VARCHAR(20) DEFAULT 'active',   -- active | completed | defaulted
-  installments JSONB NOT NULL DEFAULT '[]',   -- [{amount, due_date, paid, stripe_payment_intent_id}]
-  total_amount DECIMAL(12, 2),
-  created_at  TIMESTAMPTZ DEFAULT NOW(),
-  updated_at  TIMESTAMPTZ DEFAULT NOW()
-);
-
 -- ============================================================
 -- EMAIL LOGS (every email sent by agent)
 -- ============================================================
@@ -268,8 +262,6 @@ CREATE INDEX IF NOT EXISTS idx_email_logs_company        ON email_logs(company_i
 CREATE INDEX IF NOT EXISTS idx_payments_invoice          ON payments(invoice_id);
 CREATE INDEX IF NOT EXISTS idx_payments_company          ON payments(company_id, paid_at DESC);
 
-CREATE INDEX IF NOT EXISTS idx_payment_plans_invoice     ON payment_plans(invoice_id);
-
 CREATE INDEX IF NOT EXISTS idx_audit_logs_company_time   ON audit_logs(company_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_user           ON audit_logs(user_id, created_at DESC);
 
@@ -330,6 +322,9 @@ CREATE TABLE IF NOT EXISTS subscriptions (
   stripe_subscription_id VARCHAR(120),
   ls_subscription_id VARCHAR(120),
   ls_variant_id VARCHAR(50),
+  razorpay_subscription_id VARCHAR(120),
+  razorpay_customer_id VARCHAR(120),
+  razorpay_plan_id VARCHAR(120),
   current_period_start TIMESTAMPTZ,
   current_period_end TIMESTAMPTZ,
   trial_ends_at TIMESTAMPTZ,
@@ -348,6 +343,8 @@ CREATE TABLE IF NOT EXISTS billing_invoices (
   company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
   subscription_id UUID REFERENCES subscriptions(id) ON DELETE SET NULL,
   stripe_invoice_id VARCHAR(120),
+  razorpay_payment_link_id VARCHAR(120),
+  razorpay_payment_link_url TEXT,
   period_start DATE NOT NULL,
   period_end DATE NOT NULL,
   base_amount_usd DECIMAL(12, 2) NOT NULL DEFAULT 0,
@@ -528,8 +525,6 @@ ALTER TABLE customers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE customers FORCE ROW LEVEL SECURITY;
 ALTER TABLE invoices ENABLE ROW LEVEL SECURITY;
 ALTER TABLE invoices FORCE ROW LEVEL SECURITY;
-ALTER TABLE payment_plans ENABLE ROW LEVEL SECURITY;
-ALTER TABLE payment_plans FORCE ROW LEVEL SECURITY;
 ALTER TABLE email_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE email_logs FORCE ROW LEVEL SECURITY;
 ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
@@ -584,25 +579,6 @@ DROP POLICY IF EXISTS invoices_tenant_isolation ON invoices;
 CREATE POLICY invoices_tenant_isolation ON invoices
   USING (company_id = app.current_company_id())
   WITH CHECK (company_id = app.current_company_id());
-
-DROP POLICY IF EXISTS payment_plans_tenant_isolation ON payment_plans;
-CREATE POLICY payment_plans_tenant_isolation ON payment_plans
-  USING (
-    EXISTS (
-      SELECT 1
-      FROM invoices i
-      WHERE i.id = payment_plans.invoice_id
-        AND i.company_id = app.current_company_id()
-    )
-  )
-  WITH CHECK (
-    EXISTS (
-      SELECT 1
-      FROM invoices i
-      WHERE i.id = payment_plans.invoice_id
-        AND i.company_id = app.current_company_id()
-    )
-  );
 
 DROP POLICY IF EXISTS email_logs_tenant_isolation ON email_logs;
 CREATE POLICY email_logs_tenant_isolation ON email_logs
@@ -818,4 +794,85 @@ DROP POLICY IF EXISTS customer_tier_history_tenant_isolation ON customer_tier_hi
 CREATE POLICY customer_tier_history_tenant_isolation ON customer_tier_history
   USING (company_id = app.current_company_id())
   WITH CHECK (company_id = app.current_company_id());
+
+-- ============================================================
+-- PHASE 5: VOICE CALLING (Twilio)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS voice_calls (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  invoice_id UUID NOT NULL REFERENCES invoices(id) ON DELETE CASCADE,
+  customer_id UUID NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+  phone VARCHAR(20) NOT NULL,
+  twilio_call_sid VARCHAR(100) UNIQUE NOT NULL,
+  call_status VARCHAR(20) DEFAULT 'initiated',  -- initiated | ringing | in-progress | completed | failed
+  duration_seconds INT,
+  dtmf_input VARCHAR(20),  -- '1' (accepted plan), '2' (operator), '9' (hangup), etc
+  outcome VARCHAR(50),  -- accepted_plan | operator_transfer | declined | no_answer | failed
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  completed_at TIMESTAMPTZ,
+  notes TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_voice_calls_company ON voice_calls(company_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_voice_calls_invoice ON voice_calls(invoice_id);
+CREATE INDEX IF NOT EXISTS idx_voice_calls_customer ON voice_calls(customer_id);
+CREATE INDEX IF NOT EXISTS idx_voice_calls_twilio_sid ON voice_calls(twilio_call_sid);
+
+ALTER TABLE voice_calls ENABLE ROW LEVEL SECURITY;
+ALTER TABLE voice_calls FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS voice_calls_tenant_isolation ON voice_calls;
+CREATE POLICY voice_calls_tenant_isolation ON voice_calls
+  USING (company_id = app.current_company_id())
+  WITH CHECK (company_id = app.current_company_id());
+
+-- ============================================================
+-- PHASE 4: PAYMENT PLANS (Auto-offer on hard decline)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS payment_plans (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  invoice_id UUID NOT NULL REFERENCES invoices(id) ON DELETE CASCADE,
+  customer_id UUID NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+  original_amount DECIMAL(12,2) NOT NULL,
+  installment_count INT NOT NULL DEFAULT 3,
+  installment_amount DECIMAL(12,2) NOT NULL,
+  first_payment_due TIMESTAMPTZ NOT NULL,
+  next_payment_due TIMESTAMPTZ,
+  status VARCHAR(20) DEFAULT 'pending',  -- pending | accepted | active | completed | failed
+  acceptance_token VARCHAR(100) UNIQUE,
+  accepted_at TIMESTAMPTZ,
+  completed_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS payment_plan_charges (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  plan_id UUID NOT NULL REFERENCES payment_plans(id) ON DELETE CASCADE,
+  charge_number INT NOT NULL,  -- 1st, 2nd, 3rd, etc.
+  amount DECIMAL(12,2) NOT NULL,
+  due_date TIMESTAMPTZ NOT NULL,
+  razorpay_charge_id VARCHAR(100),
+  status VARCHAR(20) DEFAULT 'pending',  -- pending | charged | failed
+  retry_count INT DEFAULT 0,
+  charged_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_payment_plans_company ON payment_plans(company_id, status DESC, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_payment_plans_invoice ON payment_plans(invoice_id);
+CREATE INDEX IF NOT EXISTS idx_payment_plans_customer ON payment_plans(customer_id);
+CREATE INDEX IF NOT EXISTS idx_payment_plan_charges_due ON payment_plan_charges(due_date ASC) WHERE status = 'pending';
+
+ALTER TABLE payment_plans ENABLE ROW LEVEL SECURITY;
+ALTER TABLE payment_plans FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS payment_plans_tenant_isolation ON payment_plans;
+CREATE POLICY payment_plans_tenant_isolation ON payment_plans
+  USING (company_id = app.current_company_id())
+  WITH CHECK (company_id = app.current_company_id());
+
+ALTER TABLE payment_plan_charges ENABLE ROW LEVEL SECURITY;
+ALTER TABLE payment_plan_charges FORCE ROW LEVEL SECURITY;
 

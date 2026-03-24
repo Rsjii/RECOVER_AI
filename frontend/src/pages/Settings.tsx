@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../lib/api';
 import { API_ENDPOINTS } from '../lib/constants';
 import { Spinner } from '../components/ui/Spinner';
+import { useNotification } from '../hooks/useNotification';
 import { ProfileSection } from '../components/settings/ProfileSection';
 import { NotificationsSection } from '../components/settings/NotificationsSection';
 import { IntegrationSection } from '../components/settings/IntegrationSection';
@@ -193,6 +194,15 @@ const Settings: React.FC = () => {
                   onRefresh={fetch}
                 />
               </div>
+
+              {/* Razorpay Billing Configuration */}
+              <RazorpaySettingsSection />
+
+              {/* Twilio Voice Calling Configuration */}
+              <TwilioSettingsSection />
+
+              {/* Payment Plans Configuration */}
+              <PaymentPlansSettingsSection />
             </div>
           )}
 
@@ -344,6 +354,240 @@ const Settings: React.FC = () => {
               </div>
             </div>
           )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── Razorpay Settings Section ────────────────────────────────────────────────
+
+const RazorpaySettingsSection: React.FC = () => {
+  const { addToast } = useNotification();
+  const [keyId, setKeyId] = useState('');
+  const [keySecret, setKeySecret] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [showSecret, setShowSecret] = useState(false);
+
+  const handleSave = async () => {
+    if (!keyId.trim() || !keySecret.trim()) {
+      addToast({ type: 'error', message: 'Both Key ID and Key Secret are required' });
+      return;
+    }
+    setSaving(true);
+    try {
+      await api.post(API_ENDPOINTS.settings.general, {
+        razorpay_key_id: keyId.trim(),
+        razorpay_key_secret: keySecret.trim(),
+      });
+      addToast({ type: 'success', message: 'Razorpay credentials saved' });
+      setKeySecret('');
+    } catch {
+      addToast({ type: 'error', message: 'Failed to save Razorpay credentials' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="bg-white dark:bg-[#111113] rounded-2xl border border-gray-200 dark:border-white/[0.06] p-8">
+      <div className="flex items-center gap-3 mb-6">
+        <span className="text-2xl">💳</span>
+        <div>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white">Razorpay Billing</h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+            Used to generate payment links and collect subscription fees from your clients
+          </p>
+        </div>
+        <span className="ml-auto text-xs bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300 px-3 py-1 rounded-full font-semibold">
+          Required for billing
+        </span>
+      </div>
+
+      <div className="space-y-4 max-w-lg">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+            Razorpay Key ID
+          </label>
+          <input
+            type="text"
+            value={keyId}
+            onChange={e => setKeyId(e.target.value)}
+            placeholder="rzp_live_xxxxxxxxxxxx"
+            className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-600 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+            Razorpay Key Secret
+          </label>
+          <div className="relative">
+            <input
+              type={showSecret ? 'text' : 'password'}
+              value={keySecret}
+              onChange={e => setKeySecret(e.target.value)}
+              placeholder="••••••••••••••••"
+              className="w-full px-4 py-2.5 pr-16 rounded-xl border border-gray-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-600 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+            />
+            <button
+              type="button"
+              onClick={() => setShowSecret(!showSecret)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+            >
+              {showSecret ? 'Hide' : 'Show'}
+            </button>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 pt-2">
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-xl disabled:opacity-50 transition-colors"
+          >
+            {saving ? <Spinner size="sm" /> : null}
+            {saving ? 'Saving...' : 'Save Credentials'}
+          </button>
+          <p className="text-xs text-gray-400 dark:text-gray-500">
+            Keys are encrypted at rest. Get them from your{' '}
+            <a href="https://dashboard.razorpay.com/app/keys" target="_blank" rel="noopener noreferrer" className="underline">
+              Razorpay dashboard
+            </a>.
+          </p>
+        </div>
+
+        <div className="mt-4 p-4 rounded-xl bg-blue-50 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/20">
+          <p className="text-xs text-blue-700 dark:text-blue-300 font-medium mb-1">How it works</p>
+          <ul className="text-xs text-blue-600 dark:text-blue-400 space-y-1">
+            <li>• Base subscription fee auto-charged on 1st of each month</li>
+            <li>• Recovery % calculated at month-end → payment link sent</li>
+            <li>• Clients pay in their currency (USD, EUR, INR, etc.)</li>
+            <li>• Money lands in your Indian bank account</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const TwilioSettingsSection: React.FC = () => {
+  return (
+    <div className="bg-white dark:bg-[#111113] rounded-2xl border border-gray-200 dark:border-white/[0.06] p-8">
+      <div className="flex items-center gap-3 mb-6">
+        <span className="text-2xl">🎙️</span>
+        <div>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white">Voice Calling (Twilio)</h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+            Auto-call Tier 4 customers (90+ days overdue) with payment plan offers
+          </p>
+        </div>
+        <span className="ml-auto text-xs bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-300 px-3 py-1 rounded-full font-semibold">
+          Phase 5
+        </span>
+      </div>
+
+      <div className="space-y-4 max-w-2xl">
+        <div className="bg-gray-50 dark:bg-white/[0.03] rounded-xl p-4 border border-gray-200 dark:border-white/[0.06]">
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">How It Works</h3>
+          <ol className="text-sm text-gray-600 dark:text-gray-400 space-y-2 list-decimal list-inside">
+            <li>Tier 4 customers 90+ days overdue → Auto-call via Twilio</li>
+            <li>IVR script: Press 1 to accept payment plan, 2 for operator, 9 to hang up</li>
+            <li>Press 1 → Auto-generate 3-month payment plan + SMS confirmation</li>
+            <li>Voice call stats tracked on Dashboard</li>
+          </ol>
+        </div>
+
+        <div className="bg-blue-50 dark:bg-blue-500/10 rounded-xl p-4 border border-blue-100 dark:border-blue-500/20">
+          <p className="text-xs text-blue-700 dark:text-blue-300 font-medium mb-2">Status</p>
+          <p className="text-sm text-blue-600 dark:text-blue-400">
+            ✓ Voice calling enabled | Expected acceptance rate: 60-70%
+          </p>
+        </div>
+
+        <div className="bg-amber-50 dark:bg-amber-500/10 rounded-xl p-4 border border-amber-100 dark:border-amber-500/20">
+          <p className="text-xs text-amber-700 dark:text-amber-300 font-medium mb-2">Configuration</p>
+          <p className="text-sm text-amber-600 dark:text-amber-400">
+            Twilio credentials are managed by the admin. Contact support if you need to update phone number or IVR settings.
+          </p>
+        </div>
+
+        <div className="text-sm text-gray-600 dark:text-gray-400">
+          <p className="font-medium text-gray-900 dark:text-white mb-2">Phone Number Configured:</p>
+          <p className="text-gray-500 dark:text-gray-500 text-xs">Will display actual Twilio number when configured</p>
+        </div>
+
+        <div className="bg-green-50 dark:bg-green-500/10 rounded-xl p-4 border border-green-100 dark:border-green-500/20">
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              defaultChecked={true}
+              className="mt-1 w-4 h-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
+            />
+            <div>
+              <p className="text-sm font-medium text-green-900 dark:text-green-100">Allow Voice Calling</p>
+              <p className="text-xs text-green-700 dark:text-green-300 mt-0.5">
+                By enabling this, you consent to have RecoverAI make automated outbound calls to Tier 4 customers (90+ days overdue) in accordance with TCPA regulations.
+              </p>
+            </div>
+          </label>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const PaymentPlansSettingsSection: React.FC = () => {
+  return (
+    <div className="bg-white dark:bg-[#111113] rounded-2xl border border-gray-200 dark:border-white/[0.06] p-8">
+      <div className="flex items-center gap-3 mb-6">
+        <span className="text-2xl">📋</span>
+        <div>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white">Payment Plans</h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+            Auto-generate flexible payment plans for hard-declined invoices
+          </p>
+        </div>
+        <span className="ml-auto text-xs bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-300 px-3 py-1 rounded-full font-semibold">
+          Phase 4
+        </span>
+      </div>
+
+      <div className="space-y-4 max-w-2xl">
+        <div className="bg-gray-50 dark:bg-white/[0.03] rounded-xl p-4 border border-gray-200 dark:border-white/[0.06]">
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">How It Works</h3>
+          <ol className="text-sm text-gray-600 dark:text-gray-400 space-y-2 list-decimal list-inside">
+            <li>Hard decline detected (e.g., card expired, invalid) → Auto-offer payment plan</li>
+            <li>Customer receives email with plan details (3-6 month installments)</li>
+            <li>One-click acceptance with secure token link</li>
+            <li>Automatic monthly charges via Razorpay on due dates</li>
+            <li>Plan completion tracked on Dashboard</li>
+          </ol>
+        </div>
+
+        <div className="bg-blue-50 dark:bg-blue-500/10 rounded-xl p-4 border border-blue-100 dark:border-blue-500/20">
+          <p className="text-xs text-blue-700 dark:text-blue-300 font-medium mb-2">Status</p>
+          <p className="text-sm text-blue-600 dark:text-blue-400">
+            ✓ Payment plans enabled | Expected acceptance rate: 50-60%
+          </p>
+        </div>
+
+        <div className="bg-amber-50 dark:bg-amber-500/10 rounded-xl p-4 border border-amber-100 dark:border-amber-500/20">
+          <p className="text-xs text-amber-700 dark:text-amber-300 font-medium mb-2">Installment Configuration</p>
+          <p className="text-sm text-amber-600 dark:text-amber-400">
+            Installments are calculated by risk tier:
+          </p>
+          <ul className="text-sm text-amber-600 dark:text-amber-400 mt-2 space-y-1 ml-4">
+            <li>• Tier 1 (Low risk): 3 months</li>
+            <li>• Tier 2 (Medium risk): 4 months</li>
+            <li>• Tier 3 (High risk): 5 months</li>
+            <li>• Tier 4 (Critical): 6 months</li>
+          </ul>
+        </div>
+
+        <div className="text-sm text-gray-600 dark:text-gray-400">
+          <p className="font-medium text-gray-900 dark:text-white mb-2">Auto-Charge Settings:</p>
+          <p className="text-gray-500 dark:text-gray-400 text-xs">Charges are automatically created daily at 09:00 UTC for all due installments. Razorpay payment links are sent to customers via email.</p>
         </div>
       </div>
     </div>

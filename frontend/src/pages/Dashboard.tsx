@@ -19,6 +19,7 @@ import { RiskDriversSection } from '../components/dashboard/RiskDriversSection';
 import { AtRiskCustomersSection } from '../components/dashboard/AtRiskCustomersSection';
 import { AgentActivitySection } from '../components/dashboard/AgentActivitySection';
 import { BillingOptimizationSection } from '../components/dashboard/BillingOptimizationSection';
+import { VoiceStatsCard } from '../components/dashboard/VoiceStatsCard';
 import type { DashboardStats, InvoicePipeline, CustomerRisk } from '../types';
 import type { WorkingCapitalFreed, DSOReduction, BillingAnomaly, EnhancedCashForecast } from '../types/invoice';
 
@@ -534,6 +535,9 @@ const Dashboard: React.FC = () => {
         }))}
         loading={loading}
       />
+
+      {/* Voice Calling Stats */}
+      <VoiceStatsCard />
 
       {/* Agent Activity Preview */}
       <AgentActivitySection

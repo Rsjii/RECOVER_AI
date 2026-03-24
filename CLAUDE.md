@@ -84,6 +84,7 @@ Full priority list: `C:\Users\rsji1\.claude\projects\c--dev-AGENTIC-AR\memory\ga
 
 ## Do NOT do
 
+- **NEVER read or modify `.env` files** — these contain secrets/credentials. Only read `.env.example` for reference. If you need to change configuration, ask the user first.
 - Don't add SendGrid code — project uses **Resend** for email
 - Don't add Stripe flat billing — pricing is **$2.5k base + 1% recovery** (outcome-based)
 - Don't use `sendgrid_message_id` field for new code — use `resend_message_id`

@@ -41,6 +41,7 @@
     "jsonwebtoken": "^9.0.3",
     "node-cron": "^4.2.1",
     "pg": "^8.19.0",
+    "razorpay": "^2.9.6",
     "redis": "^5.11.0",
     "resend": "^6.9.3",
     "stripe": "^20.4.0",

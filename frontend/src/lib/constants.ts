@@ -79,6 +79,9 @@ export const API_ENDPOINTS = {
     reconcileUsage: '/api/billing/usage/reconcile',
     entitlements: '/api/billing/entitlements',
     checkout: '/api/billing/checkout',
+    razorpayGenerateInvoices: '/api/billing/razorpay/generate-invoices',
+    razorpayGenerateInvoice: (companyId: string) => `/api/billing/razorpay/generate-invoice/${companyId}`,
+    razorpaySetTier: (companyId: string) => `/api/billing/razorpay/company/${companyId}/tier`,
   },
   team: {
     members: '/api/team/members',

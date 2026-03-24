@@ -29,6 +29,9 @@ import billingOptimizationRoutes from './routes/billingOptimization';
 import declineCodeRoutes from './routes/declineCodes';
 import retryRoutes from './routes/retry';
 import segmentationRoutes from './routes/segmentation';
+import voiceRoutes from './routes/voice';
+import attributionRoutes from './routes/attribution';
+import unsubscribeRoutes from './routes/unsubscribe';
 import { getRequestContext, logError, logInfo, logWarn, withRequestContext } from './utils/logger';
 import { apiLimiter, authLimiter, authSlowDown, syncLimiter, aiLimiter } from './middleware/rateLimiter';
 
@@ -182,6 +185,9 @@ app.use('/api/billing-optimization', billingOptimizationRoutes);
 app.use('/api/decline-codes', declineCodeRoutes);
 app.use('/api/retry-analytics', retryRoutes);
 app.use('/api/segmentation', segmentationRoutes);
+app.use('/api/voice', voiceRoutes);
+app.use('/api/attribution', attributionRoutes);
+app.use('/api/unsubscribe', unsubscribeRoutes);
 
 // Health check
 app.get('/health', (_req: Request, res: Response) => {

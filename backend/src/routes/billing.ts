@@ -13,10 +13,12 @@ import {
   recordUsage,
   syncRecoveredAmountToUsage,
   updateSubscription,
-} from '../controllers/billingController';
-import {
   createLemonSqueezyCheckout,
   handleLemonSqueezyWebhook,
+  generateRazorpayInvoices,
+  generateRazorpayInvoiceForCompany,
+  handleRazorpayWebhook,
+  setCompanyBillingTier,
 } from '../controllers/billingController';
 
 const router = Router();
@@ -35,9 +37,16 @@ router.post('/usage/sync-recovered', requireRole('admin'), syncRecoveredAmountTo
 router.post('/usage/reconcile', requireRole('admin'), reconcileBillingState);
 router.get('/entitlements', getEntitlements);
 
-// LemonSqueezy routes (new)
+// LemonSqueezy routes
 router.post('/checkout', createLemonSqueezyCheckout);
 router.post('/webhook/lemonsqueezy', handleLemonSqueezyWebhook);
+
+// Razorpay routes
+router.post('/razorpay/generate-invoices', requireRole('admin'), generateRazorpayInvoices);
+router.post('/razorpay/generate-invoice/:companyId', requireRole('admin'), generateRazorpayInvoiceForCompany);
+router.put('/razorpay/company/:companyId/tier', requireRole('admin'), setCompanyBillingTier);
+// Webhook has no auth (Razorpay signature validates)
+router.post('/razorpay/webhook', handleRazorpayWebhook);
 
 export default router;
 

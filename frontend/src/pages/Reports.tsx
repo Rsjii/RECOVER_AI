@@ -68,7 +68,7 @@ interface KpiTrendPoint {
 
 // ─── Sub-tabs ─────────────────────────────────────────────────────────────────
 
-const TABS = ['Overview', 'Campaigns', 'Aging', 'Payment Plans'] as const;
+const TABS = ['Overview', 'Campaigns', 'Aging', 'Payment Plans', 'Attribution'] as const;
 type Tab = typeof TABS[number];
 
 const BUCKET_COLORS = ['#10b981', '#f59e0b', '#f97316', '#ef4444'];
@@ -111,6 +111,12 @@ const Reports: React.FC = () => {
   const [plansSummary, setPlansSummary] = useState<PlansSummary | null>(null);
   const [plans, setPlans] = useState<PlanItem[]>([]);
   const [loadingPlans, setLoadingPlans] = useState(false);
+
+  // Attribution state
+  const [attributionByStage, setAttributionByStage] = useState<any[]>([]);
+  const [attributionByAction, setAttributionByAction] = useState<any[]>([]);
+  const [roiData, setRoiData] = useState<any>(null);
+  const [loadingAttribution, setLoadingAttribution] = useState(false);
 
   const chartColors = {
     grid: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.06)',
@@ -175,13 +181,30 @@ const Reports: React.FC = () => {
     }
   }, []);
 
+  const fetchAttribution = useCallback(async () => {
+    setLoadingAttribution(true);
+    try {
+      const [stageRes, actionRes, roiRes] = await Promise.all([
+        api.get<{ data: any }>('/api/attribution/by-stage?month=' + new Date().toISOString().slice(0, 7)),
+        api.get<{ data: any }>('/api/attribution/by-action?month=' + new Date().toISOString().slice(0, 7)),
+        api.get<{ data: any }>('/api/attribution/roi?days=30'),
+      ]);
+      setAttributionByStage(stageRes.data.breakdown || []);
+      setAttributionByAction(actionRes.data.breakdown || []);
+      setRoiData(roiRes.data);
+    } catch { /* silent */ } finally {
+      setLoadingAttribution(false);
+    }
+  }, []);
+
   // Fetch on tab switch
   useEffect(() => {
     if (activeTab === 'Overview') fetchOverview();
     if (activeTab === 'Campaigns') fetchCampaign();
     if (activeTab === 'Aging') fetchAging();
     if (activeTab === 'Payment Plans') fetchPlans();
-  }, [activeTab, fetchOverview, fetchCampaign, fetchAging, fetchPlans]);
+    if (activeTab === 'Attribution') fetchAttribution();
+  }, [activeTab, fetchOverview, fetchCampaign, fetchAging, fetchPlans, fetchAttribution]);
 
   const downloadCsv = (rows: (string | number)[][], filename: string) => {
     const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
@@ -711,6 +734,95 @@ const Reports: React.FC = () => {
                   </div>
                 </div>
               )}
+            </>
+          )}
+        </div>
+      )}
+
+      {/* ── Attribution Tab ── */}
+      {activeTab === 'Attribution' && (
+        <div className="space-y-6 py-6">
+          {loadingAttribution ? (
+            <div className="flex justify-center py-20"><Spinner size="lg" text="Loading attribution..." /></div>
+          ) : (
+            <>
+              {/* ROI Summary Cards */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] rounded-lg p-4">
+                  <p className="text-xs text-gray-500 dark:text-zinc-500 uppercase tracking-wide">Recovered</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{fmt(roiData?.recovered_amount || 0)}</p>
+                </div>
+                <div className="bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] rounded-lg p-4">
+                  <p className="text-xs text-gray-500 dark:text-zinc-500 uppercase tracking-wide">Total Cost</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{fmt(roiData?.total_cost || 0)}</p>
+                </div>
+                <div className="bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] rounded-lg p-4">
+                  <p className="text-xs text-gray-500 dark:text-zinc-500 uppercase tracking-wide">Net Benefit</p>
+                  <p className={`text-2xl font-bold mt-1 ${roiData?.net_benefit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                    {fmt(roiData?.net_benefit || 0)}
+                  </p>
+                </div>
+                <div className="bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] rounded-lg p-4">
+                  <p className="text-xs text-gray-500 dark:text-zinc-500 uppercase tracking-wide">ROI</p>
+                  <p className={`text-2xl font-bold mt-1 ${roiData?.roi_percent >= 100 ? 'text-emerald-600' : 'text-amber-600'}`}>
+                    {roiData?.roi_percent || 0}%
+                  </p>
+                </div>
+              </div>
+
+              {/* Recovery by Stage */}
+              <div className="bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] rounded-lg p-6">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Recovery by Dunning Stage</h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-gray-200 dark:border-white/[0.06]">
+                        <th className="text-left px-4 py-2 font-medium text-gray-600 dark:text-zinc-400">Stage</th>
+                        <th className="text-right px-4 py-2 font-medium text-gray-600 dark:text-zinc-400">Invoices</th>
+                        <th className="text-right px-4 py-2 font-medium text-gray-600 dark:text-zinc-400">Amount Recovered</th>
+                        <th className="text-right px-4 py-2 font-medium text-gray-600 dark:text-zinc-400">% of Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {attributionByStage.map((stage, i) => (
+                        <tr key={i} className="border-b border-gray-100 dark:border-white/[0.02]">
+                          <td className="px-4 py-3 text-gray-900 dark:text-white">{stage.stage}</td>
+                          <td className="text-right px-4 py-3 text-gray-600 dark:text-zinc-400">{stage.invoices_count}</td>
+                          <td className="text-right px-4 py-3 text-gray-900 dark:text-white font-medium">{fmt(stage.amount_recovered)}</td>
+                          <td className="text-right px-4 py-3"><span className="bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300 px-2.5 py-0.5 rounded text-xs font-medium">{stage.percentage}%</span></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Recovery by Action */}
+              <div className="bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] rounded-lg p-6">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Recovery by Action Type</h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-gray-200 dark:border-white/[0.06]">
+                        <th className="text-left px-4 py-2 font-medium text-gray-600 dark:text-zinc-400">Action</th>
+                        <th className="text-right px-4 py-2 font-medium text-gray-600 dark:text-zinc-400">Invoices</th>
+                        <th className="text-right px-4 py-2 font-medium text-gray-600 dark:text-zinc-400">Amount Recovered</th>
+                        <th className="text-right px-4 py-2 font-medium text-gray-600 dark:text-zinc-400">% of Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {attributionByAction.map((action, i) => (
+                        <tr key={i} className="border-b border-gray-100 dark:border-white/[0.02]">
+                          <td className="px-4 py-3 text-gray-900 dark:text-white capitalize">{action.action.replace(/_/g, ' ')}</td>
+                          <td className="text-right px-4 py-3 text-gray-600 dark:text-zinc-400">{action.invoices_count}</td>
+                          <td className="text-right px-4 py-3 text-gray-900 dark:text-white font-medium">{fmt(action.amount_recovered)}</td>
+                          <td className="text-right px-4 py-3"><span className="bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-300 px-2.5 py-0.5 rounded text-xs font-medium">{action.percentage}%</span></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </>
           )}
         </div>

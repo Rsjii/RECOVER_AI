@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../lib/api';
+import { API_ENDPOINTS } from '../lib/constants';
 import { Card } from '../components/ui/Card';
 import { Spinner } from '../components/ui/Spinner';
+import { useNotification } from '../hooks/useNotification';
 import {
   BarChart, Bar, LineChart, Line,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
@@ -55,7 +57,7 @@ interface MetricsData {
   redisHistory: { date: string; commands: number; bandwidth_bytes: number }[];
 }
 
-type Tab = 'overview' | 'emails' | 'costs' | 'queue';
+type Tab = 'overview' | 'emails' | 'costs' | 'queue' | 'invoices';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -119,10 +121,11 @@ const Admin: React.FC = () => {
   if (!metrics) return null;
 
   const tabs: { id: Tab; label: string }[] = [
-    { id: 'overview', label: 'Overview' },
-    { id: 'emails',   label: 'Emails' },
-    { id: 'costs',    label: 'AI Costs' },
-    { id: 'queue',    label: 'Queue' },
+    { id: 'overview',  label: 'Overview' },
+    { id: 'emails',    label: 'Emails' },
+    { id: 'costs',     label: 'AI Costs' },
+    { id: 'queue',     label: 'Queue' },
+    { id: 'invoices',  label: '💳 Invoices' },
   ];
 
   return (
@@ -171,6 +174,11 @@ const Admin: React.FC = () => {
       {/* ── Tab: Queue ────────────────────────────────────────────────────────── */}
       {activeTab === 'queue' && (
         <QueueTab metrics={metrics} />
+      )}
+
+      {/* ── Tab: Invoices ─────────────────────────────────────────────────────── */}
+      {activeTab === 'invoices' && (
+        <InvoicesTab />
       )}
     </div>
   );
@@ -789,6 +797,218 @@ const QueueTab: React.FC<{ metrics: MetricsData }> = ({ metrics }) => {
           <p><span className="font-medium text-gray-700 dark:text-gray-300">Delayed</span> — jobs scheduled for a future time (payment plan reminders)</p>
         </div>
       </Card>
+    </div>
+  );
+};
+
+// ─── InvoicesTab ──────────────────────────────────────────────────────────────
+
+interface InvoiceResult {
+  companyId: string;
+  companyName: string;
+  invoiceNumber: string;
+  totalUsd: number;
+  paymentLinkUrl: string;
+  status: 'generated' | 'skipped' | 'error';
+  error?: string;
+}
+
+const InvoicesTab: React.FC = () => {
+  const { addToast } = useNotification();
+  const now = new Date();
+  const prevMonth = now.getUTCMonth() === 0 ? 12 : now.getUTCMonth();
+  const prevYear  = now.getUTCMonth() === 0 ? now.getUTCFullYear() - 1 : now.getUTCFullYear();
+
+  const [year, setYear]   = useState(prevYear);
+  const [month, setMonth] = useState(prevMonth);
+  const [results, setResults] = useState<InvoiceResult[]>([]);
+  const [generating, setGenerating] = useState(false);
+
+  // Single company override
+  const [singleMode, setSingleMode] = useState(false);
+  const [singleCompanyId, setSingleCompanyId] = useState('');
+  const [singleBaseFee, setSingleBaseFee] = useState(2500);
+  const [singleRecoveryPct, setSingleRecoveryPct] = useState(1.2);
+
+  const handleGenerateAll = async () => {
+    setGenerating(true);
+    setResults([]);
+    try {
+      const res = await api.post(API_ENDPOINTS.billing.razorpayGenerateInvoices, { year, month });
+      setResults((res as any).data ?? []);
+      addToast({ type: 'success', message: `Generated ${(res as any).summary?.generated ?? 0} invoices` });
+    } catch {
+      addToast({ type: 'error', message: 'Failed to generate invoices' });
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const handleGenerateSingle = async () => {
+    if (!singleCompanyId.trim()) { addToast({ type: 'error', message: 'Company ID required' }); return; }
+    setGenerating(true);
+    setResults([]);
+    try {
+      const res = await api.post(API_ENDPOINTS.billing.razorpayGenerateInvoice(singleCompanyId.trim()), {
+        baseFeeUsd: singleBaseFee,
+        recoveryPercentage: singleRecoveryPct,
+        year,
+        month,
+      });
+      setResults([{ ...(res as any).data, status: 'generated', companyName: 'Custom', companyId: singleCompanyId }]);
+      addToast({ type: 'success', message: 'Invoice generated' });
+    } catch {
+      addToast({ type: 'error', message: 'Failed to generate invoice' });
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <Card>
+        <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-4">Razorpay Invoice Generator</h2>
+
+        {/* Period Selector */}
+        <div className="flex flex-wrap gap-3 items-end mb-4">
+          <div>
+            <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Month</label>
+            <select
+              value={month}
+              onChange={e => setMonth(Number(e.target.value))}
+              className="border border-gray-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-sm bg-white dark:bg-white/[0.03] text-gray-900 dark:text-white"
+            >
+              {MONTHS.map((m, i) => (
+                <option key={i+1} value={i+1}>{m}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Year</label>
+            <input
+              type="number"
+              value={year}
+              onChange={e => setYear(Number(e.target.value))}
+              className="border border-gray-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-sm w-24 bg-white dark:bg-white/[0.03] text-gray-900 dark:text-white"
+            />
+          </div>
+          <button
+            onClick={() => setSingleMode(!singleMode)}
+            className="text-xs text-blue-600 dark:text-blue-400 underline self-end pb-1.5"
+          >
+            {singleMode ? '← All companies' : 'Single company →'}
+          </button>
+        </div>
+
+        {/* Single company mode */}
+        {singleMode && (
+          <div className="flex flex-wrap gap-3 items-end mb-4 p-3 bg-gray-50 dark:bg-white/[0.03] rounded-lg">
+            <div>
+              <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Company ID</label>
+              <input
+                value={singleCompanyId}
+                onChange={e => setSingleCompanyId(e.target.value)}
+                placeholder="uuid..."
+                className="border border-gray-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-sm w-64 bg-white dark:bg-white/[0.03] text-gray-900 dark:text-white"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Base Fee (USD)</label>
+              <input
+                type="number"
+                value={singleBaseFee}
+                onChange={e => setSingleBaseFee(Number(e.target.value))}
+                className="border border-gray-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-sm w-28 bg-white dark:bg-white/[0.03] text-gray-900 dark:text-white"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Recovery %</label>
+              <input
+                type="number"
+                step="0.1"
+                value={singleRecoveryPct}
+                onChange={e => setSingleRecoveryPct(Number(e.target.value))}
+                className="border border-gray-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-sm w-20 bg-white dark:bg-white/[0.03] text-gray-900 dark:text-white"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Generate Button */}
+        <button
+          onClick={singleMode ? handleGenerateSingle : handleGenerateAll}
+          disabled={generating}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg disabled:opacity-50 transition-colors"
+        >
+          {generating ? <Spinner size="sm" /> : '⚡'}
+          {generating ? 'Generating...' : singleMode ? 'Generate Invoice' : 'Generate All Invoices'}
+        </button>
+      </Card>
+
+      {/* Results Table */}
+      {results.length > 0 && (
+        <Card>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+              Results — {MONTHS[month-1]} {year}
+            </h3>
+            <span className="text-xs text-gray-500">
+              {results.filter(r => r.status === 'generated').length} generated ·{' '}
+              {results.filter(r => r.status === 'error').length} errors
+            </span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-xs text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-white/[0.06]">
+                  <th className="text-left pb-2 font-medium">Company</th>
+                  <th className="text-left pb-2 font-medium">Invoice #</th>
+                  <th className="text-right pb-2 font-medium">Total</th>
+                  <th className="text-left pb-2 font-medium">Status</th>
+                  <th className="text-left pb-2 font-medium">Payment Link</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 dark:divide-white/[0.04]">
+                {results.map((r, i) => (
+                  <tr key={i} className="text-gray-700 dark:text-gray-300">
+                    <td className="py-2.5 font-medium">{r.companyName}</td>
+                    <td className="py-2.5 font-mono text-xs">{r.invoiceNumber || '—'}</td>
+                    <td className="py-2.5 text-right font-semibold">
+                      {r.totalUsd > 0 ? `$${r.totalUsd.toLocaleString()}` : '—'}
+                    </td>
+                    <td className="py-2.5">
+                      <span className={cn(
+                        'inline-flex px-2 py-0.5 rounded-full text-xs font-medium',
+                        r.status === 'generated' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                        r.status === 'error'     ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
+                                                   'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+                      )}>
+                        {r.status}
+                      </span>
+                      {r.error && <p className="text-xs text-red-500 mt-0.5 truncate max-w-xs">{r.error}</p>}
+                    </td>
+                    <td className="py-2.5">
+                      {r.paymentLinkUrl ? (
+                        <a
+                          href={r.paymentLinkUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 dark:text-blue-400 hover:underline text-xs truncate block max-w-[180px]"
+                        >
+                          Open link ↗
+                        </a>
+                      ) : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
     </div>
   );
 };

@@ -358,7 +358,7 @@ const Landing: React.FC = () => {
             },
             {
               q: 'How does outcome-based pricing work?',
-              a: 'You pay a base subscription + a tiered success fee only on recovered invoices. Growth ($2,500/mo + 5% first $50k, 3% next $100k, 2% above), Enterprise ($5,000/mo + 4% first $100k, 2.5% next $200k, 1.5% above). Start with a 21-day free trial — no credit card required. If we recover nothing, you just pay the base.',
+              a: 'You pay a base monthly fee for platform access + a success fee only on recovered invoices. This aligns our incentives with yours — we only profit when you do. Start with a 21-day free trial — no credit card required. Pricing is custom based on your company size and recovery goals. Contact sales for a quote tailored to you.',
             },
           ].map((item) => (
             <details key={item.q} className="group bg-white dark:bg-[#111113] rounded-xl border border-gray-200 dark:border-white/[0.06] p-5">

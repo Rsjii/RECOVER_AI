@@ -40,8 +40,11 @@ export interface CompanyRow {
   quickbooks_access_token_encrypted: string | null;    
   quickbooks_refresh_token_encrypted: string | null;    
   chargebee_site: string | null;
-  chargebee_api_key_encrypted: string | null;           
-
+  chargebee_api_key_encrypted: string | null;
+  razorpay_customer_id: string | null;
+  razorpay_subscription_id: string | null;
+  billing_tier: number | null;
+  recovery_percentage: string | null;
 }
 
 // ============ Customers ============

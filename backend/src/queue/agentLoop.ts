@@ -2,6 +2,7 @@ import cron from 'node-cron';
 import { queueEmailNow, TIER_DUNNING_TREES } from './dunningQueue';
 import { queueSMSNow } from './smsQueue';
 import { queueVoiceCall } from './voiceCallQueue';
+import { hasRecentVoiceCall } from '../services/twilioService';
 import { pool } from '../config/database';
 import { logError, logInfo, logWarn } from '../utils/logger';
 import { normalizePhone } from '../services/smsService';
@@ -285,26 +286,41 @@ async function runDecisionEngine(): Promise<{
         }
       }
 
-      // ── Tier 4: queue voice call (Phase 5 stub) ──
+      // ── Tier 4: queue voice call (Phase 5) ──
       if (
         tier === 4 &&
         invoice.customer_phone &&
         invoice.customer_phone_opt_in &&
-        daysOverdue >= 5
+        daysOverdue >= 90
       ) {
         const normalizedPhone = normalizePhone(invoice.customer_phone);
-        if (normalizedPhone) {
-          queueVoiceCall({
-            invoiceId: invoice.id,
-            companyId: invoice.company_id,
-            customerId: invoice.customer_id,
-            customerPhone: normalizedPhone,
-            customerName: invoice.customer_name,
-            invoiceAmount: invoice.amount,
-            daysOverdue,
-          }).catch(err =>
-            logWarn(LOG_MODULE, method, 'Voice call queue failed (non-blocking)', { invoiceId: invoice.id, error: String(err) })
-          );
+        if (normalizedPhone && !await hasRecentVoiceCall(invoice.id, 24)) {
+          try {
+            // Fetch invoice number for TwiML
+            const invResult = await pool.query(
+              'SELECT invoice_number FROM invoices WHERE id = $1',
+              [invoice.id]
+            );
+            const invoiceNumber = invResult.rows[0]?.invoice_number || 'Unknown';
+
+            await queueVoiceCall({
+              invoiceId: invoice.id,
+              companyId: invoice.company_id,
+              customerId: invoice.customer_id,
+              phone: normalizedPhone,
+              amount: invoice.amount,
+              invoiceNumber,
+            });
+            logInfo(LOG_MODULE, method, 'Voice call queued', {
+              invoiceId: invoice.id,
+              daysOverdue,
+            });
+          } catch (err) {
+            logWarn(LOG_MODULE, method, 'Voice call queue failed (non-blocking)', {
+              invoiceId: invoice.id,
+              error: String(err),
+            });
+          }
         }
       }
 

@@ -430,60 +430,79 @@ export async function getRiskDrivers(companyId: string): Promise<RiskDrivers> {
 }
 
 export async function getPaymentPlansSummary(companyId: string): Promise<PaymentPlansSummary> {
-  const result = await pool.query(
+  // Get payment plan counts and metrics
+  const statsResult = await pool.query(
     `SELECT
-       pp.id,
-       pp.status,
-       pp.total_amount,
-       pp.installments,
-       c.name AS customer_name,
-       pp.created_at
-     FROM payment_plans pp
-     JOIN invoices i ON i.id = pp.invoice_id
-     JOIN customers c ON c.id = i.customer_id
-     WHERE i.company_id = $1
-     ORDER BY pp.created_at DESC`,
+       COUNT(CASE WHEN status = 'active' THEN 1 END) as active_plans,
+       COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed_plans,
+       COUNT(CASE WHEN status = 'failed' THEN 1 END) as defaulted_plans,
+       COUNT(*) as total_plans,
+       COALESCE(SUM(CASE WHEN status = 'active' THEN original_amount ELSE 0 END), 0) as total_value_active
+     FROM payment_plans
+     WHERE company_id = $1`,
     [companyId]
   );
 
-  // Count emails that offered payment plans (to calculate acceptance rate)
+  // Count plans offered (pending + accepted + active + completed + failed)
   const offersResult = await pool.query(
     `SELECT COUNT(*) AS offers_sent
-     FROM email_logs
-     WHERE company_id = $1 AND email_type = 'payment_plan_offer'`,
+     FROM payment_plans
+     WHERE company_id = $1`,
     [companyId]
   );
-  const offersSent = parseInt(offersResult.rows[0]?.offers_sent || '0');
 
-  const plans = result.rows;
-  const activePlans = plans.filter(p => p.status === 'active').length;
-  const completedPlans = plans.filter(p => p.status === 'completed').length;
-  const defaultedPlans = plans.filter(p => p.status === 'defaulted').length;
-  const totalOffered = offersSent;
+  const stats = statsResult.rows[0];
+  const activePlans = parseInt(stats.active_plans, 10);
+  const completedPlans = parseInt(stats.completed_plans, 10);
+  const defaultedPlans = parseInt(stats.defaulted_plans, 10);
+  const totalPlans = parseInt(stats.total_plans, 10);
+  const totalOffered = parseInt(offersResult.rows[0]?.offers_sent || '0');
+
+  // Calculate acceptance rate (plans accepted or further along / total offered)
+  const acceptanceResult = await pool.query(
+    `SELECT COUNT(*) as accepted_count
+     FROM payment_plans
+     WHERE company_id = $1 AND status IN ('accepted', 'active', 'completed')`,
+    [companyId]
+  );
+  const acceptedCount = parseInt(acceptanceResult.rows[0]?.accepted_count || '0');
   const acceptanceRate = totalOffered > 0
-    ? Math.round((plans.length / totalOffered) * 100)
-    : plans.length > 0 ? 100 : 0;
+    ? Math.round((acceptedCount / totalOffered) * 100)
+    : totalPlans > 0 ? 100 : 0;
+
+  // Calculate completion rate
   const completionRate = (activePlans + completedPlans) > 0
     ? Math.round((completedPlans / (activePlans + completedPlans)) * 100)
     : 0;
-  const totalValueActive = plans
-    .filter(p => p.status === 'active')
-    .reduce((sum, p) => sum + parseFloat(p.total_amount || '0'), 0);
 
-  const recentPlans: PaymentPlanSummaryItem[] = plans.slice(0, 5).map(p => {
-    const installments: Array<{ paid: boolean }> = Array.isArray(p.installments) ? p.installments : [];
-    const paidCount = installments.filter(i => i.paid).length;
-    const totalCount = installments.length;
-    return {
-      planId: p.id,
-      customerName: p.customer_name,
-      totalAmount: parseFloat(p.total_amount || '0'),
-      status: p.status,
-      installmentsTotal: totalCount,
-      installmentsPaid: paidCount,
-      pctComplete: totalCount > 0 ? Math.round((paidCount / totalCount) * 100) : 0,
-    };
-  });
+  // Get recent plans with charge counts
+  const recentResult = await pool.query(
+    `SELECT
+       pp.id,
+       pp.status,
+       pp.original_amount,
+       pp.installment_count,
+       c.name AS customer_name,
+       (SELECT COUNT(*) FROM payment_plan_charges WHERE plan_id = pp.id AND status = 'charged') as charges_paid
+     FROM payment_plans pp
+     JOIN customers c ON c.id = pp.customer_id
+     WHERE pp.company_id = $1
+     ORDER BY pp.created_at DESC
+     LIMIT 5`,
+    [companyId]
+  );
+
+  const recentPlans: PaymentPlanSummaryItem[] = recentResult.rows.map(p => ({
+    planId: p.id,
+    customerName: p.customer_name,
+    totalAmount: parseFloat(p.original_amount),
+    status: p.status,
+    installmentsTotal: p.installment_count,
+    installmentsPaid: parseInt(p.charges_paid, 10),
+    pctComplete: p.installment_count > 0
+      ? Math.round((parseInt(p.charges_paid, 10) / p.installment_count) * 100)
+      : 0
+  }));
 
   return {
     activePlans,
@@ -492,7 +511,7 @@ export async function getPaymentPlansSummary(companyId: string): Promise<Payment
     totalOffered,
     acceptanceRate,
     completionRate,
-    totalValueActive,
+    totalValueActive: parseFloat(stats.total_value_active),
     recentPlans,
   };
 }
