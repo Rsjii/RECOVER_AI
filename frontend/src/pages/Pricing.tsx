@@ -21,8 +21,8 @@ const Pricing: React.FC = () => {
             <Link to="/login">
               <Button variant="ghost">Sign in</Button>
             </Link>
-            <Link to="/signup">
-              <Button>Start free trial</Button>
+            <Link to="/">
+              <Button>Become a Pilot</Button>
             </Link>
           </div>
         </div>
@@ -152,19 +152,19 @@ const Pricing: React.FC = () => {
 
         {/* CTA */}
         <section className="text-center space-y-6 py-12 border-t border-gray-200 dark:border-white/[0.06]">
-          <h2 className="text-3xl font-bold text-gray-900 dark:text-white">Get Custom Pricing</h2>
+          <h2 className="text-3xl font-bold text-gray-900 dark:text-white">Ready to Get Started?</h2>
           <p className="text-gray-600 dark:text-gray-400 text-lg">
-            We'll work with you to create a plan that aligns with your business goals.
+            Join us as a pilot customer and get 3 months free in exchange for a case study.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <a href="mailto:hello@recoverai.com">
-              <Button size="lg">Schedule a demo</Button>
-            </a>
-            <Link to="/signup">
-              <Button variant="outline" size="lg">
-                Start free trial
-              </Button>
+            <Link to="/">
+              <Button size="lg">Become a Pilot</Button>
             </Link>
+            <a href="mailto:hello@recoverai.com">
+              <Button variant="outline" size="lg">
+                Contact Sales
+              </Button>
+            </a>
           </div>
         </section>
       </main>

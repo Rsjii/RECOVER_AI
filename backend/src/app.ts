@@ -33,6 +33,7 @@ import voiceRoutes from './routes/voice';
 import attributionRoutes from './routes/attribution';
 import unsubscribeRoutes from './routes/unsubscribe';
 import pilotRoutes from './routes/pilots';
+import adminPilotRoutes from './routes/adminPilot';
 import { getRequestContext, logError, logInfo, logWarn, withRequestContext } from './utils/logger';
 import { apiLimiter, authLimiter, authSlowDown, syncLimiter, aiLimiter } from './middleware/rateLimiter';
 
@@ -181,6 +182,7 @@ app.use('/api/quickbooks', quickbooksRoutes);
 app.use('/api/chargebee', chargebeeRoutes);
 app.use('/api/demo', demoRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/admin', adminPilotRoutes);
 app.use('/api/reports', reportsRoutes);
 app.use('/api/billing-optimization', billingOptimizationRoutes);
 app.use('/api/decline-codes', declineCodeRoutes);
