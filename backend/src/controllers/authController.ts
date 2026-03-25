@@ -48,45 +48,13 @@ const clearCookies = (res: Response) => {
 // ============ Handlers ============
 
 export const signup = async (req: Request, res: Response) => {
-  const handler = 'signup';
-  const startTime = Date.now();
-
-  try {
-    const input: SignupInput = req.body;
-    logInfo(handler, 'Request received', { email: input.email, companyName: input.companyName });
-
-    // Quick validation before hitting service
-    if (!input.email || !input.companyName || !input.password) {
-      logInfo(handler, 'Validation failed — missing fields');
-      return res.status(400).json({ error: 'Missing required fields: companyName, email, password' });
-    }
-
-    const result = await authService.signup(input);
-    await SecurityDB.createSession({
-      userId: result.user.id,
-      companyId: result.company.id,
-      refreshToken: result.tokens.refreshToken,
-      userAgent: req.get('user-agent') || undefined,
-      ipAddress: req.ip,
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-    });
-
-    setCookies(res, result.tokens.accessToken, result.tokens.refreshToken);
-
-    const elapsed = Date.now() - startTime;
-    logInfo(handler, `Completed in ${elapsed}ms`, { userId: result.user.id, companyId: result.company.id });
-
-    return res.status(201).json({
-      message: 'Signup successful',
-      user: result.user,
-      company: result.company,
-    });
-  } catch (err: any) {
-    const elapsed = Date.now() - startTime;
-    logError(handler, `Failed after ${elapsed}ms`, err);
-    const { statusCode, message } = parseError(err);
-    return sendErrorResponse(res, statusCode, message);
-  }
+  // Signup disabled - pilot program only
+  // Users must apply via /api/pilots/request to join
+  logInfo('signup', 'Signup disabled', { email: req.body.email });
+  return res.status(403).json({
+    code: 'SIGNUP_DISABLED',
+    error: 'Sign up is disabled. Please apply for our pilot program at /landing',
+  });
 };
 
 export const login = async (req: Request, res: Response) => {

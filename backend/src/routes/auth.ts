@@ -1,6 +1,5 @@
 import { Router } from 'express';
 import {
-  signup,
   login,
   logout,
   refresh,
@@ -19,13 +18,13 @@ import {
 import { authMiddleware } from '../middleware/auth';
 import { requireRole } from '../middleware/rbac';
 import { validate } from '../middleware/validate';
-import { signupSchema, loginSchema } from '../types/schemas';
+import { loginSchema } from '../types/schemas';
 import { authLimiter } from '../middleware/rateLimiter';
 
 const router = Router();
 
 // Public routes
-router.post('/signup', authLimiter, validate(signupSchema), signup);
+// Signup disabled - pilots only apply via /api/pilots/request
 router.post('/login', authLimiter, validate(loginSchema), login);
 router.post('/logout', logout);
 router.post('/refresh', refresh);

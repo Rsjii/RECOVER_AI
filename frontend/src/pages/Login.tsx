@@ -190,14 +190,14 @@ const Login: React.FC = () => {
             </Button>
           </form>
 
-          {/* Signup link */}
+          {/* Pilot Program Link */}
           <p className="mt-6 text-center text-sm text-gray-500 dark:text-gray-400">
-            Don't have an account?{' '}
+            New to RecoverAI?{' '}
             <Link
-              to="/signup"
+              to="/landing"
               className="text-brand-600 hover:text-blue-700 font-medium"
             >
-              Sign up free
+              Become a pilot
             </Link>
           </p>
 

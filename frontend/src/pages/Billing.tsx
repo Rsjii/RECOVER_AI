@@ -5,10 +5,9 @@ import { Button } from '../components/ui/Button';
 import { Spinner } from '../components/ui/Spinner';
 import { useNotification } from '../hooks/useNotification';
 import type { BillingInvoice } from '../types';
-import { formatCurrency, formatDate } from '../lib/utils';
+import { formatDate } from '../lib/utils';
 
-type BillingTab = 'subscription' | 'payment-methods' | 'billing-history' | 'upgrade-plan';
-type BillingInterval = 'monthly' | 'annual';
+type BillingTab = 'subscription' | 'billing-history';
 
 const Billing: React.FC = () => {
   useEffect(() => {
@@ -17,11 +16,10 @@ const Billing: React.FC = () => {
 
   const { addToast } = useNotification();
   const [activeTab, setActiveTab] = useState<BillingTab>('subscription');
-  const [billingInterval, setBillingInterval] = useState<BillingInterval>('monthly');
   const [subscription, setSubscription] = useState<any>(null);
+  const [company, setCompany] = useState<any>(null);
   const [invoices, setInvoices] = useState<BillingInvoice[]>([]);
   const [loading, setLoading] = useState(true);
-  const [upgradeLoading, setUpgradeLoading] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -30,83 +28,36 @@ const Billing: React.FC = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [subRes, invoicesRes] = await Promise.all([
+      const [subRes, invoicesRes, companyRes] = await Promise.all([
         api.get(API_ENDPOINTS.billing.subscription).catch(() => ({ data: null })),
         api.get(API_ENDPOINTS.billing.invoices).catch(() => ({ data: [] })),
+        api.get('/api/company').catch(() => ({ data: null })),
       ]);
 
       setSubscription((subRes as any).data);
       setInvoices((invoicesRes as any).data || []);
+      setCompany((companyRes as any).data);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleChangePlan = async (planCode: string) => {
-    setUpgradeLoading(true);
-    try {
-      console.log('Initiating plan change:', { planCode, billingInterval });
-      const res = await api.post(API_ENDPOINTS.billing.checkout, {
-        plan: planCode,
-        billingInterval,
-      });
-      console.log('Checkout response:', res);
-
-      const data = (res as any).data;
-      if (data?.checkoutUrl) {
-        console.log('Redirecting to:', data.checkoutUrl);
-        window.location.href = data.checkoutUrl;
-      } else {
-        console.error('No checkoutUrl in response:', data);
-        addToast({
-          type: 'error',
-          message: 'Failed to generate checkout link. Please try again.',
-        });
-      }
-    } catch (err: any) {
-      console.error('Plan upgrade failed:', err);
-      addToast({
-        type: 'error',
-        message: err?.response?.data?.error || 'Failed to upgrade plan. Please try again.',
-      });
-    } finally {
-      setUpgradeLoading(false);
-    }
-  };
+  const isPilot = company?.account_type === 'pilot';
+  const pilotEndsAt = company?.pilot_ends_at ? new Date(company.pilot_ends_at) : null;
+  const now = new Date();
+  const daysRemaining = pilotEndsAt ? Math.ceil((pilotEndsAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) : 0;
+  const totalPilotDays = 14;
+  const pilotProgress = Math.max(0, Math.min(100, ((totalPilotDays - daysRemaining) / totalPilotDays) * 100));
 
   return (
-    <div className="bg-gray-50 dark:bg-[#09090b] py-8 px-4">
-      <div className="max-w-5xl mx-auto">
+    <div className="bg-gray-50 dark:bg-[#09090b] py-8 px-4 min-h-screen">
+      <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-1">Billing & Plans</h1>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-1">Billing</h1>
           <p className="text-base text-gray-600 dark:text-gray-400">
-            Manage your subscription, payment methods, and invoices
+            {isPilot ? 'Pilot program details and timeline' : 'Manage your subscription and invoices'}
           </p>
-        </div>
-
-        {/* Tabs */}
-        <div className="flex gap-1 mb-8 border-b border-gray-200 dark:border-white/[0.06]">
-          {(
-            [
-              { id: 'subscription', label: 'Subscription' },
-              { id: 'payment-methods', label: 'Payment Methods' },
-              { id: 'billing-history', label: 'Billing History' },
-              { id: 'upgrade-plan', label: 'Upgrade Plan' },
-            ] as const
-          ).map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-3 font-medium text-sm border-b-2 transition-colors ${
-                activeTab === tab.id
-                  ? 'border-brand-600 text-brand-600 dark:text-brand-400'
-                  : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-300'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
         </div>
 
         {loading ? (
@@ -115,151 +66,177 @@ const Billing: React.FC = () => {
           </div>
         ) : (
           <>
-            {/* SUBSCRIPTION TAB */}
-            {activeTab === 'subscription' && (
+            {/* PILOT PROGRAM INFO - Show if pilot */}
+            {isPilot && (
+              <div className="mb-8 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl border border-blue-200 dark:border-blue-800/50 p-8">
+                <div className="flex items-start justify-between gap-6">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="text-3xl">🎉</span>
+                      <span className="px-3 py-1 bg-blue-600 text-white text-xs font-bold rounded-full">PILOT PROGRAM</span>
+                    </div>
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Free for {daysRemaining} days</h2>
+                    <p className="text-gray-700 dark:text-gray-300 mb-4">
+                      You're in our pilot program. Full platform access, no charges.
+                    </p>
+
+                    {/* Progress Bar */}
+                    <div className="mb-4">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Timeline</span>
+                        <span className="text-sm text-gray-600 dark:text-gray-400">
+                          {totalPilotDays - daysRemaining} of {totalPilotDays} days used
+                        </span>
+                      </div>
+                      <div className="w-full bg-gray-300 dark:bg-gray-700 rounded-full h-2">
+                        <div
+                          className="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full transition-all"
+                          style={{ width: `${pilotProgress}%` }}
+                        />
+                      </div>
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">
+                        Ends on {pilotEndsAt?.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </p>
+                    </div>
+
+                    {/* Estimated Recovery */}
+                    <div className="mb-6 p-4 bg-white dark:bg-white/5 rounded-lg">
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Estimated recovery from pilot:</p>
+                      <p className="text-2xl font-bold text-green-600 dark:text-green-400">Coming soon</p>
+                    </div>
+
+                    {/* Conversion Info */}
+                    <div className="bg-white dark:bg-white/5 rounded-lg p-4 mb-6">
+                      <p className="text-sm font-medium text-gray-900 dark:text-white mb-2">If you continue after pilot:</p>
+                      <ul className="text-sm text-gray-700 dark:text-gray-300 space-y-1">
+                        <li>✓ $2,500/month base fee</li>
+                        <li>✓ 1% of all recoveries (success fee)</li>
+                        <li>✓ First month typically ~$2,730 (if you recover $23K)</li>
+                      </ul>
+                    </div>
+
+                    {/* CTA Buttons */}
+                    <div className="flex gap-3">
+                      <Button
+                        onClick={() => {
+                          addToast({ type: 'info', message: 'Contacting sales team...', duration: 3000 });
+                        }}
+                        variant="primary"
+                        size="md"
+                      >
+                        Convert to Paid
+                      </Button>
+                      <a
+                        href="mailto:sales@recoverai.com"
+                        className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 font-medium text-sm transition-colors"
+                      >
+                        Contact Us
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Tabs - Only show subscription for paid customers, hidden tabs for pilots */}
+            {!isPilot && (
+              <div className="flex gap-1 mb-8 border-b border-gray-200 dark:border-white/[0.06]">
+                {(
+                  [
+                    { id: 'subscription', label: 'Subscription' },
+                    { id: 'billing-history', label: 'Billing History' },
+                  ] as const
+                ).map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`px-4 py-3 font-medium text-sm border-b-2 transition-colors ${
+                      activeTab === tab.id
+                        ? 'border-brand-600 text-brand-600 dark:text-brand-400'
+                        : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-300'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* SUBSCRIPTION TAB - Paid customers only */}
+            {!isPilot && activeTab === 'subscription' && (
               <div className="space-y-6">
-                {/* Hero Section */}
                 <div className="bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] rounded-xl p-8">
-                  <div className="grid md:grid-cols-3 gap-8">
+                  <div className="grid md:grid-cols-2 gap-8">
+                    {/* Current Plan */}
                     <div>
                       <p className="text-sm text-gray-600 dark:text-gray-400 font-medium mb-2">Current Plan</p>
                       <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-1">
-                        {subscription?.plan_name || 'None'}
+                        {subscription?.plan_name || 'Standard Plan'}
                       </h2>
-                      {subscription?.status === 'trialing' && (
-                        <p className="text-sm text-amber-600 dark:text-amber-400 font-medium">
-                          Trial ends {subscription?.trial_ends_at ? formatDate(subscription.trial_ends_at) : 'soon'}
-                        </p>
-                      )}
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Status: <span className="font-medium text-gray-900 dark:text-white capitalize">{subscription?.status || 'Active'}</span>
+                      </p>
                     </div>
 
+                    {/* Next Billing Date */}
                     <div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 font-medium mb-2">Monthly Cost</p>
-                      <p className="text-3xl font-bold text-gray-900 dark:text-white">
-                        {subscription ? (
-                          <>
-                            ${subscription.base_price || 0}
-                            <span className="text-lg text-gray-600 dark:text-gray-400">/mo</span>
-                          </>
-                        ) : (
-                          'N/A'
-                        )}
+                      <p className="text-sm text-gray-600 dark:text-gray-400 font-medium mb-2">Next Billing Date</p>
+                      <p className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                        {subscription?.next_billing_date ? formatDate(subscription.next_billing_date) : 'N/A'}
                       </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">+ tiered success fees</p>
-                    </div>
-
-                    <div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 font-medium mb-2">Next Billing</p>
-                      <p className="text-3xl font-bold text-gray-900 dark:text-white">
-                        {subscription?.current_period_end ? formatDate(subscription.current_period_end) : 'N/A'}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">Billing cycle</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">To make changes to your plan, contact our sales team</p>
                     </div>
                   </div>
 
-                  <div className="mt-8 pt-8 border-t border-gray-200 dark:border-white/[0.06] flex gap-3">
-                    <Button variant="primary" onClick={() => setActiveTab('upgrade-plan')}>
-                      Upgrade Plan →
-                    </Button>
-                    <Button variant="outline" onClick={() => setActiveTab('payment-methods')}>
-                      Manage Billing
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Recovery Stats */}
-                {subscription?.recovery_fee && subscription.recovery_fee.recoveredUsd > 0 && (
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/30 rounded-lg p-6">
-                      <p className="text-sm text-emerald-700 dark:text-emerald-400 font-medium mb-1">
-                        Recovered This Month
-                      </p>
-                      <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">
-                        {formatCurrency(subscription.recovery_fee.recoveredUsd)}
-                      </p>
-                    </div>
-
-                    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800/30 rounded-lg p-6">
-                      <p className="text-sm text-blue-700 dark:text-blue-400 font-medium mb-1">
-                        Your Success Fee
-                      </p>
-                      <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">
-                        {formatCurrency(subscription.recovery_fee.totalUsd)}
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* PAYMENT METHODS TAB */}
-            {activeTab === 'payment-methods' && (
-              <div className="space-y-6">
-                <div className="bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] rounded-xl p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Payment Methods</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
-                    Manage your payment methods securely. We use Stripe for secure payment processing.
-                  </p>
-                  <div className="text-center py-12">
-                    <p className="text-gray-500 dark:text-gray-400 mb-4">
-                      Payment methods managed through LemonSqueezy checkout.
-                    </p>
-                    <Button variant="primary">Add Payment Method</Button>
+                  {/* Contact Sales Button */}
+                  <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+                    <a
+                      href="mailto:sales@recoverai.com"
+                      className="inline-flex items-center px-4 py-2.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-medium transition-colors"
+                    >
+                      Contact Sales for Plan Changes
+                    </a>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* BILLING HISTORY TAB */}
-            {activeTab === 'billing-history' && (
+            {/* BILLING HISTORY TAB - Paid customers only */}
+            {!isPilot && activeTab === 'billing-history' && (
               <div className="space-y-6">
                 <div className="bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] rounded-xl overflow-hidden">
-                  <div className="px-6 py-4 border-b border-gray-200 dark:border-white/[0.06]">
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Invoices</h3>
-                  </div>
-
-                  {invoices && invoices.length > 0 ? (
+                  {invoices.length > 0 ? (
                     <div className="overflow-x-auto">
                       <table className="w-full">
                         <thead className="bg-gray-50 dark:bg-white/[0.02] border-b border-gray-200 dark:border-white/[0.06]">
                           <tr>
-                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400">
-                              Date
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400">
-                              Invoice ID
-                            </th>
-                            <th className="px-6 py-3 text-right text-xs font-semibold text-gray-600 dark:text-gray-400">
-                              Amount
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400">
-                              Status
-                            </th>
-                            <th className="px-6 py-3 text-right text-xs font-semibold text-gray-600 dark:text-gray-400">
-                              Action
-                            </th>
+                            <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900 dark:text-white">Period</th>
+                            <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900 dark:text-white">Base Amount</th>
+                            <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900 dark:text-white">Success Fee</th>
+                            <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900 dark:text-white">Total</th>
+                            <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900 dark:text-white">Status</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200 dark:divide-white/[0.06]">
                           {invoices.map((invoice) => (
-                            <tr
-                              key={invoice.id}
-                              className="hover:bg-gray-50 dark:hover:bg-white/[0.02] transition-colors"
-                            >
-                              <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
-                                {formatDate(invoice.created_at)}
+                            <tr key={invoice.id} className="hover:bg-gray-50 dark:hover:bg-white/[0.02] transition-colors">
+                              <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
+                                {formatDate(invoice.period_start)} - {formatDate(invoice.period_end)}
                               </td>
-                              <td className="px-6 py-4 text-sm font-mono text-gray-600 dark:text-gray-400">
-                                {invoice.id.slice(0, 12)}...
+                              <td className="px-6 py-4 text-sm text-gray-900 dark:text-white font-medium">
+                                ${parseFloat(invoice.base_amount_usd).toFixed(2)}
                               </td>
-                              <td className="px-6 py-4 text-sm font-semibold text-gray-900 dark:text-white text-right">
-                                {formatCurrency(Number(invoice.total_amount_usd))}
+                              <td className="px-6 py-4 text-sm text-gray-900 dark:text-white font-medium">
+                                ${parseFloat(invoice.success_fee_amount_usd).toFixed(2)}
+                              </td>
+                              <td className="px-6 py-4 text-sm text-gray-900 dark:text-white font-bold">
+                                ${parseFloat(invoice.total_amount_usd).toFixed(2)}
                               </td>
                               <td className="px-6 py-4 text-sm">
                                 <span
                                   className={`px-2 py-1 rounded-full text-xs font-medium ${
                                     invoice.status === 'paid'
-                                      ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
+                                      ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
                                       : invoice.status === 'pending'
                                         ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400'
                                         : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
@@ -269,11 +246,6 @@ const Billing: React.FC = () => {
                                   {invoice.status === 'pending' && '⏱ Pending'}
                                   {invoice.status === 'failed' && '✕ Failed'}
                                 </span>
-                              </td>
-                              <td className="px-6 py-4 text-sm text-right">
-                                <button className="text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 font-medium">
-                                  PDF ↓
-                                </button>
                               </td>
                             </tr>
                           ))}
@@ -287,224 +259,6 @@ const Billing: React.FC = () => {
                       </p>
                     </div>
                   )}
-                </div>
-              </div>
-            )}
-
-            {/* UPGRADE PLAN TAB */}
-            {activeTab === 'upgrade-plan' && (
-              <div className="space-y-8">
-                {/* Billing Toggle */}
-                <div className="flex items-center justify-center gap-4">
-                  <button
-                    onClick={() => setBillingInterval('monthly')}
-                    className={`px-4 py-2 font-medium text-sm rounded-lg transition-colors ${
-                      billingInterval === 'monthly'
-                        ? 'bg-brand-600 text-white'
-                        : 'bg-gray-200 dark:bg-white/[0.06] text-gray-700 dark:text-gray-300'
-                    }`}
-                  >
-                    Monthly
-                  </button>
-                  <button
-                    onClick={() => setBillingInterval('annual')}
-                    className={`px-4 py-2 font-medium text-sm rounded-lg transition-colors relative ${
-                      billingInterval === 'annual'
-                        ? 'bg-brand-600 text-white'
-                        : 'bg-gray-200 dark:bg-white/[0.06] text-gray-700 dark:text-gray-300'
-                    }`}
-                  >
-                    Annual
-                    <span className="absolute -top-2 -right-3 bg-emerald-500 text-white text-xs font-bold px-2 py-1 rounded">
-                      Save 20%
-                    </span>
-                  </button>
-                </div>
-
-                {/* Plan Cards */}
-                <div className="grid md:grid-cols-3 gap-6">
-                  {/* Phase 0 */}
-                  <div
-                    className={`relative rounded-xl border-2 p-6 transition-all ${
-                      subscription?.plan_code === 'phase_0'
-                        ? 'border-brand-600 bg-white dark:bg-[#111113]'
-                        : 'border-gray-200 dark:border-white/[0.06] bg-white dark:bg-[#111113] hover:border-gray-300 dark:hover:border-white/[0.1]'
-                    }`}
-                  >
-                    {subscription?.plan_code === 'phase_0' && (
-                      <div className="absolute top-0 right-6 -translate-y-1/2">
-                        <span className="bg-brand-600 text-white text-xs font-bold px-3 py-1 rounded-full">
-                          Current Plan
-                        </span>
-                      </div>
-                    )}
-
-                    <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Phase 0</h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">For getting started</p>
-
-                    <div className="mb-6">
-                      <div className="text-4xl font-bold text-gray-900 dark:text-white">$0</div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">First 30 days, then $2.5k+</p>
-                    </div>
-
-                    <ul className="space-y-3 mb-6">
-                      {['AI email dunning', 'Risk scoring', 'Stripe integration', 'Up to 200 invoices/month'].map(
-                        (feature) => (
-                          <li key={feature} className="flex items-start gap-3">
-                            <span className="text-emerald-600 dark:text-emerald-400 text-lg">✓</span>
-                            <span className="text-sm text-gray-700 dark:text-gray-300">{feature}</span>
-                          </li>
-                        )
-                      )}
-                    </ul>
-
-                    <Button
-                      variant={subscription?.plan_code === 'phase_0' ? 'outline' : 'primary'}
-                      disabled={subscription?.plan_code === 'phase_0' || upgradeLoading}
-                      loading={upgradeLoading}
-                      onClick={() => handleChangePlan('phase_0')}
-                      className="w-full"
-                    >
-                      {subscription?.plan_code === 'phase_0' ? 'Current Plan' : 'Get Started'}
-                    </Button>
-                  </div>
-
-                  {/* Growth */}
-                  <div
-                    className={`relative rounded-xl border-2 p-6 transition-all ring-2 ring-brand-600/20 ${
-                      subscription?.plan_code === 'growth'
-                        ? 'border-brand-600 bg-brand-600/5 dark:bg-brand-900/20'
-                        : 'border-brand-600/50 bg-white dark:bg-[#111113]'
-                    }`}
-                  >
-                    {subscription?.plan_code === 'growth' && (
-                      <div className="absolute top-0 right-6 -translate-y-1/2">
-                        <span className="bg-brand-600 text-white text-xs font-bold px-3 py-1 rounded-full">
-                          Current Plan
-                        </span>
-                      </div>
-                    )}
-
-                    {subscription?.plan_code !== 'growth' && (
-                      <div className="absolute top-0 right-6 -translate-y-1/2">
-                        <span className="bg-emerald-500 text-white text-xs font-bold px-3 py-1 rounded-full">
-                          Most Popular
-                        </span>
-                      </div>
-                    )}
-
-                    <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Growth</h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">For scaling teams</p>
-
-                    <div className="mb-6">
-                      <div className="text-4xl font-bold text-gray-900 dark:text-white">
-                        $2,500<span className="text-lg font-normal text-gray-600 dark:text-gray-400">/mo</span>
-                      </div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">+ 1-5% on recovery</p>
-                    </div>
-
-                    <ul className="space-y-3 mb-6">
-                      {[
-                        'Everything in Phase 0',
-                        'SMS dunning',
-                        'Payment plans',
-                        'QuickBooks sync',
-                        'Priority support',
-                        'Up to 20 users',
-                      ].map((feature) => (
-                        <li key={feature} className="flex items-start gap-3">
-                          <span className="text-emerald-600 dark:text-emerald-400 text-lg">✓</span>
-                          <span className="text-sm text-gray-700 dark:text-gray-300">{feature}</span>
-                        </li>
-                      ))}
-                    </ul>
-
-                    <Button
-                      variant={subscription?.plan_code === 'growth' ? 'outline' : 'primary'}
-                      disabled={subscription?.plan_code === 'growth' || upgradeLoading}
-                      loading={upgradeLoading}
-                      onClick={() => handleChangePlan('growth')}
-                      className="w-full"
-                    >
-                      {subscription?.plan_code === 'growth' ? 'Current Plan' : 'Upgrade'}
-                    </Button>
-                  </div>
-
-                  {/* Enterprise */}
-                  <div
-                    className={`relative rounded-xl border-2 p-6 transition-all ${
-                      subscription?.plan_code === 'enterprise'
-                        ? 'border-brand-600 bg-white dark:bg-[#111113]'
-                        : 'border-gray-200 dark:border-white/[0.06] bg-white dark:bg-[#111113] hover:border-gray-300 dark:hover:border-white/[0.1]'
-                    }`}
-                  >
-                    {subscription?.plan_code === 'enterprise' && (
-                      <div className="absolute top-0 right-6 -translate-y-1/2">
-                        <span className="bg-brand-600 text-white text-xs font-bold px-3 py-1 rounded-full">
-                          Current Plan
-                        </span>
-                      </div>
-                    )}
-
-                    <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Enterprise</h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">Custom requirements</p>
-
-                    <div className="mb-6">
-                      <div className="text-4xl font-bold text-gray-900 dark:text-white">Custom</div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">Contact sales for pricing</p>
-                    </div>
-
-                    <ul className="space-y-3 mb-6">
-                      {[
-                        'Everything in Growth',
-                        'Xero & NetSuite sync',
-                        'API access',
-                        'White-label option',
-                        'Dedicated account manager',
-                        'Custom integrations',
-                      ].map((feature) => (
-                        <li key={feature} className="flex items-start gap-3">
-                          <span className="text-emerald-600 dark:text-emerald-400 text-lg">✓</span>
-                          <span className="text-sm text-gray-700 dark:text-gray-300">{feature}</span>
-                        </li>
-                      ))}
-                    </ul>
-
-                    <Button variant="outline" className="w-full">
-                      {subscription?.plan_code === 'enterprise' ? 'Current Plan' : 'Contact Sales'}
-                    </Button>
-                  </div>
-                </div>
-
-                {/* FAQ */}
-                <div className="bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] rounded-xl p-8">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">Questions?</h3>
-                  <div className="grid md:grid-cols-2 gap-6">
-                    <div>
-                      <p className="font-medium text-gray-900 dark:text-white mb-2">Can I change plans anytime?</p>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        Yes, upgrade or downgrade your plan at any time. Changes take effect at your next billing cycle.
-                      </p>
-                    </div>
-                    <div>
-                      <p className="font-medium text-gray-900 dark:text-white mb-2">What's included in success fees?</p>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        Only charged on actual recovery. Tiered pricing means you save money the more you recover.
-                      </p>
-                    </div>
-                    <div>
-                      <p className="font-medium text-gray-900 dark:text-white mb-2">Do you offer annual pricing?</p>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        Yes, annual plans include 20% discount. Switch the toggle above to see annual pricing.
-                      </p>
-                    </div>
-                    <div>
-                      <p className="font-medium text-gray-900 dark:text-white mb-2">Need help choosing?</p>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        Email sales@recoverai.com or use the chat below. We're here to help find the right plan.
-                      </p>
-                    </div>
-                  </div>
                 </div>
               </div>
             )}

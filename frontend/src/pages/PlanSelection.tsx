@@ -64,7 +64,7 @@ const PlanSelection: React.FC = () => {
         {/* Trial Info */}
         <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-8">
           <p className="text-sm text-blue-900 dark:text-blue-200">
-            <span className="font-semibold">Free Trial:</span> Start with a 21-day free trial. No credit card required. Upgrade anytime to grow.
+            <span className="font-semibold">Pilot Program:</span> You have 14 days free access. No credit card charged. After that, we'll discuss custom pricing based on your results.
           </p>
         </div>
 
@@ -89,14 +89,14 @@ const PlanSelection: React.FC = () => {
 
             <div className="mb-6">
               <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-                Free Trial
+                Pilot Program
               </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Perfect for getting started</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">14 days free to explore</p>
             </div>
 
             <div className="mb-6">
               <div className="text-4xl font-bold text-gray-900 dark:text-white">$0</div>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">21 days free</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">14 days free (pilot)</p>
             </div>
 
             <ul className="space-y-3 mb-8">

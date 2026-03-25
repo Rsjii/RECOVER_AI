@@ -134,8 +134,8 @@ const Pricing: React.FC = () => {
                 a: "You pay the subscription fee only. No recovery = no success fee. We're incentivized to help you succeed.",
               },
               {
-                q: "Is there a free trial?",
-                a: "Yes. 21-day free trial with full platform access (no credit card required). Experience the full value before committing.",
+                q: "How do I get started?",
+                a: "Apply for our pilot program on our landing page. Qualified companies get 14 days free to explore the platform and see results before deciding on custom pricing.",
               },
               {
                 q: "Do you offer annual discounts?",
@@ -154,7 +154,7 @@ const Pricing: React.FC = () => {
         <section className="text-center space-y-6 py-12 border-t border-gray-200 dark:border-white/[0.06]">
           <h2 className="text-3xl font-bold text-gray-900 dark:text-white">Ready to Get Started?</h2>
           <p className="text-gray-600 dark:text-gray-400 text-lg">
-            Join us as a pilot customer and get 3 months free in exchange for a case study.
+            Apply for our pilot program. Get 14 days free to see results. If we deliver, we'll discuss custom pricing based on your recovery.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link to="/">

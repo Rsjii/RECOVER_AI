@@ -118,7 +118,8 @@ const DemoPreview: React.FC = () => {
     // logout() clears cookie server-side; hard navigation forces fresh auth check — avoids
     // the race where isAuthenticated is still true when Signup mounts and redirects to dashboard
     await logout();
-    window.location.href = '/signup';
+    addToast({ type: 'info', message: 'Apply for pilot program to get started', duration: 3000 });
+    window.location.href = '/landing';
   };
 
   if (step === 'loading') {
@@ -225,7 +226,7 @@ const DemoPreview: React.FC = () => {
           </div>
 
           <p className="text-center text-xs text-gray-400 mt-6">
-            Pricing: $2,500/mo base + 1% recovery · No setup fee · 21-day free trial
+            Pilot Program: 14 days free · Custom pricing after · Outcome-based model
           </p>
         </div>
       </div>

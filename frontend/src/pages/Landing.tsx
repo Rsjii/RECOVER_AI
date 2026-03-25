@@ -111,7 +111,7 @@ const Landing: React.FC = () => {
             {demoLoading ? 'Loading demo...' : 'Try live demo'}
           </Button>
         </div>
-        <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">3 months free + case study exchange</p>
+        <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">14 days free pilot • See results fast</p>
       </main>
 
       {/* Trust signals */}
@@ -342,7 +342,7 @@ const Landing: React.FC = () => {
             },
             {
               q: 'How does outcome-based pricing work?',
-              a: 'You pay a base monthly fee for platform access + a success fee only on recovered invoices. This aligns our incentives with yours — we only profit when you do. Start with a 21-day free trial — no credit card required. Pricing is custom based on your company size and recovery goals. Contact sales for a quote tailored to you.',
+              a: 'You pay a base monthly fee for platform access + a success fee only on recovered invoices. This aligns our incentives with yours — we only profit when you do. Apply for our pilot program to get 14 days free and see results. Pricing is custom based on your company size and recovery. Contact sales for a quote tailored to you.',
             },
           ].map((item) => (
             <details key={item.q} className="group bg-white dark:bg-[#111113] rounded-xl border border-gray-200 dark:border-white/[0.06] p-5">
