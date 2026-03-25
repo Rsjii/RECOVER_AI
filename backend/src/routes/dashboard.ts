@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { authMiddleware } from '../middleware/auth';
 import { requireActiveSubscription } from '../middleware/subscriptionGate';
-import { getStats, getPipeline, getRiskList, getRecoveryTimeline, getAtRisk, getCashPositionHandler, updateCashBalanceHandler, getWhatIfHandler, getRunwayHandler, getCashLeakageHandler, getKpi, getAgingAnalysisHandler, getEmailAnalyticsHandler, getRiskDriversHandler, getPaymentPlansSummaryHandler, getPaymentEvents, getSmsActivity, getWorkingCapitalFreedHandler, getDSOReductionHandler, getCashForecastHandler, getVoiceStatsHandler } from '../controllers/dashboardController';
+import { getStats, getPipeline, getRiskList, getRecoveryTimeline, getAtRisk, getCashPositionHandler, updateCashBalanceHandler, getWhatIfHandler, getRunwayHandler, getCashLeakageHandler, getKpi, getAgingAnalysisHandler, getEmailAnalyticsHandler, getRiskDriversHandler, getPaymentPlansSummaryHandler, getPaymentEvents, getSmsActivity, getWorkingCapitalFreedHandler, getDSOReductionHandler, getCashForecastHandler, getVoiceStatsHandler, getRecoveryToday } from '../controllers/dashboardController';
 import { runDecisionEngineNow, runDecisionEngineDryRun } from '../queue/agentLoop';
 import { findInvoiceById } from '../db/invoices';
 import { queueEmailNow } from '../queue/dunningQueue';
@@ -32,6 +32,7 @@ router.get('/working-capital-freed', getWorkingCapitalFreedHandler);
 router.get('/dso-reduction', getDSOReductionHandler);
 router.get('/cash-forecast', getCashForecastHandler);
 router.get('/voice-stats', getVoiceStatsHandler);
+router.get('/recovery-today', getRecoveryToday);
 
 /**
  * POST /api/dashboard/agent/trigger

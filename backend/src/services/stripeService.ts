@@ -288,6 +288,30 @@ class StripeService {
       logError('stripeService', method, 'Failed to update customer history (non-blocking)', err);
     }
 
+    // P1: Attribution tracking — was this payment recovered by RecoverAI dunning?
+    try {
+      const dunningCheck = await pool.query(
+        `SELECT COUNT(*) as count FROM email_logs
+         WHERE invoice_id = $1 AND email_type LIKE 'dunning_%' AND status != 'failed'`,
+        [invoice.id]
+      );
+      if (parseInt(dunningCheck.rows[0].count) > 0) {
+        await pool.query(
+          `UPDATE invoices
+           SET recovered_by_recoverai = true, recovered_amount = $1,
+               recovered_at = NOW(), updated_at = NOW()
+           WHERE id = $2 AND company_id = $3`,
+          [amountPaid, invoice.id, invoice.company_id]
+        );
+        logInfo('stripeService', method, 'Invoice attributed to RecoverAI recovery', {
+          invoiceId: invoice.id,
+          amount: amountPaid,
+        });
+      }
+    } catch (attributionErr) {
+      logError('stripeService', method, 'Attribution check failed (non-blocking)', attributionErr);
+    }
+
     // Slack alert
     try {
       await sendPaymentAlert({

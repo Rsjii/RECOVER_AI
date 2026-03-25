@@ -923,3 +923,106 @@ CREATE INDEX IF NOT EXISTS idx_pilots_status ON pilots(status);
 CREATE INDEX IF NOT EXISTS idx_pilots_email ON pilots(email);
 CREATE INDEX IF NOT EXISTS idx_pilots_created ON pilots(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_pilots_company ON pilots(company_id);
+
+-- ============================================================
+-- AUDIT_REQUESTS (Free cash operations audits for prospects)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS audit_requests (
+  id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  email                   VARCHAR NOT NULL,
+  stripe_account_id       VARCHAR,
+  stripe_access_token     TEXT,  -- Will be encrypted in production
+  status                  VARCHAR(20) DEFAULT 'pending',  -- pending | oauth_complete | complete | failed
+  analysis                JSONB,  -- Stores complete audit analysis (AR, DSO, forecast, anomalies, total)
+  created_at              TIMESTAMPTZ DEFAULT NOW(),
+  completed_at            TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_audit_requests_status ON audit_requests(status);
+CREATE INDEX IF NOT EXISTS idx_audit_requests_email ON audit_requests(email);
+CREATE INDEX IF NOT EXISTS idx_audit_requests_created ON audit_requests(created_at DESC);
+
+-- ============================================================
+-- P0: PILOT MODE & REPLY-TO (Audit → Pilot → Paid flow)
+-- ============================================================
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS pilot_mode VARCHAR(20) DEFAULT 'auto';
+-- Values: 'shadow' (emails staged for review) | 'auto' (send immediately) | 'paused' (stop all)
+
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS reply_to_email VARCHAR(255);
+-- Company email for dunning email replies (keeps conversation in their inbox)
+
+-- ============================================================
+-- P1: ATTRIBUTION TRACKING (Recovery proof for pilots)
+-- ============================================================
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS recovered_by_recoverai BOOLEAN DEFAULT false;
+-- Mark invoices recovered by our dunning efforts (vs other sources)
+
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS recovered_at TIMESTAMPTZ;
+-- Timestamp when payment was detected
+
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS recovered_amount DECIMAL(12,2);
+-- Amount recovered (for ROI calculation)
+
+-- P1: Shadow mode email queue (pilots review emails before send)
+CREATE TABLE IF NOT EXISTS pilot_queued_emails (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id      UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  invoice_id      UUID NOT NULL REFERENCES invoices(id) ON DELETE CASCADE,
+  customer_id     UUID NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+  recipient_email VARCHAR NOT NULL,
+  customer_name   VARCHAR NOT NULL,
+  invoice_amount  DECIMAL(12,2) NOT NULL,
+  days_overdue    INT NOT NULL,
+  email_type      VARCHAR(50) NOT NULL,
+  attempt_number  INT DEFAULT 1,
+  risk_score      INT,
+  queued_at       TIMESTAMPTZ DEFAULT NOW(),
+  approved_at     TIMESTAMPTZ,
+  status          VARCHAR(20) DEFAULT 'pending',  -- pending | approved | rejected | sent
+  sent_at         TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_pilot_queued_company ON pilot_queued_emails(company_id, status);
+CREATE INDEX IF NOT EXISTS idx_pilot_queued_created ON pilot_queued_emails(queued_at DESC);
+
+-- ============================================================
+-- AUDIT SYSTEM: Invitation-Only + Website Form Capture
+-- ============================================================
+
+-- Audit Invites: Used for both cold outreach (admin-generated)
+-- and website form submissions (auto-generated)
+CREATE TABLE IF NOT EXISTS audit_invites (
+  id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  token               VARCHAR(64) UNIQUE NOT NULL,
+  company_id          UUID REFERENCES companies(id) ON DELETE CASCADE,
+  invited_email       VARCHAR(255),
+  created_at          TIMESTAMPTZ DEFAULT NOW(),
+  expires_at          TIMESTAMPTZ,
+  used_at             TIMESTAMPTZ,
+  created_by_user_id  UUID,
+  created_by_type     VARCHAR(20) DEFAULT 'admin'  -- 'admin' (cold outreach) | 'website' (form submission)
+);
+
+CREATE INDEX IF NOT EXISTS idx_audit_invites_token ON audit_invites(token);
+CREATE INDEX IF NOT EXISTS idx_audit_invites_email ON audit_invites(invited_email);
+CREATE INDEX IF NOT EXISTS idx_audit_invites_expires ON audit_invites(expires_at);
+
+-- Audit Requests: Inbound form submissions from website
+-- You review these and decide who to send invite links to
+CREATE TABLE IF NOT EXISTS audit_requests (
+  id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  token               VARCHAR(64) UNIQUE NOT NULL REFERENCES audit_invites(token),
+  company_name        VARCHAR(255) NOT NULL,
+  email               VARCHAR(255) NOT NULL,
+  revenue             INT,
+  phone               VARCHAR(20),
+  status              VARCHAR(20) DEFAULT 'pending',  -- pending | approved | rejected | converted
+  reviewed_at         TIMESTAMPTZ,
+  reviewed_by_user_id UUID,
+  created_at          TIMESTAMPTZ DEFAULT NOW(),
+  converted_at        TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_audit_requests_email ON audit_requests(email);
+CREATE INDEX IF NOT EXISTS idx_audit_requests_status ON audit_requests(status);
+CREATE INDEX IF NOT EXISTS idx_audit_requests_created ON audit_requests(created_at DESC);

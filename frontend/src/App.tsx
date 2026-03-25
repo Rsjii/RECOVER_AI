@@ -27,6 +27,10 @@ import PlanSelection from './pages/PlanSelection';
 import StripeCallback from './pages/StripeCallback';
 import Unsubscribe from './pages/Unsubscribe';
 import BillingSuccess from './pages/BillingSuccess';
+import FreeAuditSignup from './pages/FreeAuditSignup';
+import AuditResults from './pages/AuditResults';
+import AuditRequestForm from './pages/AuditRequestForm';
+import EmailQueue from './pages/EmailQueue';
 
 // Placeholder pages (create empty files for now, fill in later phases)
 const Dashboard = React.lazy(() => import('./pages/Dashboard'));
@@ -103,6 +107,9 @@ const App: React.FC = () => {
             <Route path="/auth/google/callback" element={<GoogleCallback />} />
             <Route path="/stripe/oauth/callback" element={<StripeCallback />} />
             <Route path="/unsubscribe" element={<Unsubscribe />} />
+            <Route path="/audit" element={<FreeAuditSignup />} />
+            <Route path="/audit-request" element={<AuditRequestForm />} />
+            <Route path="/audit-results/:auditId" element={<AuditResults />} />
             <Route
               path="/verify-email"
               element={
@@ -193,6 +200,16 @@ const App: React.FC = () => {
                 <ProtectedRoute requireEmailVerification>
                   <Layout>
                     <Settings />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/email-queue"
+              element={
+                <ProtectedRoute requireEmailVerification>
+                  <Layout>
+                    <EmailQueue />
                   </Layout>
                 </ProtectedRoute>
               }

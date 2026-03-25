@@ -32,7 +32,7 @@ const Dpa: React.FC = () => {
 
         <h2 className="text-xl font-semibold text-gray-900 dark:text-white mt-8 mb-3">2. Scope and Purpose of Processing</h2>
         <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed mb-3">
-          RecoverAI processes Personal Data solely to provide the autonomous accounts receivable recovery Service as described in the Terms of Service. The specific processing activities include:
+          RecoverAI processes Personal Data solely to provide the intelligent accounts receivable recovery Service as described in the Terms of Service, according to Customer-configured policies and automation settings. The specific processing activities include:
         </p>
         <ul className="list-disc list-inside text-sm text-gray-700 dark:text-gray-300 leading-relaxed space-y-1 ml-2">
           <li>Importing and storing invoice records, customer contact information, and payment histories from connected billing platforms</li>

@@ -450,3 +450,63 @@ export const getVoiceStatsHandler = async (req: Request, res: Response): Promise
     sendErrorResponse(res, statusCode, message);
   }
 };
+
+/**
+ * GET /api/dashboard/recovery-today
+ * Recovery in last 24 hours from pilot accounts (shadow mode review).
+ * Used by Dashboard recovery counter.
+ */
+export const getRecoveryToday = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'getRecoveryToday';
+  const companyId = (req as any).companyId;
+
+  try {
+    // Last 24 hours
+    const todayResult = await pool.query(
+      `SELECT
+         COUNT(*) as count,
+         COALESCE(SUM(recovered_amount), 0) as amount
+       FROM invoices
+       WHERE company_id = $1
+         AND recovered_by_recoverai = true
+         AND recovered_at >= NOW() - INTERVAL '24 hours'`,
+      [companyId]
+    );
+
+    // Previous 24 hours (for change_pct calculation)
+    const yesterdayResult = await pool.query(
+      `SELECT
+         COUNT(*) as count,
+         COALESCE(SUM(recovered_amount), 0) as amount
+       FROM invoices
+       WHERE company_id = $1
+         AND recovered_by_recoverai = true
+         AND recovered_at >= NOW() - INTERVAL '48 hours'
+         AND recovered_at < NOW() - INTERVAL '24 hours'`,
+      [companyId]
+    );
+
+    const todayAmount = parseFloat(todayResult.rows[0]?.amount || 0);
+    const todayCount = parseInt(todayResult.rows[0]?.count || 0);
+    const yesterdayAmount = parseFloat(yesterdayResult.rows[0]?.amount || 0);
+
+    // Calculate percentage change
+    const changePct = yesterdayAmount > 0
+      ? Math.round(((todayAmount - yesterdayAmount) / yesterdayAmount) * 100)
+      : (todayAmount > 0 ? 100 : 0);
+
+    logInfo(LOG_MODULE, handler, 'Recovery today fetched', { companyId, amount: todayAmount, count: todayCount, changePct });
+
+    res.status(200).json({
+      data: {
+        amount: todayAmount,
+        count: todayCount,
+        change_pct: changePct,
+      },
+    });
+  } catch (error) {
+    logError(LOG_MODULE, handler, 'Failed to get recovery today', error);
+    const { statusCode, message } = parseError(error);
+    sendErrorResponse(res, statusCode, message);
+  }
+};

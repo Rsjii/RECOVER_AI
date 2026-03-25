@@ -1,9 +1,11 @@
 import React, { useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 import { ThemeToggle } from '../components/ui/ThemeToggle';
 
 const Pricing: React.FC = () => {
+  const navigate = useNavigate();
+
   useEffect(() => {
     document.title = 'Pricing — RecoverAI';
   }, []);
@@ -21,9 +23,7 @@ const Pricing: React.FC = () => {
             <Link to="/login">
               <Button variant="ghost">Sign in</Button>
             </Link>
-            <Link to="/">
-              <Button>Become a Pilot</Button>
-            </Link>
+            <Button onClick={() => navigate('/audit-request')}>Become a Pilot</Button>
           </div>
         </div>
       </header>
@@ -157,9 +157,7 @@ const Pricing: React.FC = () => {
             Apply for our pilot program. Get 14 days free to see results. If we deliver, we'll discuss custom pricing based on your recovery.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link to="/">
-              <Button size="lg">Become a Pilot</Button>
-            </Link>
+            <Button size="lg" onClick={() => navigate('/audit-request')}>Become a Pilot</Button>
             <a href="mailto:hello@recoverai.com">
               <Button variant="outline" size="lg">
                 Contact Sales

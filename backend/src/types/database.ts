@@ -37,14 +37,17 @@ export interface CompanyRow {
   created_at: string;
   updated_at: string;
   quickbooks_realm_id: string | null;
-  quickbooks_access_token_encrypted: string | null;    
-  quickbooks_refresh_token_encrypted: string | null;    
+  quickbooks_access_token_encrypted: string | null;
+  quickbooks_refresh_token_encrypted: string | null;
   chargebee_site: string | null;
   chargebee_api_key_encrypted: string | null;
   razorpay_customer_id: string | null;
   razorpay_subscription_id: string | null;
   billing_tier: number | null;
   recovery_percentage: string | null;
+  // P0: Pilot mode & reply-to for audit → pilot flow
+  pilot_mode: 'shadow' | 'auto' | 'paused' | null;
+  reply_to_email: string | null;
 }
 
 // ============ Customers ============
@@ -88,6 +91,10 @@ export interface InvoiceRow {
   decline_code: string | null;
   last_decline_type: 'soft' | 'hard' | 'fraud' | null;
   decline_confidence: number | null;
+  // P1: Attribution tracking (was this recovered by RecoverAI dunning?)
+  recovered_by_recoverai: boolean;
+  recovered_at: string | null;
+  recovered_amount: string | null;  // DECIMAL returns as string from pg
   // Fields added by JOIN queries in invoices.ts
   customer_name?: string;
   customer_email?: string;

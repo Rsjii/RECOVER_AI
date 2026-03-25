@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import { config } from '../config/env';
 import { DunningEmailJob } from '../types/email';
 import { createEmailLog } from '../db/emailLogs';
+import { findCompanyById } from '../db/companies';  // P0: Get reply-to email
 import { logError, logInfo } from '../utils/logger';
 import aiService from './aiService';
 import resendService from './resendService';
@@ -72,6 +73,13 @@ class EmailService {
       const bodyTextWithFooter = (generated.bodyText || '') +
         `\n\n---\nTo unsubscribe from future emails: ${unsubUrl}`;
 
+      // P0: Fetch company reply-to email (non-blocking)
+      let replyTo: string | undefined;
+      try {
+        const company = await findCompanyById(job.companyId);
+        replyTo = company?.reply_to_email || undefined;
+      } catch { /* non-critical */ }
+
       // 4. Send via Resend
       const sendResult = await resendService.sendEmail({
         to: job.recipientEmail,
@@ -79,6 +87,7 @@ class EmailService {
         bodyText: bodyTextWithFooter,
         bodyHtml: bodyHtmlWithTracking,
         companyId: job.companyId,
+        replyTo,  // P0: Wire reply-to through
       });
 
       if (!sendResult.success) {

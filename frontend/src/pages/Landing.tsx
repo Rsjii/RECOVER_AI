@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 import { ThemeToggle } from '../components/ui/ThemeToggle';
-import { PilotRequestModal } from '../components/PilotRequestModal';
 import { useAuth } from '../hooks/useAuth';
 import { api } from '../lib/api';
 
@@ -11,7 +10,6 @@ const Landing: React.FC = () => {
   const { isAuthenticated, setAuthState } = useAuth();
   const [demoLoading, setDemoLoading] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [isPilotModalOpen, setIsPilotModalOpen] = useState(false);
 
   useEffect(() => {
     document.title = 'RecoverAI — Autonomous AR Recovery for B2B SaaS';
@@ -57,7 +55,7 @@ const Landing: React.FC = () => {
           <Link to="/security" className="text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">Security</Link>
           <ThemeToggle />
           <Link to="/login" className="text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">Sign in</Link>
-          <Button size="sm" onClick={() => setIsPilotModalOpen(true)}>Become a Pilot</Button>
+          <Button size="sm" onClick={() => navigate('/audit-request')}>Become a Pilot</Button>
         </nav>
         <div className="flex md:hidden items-center gap-2">
           <ThemeToggle className="p-2 text-gray-500 dark:text-gray-400 rounded-lg hover:bg-gray-100 dark:hover:bg-white/[0.06] transition-colors" />
@@ -76,7 +74,7 @@ const Landing: React.FC = () => {
           <Link to="/pricing" onClick={() => setMobileMenuOpen(false)} className="text-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">Pricing</Link>
           <Link to="/security" onClick={() => setMobileMenuOpen(false)} className="text-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">Security</Link>
           <Link to="/login" onClick={() => setMobileMenuOpen(false)} className="text-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">Sign in</Link>
-          <Button size="sm" className="w-full" onClick={() => { setMobileMenuOpen(false); setIsPilotModalOpen(true); }}>Become a Pilot</Button>
+          <Button size="sm" className="w-full" onClick={() => { setMobileMenuOpen(false); navigate('/audit-request'); }}>Become a Pilot</Button>
         </div>
       )}
 
@@ -97,7 +95,7 @@ const Landing: React.FC = () => {
           <Button
             size="lg"
             className="px-8"
-            onClick={() => setIsPilotModalOpen(true)}
+            onClick={() => navigate('/audit-request')}
           >
             Become a Pilot
           </Button>
@@ -112,6 +110,10 @@ const Landing: React.FC = () => {
           </Button>
         </div>
         <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">14 days free pilot • See results fast</p>
+        <p className="mt-6 text-xs text-gray-400 dark:text-gray-500 max-w-md mx-auto">
+          We only access your read-only invoice and payment data to analyze and automate recovery.
+          We never move, hold, or process payments. You remain in control of all automation settings.
+        </p>
       </main>
 
       {/* Trust signals */}
@@ -121,7 +123,7 @@ const Landing: React.FC = () => {
             { icon: '🔒', text: 'AES-256-GCM encryption' },
             { icon: '🛡️', text: 'SOC 2 in progress' },
             { icon: '🇺🇸', text: 'US data residency' },
-            { icon: '🏦', text: 'Stripe-certified' },
+            { icon: '🔑', text: 'Secure Stripe integration' },
             { icon: '📋', text: 'GDPR compliant' },
           ].map((item) => (
             <span key={item.text} className="flex items-center gap-1.5">
@@ -135,10 +137,10 @@ const Landing: React.FC = () => {
       <section className="max-w-5xl mx-auto px-6 py-8">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
-            { value: '127 days', label: 'Avg runway visibility' },
             { value: '< 1 min', label: 'Time to cash position' },
-            { value: '3 types', label: 'What-if scenarios' },
-            { value: '68%', label: 'Avg recovery rate' },
+            { value: '4 channels', label: 'Recovery methods' },
+            { value: '2 integrations', label: 'Stripe • QuickBooks' },
+            { value: '14 days', label: 'Free pilot' },
           ].map((s) => (
             <div key={s.label} className="text-center bg-gray-50 dark:bg-[#111113] rounded-xl p-5">
               <div className="text-2xl font-bold text-brand-600">{s.value}</div>
@@ -154,7 +156,7 @@ const Landing: React.FC = () => {
           Your dashboard — live in 60 seconds
         </p>
         <div className="rounded-2xl border border-gray-200 dark:border-white/[0.06] shadow-xl overflow-hidden">
-          <div className="bg-gray-100 dark:bg-[#111113] border-b border-gray-200 dark:border-white/[0.06] px-4 py-2 flex items-center gap-2">
+          <div className="bg-gray-100 dark:bg-[#111113] border-b border-gray-200 dark:border-white/[0.06] px-4 py-2 flex items-center justify-between">
             <div className="flex gap-1.5">
               <div className="w-3 h-3 rounded-full bg-red-400" />
               <div className="w-3 h-3 rounded-full bg-yellow-400" />
@@ -163,6 +165,7 @@ const Landing: React.FC = () => {
             <div className="flex-1 bg-white dark:bg-white/[0.03] rounded px-3 py-1 text-xs text-gray-400 text-center">
               app.recoverai.com/dashboard
             </div>
+            <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">Sample data</span>
           </div>
           <div className="bg-white dark:bg-[#09090b] p-5">
             {/* Row 1: Cash Runway + Cash Position + At-Risk */}
@@ -236,8 +239,8 @@ const Landing: React.FC = () => {
             },
             {
               step: '3',
-              title: 'Agent recovers autonomously',
-              desc: 'RecoverAI sends personalized emails, offers payment plans, and tracks payments — all without human approval.',
+              title: 'Agent recovers intelligently',
+              desc: 'RecoverAI sends personalized emails, offers payment plans, and tracks payments — with configurable automation and optional human review.',
               color: 'bg-green-100 dark:bg-green-900/40 text-green-600',
             },
           ].map((item) => (
@@ -266,7 +269,7 @@ const Landing: React.FC = () => {
               { icon: '🔮', title: 'What-If Scenarios', desc: 'Model "what if we lose Customer X?" or "what if we accelerate dunning?" in real-time.' },
               { icon: '📉', title: 'Cash Leakage Analysis', desc: 'See where money is bleeding: failed payments, delays, and customer churn breakdown.' },
               { icon: '📊', title: 'AI Risk Scoring', desc: '5-signal risk scoring (0-100) per customer. Identifies at-risk payments before they fail.' },
-              { icon: '🤖', title: 'Autonomous Agent', desc: 'Sends personalized dunning emails + SMS escalation autonomously. No human approval needed.' },
+              { icon: '🤖', title: 'Autonomous Agent', desc: 'Automates payment follow-ups via email and SMS, with flexible controls and optional review.' },
               { icon: '✉️', title: '5-Email Dunning + SMS', desc: 'From friendly reminder to formal escalation. SMS fallback for higher response rates.' },
               { icon: '💳', title: 'Payment Plans', desc: 'Auto-offer installment plans based on risk. Customer clicks, Stripe charges automatically.' },
               { icon: '🔗', title: 'Multi-source Sync', desc: 'Stripe + QuickBooks. All invoices, payments, and customer data in one place.' },
@@ -308,7 +311,7 @@ const Landing: React.FC = () => {
               </div>
             ))}
           </div>
-          <Button size="lg" className="px-8" onClick={() => setIsPilotModalOpen(true)}>Become a Pilot</Button>
+          <Button size="lg" className="px-8" onClick={() => navigate('/audit-request')}>Become a Pilot</Button>
           <p className="mt-3 text-xs text-gray-400">2-week pilot. We'll schedule a demo within 24 hours.</p>
         </div>
       </section>
@@ -365,7 +368,7 @@ const Landing: React.FC = () => {
             Ready to recover more cash?
           </h2>
           <p className="text-blue-100 mb-8">Join our pilot program. See results in 2 weeks. Convert to paid if it works.</p>
-          <Button size="lg" className="bg-white text-brand-600 hover:bg-brand-50 px-10" onClick={() => setIsPilotModalOpen(true)}>
+          <Button size="lg" className="bg-white text-brand-600 hover:bg-brand-50 px-10" onClick={() => navigate('/audit-request')}>
             Become a Pilot
           </Button>
         </div>
@@ -382,9 +385,11 @@ const Landing: React.FC = () => {
             <div className="flex flex-wrap gap-4 text-sm justify-center">
               <Link to="/pricing" className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">Pricing</Link>
               <Link to="/security" className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">Security</Link>
+              <Link to="/support" className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">Support</Link>
               <Link to="/terms" className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">Terms</Link>
               <Link to="/privacy" className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">Privacy</Link>
               <Link to="/cookie-policy" className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">Cookies</Link>
+              <Link to="/refund-policy" className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">Refund</Link>
               <Link to="/dpa" className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">DPA</Link>
             </div>
             <p className="text-xs text-gray-600 dark:text-gray-400">2026 RecoverAI. All rights reserved.</p>
@@ -392,10 +397,6 @@ const Landing: React.FC = () => {
         </div>
       </footer>
 
-      <PilotRequestModal
-        isOpen={isPilotModalOpen}
-        onClose={() => setIsPilotModalOpen(false)}
-      />
     </div>
   );
 };

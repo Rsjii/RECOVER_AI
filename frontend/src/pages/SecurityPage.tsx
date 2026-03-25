@@ -29,10 +29,10 @@ const SecurityPage: React.FC = () => {
       <section className="max-w-5xl mx-auto px-6 -mt-8">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           {[
-            { label: 'SOC 2 Type II', sub: 'Audited annually' },
-            { label: 'GDPR', sub: 'EU data protection' },
+            { label: 'SOC 2 in progress', sub: 'Infrastructure via Supabase' },
+            { label: 'GDPR', sub: 'Data protection built-in' },
             { label: 'AES-256', sub: 'Encryption standard' },
-            { label: 'ISO 27001', sub: 'Information security' },
+            { label: 'TLS 1.3', sub: 'Data in transit' },
           ].map((badge) => (
             <div
               key={badge.label}
@@ -127,7 +127,7 @@ const SecurityPage: React.FC = () => {
             <ul className="space-y-2.5 text-sm text-gray-600 dark:text-gray-400">
               <li className="flex items-start gap-2">
                 <svg className="w-4 h-4 mt-0.5 text-purple-500 dark:text-purple-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                <span>PostgreSQL hosted on Supabase (SOC 2 certified)</span>
+                <span>PostgreSQL hosted on Supabase (SOC 2 Type II provider)</span>
               </li>
               <li className="flex items-start gap-2">
                 <svg className="w-4 h-4 mt-0.5 text-purple-500 dark:text-purple-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>

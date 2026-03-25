@@ -50,11 +50,14 @@ const Settings: React.FC = () => {
     document.title = 'Settings — RecoverAI';
   }, []);
 
+  const { addToast } = useNotification();
   const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
   const [settings, setSettings] = useState<CompanySettings | null>(null);
   const [sessions, setSessions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [sessionLoading, setSessionLoading] = useState(false);
+  const [agentMode, setAgentMode] = useState<string | null>(null);
+  const [savingMode, setSavingMode] = useState(false);
 
   const fetch = async () => {
     setLoading(true);
@@ -68,10 +71,31 @@ const Settings: React.FC = () => {
       }
       setSettings(res.data);
       setSessions(sessionsRes.data || []);
+      // Load pilot mode from settings
+      setAgentMode((res.data as any).pilotMode || 'auto');
     } catch {
       /* handled by global interceptor */
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSaveMode = async (mode: string) => {
+    setSavingMode(true);
+    try {
+      await api.patch('/api/settings/pilot-mode', { mode });
+      setAgentMode(mode);
+      addToast({
+        type: 'success',
+        message: `Agent mode changed to ${mode}`,
+      });
+    } catch (err: any) {
+      addToast({
+        type: 'error',
+        message: err.message || 'Failed to save mode',
+      });
+    } finally {
+      setSavingMode(false);
     }
   };
 
@@ -209,6 +233,52 @@ const Settings: React.FC = () => {
           {/* Automation Tab */}
           {activeTab === 'automation' && (
             <div className="space-y-8">
+              {/* Agent Mode */}
+              <div className="bg-white dark:bg-[#111113] rounded-2xl border border-gray-200 dark:border-white/[0.06] p-8">
+                <div className="flex items-center justify-between mb-8">
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Agent Mode</h2>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Control how dunning emails are handled</p>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  {[
+                    {
+                      value: 'shadow',
+                      label: 'Shadow Mode (Review)',
+                      description: 'All emails queued for your approval before sending',
+                    },
+                    {
+                      value: 'auto',
+                      label: 'Auto Mode (Recommended)',
+                      description: 'Emails sent automatically based on dunning schedule',
+                    },
+                    {
+                      value: 'paused',
+                      label: 'Paused',
+                      description: 'All communications temporarily stopped',
+                    },
+                  ].map((mode) => (
+                    <label key={mode.value} className="flex items-start gap-4 p-4 rounded-lg border border-gray-200 dark:border-white/[0.08] hover:bg-gray-50 dark:hover:bg-white/[0.02] cursor-pointer transition-all">
+                      <input
+                        type="radio"
+                        name="agentMode"
+                        value={mode.value}
+                        checked={agentMode === mode.value}
+                        onChange={(e) => handleSaveMode(e.target.value)}
+                        disabled={savingMode}
+                        className="mt-1 w-4 h-4"
+                      />
+                      <div className="flex-1">
+                        <p className="font-medium text-gray-900 dark:text-white">{mode.label}</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-0.5">{mode.description}</p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
               {/* Dunning Strategy */}
               <div className="bg-white dark:bg-[#111113] rounded-2xl border border-gray-200 dark:border-white/[0.06] p-8">
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-8">Dunning Strategy</h2>

@@ -12,10 +12,12 @@ export class ResendService {
     bodyText: string;
     bodyHtml: string;
     companyId?: string;
+    replyTo?: string;  // P0: reply-to header for dunning emails
   }): Promise<{ success: boolean; messageId?: string; error?: string }> {
     try {
       logInfo('resendService', 'sendEmail', `Sending to: ${params.to}`, {
         subject: params.subject,
+        replyTo: params.replyTo,
       });
 
       const response = await resend.emails.send({
@@ -24,6 +26,7 @@ export class ResendService {
         subject: params.subject,
         html: params.bodyHtml,
         text: params.bodyText,
+        ...(params.replyTo ? { reply_to: params.replyTo } : {}),  // P0: Conditionally add reply_to
       });
 
       if (response.error) {

@@ -52,6 +52,7 @@ async function getOverdueInvoicesForProcessing(): Promise<Array<{
   dunning_paused_until: string | null;
   dunning_stopped: boolean;
   sms_count: number;
+  company_pilot_mode: 'shadow' | 'auto' | 'paused' | null;  // P0: Pilot mode
 }>> {
   const result = await pool.query(`
     SELECT
@@ -70,6 +71,7 @@ async function getOverdueInvoicesForProcessing(): Promise<Array<{
       COALESCE(c.phone_opt_in, false) AS customer_phone_opt_in,
       COALESCE(c.risk_tier, 2)::int AS risk_tier,
       co.name           AS company_name,
+      COALESCE(co.pilot_mode, 'auto') AS company_pilot_mode,
       COUNT(DISTINCT el.id) FILTER (
         WHERE el.email_type LIKE 'dunning_%' AND el.status != 'failed'
       )::int AS dunning_emails_sent,
@@ -92,7 +94,7 @@ async function getOverdueInvoicesForProcessing(): Promise<Array<{
       AND COALESCE(c.do_not_email, false) = false
     GROUP BY i.id, i.company_id, i.customer_id, i.amount, i.due_date, i.risk_score,
              i.dunning_paused_until, i.dunning_stopped, i.sms_count,
-             c.email, c.name, c.phone, c.phone_opt_in, c.risk_tier, co.name
+             c.email, c.name, c.phone, c.phone_opt_in, c.risk_tier, co.name, co.pilot_mode
     ORDER BY i.due_date ASC
   `);
 
@@ -141,6 +143,16 @@ async function runDecisionEngine(): Promise<{
       const daysOverdue = Math.floor((now - dueDate) / (24 * 60 * 60 * 1000));
 
       if (daysOverdue < 1) {
+        skipped++;
+        continue;
+      }
+
+      // P0: Skip paused pilot accounts (shadow mode queued via dunningQueue worker)
+      if (invoice.company_pilot_mode === 'paused') {
+        logInfo(LOG_MODULE, method, 'Company pilot paused — skipping invoice', {
+          invoiceId: invoice.id,
+          companyId: invoice.company_id,
+        });
         skipped++;
         continue;
       }

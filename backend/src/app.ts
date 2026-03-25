@@ -35,6 +35,9 @@ import unsubscribeRoutes from './routes/unsubscribe';
 import pilotRoutes from './routes/pilots';
 import adminPilotRoutes from './routes/adminPilot';
 import pilotManagementRoutes from './routes/pilotManagement';
+import auditRoutes from './routes/audits';
+import requestsRoutes from './routes/requests';
+import pilotQueueRoutes from './routes/pilotQueue';
 import { getRequestContext, logError, logInfo, logWarn, withRequestContext } from './utils/logger';
 import { apiLimiter, authLimiter, authSlowDown, syncLimiter, aiLimiter } from './middleware/rateLimiter';
 
@@ -194,6 +197,9 @@ app.use('/api/attribution', attributionRoutes);
 app.use('/api/unsubscribe', unsubscribeRoutes);
 app.use('/api/pilots', pilotRoutes);
 app.use('/api/admin/pilots', pilotManagementRoutes);
+app.use('/api/audits', auditRoutes);
+app.use('/api/audit-requests', requestsRoutes);
+app.use('/api/pilot-queue', pilotQueueRoutes);
 
 // Health check
 app.get('/health', (_req: Request, res: Response) => {

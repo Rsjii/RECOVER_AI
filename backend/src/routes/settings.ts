@@ -7,6 +7,7 @@ import {
   updateDunningSettings,
   updateSlackSettings,
   updateGeneralSettings,
+  updatePilotMode,  // P0
 } from '../controllers/settingsController';
 
 const router = Router();
@@ -18,5 +19,6 @@ router.get('/', getSettings);
 router.put('/dunning', requireRole('admin'), updateDunningSettings);
 router.put('/slack', requireRole('admin'), updateSlackSettings);
 router.put('/general', requireRole('admin'), updateGeneralSettings);
+router.patch('/pilot-mode', requireRole('admin'), updatePilotMode);  // P0
 
 export default router;

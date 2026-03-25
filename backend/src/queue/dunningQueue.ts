@@ -5,6 +5,8 @@ import emailService from '../services/emailService';
 import { countEmailsSentForInvoice } from '../db/emailLogs';
 import { logError, logInfo, logWarn } from '../utils/logger';
 import { findInvoiceById } from '../db/invoices';
+import { findCompanyById } from '../db/companies';  // P0: pilot_mode check
+import { insertQueuedEmail } from '../db/pilotQueuedEmails';  // P1: shadow mode queue
 import { createPlanForInvoice } from '../services/paymentPlanService';
 
 const LOG_MODULE = 'dunningQueue';
@@ -250,6 +252,33 @@ export function startDunningWorker(): Worker<DunningEmailJob> {
         });
         return { skipped: true, reason: 'Dunning stopped' };
       }
+
+      // P0: Pilot mode check — shadow/paused/auto
+      const company = await findCompanyById(data.companyId);
+      const pilotMode = company?.pilot_mode ?? 'auto';
+
+      if (pilotMode === 'paused') {
+        logInfo(LOG_MODULE, 'worker', 'Pilot mode PAUSED — discarding job', {
+          jobId: job.id,
+          invoiceId: data.invoiceId,
+          companyId: data.companyId,
+        });
+        return { skipped: true, reason: 'Pilot paused' };
+      }
+
+      if (pilotMode === 'shadow') {
+        logInfo(LOG_MODULE, 'worker', 'Pilot mode SHADOW — queuing for review', {
+          jobId: job.id,
+          invoiceId: data.invoiceId,
+        });
+        try {
+          await insertQueuedEmail(data);
+        } catch (err) {
+          logError(LOG_MODULE, 'worker', 'Failed to insert shadow email (non-critical)', err);
+        }
+        return { skipped: true, reason: 'Shadow mode — stored for review' };
+      }
+      // pilotMode === 'auto' (or null) — fall through to normal send
 
       // Hard decline — payment plan already created by webhook handler; skip email
       if ((invoice as any).last_decline_type === 'hard') {

@@ -28,15 +28,22 @@ const setCookies = (res: Response, accessToken: string, refreshToken: string) =>
     httpOnly: true,
     secure: config.nodeEnv === 'production',
     sameSite: sameSitePolicy as any,
-    maxAge: 60 * 60 * 1000, // 1 hour
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours (extended from 1h for demo stability)
   });
 
   res.cookie('refresh_token', refreshToken, {
     httpOnly: true,
     secure: config.nodeEnv === 'production',
     sameSite: sameSitePolicy as any,
-    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days (extended from 7d for demo stability)
     path: '/api/auth/refresh', // Only sent to refresh endpoint
+  });
+
+  logInfo('setCookies', 'Cookies set', {
+    hasAccessToken: !!accessToken,
+    hasRefreshToken: !!refreshToken,
+    sameSite: sameSitePolicy,
+    nodeEnv: config.nodeEnv
   });
 };
 

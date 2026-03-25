@@ -28,14 +28,16 @@ export const getSettings = async (req: Request, res: Response): Promise<void> =>
         timezone: company.timezone,
         preferredCurrency: company.preferred_currency,
         dunningStrategy: company.dunning_strategy,
-      integrations: {
-        stripe: !!company.stripe_api_key_encrypted,
-        stripeLastSyncedAt: (company as any).stripe_last_synced_at || null,
-        slack: !!company.slack_webhook_url_encrypted,
-        quickbooks: !!(company.quickbooks_realm_id && (company as any).quickbooks_access_token_encrypted),
-        chargebee: !!(company.chargebee_site && (company as any).chargebee_api_key_encrypted),
-        twilioConfigured: !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_PHONE_NUMBER),
-      },
+        pilotMode: (company as any).pilot_mode || 'auto',  // P0
+        replyToEmail: (company as any).reply_to_email || null,  // P0
+        integrations: {
+          stripe: !!company.stripe_api_key_encrypted,
+          stripeLastSyncedAt: (company as any).stripe_last_synced_at || null,
+          slack: !!company.slack_webhook_url_encrypted,
+          quickbooks: !!(company.quickbooks_realm_id && (company as any).quickbooks_access_token_encrypted),
+          chargebee: !!(company.chargebee_site && (company as any).chargebee_api_key_encrypted),
+          twilioConfigured: !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_PHONE_NUMBER),
+        },
       },
     });
   } catch (error) {
@@ -167,6 +169,39 @@ export const updateGeneralSettings = async (req: Request, res: Response): Promis
     });
   } catch (error) {
     logError(LOG_MODULE, handler, 'Failed to update general settings', error);
+    const { statusCode, message } = parseError(error);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
+
+/**
+ * PATCH /api/settings/pilot-mode (P0)
+ * Update pilot mode: 'shadow' | 'auto' | 'paused'
+ * Used by Dashboard kill switch and Settings pilot toggle
+ */
+export const updatePilotMode = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'updatePilotMode';
+  const companyId = (req as any).companyId;
+
+  try {
+    const { mode } = req.body;
+
+    if (!['shadow', 'auto', 'paused'].includes(mode)) {
+      sendErrorResponse(res, 400, 'mode must be shadow | auto | paused');
+      return;
+    }
+
+    const company = await updateCompany(companyId, { pilot_mode: mode });
+
+    logInfo(LOG_MODULE, handler, 'Pilot mode updated', { companyId, mode });
+
+    res.status(200).json({
+      data: {
+        pilot_mode: company.pilot_mode || mode,
+      },
+    });
+  } catch (error) {
+    logError(LOG_MODULE, handler, 'Failed to update pilot mode', error);
     const { statusCode, message } = parseError(error);
     sendErrorResponse(res, statusCode, message);
   }

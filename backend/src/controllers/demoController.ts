@@ -289,14 +289,21 @@ const setCookies = (res: Response, accessToken: string, refreshToken: string) =>
     httpOnly: true,
     secure: config.nodeEnv === 'production',
     sameSite: sameSitePolicy as any,
-    maxAge: 60 * 60 * 1000,
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours (extended from 1h for demo stability)
   });
   res.cookie('refresh_token', refreshToken, {
     httpOnly: true,
     secure: config.nodeEnv === 'production',
     sameSite: sameSitePolicy as any,
-    maxAge: 7 * 24 * 60 * 60 * 1000,
+    maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days (extended from 7d for demo stability)
     path: '/api/auth/refresh',
+  });
+
+  logInfo(LOG_MODULE, 'setCookies', 'Demo cookies set', {
+    hasAccessToken: !!accessToken,
+    hasRefreshToken: !!refreshToken,
+    sameSite: sameSitePolicy,
+    nodeEnv: config.nodeEnv
   });
 };
 
@@ -438,21 +445,20 @@ export const demoLogin = async (req: Request, res: Response): Promise<void> => {
     const arrangedInvs = invRows.filter(i => i.status === 'arranged');
     for (const inv of arrangedInvs) {
       const installAmt = (inv.amount / 3).toFixed(2);
-      const installments = [
-        { amount: parseFloat(installAmt), due_date: d(inv.daysAgoDue - 5),  paid: true,  stripe_payment_intent_id: `pi_demo_1_${inv.id.slice(0, 6)}` },
-        { amount: parseFloat(installAmt), due_date: d(inv.daysAgoDue - 35), paid: false, stripe_payment_intent_id: null },
-        { amount: inv.amount - 2 * parseFloat(installAmt), due_date: d(inv.daysAgoDue - 65), paid: false, stripe_payment_intent_id: null },
-      ];
+      const firstPaymentDue = d(inv.daysAgoDue - 5);
+      const secondPaymentDue = d(inv.daysAgoDue - 35);
+      const customerId = custRows[inv.custIdx].id;
+
       await client.query(
-        `INSERT INTO payment_plans (invoice_id, status, installments, total_amount)
-         VALUES ($1,'active',$2,$3)`,
-        [inv.id, JSON.stringify(installments), inv.amount]
+        `INSERT INTO payment_plans (company_id, invoice_id, customer_id, original_amount, installment_count, installment_amount, first_payment_due, next_payment_due, status, acceptance_token, accepted_at)
+         VALUES ($1,$2,$3,$4,3,$5,$6,$7,'active',$8,$9)`,
+        [companyId, inv.id, customerId, inv.amount, parseFloat(installAmt), firstPaymentDue, secondPaymentDue, `token_demo_${inv.id.slice(0, 8)}`, new Date()]
       );
       // First installment payment recorded
       await client.query(
         `INSERT INTO payments (invoice_id, company_id, amount, currency, payment_method, paid_at, status)
          VALUES ($1,$2,$3,'USD','stripe',$4,'succeeded')`,
-        [inv.id, companyId, parseFloat(installAmt), d(inv.daysAgoDue - 5)]
+        [inv.id, companyId, parseFloat(installAmt), firstPaymentDue]
       );
     }
 

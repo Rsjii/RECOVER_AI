@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
+import { useNotification } from '../hooks/useNotification';
 import { API_ENDPOINTS } from '../lib/constants';
 import { formatCurrency } from '../lib/utils';
 import { DashboardSkeleton } from '../components/ui/Skeleton';
@@ -157,6 +158,7 @@ const CACHE_TTL = 30_000; // 30 seconds — show cached data instantly on tab sw
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
+  const { addToast } = useNotification();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [pipeline, setPipeline] = useState<InvoicePipeline | null>(null);
   const [riskList, setRiskList] = useState<CustomerRisk[]>([]);
@@ -183,6 +185,10 @@ const Dashboard: React.FC = () => {
   const [dsoReduction, setDsoReduction] = useState<DSOReduction | null>(null);
   const [billingAnomalies, setBillingAnomalies] = useState<BillingAnomaly[]>([]);
   const [cashForecast, setCashForecast] = useState<EnhancedCashForecast | null>(null);
+  // Pilot controls
+  const [pilotMode, setPilotMode] = useState<string | null>(null);
+  const [recoveryToday, setRecoveryToday] = useState<{ amount: number; count: number } | null>(null);
+  const [pausingAgent, setPausingAgent] = useState(false);
 
   useEffect(() => {
     document.title = 'Dashboard — RecoverAI';
@@ -393,6 +399,64 @@ const Dashboard: React.FC = () => {
     } catch { /* non-critical */ }
   };
 
+  // Recovery counter polling (10s interval for pilot accounts)
+  useEffect(() => {
+    const fetchRecoveryToday = async () => {
+      try {
+        const res = await api.get<{ data: { amount: number; count: number; change_pct: number } }>('/api/dashboard/recovery-today');
+        if (res.data) {
+          setRecoveryToday({ amount: res.data.amount, count: res.data.count });
+        }
+      } catch {
+        // Non-critical: if API fails, just skip this update
+      }
+    };
+
+    fetchRecoveryToday();
+    const interval = setInterval(fetchRecoveryToday, 10_000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Kill switch handler - pause all dunning
+  const handleKillSwitch = async () => {
+    setPausingAgent(true);
+    try {
+      await api.patch('/api/settings/pilot-mode', { mode: 'paused' });
+      setPilotMode('paused');
+      addToast({
+        type: 'success',
+        message: 'All communications paused.',
+      });
+    } catch (err: any) {
+      addToast({
+        type: 'error',
+        message: err.message || 'Failed to pause agent',
+      });
+    } finally {
+      setPausingAgent(false);
+    }
+  };
+
+  // Resume handler
+  const handleResume = async () => {
+    setPausingAgent(true);
+    try {
+      await api.patch('/api/settings/pilot-mode', { mode: 'shadow' });
+      setPilotMode('shadow');
+      addToast({
+        type: 'success',
+        message: 'Resuming in shadow mode.',
+      });
+    } catch (err: any) {
+      addToast({
+        type: 'error',
+        message: err.message || 'Failed to resume',
+      });
+    } finally {
+      setPausingAgent(false);
+    }
+  };
+
   // Build customer options for WhatIf widget from risk list
   const whatIfCustomers = riskList.map(c => ({
     id: c.customerId,
@@ -441,6 +505,45 @@ const Dashboard: React.FC = () => {
               Run Agent Now
             </Button>
           )}
+
+          {/* Recovery Counter */}
+          {!isDemo && recoveryToday && recoveryToday.amount > 0 && (
+            <div className="flex items-center gap-2 px-4 py-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+              <div className="w-2 h-2 rounded-full bg-green-600 dark:bg-green-400 animate-pulse" />
+              <span className="text-sm font-medium text-green-900 dark:text-green-200">
+                Recovered: ${recoveryToday.amount.toLocaleString()}
+              </span>
+            </div>
+          )}
+
+          {/* Kill Switch / Resume Buttons */}
+          {!isDemo && pilotMode !== null && (
+            <>
+              {pilotMode !== 'paused' && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleKillSwitch}
+                  loading={pausingAgent}
+                  className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 border border-red-200 dark:border-red-800"
+                >
+                  ⏸ Pause All
+                </Button>
+              )}
+              {pilotMode === 'paused' && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleResume}
+                  loading={pausingAgent}
+                  className="bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/30 border border-green-200 dark:border-green-800"
+                >
+                  ▶ Resume
+                </Button>
+              )}
+            </>
+          )}
+
           <p className="text-sm text-gray-500 dark:text-gray-400 hidden sm:block">
             {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
           </p>
