@@ -19,15 +19,23 @@ const isDev = isDevEnvironment();
 
 /**
  * Create a Redis store for rate limiting (fails gracefully if Redis unavailable)
+ * Returns undefined to fall back to in-memory store if Redis is not ready
  */
 function makeRedisStore(prefix: string) {
   try {
+    // Check if Redis client is ready before creating store
+    const client = redisClient as any;
+    if (!client || !client.sendCommand || !client.isOpen) {
+      return undefined;
+    }
+
     return new RedisStore({
-      sendCommand: (...args: string[]) => (redisClient as any).sendCommand(args),
+      sendCommand: (...args: string[]) => client.sendCommand(args),
       prefix: `rl:${prefix}:`,
     });
   } catch (err) {
-    // Fall back to memory store if Redis fails
+    // Silently fall back to memory store if Redis fails
+    // This can happen if Redis is not available or client is closed
     return undefined;
   }
 }
