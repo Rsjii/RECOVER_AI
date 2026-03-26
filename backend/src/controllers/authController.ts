@@ -304,6 +304,11 @@ export const listCompanySessions = async (req: Request, res: Response) => {
       return sendErrorResponse(res, 401, 'Not authenticated');
     }
     const sessions = await SecurityDB.listCompanyActiveSessions(companyId);
+    console.log('[authController.listCompanySessions] DEBUG:', {
+      companyId,
+      sessionCount: sessions.length,
+      sessions: sessions.map(s => ({ id: s.id, created_at: s.created_at, revoked_at: s.revoked_at }))
+    });
     return res.status(200).json({ data: sessions });
   } catch (err: any) {
     logError(handler, 'Failed to list company sessions', err);
