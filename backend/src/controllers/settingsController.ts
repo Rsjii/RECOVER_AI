@@ -255,7 +255,7 @@ export const getApiCosts = async (req: Request, res: Response): Promise<void> =>
       `SELECT COUNT(*) as email_count
        FROM email_logs
        WHERE company_id = $1
-       AND created_at > NOW() - INTERVAL '30 days'`,
+       AND sent_at > NOW() - INTERVAL '30 days'`,
       [companyId]
     );
     const emailsSent = parseInt(emailResult.rows[0]?.email_count || 0);
@@ -264,14 +264,21 @@ export const getApiCosts = async (req: Request, res: Response): Promise<void> =>
     const resendCost = (emailsSent * 0.00025).toFixed(2);
 
     // Redis usage estimation from API logs (non-critical, can be 0)
-    const redisResult = await pool.query(
-      `SELECT COUNT(*) as command_count
-       FROM api_logs
-       WHERE company_id = $1
-       AND created_at > NOW() - INTERVAL '30 days'`,
-      [companyId]
-    );
-    const redisCommands = parseInt(redisResult.rows[0]?.command_count || 0);
+    // Note: api_logs table doesn't exist yet, so gracefully default to 0
+    let redisCommands = 0;
+    try {
+      const redisResult = await pool.query(
+        `SELECT COUNT(*) as command_count
+         FROM api_logs
+         WHERE company_id = $1
+         AND created_at > NOW() - INTERVAL '30 days'`,
+        [companyId]
+      );
+      redisCommands = parseInt(redisResult.rows[0]?.command_count || 0);
+    } catch (err) {
+      // api_logs table doesn't exist yet - non-blocking, just use 0
+      logError(LOG_MODULE, handler, 'api_logs table not found (non-critical)', err);
+    }
 
     // Redis pricing: free up to 500K commands/month, then $0.20 per 100K commands
     let redisCost = '0.00';
