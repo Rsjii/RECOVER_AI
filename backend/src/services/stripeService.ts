@@ -31,6 +31,11 @@ class StripeService {
 
       logInfo('stripeService', method, 'Starting Stripe connect', { companyId, userId });
 
+      // Validate stripe_api_key is not empty
+      if (!stripe_api_key || typeof stripe_api_key !== 'string' || stripe_api_key.trim().length === 0) {
+        throw new Error('stripe_api_key must be a non-empty string');
+      }
+
       const stripe = getStripeClient(stripe_api_key);
       await stripe.accounts.retrieve();
 

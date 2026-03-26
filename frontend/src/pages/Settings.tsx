@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { API_ENDPOINTS } from '../lib/constants';
 import { Spinner } from '../components/ui/Spinner';
@@ -48,7 +47,6 @@ const EMAIL_TEMPLATES = [
 ];
 
 const Settings: React.FC = () => {
-  const navigate = useNavigate();
   const { addToast } = useNotification();
   const [confirmRevokeId, setConfirmRevokeId] = useState<string | null>(null);
 
@@ -117,14 +115,14 @@ const Settings: React.FC = () => {
       const response = await api.delete(API_ENDPOINTS.auth.revokeSession(sessionId));
 
       if (response.currentSessionRevoked) {
-        // Current session was revoked - auto logout
+        // Current session was revoked - auto logout with hard refresh
         addToast({
           type: 'warning',
           message: 'Your current session was revoked. Logging out...'
         });
-        // Give user time to see the message
+        // Give user time to see the message, then hard refresh
         setTimeout(() => {
-          navigate('/login', { replace: true });
+          window.location.href = '/login';
         }, 1000);
       } else {
         // Another session was revoked
@@ -148,8 +146,19 @@ const Settings: React.FC = () => {
     setSessionLoading(true);
     try {
       await api.post(API_ENDPOINTS.auth.revokeAllSessions);
-      await fetch();
-    } finally {
+      addToast({
+        type: 'warning',
+        message: 'All sessions revoked. Logging out...'
+      });
+      // Hard refresh after revoking all sessions
+      setTimeout(() => {
+        window.location.href = '/login';
+      }, 1000);
+    } catch (err: any) {
+      addToast({
+        type: 'error',
+        message: err.response?.data?.error || 'Failed to revoke all sessions'
+      });
       setSessionLoading(false);
     }
   };

@@ -232,13 +232,6 @@ export const revokeSessionById = async (req: Request, res: Response) => {
     const { sessionId } = req.params as { sessionId: string };
     const currentRefreshToken = req.cookies?.refresh_token;
 
-    console.log('[authController.revokeSessionById] DEBUG:', {
-      sessionId,
-      userId,
-      companyId,
-      currentRefreshToken: currentRefreshToken ? '***' : 'null'
-    });
-
     if (!userId || !companyId) {
       return sendErrorResponse(res, 401, 'Not authenticated');
     }
@@ -247,7 +240,6 @@ export const revokeSessionById = async (req: Request, res: Response) => {
     }
 
     const revoked = await SecurityDB.revokeSessionById(sessionId, userId, companyId);
-    console.log('[authController.revokeSessionById] RESULT:', { revoked });
     if (!revoked) {
       return sendErrorResponse(res, 404, 'Session not found');
     }
@@ -304,11 +296,6 @@ export const listCompanySessions = async (req: Request, res: Response) => {
       return sendErrorResponse(res, 401, 'Not authenticated');
     }
     const sessions = await SecurityDB.listCompanyActiveSessions(companyId);
-    console.log('[authController.listCompanySessions] DEBUG:', {
-      companyId,
-      sessionCount: sessions.length,
-      sessions: sessions.map(s => ({ id: s.id, created_at: s.created_at, revoked_at: s.revoked_at }))
-    });
     return res.status(200).json({ data: sessions });
   } catch (err: any) {
     logError(handler, 'Failed to list company sessions', err);
