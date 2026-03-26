@@ -800,10 +800,10 @@ export const sendAuditOtp = async (req: Request, res: Response) => {
     if (redisAvailable) {
       try {
         const otpKey = `audit:otp:${email}`;
-        await (redisClient as any).setex(otpKey, 900, JSON.stringify({ code: otp, createdAt: Date.now() }));
+        await (redisClient as any).set(otpKey, JSON.stringify({ code: otp, createdAt: Date.now() }), { EX: 900 });
 
         const verifyKey = `audit:verify:${verifyToken}`;
-        await (redisClient as any).setex(verifyKey, 900, email);
+        await (redisClient as any).set(verifyKey, email, { EX: 900 });
 
         logInfo(MODULE, handler, 'OTP stored in Redis', { email, otp: isDev ? otp : '***' });
       } catch (redisErr: any) {
@@ -931,9 +931,12 @@ export const verifyAuditOtp = async (req: Request, res: Response) => {
 
           // Set lockout with 1 hour expiry on first wrong attempt
           if (newCount === 1) {
-            await (redisClient as any).setex(lockKey, 3600, String(newCount));
+            await (redisClient as any).set(lockKey, String(newCount), { EX: 3600 });
           } else {
-            await (redisClient as any).incr(lockKey);
+            // Increment the counter (first get, then set with EX preserved)
+            const current = await (redisClient as any).get(lockKey);
+            const next = String(parseInt(current || '0') + 1);
+            await (redisClient as any).set(lockKey, next, { EX: 3600 });
           }
 
           logInfo(MODULE, handler, 'Invalid OTP code', { email, attemptsLeft });
@@ -956,12 +959,11 @@ export const verifyAuditOtp = async (req: Request, res: Response) => {
       try {
         const otpKey = `audit:otp:${email}`;
         const verifyKey = `audit:verify:${verifyToken}`;
-        await (redisClient as any).del(otpKey);
-        await (redisClient as any).del(verifyKey);
+        await (redisClient as any).del([otpKey, verifyKey]);
 
         // Set dedup (24 hour lockout on same email)
         const dedupKey = `audit:dedup:${email}`;
-        await (redisClient as any).setex(dedupKey, 86400, '1');
+        await (redisClient as any).set(dedupKey, '1', { EX: 86400 });
       } catch (err: any) {
         logInfo(MODULE, handler, 'Failed to clean up Redis (non-blocking)', { error: err.message });
         // Don't fail the request - continue to create audit
