@@ -108,24 +108,22 @@ const Settings: React.FC = () => {
   if (loading) return <div className="flex justify-center py-20"><Spinner size="lg" text="Loading settings..." /></div>;
   if (!settings) return <p className="text-red-500 text-center py-20">Failed to load settings</p>;
 
-  const revokeSession = async (sessionId: string) => {
+  const revokeSession = async (sessionId: string, isCurrentSession = false) => {
     setSessionLoading(true);
     setConfirmRevokeId(null);
     try {
-      const response = await api.delete(API_ENDPOINTS.auth.revokeSession(sessionId));
+      await api.delete(API_ENDPOINTS.auth.revokeSession(sessionId));
 
-      if (response.currentSessionRevoked) {
-        // Current session was revoked - auto logout with hard refresh
+      if (isCurrentSession) {
+        // Current session was revoked — hard refresh to clear all state and cookies
         addToast({
           type: 'warning',
-          message: 'Your current session was revoked. Logging out...'
+          message: 'Session revoked. Logging out...'
         });
-        // Give user time to see the message, then hard refresh
         setTimeout(() => {
           window.location.href = '/login';
-        }, 1000);
+        }, 800);
       } else {
-        // Another session was revoked
         addToast({
           type: 'success',
           message: 'Session revoked successfully'
@@ -138,7 +136,7 @@ const Settings: React.FC = () => {
         message: err.response?.data?.error || 'Failed to revoke session'
       });
     } finally {
-      setSessionLoading(false);
+      if (!isCurrentSession) setSessionLoading(false);
     }
   };
 
@@ -418,7 +416,7 @@ const Settings: React.FC = () => {
                             if (s.isCurrent) {
                               setConfirmRevokeId(s.id);
                             } else {
-                              revokeSession(s.id);
+                              revokeSession(s.id, false);
                             }
                           }}
                           disabled={sessionLoading}
@@ -510,7 +508,7 @@ const Settings: React.FC = () => {
               Cancel
             </button>
             <button
-              onClick={() => confirmRevokeId && revokeSession(confirmRevokeId)}
+              onClick={() => confirmRevokeId && revokeSession(confirmRevokeId, true)}
               disabled={sessionLoading}
               className="flex-1 px-4 py-2 text-sm font-medium bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors disabled:opacity-50"
             >

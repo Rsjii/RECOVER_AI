@@ -4,7 +4,10 @@ import { config } from '../config/env';
 const ALGORITHM = 'aes-256-gcm';
 
 export function encryptField(plaintext: string): string {
-  const key = Buffer.from(config.encryptionKey!, 'hex');
+  if (!config.encryptionKey) {
+    throw new Error('ENCRYPTION_KEY environment variable is not set. Set it to a 64-character hex string.');
+  }
+  const key = Buffer.from(config.encryptionKey, 'hex');
   const iv = crypto.randomBytes(16);
   const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
 
@@ -17,7 +20,10 @@ export function encryptField(plaintext: string): string {
 }
 
 export function decryptField(ciphertext: string): string {
-  const key = Buffer.from(config.encryptionKey!, 'hex');
+  if (!config.encryptionKey) {
+    throw new Error('ENCRYPTION_KEY environment variable is not set. Set it to a 64-character hex string.');
+  }
+  const key = Buffer.from(config.encryptionKey, 'hex');
   const [ivHex, authTagHex, encrypted] = ciphertext.split(':');
 
   const iv = Buffer.from(ivHex, 'hex');
