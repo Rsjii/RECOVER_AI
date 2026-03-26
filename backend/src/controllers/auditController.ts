@@ -124,7 +124,7 @@ export const createAuditRequest = async (req: Request, res: Response) => {
         `https://connect.stripe.com/oauth/authorize?` +
         `response_type=code&` +
         `client_id=${process.env.STRIPE_CLIENT_ID}&` +
-        `scope=read_invoices,read_charges&` +
+        `scope=read_data&` +
         `state=${auditId}`;
     }
 
@@ -1059,7 +1059,7 @@ export const verifyAuditOtp = async (req: Request, res: Response) => {
         `https://connect.stripe.com/oauth/authorize?` +
         `response_type=code&` +
         `client_id=${process.env.STRIPE_CLIENT_ID}&` +
-        `scope=read_invoices,read_charges&` +
+        `scope=read_data&` +
         `state=${auditId}`;
     }
 
