@@ -15,6 +15,18 @@ export class ResendService {
     replyTo?: string;  // P0: reply-to header for dunning emails
   }): Promise<{ success: boolean; messageId?: string; error?: string }> {
     try {
+      // DEV MODE: Don't call Resend API in development
+      if (config.nodeEnv === 'development') {
+        logInfo('resendService', 'sendEmail', 'DEV MODE: Skipping Resend API call', {
+          to: params.to,
+          subject: params.subject,
+        });
+        return {
+          success: true,
+          messageId: 'dev-mode-' + Date.now(),
+        };
+      }
+
       logInfo('resendService', 'sendEmail', `Sending to: ${params.to}`, {
         subject: params.subject,
         replyTo: params.replyTo,
@@ -64,6 +76,17 @@ export class ResendService {
     code: string;
   }): Promise<{ success: boolean; messageId?: string; error?: string }> {
     try {
+      // DEV MODE: Don't call Resend API in development (use hardcoded OTP instead)
+      if (config.nodeEnv === 'development') {
+        logInfo('resendService', 'sendOTP', 'DEV MODE: OTP is 123456, skipping Resend API call', {
+          email: params.email,
+        });
+        return {
+          success: true,
+          messageId: 'dev-mode-' + Date.now(),
+        };
+      }
+
       logInfo('resendService', 'sendOTP', `Sending OTP to: ${params.email}`);
 
       const response = await resend.emails.send({

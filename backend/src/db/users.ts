@@ -131,3 +131,12 @@ export async function updateGoogleId(userId: string, googleId: string, authProvi
     [googleId, authProvider, avatarUrl || null, userId]
   );
 }
+
+/**
+ * Count total users in database (for bootstrap check)
+ * Returns 0 if no users exist (allows first admin creation)
+ */
+export async function countAllUsers(): Promise<number> {
+  const result = await pool.query('SELECT COUNT(*) as count FROM users');
+  return parseInt(result.rows[0].count) || 0;
+}

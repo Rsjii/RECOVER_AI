@@ -23,6 +23,7 @@ const Login: React.FC = () => {
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   const [apiError, setApiError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   // Clear API error when user starts typing again
   const handleChange = (field: 'email' | 'password', value: string) => {
@@ -132,31 +133,50 @@ const Login: React.FC = () => {
 
             {/* Password */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                Password
-              </label>
-              <input
-                type="password"
-                value={form.password}
-                onChange={(e) => handleChange('password', e.target.value)}
-                placeholder="••••••••"
-                className={`w-full px-4 py-2.5 border rounded-lg text-gray-900 dark:text-white bg-white dark:bg-white/[0.03] focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors ${
-                  errors.password
-                    ? 'border-red-500'
-                    : 'border-gray-300 dark:border-white/[0.08]'
-                }`}
-              />
-              {errors.password && (
-                <p className="mt-1 text-xs text-red-500">{errors.password}</p>
-              )}
-              <div className="flex justify-end -mt-2">
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Password
+                </label>
                 <Link
                   to="/forgot-password"
                   className="text-xs text-brand-600 hover:text-blue-700 font-medium"
                 >
-                  Forgot password?
+                  Forgot?
                 </Link>
               </div>
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={form.password}
+                  onChange={(e) => handleChange('password', e.target.value)}
+                  placeholder="••••••••"
+                  className={`w-full px-4 py-2.5 border rounded-lg text-gray-900 dark:text-white bg-white dark:bg-white/[0.03] focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors pr-10 ${
+                    errors.password
+                      ? 'border-red-500'
+                      : 'border-gray-300 dark:border-white/[0.08]'
+                  }`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? (
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+                      <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
+                    </svg>
+                  ) : (
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M3.707 2.293a1 1 0 00-1.414 1.414l14 14a1 1 0 001.414-1.414l-14-14zM10 4.5C5.304 4.5 1.477 7.29.458 10a9.002 9.002 0 0015.084 5.099l-2.89-2.89a4 4 0 00-5.656-5.656l-2.89-2.89.327-.327A7.986 7.986 0 0110 4.5zm-8.066 4.73l2.96 2.96a4 4 0 005.656 5.656l2.96 2.96A8.999 8.999 0 001.934 9.23z" clipRule="evenodd" />
+                    </svg>
+                  )}
+                </button>
+              </div>
+              {errors.password && (
+                <p className="mt-1 text-xs text-red-500">{errors.password}</p>
+              )}
             </div>
 
             {/* Submit */}

@@ -307,8 +307,8 @@ export const Sidebar: React.FC = () => {
         ))}
       </nav>
 
-      {/* Trial / Subscription Status — Hidden for demo users or when collapsed */}
-      {!isDemo && !collapsed && (
+      {/* Trial / Subscription Status — Only show for trial users, hidden for paid/active users */}
+      {!isDemo && !collapsed && trial?.status !== 'active' && (
       <div className="p-4 border-t border-gray-200 dark:border-white/[0.06] shrink-0">
         <Link to="/billing">
           <div

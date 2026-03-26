@@ -3,18 +3,8 @@ import { config } from './config/env';
 import { testDbConnection } from './config/database';
 import { connectRedis } from './config/redis';
 import { runMigrations } from './lib/migrate';
-import { startDunningWorker, stopDunningWorker } from './queue/dunningQueue';
-import { startSMSWorker } from './queue/smsQueue';
-import { startDailyDigestWorker, stopDailyDigestWorker } from './queue/dailyDigestJob';
-import { startAgentLoop, stopAgentLoop } from './queue/agentLoop';
-import { startRecoveryTimelineJob, stopRecoveryTimelineJob } from './queue/recoveryTimelineJob';
-import { startPaymentPlanChargeJob, stopPaymentPlanChargeJob } from './queue/paymentPlanChargeJob';
-import { startTrialExpiryJob, stopTrialExpiryJob } from './queue/trialExpiryJob';
-import { startBillingInvoiceJob, stopBillingInvoiceJob } from './queue/billingInvoiceJob';
-import { startBillingOptimizationJob, stopBillingOptimizationJob } from './queue/billingOptimizationJob';
-import { startRetryWorker, stopRetryWorker } from './queue/retryQueue';
-import { startSegmentationJob } from './queue/segmentationJob';
-import { snapshotRedisStats } from './queue/redisStatsJob';
+import { initScheduler, stopScheduler } from './jobs/scheduler';
+import { registerEventListeners } from './jobs/eventListeners';
 import { logError, logInfo } from './utils/logger';
 import { initObservability } from './config/observability';
 
@@ -31,39 +21,27 @@ async function startServer() {
     await runMigrations();
     await connectRedis();
 
-    // Start workers in PRODUCTION or when explicitly testing in dev
-    //
-    // TESTING WITH REAL DATA IN DEV:
-    //   DEV_TEST_WORKERS=true npm run dev
-    //
-    // Workers use BLPOP (blocking) not polling → only ~150 Redis requests per test
-    // (vs 90,000+ if they were polling)
-    const enableWorkers = config.nodeEnv === 'production' ||
-                         process.env.DEV_TEST_WORKERS === 'true';
+    // ============================================================
+    // ARCHITECTURE: Cron Scheduler + Event-Driven (Best Practice)
+    // ============================================================
+    // Why: No Redis polling waste, exact job timing, instant event triggers
+    // Jobs run on schedule (cron), actions trigger immediately (events)
+    // Reference: Netflix, Uber, Stripe use this pattern
+    // ============================================================
 
-    if (enableWorkers) {
-      logInfo('server', 'startServer', 'Starting background workers', {
-        mode: config.nodeEnv === 'production' ? 'production' : 'dev-test',
-        workers: 'dunning, agent-loop, payment-plans, recovery-timeline, daily-digest'
-      });
-      startDunningWorker();
-      startSMSWorker();
-      startDailyDigestWorker();
-      startAgentLoop();
-      startRecoveryTimelineJob();
-      startPaymentPlanChargeJob();
-      startTrialExpiryJob();
-      startBillingInvoiceJob();
-      startBillingOptimizationJob();
-      startRetryWorker();
-      startSegmentationJob();
-      // Redis stats snapshot: run once on boot + every 24h
-      snapshotRedisStats().catch(() => {});
-      setInterval(() => snapshotRedisStats().catch(() => {}), 24 * 60 * 60 * 1000);
-    } else {
-      logInfo('server', 'startServer', 'Background workers DISABLED (dev mode, no polling waste)');
-      logInfo('server', 'startServer', 'To test with workers: DEV_TEST_WORKERS=true npm run dev');
-    }
+    // 1. Initialize cron scheduler (8 scheduled jobs)
+    initScheduler();
+
+    // 2. Register event listeners (instant triggers for immediate actions)
+    registerEventListeners();
+
+    logInfo('server', 'startServer', 'Background system ready', {
+      architecture: 'Cron + Event-Driven',
+      scheduledJobs: 8,
+      eventListeners: 5,
+      redisUsage: '0 polling commands (event-based only)',
+      mode: config.nodeEnv,
+    });
 
     const server = app.listen(PORT, () => {
       logInfo('server', 'listen', 'Server ready', {
@@ -78,15 +56,7 @@ async function startServer() {
 
     const shutdown = async (signal: string) => {
       logInfo('server', 'shutdown', 'Shutdown signal received', { signal });
-      await stopDunningWorker();
-      await stopDailyDigestWorker();
-      await stopAgentLoop();
-      await stopRecoveryTimelineJob();
-      await stopPaymentPlanChargeJob();
-      await stopRetryWorker();
-      stopTrialExpiryJob();
-      stopBillingInvoiceJob();
-      stopBillingOptimizationJob();
+      stopScheduler(); // Stop all cron jobs
       server.close(() => {
         logInfo('server', 'shutdown', 'Server closed');
         process.exit(0);

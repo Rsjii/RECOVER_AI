@@ -43,6 +43,11 @@ CREATE TABLE IF NOT EXISTS companies (
   dunning_strategy           JSONB DEFAULT '{"num_emails": 5, "days_between": 7, "approval_required": false}',
   cash_balance_usd           NUMERIC(15,2) DEFAULT 0,
 
+  -- P0: Pilot mode & controls
+  pilot_mode                 VARCHAR(20) DEFAULT 'auto',    -- 'shadow' | 'auto' | 'paused'
+  manual_mode                BOOLEAN DEFAULT false,         -- when true, all emails queued for approval
+  reply_to_email             VARCHAR(255),                  -- company email for dunning replies
+
   created_at                 TIMESTAMPTZ DEFAULT NOW(),
   updated_at                 TIMESTAMPTZ DEFAULT NOW()
 );
@@ -127,6 +132,12 @@ CREATE TABLE IF NOT EXISTS invoices (
   last_decline_type    VARCHAR(10),
   decline_code         VARCHAR(50),           -- Phase 1: Stripe decline code classification
   decline_confidence   INT DEFAULT 100,       -- Phase 1: confidence 0-100
+
+  -- P1: Attribution tracking (was this recovered by RecoverAI dunning?)
+  recovered_by_recoverai BOOLEAN DEFAULT false,
+  recovered_at           TIMESTAMPTZ,
+  recovered_amount       DECIMAL(12,2),
+
   created_at           TIMESTAMPTZ DEFAULT NOW(),
   updated_at           TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(company_id, source, source_id)
@@ -924,44 +935,6 @@ CREATE INDEX IF NOT EXISTS idx_pilots_email ON pilots(email);
 CREATE INDEX IF NOT EXISTS idx_pilots_created ON pilots(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_pilots_company ON pilots(company_id);
 
--- ============================================================
--- AUDIT_REQUESTS (Free cash operations audits for prospects)
--- ============================================================
-CREATE TABLE IF NOT EXISTS audit_requests (
-  id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  email                   VARCHAR NOT NULL,
-  stripe_account_id       VARCHAR,
-  stripe_access_token     TEXT,  -- Will be encrypted in production
-  status                  VARCHAR(20) DEFAULT 'pending',  -- pending | oauth_complete | complete | failed
-  analysis                JSONB,  -- Stores complete audit analysis (AR, DSO, forecast, anomalies, total)
-  created_at              TIMESTAMPTZ DEFAULT NOW(),
-  completed_at            TIMESTAMPTZ
-);
-
-CREATE INDEX IF NOT EXISTS idx_audit_requests_status ON audit_requests(status);
-CREATE INDEX IF NOT EXISTS idx_audit_requests_email ON audit_requests(email);
-CREATE INDEX IF NOT EXISTS idx_audit_requests_created ON audit_requests(created_at DESC);
-
--- ============================================================
--- P0: PILOT MODE & REPLY-TO (Audit → Pilot → Paid flow)
--- ============================================================
-ALTER TABLE companies ADD COLUMN IF NOT EXISTS pilot_mode VARCHAR(20) DEFAULT 'auto';
--- Values: 'shadow' (emails staged for review) | 'auto' (send immediately) | 'paused' (stop all)
-
-ALTER TABLE companies ADD COLUMN IF NOT EXISTS reply_to_email VARCHAR(255);
--- Company email for dunning email replies (keeps conversation in their inbox)
-
--- ============================================================
--- P1: ATTRIBUTION TRACKING (Recovery proof for pilots)
--- ============================================================
-ALTER TABLE invoices ADD COLUMN IF NOT EXISTS recovered_by_recoverai BOOLEAN DEFAULT false;
--- Mark invoices recovered by our dunning efforts (vs other sources)
-
-ALTER TABLE invoices ADD COLUMN IF NOT EXISTS recovered_at TIMESTAMPTZ;
--- Timestamp when payment was detected
-
-ALTER TABLE invoices ADD COLUMN IF NOT EXISTS recovered_amount DECIMAL(12,2);
--- Amount recovered (for ROI calculation)
 
 -- P1: Shadow mode email queue (pilots review emails before send)
 CREATE TABLE IF NOT EXISTS pilot_queued_emails (

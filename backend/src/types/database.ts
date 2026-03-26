@@ -48,6 +48,8 @@ export interface CompanyRow {
   // P0: Pilot mode & reply-to for audit → pilot flow
   pilot_mode: 'shadow' | 'auto' | 'paused' | null;
   reply_to_email: string | null;
+  // P0: Manual mode - when true, all emails queued for approval
+  manual_mode: boolean | null;
 }
 
 // ============ Customers ============

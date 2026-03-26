@@ -14,6 +14,7 @@ import {
   revokeCompanySessionById,
   revokeSessionById,
   revokeAllSessions,
+  bootstrap,
 } from '../controllers/authController';
 import { authMiddleware } from '../middleware/auth';
 import { requireRole } from '../middleware/rbac';
@@ -24,6 +25,9 @@ import { authLimiter } from '../middleware/rateLimiter';
 const router = Router();
 
 // Public routes
+// Bootstrap: only works on empty DB (first admin setup)
+router.post('/bootstrap', bootstrap);
+
 // Signup disabled - pilots only apply via /api/pilots/request
 router.post('/login', authLimiter, validate(loginSchema), login);
 router.post('/logout', logout);

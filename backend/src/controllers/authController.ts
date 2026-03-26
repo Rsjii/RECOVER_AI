@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { authService } from '../services/authService';
 import { SignupInput, LoginInput } from '../types/auth';
 import { config } from '../config/env';
+import { pool } from '../config/database';
 import * as SecurityDB from '../db/security';
 import * as UserDB from '../db/users';
 import resendService from '../services/resendService';
@@ -456,6 +457,77 @@ export const googleCallback = async (req: Request, res: Response) => {
   } catch (err: any) {
     const elapsed = Date.now() - startTime;
     logError(handler, `Failed after ${elapsed}ms`, err);
+    const { statusCode, message } = parseError(err);
+    return sendErrorResponse(res, statusCode, message);
+  }
+};
+
+/**
+ * POST /api/auth/bootstrap
+ * ONLY works when DB is empty (first admin setup)
+ * Creates first company + admin user account
+ * Can only be called once (403 if users already exist)
+ */
+export const bootstrap = async (req: Request, res: Response) => {
+  const handler = 'bootstrap';
+  try {
+    const { email, password, firstName, lastName } = req.body;
+
+    // Validate input
+    if (!email || !password || !firstName || !lastName) {
+      return sendErrorResponse(res, 400, 'Missing required fields: email, password, firstName, lastName');
+    }
+
+    // Check if any users exist yet (security: only allow bootstrap on empty DB)
+    const existingUsers = await UserDB.countAllUsers();
+    if (existingUsers > 0) {
+      logInfo(handler, 'Bootstrap rejected — users already exist', { existingUsers });
+      return sendErrorResponse(res, 403, 'Bootstrap only allowed on empty database');
+    }
+
+    // Create first admin user (also creates company)
+    const result = await authService.signup({
+      companyName: `${firstName}'s Company`,
+      email,
+      password,
+      firstName,
+      lastName,
+    });
+
+    // Link company to owner
+    await pool.query(
+      `UPDATE companies SET owner_id = $1 WHERE id = $2`,
+      [result.user.id, result.company.id]
+    );
+
+    // Set email as verified (admin account)
+    await pool.query(
+      `UPDATE users SET email_verified = true WHERE id = $1`,
+      [result.user.id]
+    );
+
+    // Create session
+    await SecurityDB.createSession({
+      userId: result.user.id,
+      companyId: result.company.id,
+      refreshToken: result.tokens.refreshToken,
+      userAgent: req.get('user-agent') || undefined,
+      ipAddress: req.ip,
+      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+    });
+
+    // Set cookies
+    setCookies(res, result.tokens.accessToken, result.tokens.refreshToken);
+
+    logInfo(handler, '✅ Bootstrap successful — first admin created', { email, companyId: result.company.id });
+
+    return res.status(201).json({
+      message: 'Admin account created successfully',
+      user: result.user,
+      company: result.company,
+    });
+  } catch (err: any) {
+    logError(handler, 'Bootstrap failed', err);
     const { statusCode, message } = parseError(err);
     return sendErrorResponse(res, statusCode, message);
   }

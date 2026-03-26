@@ -283,19 +283,21 @@ const DEMO_COMPANY = 'Acme SaaS (Demo)';
 // Set cookies identical to auth controller
 // Local dev: sameSite='lax' (same-domain), Prod: sameSite='none' (cross-domain)
 const setCookies = (res: Response, accessToken: string, refreshToken: string) => {
-  const sameSitePolicy = config.nodeEnv === 'production' ? 'none' : 'lax';
+  // Dev: No sameSite restriction (allows localhost:5173 → localhost:3000)
+  // Prod: sameSite=none with secure=true (allows cross-origin, HTTPS only)
+  const sameSitePolicy = config.nodeEnv === 'production' ? 'none' : undefined;
 
   res.cookie('access_token', accessToken, {
     httpOnly: true,
     secure: config.nodeEnv === 'production',
     sameSite: sameSitePolicy as any,
-    maxAge: 24 * 60 * 60 * 1000, // 24 hours (extended from 1h for demo stability)
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
   });
   res.cookie('refresh_token', refreshToken, {
     httpOnly: true,
     secure: config.nodeEnv === 'production',
     sameSite: sameSitePolicy as any,
-    maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days (extended from 7d for demo stability)
+    maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
     path: '/api/auth/refresh',
   });
 

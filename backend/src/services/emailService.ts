@@ -24,6 +24,19 @@ class EmailService {
    */
   async sendDunningEmail(job: DunningEmailJob): Promise<SendResult> {
     const method = 'sendDunningEmail';
+
+    // DEV MODE: Don't send real emails in development
+    if (config.nodeEnv === 'development') {
+      logInfo(LOG_MODULE, method, 'DEV MODE: Email not sent (check logs instead)', {
+        to: job.recipientEmail,
+        subject: `Invoice ${job.invoiceId} - ${job.emailType}`,
+        invoiceId: job.invoiceId,
+        emailType: job.emailType,
+        daysOverdue: job.daysOverdue,
+      });
+      return { success: true, sendgridMessageId: 'dev-mode-' + Date.now() };
+    }
+
     logInfo(LOG_MODULE, method, 'Generating email content', {
       invoiceId: job.invoiceId,
       emailType: job.emailType,

@@ -390,6 +390,9 @@ const Settings: React.FC = () => {
                 />
               </div>
 
+              {/* API Costs */}
+              <ApiCostsSection />
+
               {/* API Keys */}
               <div className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-white/[0.03] dark:to-white/[0.01] rounded-2xl border border-gray-200 dark:border-white/[0.06] p-8 opacity-60">
                 <div className="flex items-center justify-between mb-4">
@@ -660,6 +663,82 @@ const PaymentPlansSettingsSection: React.FC = () => {
           <p className="text-gray-500 dark:text-gray-400 text-xs">Charges are automatically created daily at 09:00 UTC for all due installments. Razorpay payment links are sent to customers via email.</p>
         </div>
       </div>
+    </div>
+  );
+};
+
+// ─── API Costs Section ────────────────────────────────────────────────────────
+
+const ApiCostsSection: React.FC = () => {
+  const [costs, setCosts] = useState<{
+    resend?: { emails_sent: number; cost: number };
+    redis?: { commands: number; cost: number };
+    total_cost: number;
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchCosts = async () => {
+      try {
+        const res = await api.get(API_ENDPOINTS.settings.costs);
+        setCosts(res.data?.data || null);
+      } catch (err) {
+        setCosts(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchCosts();
+    const interval = setInterval(fetchCosts, 60000); // Refresh every minute
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="bg-white dark:bg-[#111113] rounded-2xl border border-gray-200 dark:border-white/[0.06] p-8">
+      <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-8">💰 API Usage Costs</h2>
+
+      {loading ? (
+        <div className="flex items-center justify-center py-12">
+          <div className="text-gray-400">Loading costs...</div>
+        </div>
+      ) : costs ? (
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            {/* Resend Emails */}
+            {costs.resend && (
+              <div className="bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-500/10 dark:to-blue-500/5 rounded-xl p-4 border border-blue-200 dark:border-blue-500/20">
+                <p className="text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wider">Resend (Emails)</p>
+                <p className="text-2xl font-bold text-blue-900 dark:text-blue-100 mt-2">${costs.resend.cost.toFixed(2)}</p>
+                <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">{costs.resend.emails_sent} emails</p>
+              </div>
+            )}
+
+            {/* Redis Commands */}
+            {costs.redis && (
+              <div className="bg-gradient-to-br from-purple-50 to-purple-100/50 dark:from-purple-500/10 dark:to-purple-500/5 rounded-xl p-4 border border-purple-200 dark:border-purple-500/20">
+                <p className="text-xs font-semibold text-purple-600 dark:text-purple-400 uppercase tracking-wider">Redis (Commands)</p>
+                <p className="text-2xl font-bold text-purple-900 dark:text-purple-100 mt-2">${costs.redis.cost.toFixed(2)}</p>
+                <p className="text-xs text-purple-700 dark:text-purple-300 mt-1">{costs.redis.commands.toLocaleString()} cmds</p>
+              </div>
+            )}
+
+            {/* Total */}
+            <div className="bg-gradient-to-br from-gray-900 to-gray-800 dark:from-white/[0.08] dark:to-white/[0.02] rounded-xl p-4 border border-gray-700 dark:border-white/[0.1]">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Total (30 days)</p>
+              <p className="text-2xl font-bold text-white mt-2">${costs.total_cost.toFixed(2)}</p>
+              <p className="text-xs text-gray-500 mt-1">This month</p>
+            </div>
+          </div>
+
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-6">
+            💡 Costs calculated for the last 30 days. Resend: $0.25 per 1000 emails. Redis: Free up to 500K commands/month, then $0.20 per 100K.
+          </p>
+        </div>
+      ) : (
+        <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+          Unable to fetch cost data. Try refreshing the page.
+        </div>
+      )}
     </div>
   );
 };

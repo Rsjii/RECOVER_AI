@@ -3,6 +3,7 @@ import { findCompanyById, updateCompany } from '../db/companies';
 import { encryptField, decryptField } from '../lib/encryption';
 import { logError, logInfo } from '../utils/logger';
 import { sendErrorResponse, parseError } from '../utils/errorHandler';
+import { pool } from '../config/database';
 
 const LOG_MODULE = 'settingsController';
 
@@ -30,6 +31,7 @@ export const getSettings = async (req: Request, res: Response): Promise<void> =>
         dunningStrategy: company.dunning_strategy,
         pilotMode: (company as any).pilot_mode || 'auto',  // P0
         replyToEmail: (company as any).reply_to_email || null,  // P0
+        manualMode: company.manual_mode ?? false,  // P0
         integrations: {
           stripe: !!company.stripe_api_key_encrypted,
           stripeLastSyncedAt: (company as any).stripe_last_synced_at || null,
@@ -204,5 +206,112 @@ export const updatePilotMode = async (req: Request, res: Response): Promise<void
     logError(LOG_MODULE, handler, 'Failed to update pilot mode', error);
     const { statusCode, message } = parseError(error);
     sendErrorResponse(res, statusCode, message);
+  }
+};
+
+/**
+ * PATCH /api/settings/manual-mode
+ * Toggle manual mode: when ON, all emails queued for approval before sending
+ */
+export const updateManualMode = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'updateManualMode';
+  const companyId = (req as any).companyId;
+
+  try {
+    const { manual_mode } = req.body;
+
+    if (manual_mode === undefined || typeof manual_mode !== 'boolean') {
+      sendErrorResponse(res, 400, 'manual_mode must be a boolean');
+      return;
+    }
+
+    const company = await updateCompany(companyId, { manual_mode });
+
+    logInfo(LOG_MODULE, handler, 'Manual mode updated', { companyId, manual_mode });
+
+    res.status(200).json({
+      data: {
+        manual_mode: company.manual_mode ?? manual_mode,
+      },
+    });
+  } catch (error) {
+    logError(LOG_MODULE, handler, 'Failed to update manual mode', error);
+    const { statusCode, message } = parseError(error);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
+
+/**
+ * GET /api/settings/costs
+ * Returns API usage costs (Resend emails + Redis commands)
+ */
+export const getApiCosts = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'getApiCosts';
+  const companyId = (req as any).companyId;
+
+  try {
+    // Count emails sent this month via email_logs table
+    const emailResult = await pool.query(
+      `SELECT COUNT(*) as email_count
+       FROM email_logs
+       WHERE company_id = $1
+       AND created_at > NOW() - INTERVAL '30 days'`,
+      [companyId]
+    );
+    const emailsSent = parseInt(emailResult.rows[0]?.email_count || 0);
+
+    // Resend pricing: $0.25 per 1000 emails (approximately $0.00025 per email)
+    const resendCost = (emailsSent * 0.00025).toFixed(2);
+
+    // Redis usage estimation from API logs (non-critical, can be 0)
+    const redisResult = await pool.query(
+      `SELECT COUNT(*) as command_count
+       FROM api_logs
+       WHERE company_id = $1
+       AND created_at > NOW() - INTERVAL '30 days'`,
+      [companyId]
+    );
+    const redisCommands = parseInt(redisResult.rows[0]?.command_count || 0);
+
+    // Redis pricing: free up to 500K commands/month, then $0.20 per 100K commands
+    let redisCost = '0.00';
+    if (redisCommands > 500000) {
+      redisCost = (((redisCommands - 500000) * 0.20) / 100000).toFixed(2);
+    }
+
+    const totalCost = (parseFloat(resendCost) + parseFloat(redisCost)).toFixed(2);
+
+    logInfo(LOG_MODULE, handler, 'Costs calculated', {
+      emailsSent: emailsSent.toString(),
+      redisCommands: redisCommands.toString(),
+      resendCost,
+      redisCost,
+      totalCost
+    });
+
+    res.status(200).json({
+      data: {
+        resend: {
+          emails_sent: emailsSent,
+          cost: parseFloat(resendCost),
+        },
+        redis: {
+          commands: redisCommands,
+          cost: parseFloat(redisCost),
+        },
+        total_cost: parseFloat(totalCost),
+      },
+    });
+  } catch (err: any) {
+    logError(LOG_MODULE, handler, 'Failed to get costs', err);
+    // Return defaults on error (non-blocking)
+    res.status(200).json({
+      data: {
+        resend: { emails_sent: 0, cost: 0 },
+        redis: { commands: 0, cost: 0 },
+        total_cost: 0,
+        note: 'Unable to fetch real costs',
+      },
+    });
   }
 };

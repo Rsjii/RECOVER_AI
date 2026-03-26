@@ -123,73 +123,37 @@ export const approveAuditRequest = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Request not found' });
     }
 
-    // Get audit invite (to get the link)
+    // Get audit invite (to verify it exists)
     const auditInvite = await AuditInvitesDB.getAuditInvite(request.token);
     if (!auditInvite) {
       return res.status(400).json({ error: 'Invite token not found' });
     }
 
-    // Send invite email to prospect
-    const link = `${process.env.FRONTEND_URL || 'https://recoverai.com'}/audit?invite=${request.token}`;
-
-    try {
-      const subject = '🎯 Your RecoverAI AR Analysis Link';
-      const bodyText = `
-Hi ${request.company_name},
-
-Thanks for requesting an AR analysis. Click below to see how much working capital you can free up in 90 days.
-
-${link}
-
-This link expires in 7 days.
-
-Questions? Reply to this email.
-
-Best,
-RecoverAI Team
-      `.trim();
-
-      const bodyHtml = `
-<html>
-<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-  <h2>🎯 Your RecoverAI AR Analysis</h2>
-  <p>Hi ${request.company_name},</p>
-  <p>We've approved your request! Click below to analyze your AR and see your custom recovery opportunity.</p>
-  <p>
-    <a href="${link}" style="background: #2563eb; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; display: inline-block;">
-      Start Your Analysis
-    </a>
-  </p>
-  <p style="margin-top: 20px; font-size: 14px; color: #666;">
-    This link expires in 7 days. No credit card required.
-  </p>
-  <p style="font-size: 12px; color: #999;">
-    RecoverAI • Autonomous AR Recovery for SaaS
-  </p>
-</body>
-</html>
-      `;
-
-      await resendService.sendEmail({
-        to: email,
-        subject,
-        bodyText,
-        bodyHtml,
-      });
-
-      logInfo(MODULE, 'approveAuditRequest', 'Invite email sent', { email });
-    } catch (emailErr: any) {
-      logError(MODULE, 'approveAuditRequest', 'Failed to send email', emailErr);
-      // Still mark as approved even if email fails
-    }
-
-    // Update status
+    // Update status in DB
     await AuditRequestsDB.updateAuditRequestStatus(email, 'approved');
 
-    logInfo(MODULE, 'approveAuditRequest', `Approved and emailed audit link to ${email}`);
+    // ============================================================
+    // EVENT-DRIVEN: Emit event instead of sending email directly
+    // This triggers the email listener which queues it immediately
+    // Benefit: No blocking I/O, instant response to admin
+    // ============================================================
+    try {
+      const { emitEvent, AppEvent } = await import('../events/eventEmitter');
+      emitEvent(AppEvent.AUDIT_APPROVED, {
+        email: request.email,
+        token: request.token,
+        companyName: request.company_name,
+      });
+      logInfo(MODULE, 'approveAuditRequest', 'Audit approval event emitted', { email });
+    } catch (eventErr: any) {
+      logError(MODULE, 'approveAuditRequest', 'Failed to emit event', eventErr);
+      // Continue anyway - DB was updated successfully
+    }
+
+    logInfo(MODULE, 'approveAuditRequest', 'Audit request approved', { email });
 
     return res.json({
-      message: 'Request approved and link sent via email',
+      message: 'Request approved. Invite link will be sent shortly.',
       data: request,
     });
   } catch (err: any) {

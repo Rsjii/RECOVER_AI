@@ -65,6 +65,7 @@ export const API_ENDPOINTS = {
   },
   settings: {
     get: '/api/settings',
+    costs: '/api/settings/costs',
     dunning: '/api/settings/dunning',
     slack: '/api/settings/slack',
     general: '/api/settings/general',
