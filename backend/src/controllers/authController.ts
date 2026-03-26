@@ -232,6 +232,13 @@ export const revokeSessionById = async (req: Request, res: Response) => {
     const { sessionId } = req.params as { sessionId: string };
     const currentRefreshToken = req.cookies?.refresh_token;
 
+    console.log('[authController.revokeSessionById] DEBUG:', {
+      sessionId,
+      userId,
+      companyId,
+      currentRefreshToken: currentRefreshToken ? '***' : 'null'
+    });
+
     if (!userId || !companyId) {
       return sendErrorResponse(res, 401, 'Not authenticated');
     }
@@ -240,6 +247,7 @@ export const revokeSessionById = async (req: Request, res: Response) => {
     }
 
     const revoked = await SecurityDB.revokeSessionById(sessionId, userId, companyId);
+    console.log('[authController.revokeSessionById] RESULT:', { revoked });
     if (!revoked) {
       return sendErrorResponse(res, 404, 'Session not found');
     }

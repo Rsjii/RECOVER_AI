@@ -136,6 +136,14 @@ export async function revokeSessionById(sessionId: string, userId: string, compa
      RETURNING id`,
     [sessionId, userId, companyId]
   );
+  // Log for debugging
+  console.log('[SecurityDB.revokeSessionById] DEBUG:', {
+    sessionId,
+    userId,
+    companyId,
+    rowsUpdated: result.rowCount,
+    wasSuccessful: !!result.rows[0]
+  });
   return !!result.rows[0];
 }
 
