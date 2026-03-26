@@ -10,7 +10,7 @@ const MODULE = 'pilotQueueController';
  * List queued emails for pilot company (shadow mode emails awaiting approval)
  */
 export const listQueuedEmails = async (req: Request, res: Response) => {
-  const companyId = (req as any).user?.companyId;
+  const companyId = (req as any).companyId;
 
   if (!companyId) {
     return res.status(401).json({ error: 'Unauthorized' });
@@ -56,7 +56,7 @@ export const listQueuedEmails = async (req: Request, res: Response) => {
  */
 export const approveQueuedEmail = async (req: Request, res: Response) => {
   const { id } = req.params;
-  const companyId = (req as any).user?.companyId;
+  const companyId = (req as any).companyId;
 
   if (!companyId) {
     return res.status(401).json({ error: 'Unauthorized' });
@@ -140,7 +140,7 @@ export const approveQueuedEmail = async (req: Request, res: Response) => {
  */
 export const rejectQueuedEmail = async (req: Request, res: Response) => {
   const { id } = req.params;
-  const companyId = (req as any).user?.companyId;
+  const companyId = (req as any).companyId;
 
   if (!companyId) {
     return res.status(401).json({ error: 'Unauthorized' });
@@ -177,7 +177,7 @@ export const rejectQueuedEmail = async (req: Request, res: Response) => {
  * Approve and send all pending queued emails
  */
 export const approveAllQueuedEmails = async (req: Request, res: Response) => {
-  const companyId = (req as any).user?.companyId;
+  const companyId = (req as any).companyId;
 
   if (!companyId) {
     return res.status(401).json({ error: 'Unauthorized' });
@@ -269,7 +269,7 @@ export const approveAllQueuedEmails = async (req: Request, res: Response) => {
  * Get statistics about queued emails
  */
 export const getQueueStats = async (req: Request, res: Response) => {
-  const companyId = (req as any).user?.companyId;
+  const companyId = (req as any).companyId;
 
   if (!companyId) {
     return res.status(401).json({ error: 'Unauthorized' });

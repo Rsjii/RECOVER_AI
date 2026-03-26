@@ -195,11 +195,28 @@ export const listSessions = async (req: Request, res: Response) => {
   try {
     const userId = (req as any).userId as string | undefined;
     const companyId = (req as any).companyId as string | undefined;
+    const currentRefreshToken = req.cookies?.refresh_token;
+
     if (!userId || !companyId) {
       return sendErrorResponse(res, 401, 'Not authenticated');
     }
+
     const sessions = await SecurityDB.listActiveSessions(userId, companyId);
-    return res.status(200).json({ data: sessions });
+
+    // Find current session ID
+    let currentSessionId: string | null = null;
+    if (currentRefreshToken) {
+      const currentSession = await SecurityDB.findSessionByRefreshToken(currentRefreshToken);
+      currentSessionId = currentSession?.id || null;
+    }
+
+    // Add isCurrent flag to each session
+    const sessionsWithCurrent = sessions.map(s => ({
+      ...s,
+      isCurrent: s.id === currentSessionId
+    }));
+
+    return res.status(200).json({ data: sessionsWithCurrent });
   } catch (err: any) {
     logError(handler, 'Failed to list sessions', err);
     const { statusCode, message } = parseError(err);
@@ -213,17 +230,40 @@ export const revokeSessionById = async (req: Request, res: Response) => {
     const userId = (req as any).userId as string | undefined;
     const companyId = (req as any).companyId as string | undefined;
     const { sessionId } = req.params as { sessionId: string };
+    const currentRefreshToken = req.cookies?.refresh_token;
+
     if (!userId || !companyId) {
       return sendErrorResponse(res, 401, 'Not authenticated');
     }
     if (!sessionId) {
       return sendErrorResponse(res, 400, 'sessionId is required');
     }
+
     const revoked = await SecurityDB.revokeSessionById(sessionId, userId, companyId);
     if (!revoked) {
       return sendErrorResponse(res, 404, 'Session not found');
     }
-    return res.status(200).json({ message: 'Session revoked' });
+
+    // Check if this is the current session being revoked
+    const currentSession = currentRefreshToken
+      ? await SecurityDB.findSessionByRefreshToken(currentRefreshToken)
+      : null;
+
+    const isCurrentSession = currentSession?.id === sessionId;
+
+    // If revoking current session, clear cookies and logout
+    if (isCurrentSession) {
+      clearCookies(res);
+      return res.status(200).json({
+        message: 'Session revoked and logged out',
+        currentSessionRevoked: true
+      });
+    }
+
+    return res.status(200).json({
+      message: 'Session revoked',
+      currentSessionRevoked: false
+    });
   } catch (err: any) {
     logError(handler, 'Failed to revoke session', err);
     const { statusCode, message } = parseError(err);

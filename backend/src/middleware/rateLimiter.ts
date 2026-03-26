@@ -1,5 +1,6 @@
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import slowDown from 'express-slow-down';
+import { Request, Response, NextFunction } from 'express';
 import { RedisStore } from 'rate-limit-redis';
 import { RATE_LIMITS, getRateLimit, isDevEnvironment } from '../config/rateLimits';
 import { redisClient } from '../config/redis';
@@ -32,11 +33,24 @@ function makeRedisStore(prefix: string) {
 }
 
 /**
+ * Wrapper to disable rate limiting in development mode
+ * In dev: returns a no-op middleware (no rate limiting)
+ * In prod: returns the actual rate limiter
+ */
+function createLimiter(limiterConfig: any) {
+  if (isDev) {
+    // In development, don't rate limit - just pass through
+    return (req: Request, res: Response, next: NextFunction) => next();
+  }
+  return rateLimit(limiterConfig);
+}
+
+/**
  * General API rate limiter
- * Dev: 1000 requests per 15 minutes
+ * Dev: Disabled (no rate limiting in development)
  * Prod: 100 requests per 15 minutes
  */
-export const apiLimiter = rateLimit({
+export const apiLimiter = createLimiter({
   windowMs: limits.api.windowMs,
   max: getRateLimit('api'),
   standardHeaders: true,
@@ -47,10 +61,10 @@ export const apiLimiter = rateLimit({
 
 /**
  * Authentication rate limiter (brute force protection)
- * Dev: 100 attempts per 15 minutes
+ * Dev: Disabled (no rate limiting in development)
  * Prod: 10 attempts per 15 minutes
  */
-export const authLimiter = rateLimit({
+export const authLimiter = createLimiter({
   windowMs: limits.auth.windowMs,
   max: getRateLimit('auth'),
   message: { error: 'Too many login attempts. Please wait 15 minutes.' },
@@ -60,22 +74,22 @@ export const authLimiter = rateLimit({
 /**
  * Progressive delay for auth attempts
  * Reduces credential-stuffing attacks by adding delays after repeated attempts
- * Dev: Delay after 50 attempts (100ms, max 1s)
+ * Dev: No delay (disabled in development)
  * Prod: Delay after 3 attempts (500ms, max 4s)
  */
 export const authSlowDown = slowDown({
   windowMs: limits.authSlowDown.windowMs,
-  delayAfter: isDev ? limits.authSlowDown.delayAfter.dev : limits.authSlowDown.delayAfter.prod,
-  delayMs: () => (isDev ? limits.authSlowDown.delayMs.dev : limits.authSlowDown.delayMs.prod),
-  maxDelayMs: isDev ? limits.authSlowDown.maxDelayMs.dev : limits.authSlowDown.maxDelayMs.prod,
+  delayAfter: isDev ? 999999 : limits.authSlowDown.delayAfter.prod, // Effectively disabled in dev
+  delayMs: () => (isDev ? 0 : limits.authSlowDown.delayMs.prod),
+  maxDelayMs: isDev ? 0 : limits.authSlowDown.maxDelayMs.prod,
 });
 
 /**
  * Stripe sync rate limiter (expensive external API calls)
- * Dev: 50 syncs per 10 minutes
+ * Dev: Disabled (no rate limiting in development)
  * Prod: 5 syncs per 10 minutes
  */
-export const syncLimiter = rateLimit({
+export const syncLimiter = createLimiter({
   windowMs: limits.stripe.windowMs,
   max: getRateLimit('stripe'),
   message: { error: 'Sync limit reached. Try again in a few minutes.' },
@@ -84,10 +98,10 @@ export const syncLimiter = rateLimit({
 
 /**
  * AI endpoints rate limiter (calls expensive LLM APIs)
- * Dev: 200 requests per minute
+ * Dev: Disabled (no rate limiting in development)
  * Prod: 20 requests per minute
  */
-export const aiLimiter = rateLimit({
+export const aiLimiter = createLimiter({
   windowMs: limits.ai.windowMs,
   max: getRateLimit('ai'),
   message: { error: 'AI rate limit reached. Please slow down.' },
@@ -95,10 +109,10 @@ export const aiLimiter = rateLimit({
 
 /**
  * Demo endpoint limiter
- * Dev: Unlimited (10000 per minute)
+ * Dev: Disabled (no rate limiting in development)
  * Prod: Limited to 5 per minute for demo protection
  */
-export const demoLimiter = rateLimit({
+export const demoLimiter = createLimiter({
   windowMs: limits.demo.windowMs,
   max: getRateLimit('demo'),
   message: { error: 'Demo requests exceeded. Please try again later.' },
@@ -106,10 +120,10 @@ export const demoLimiter = rateLimit({
 
 /**
  * Email endpoints limiter
- * Dev: 500 per 5 minutes
+ * Dev: Disabled (no rate limiting in development)
  * Prod: 50 per 5 minutes
  */
-export const emailLimiter = rateLimit({
+export const emailLimiter = createLimiter({
   windowMs: limits.email.windowMs,
   max: getRateLimit('email'),
   message: { error: 'Email rate limit reached. Please slow down.' },
@@ -118,10 +132,10 @@ export const emailLimiter = rateLimit({
 
 /**
  * Webhook limiter (no auth required, needs extra protection)
- * Dev: 1000 per minute
+ * Dev: Disabled (no rate limiting in development)
  * Prod: 100 per minute
  */
-export const webhookLimiter = rateLimit({
+export const webhookLimiter = createLimiter({
   windowMs: limits.webhook.windowMs,
   max: getRateLimit('webhook'),
   message: { error: 'Webhook rate limit reached.' },
@@ -130,27 +144,27 @@ export const webhookLimiter = rateLimit({
 
 /**
  * Audit OTP limiter (email verification)
- * Dev: 100 OTP sends per 15 minutes
+ * Dev: Disabled (no rate limiting in development)
  * Prod: 5 OTP sends per 15 minutes
  */
-export const auditOtpLimiter = rateLimit({
+export const auditOtpLimiter = createLimiter({
   windowMs: limits.auditOtp.windowMs,
   max: getRateLimit('auditOtp'),
   message: { error: 'Too many OTP requests. Wait 15 minutes.' },
   store: makeRedisStore('audit-otp'),
-  keyGenerator: (req) => req.ip || 'unknown',
+  keyGenerator: ipKeyGenerator,
 });
 
 /**
  * Public form limiter (pilot request, payment plan accept, audit request)
- * Dev: 100 submissions per hour
+ * Dev: Disabled (no rate limiting in development)
  * Prod: 10 submissions per hour
  */
-export const publicFormLimiter = rateLimit({
+export const publicFormLimiter = createLimiter({
   windowMs: limits.publicForm.windowMs,
   max: getRateLimit('publicForm'),
   message: { error: 'Too many requests. Try again in an hour.' },
   store: makeRedisStore('public-form'),
-  keyGenerator: (req) => req.ip || 'unknown',
+  keyGenerator: ipKeyGenerator,
 });
 

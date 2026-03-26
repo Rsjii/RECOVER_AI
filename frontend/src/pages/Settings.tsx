@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { API_ENDPOINTS } from '../lib/constants';
 import { Spinner } from '../components/ui/Spinner';
+import { Modal } from '../components/ui/Modal';
 import { useNotification } from '../hooks/useNotification';
 import { ProfileSection } from '../components/settings/ProfileSection';
 import { NotificationsSection } from '../components/settings/NotificationsSection';
@@ -46,11 +48,13 @@ const EMAIL_TEMPLATES = [
 ];
 
 const Settings: React.FC = () => {
+  const navigate = useNavigate();
+  const { addToast } = useNotification();
+  const [confirmRevokeId, setConfirmRevokeId] = useState<string | null>(null);
+
   useEffect(() => {
     document.title = 'Settings — RecoverAI';
   }, []);
-
-  const { addToast } = useNotification();
   const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
   const [settings, setSettings] = useState<CompanySettings | null>(null);
   const [sessions, setSessions] = useState<any[]>([]);
@@ -108,13 +112,33 @@ const Settings: React.FC = () => {
 
   const revokeSession = async (sessionId: string) => {
     setSessionLoading(true);
+    setConfirmRevokeId(null);
     try {
-      try {
-        await api.delete(API_ENDPOINTS.auth.revokeCompanySession(sessionId));
-      } catch {
-        await api.delete(API_ENDPOINTS.auth.revokeSession(sessionId));
+      const response = await api.delete(API_ENDPOINTS.auth.revokeSession(sessionId));
+
+      if (response.currentSessionRevoked) {
+        // Current session was revoked - auto logout
+        addToast({
+          type: 'warning',
+          message: 'Your current session was revoked. Logging out...'
+        });
+        // Give user time to see the message
+        setTimeout(() => {
+          navigate('/login', { replace: true });
+        }, 1000);
+      } else {
+        // Another session was revoked
+        addToast({
+          type: 'success',
+          message: 'Session revoked successfully'
+        });
+        await fetch();
       }
-      await fetch();
+    } catch (err: any) {
+      addToast({
+        type: 'error',
+        message: err.response?.data?.error || 'Failed to revoke session'
+      });
     } finally {
       setSessionLoading(false);
     }
@@ -358,19 +382,43 @@ const Settings: React.FC = () => {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {sessions.map((s) => (
-                      <div key={s.id} className="flex items-center justify-between p-5 rounded-xl border border-gray-200 dark:border-white/[0.06] hover:bg-gray-50 dark:hover:bg-white/[0.02] transition-colors">
+                    {sessions.map((s: any) => (
+                      <div key={s.id} className={cn(
+                        "flex items-center justify-between p-5 rounded-xl border transition-colors",
+                        s.isCurrent
+                          ? "border-blue-200 dark:border-blue-500/30 bg-blue-50 dark:bg-blue-500/10"
+                          : "border-gray-200 dark:border-white/[0.06] hover:bg-gray-50 dark:hover:bg-white/[0.02]"
+                      )}>
                         <div className="flex-1">
                           <p className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                             <span className="text-lg">💻</span>
                             {s.user_agent || 'Unknown device'}
+                            {s.isCurrent && (
+                              <span className="text-xs bg-blue-600 dark:bg-blue-500 text-white px-2 py-0.5 rounded-full font-medium">
+                                Current
+                              </span>
+                            )}
                           </p>
                           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{s.ip_address || 'Unknown IP'}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                            Created {new Date(s.created_at).toLocaleDateString()} at {new Date(s.created_at).toLocaleTimeString()}
+                          </p>
                         </div>
                         <button
-                          onClick={() => revokeSession(s.id)}
+                          onClick={() => {
+                            if (s.isCurrent) {
+                              setConfirmRevokeId(s.id);
+                            } else {
+                              revokeSession(s.id);
+                            }
+                          }}
                           disabled={sessionLoading}
-                          className="text-sm text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 font-semibold disabled:opacity-50 transition-colors"
+                          className={cn(
+                            "text-sm font-semibold disabled:opacity-50 transition-colors",
+                            s.isCurrent
+                              ? "text-orange-600 dark:text-orange-400 hover:text-orange-700 dark:hover:text-orange-300"
+                              : "text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300"
+                          )}
                         >
                           Revoke
                         </button>
@@ -429,6 +477,39 @@ const Settings: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Confirm Revoke Current Session Modal */}
+      <Modal
+        isOpen={!!confirmRevokeId}
+        onClose={() => setConfirmRevokeId(null)}
+        size="md"
+        title="Revoke Current Session?"
+      >
+        <div className="space-y-4">
+          <p className="text-gray-700 dark:text-gray-300">
+            You're about to revoke <strong>your current session</strong>. You will be logged out immediately.
+          </p>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            This action cannot be undone. You'll need to log in again to access your account.
+          </p>
+          <div className="flex gap-3 pt-4">
+            <button
+              onClick={() => setConfirmRevokeId(null)}
+              disabled={sessionLoading}
+              className="flex-1 px-4 py-2 text-sm font-medium border border-gray-300 dark:border-white/[0.1] rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/[0.05] transition-colors disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => confirmRevokeId && revokeSession(confirmRevokeId)}
+              disabled={sessionLoading}
+              className="flex-1 px-4 py-2 text-sm font-medium bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors disabled:opacity-50"
+            >
+              {sessionLoading ? 'Revoking...' : 'Yes, Revoke & Logout'}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };
