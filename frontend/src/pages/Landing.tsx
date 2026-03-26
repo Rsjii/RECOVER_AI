@@ -362,13 +362,13 @@ const Landing: React.FC = () => {
       </section>
 
       {/* CTA */}
-      <section className="bg-brand-600 py-14">
+      <section className="bg-gradient-to-r from-blue-600 to-blue-800 dark:from-gray-900 dark:to-gray-950 dark:border-t dark:border-white/[0.06] py-16">
         <div className="max-w-3xl mx-auto px-6 text-center">
-          <h2 className="text-2xl md:text-3xl font-bold text-white mb-3">
+          <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
             Ready to recover more cash?
           </h2>
-          <p className="text-blue-100 mb-8">Join our pilot program. See results in 2 weeks. Convert to paid if it works.</p>
-          <Button size="lg" className="bg-white text-brand-600 hover:bg-brand-50 px-10" onClick={() => navigate('/audit-request')}>
+          <p className="text-blue-50 dark:text-gray-300 mb-10 text-lg">Join our pilot program. See results in 2 weeks. Convert to paid if it works.</p>
+          <Button size="lg" className="bg-white !text-black hover:bg-gray-100 dark:bg-blue-600 dark:!text-white dark:hover:bg-blue-700 font-semibold px-12 py-3 shadow-lg" onClick={() => navigate('/audit-request')}>
             Become a Pilot
           </Button>
         </div>

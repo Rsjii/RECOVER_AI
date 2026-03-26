@@ -8,12 +8,16 @@ const FreeAuditSignup: React.FC = () => {
   const [searchParams] = useSearchParams();
   const inviteToken = searchParams.get('invite');
 
-  const [step, setStep] = useState<'invite_invalid' | 'email' | 'connecting' | 'analyzing'>('email');
+  const [step, setStep] = useState<'invite_invalid' | 'email' | 'otp' | 'connecting' | 'analyzing'>('email');
   const [email, setEmail] = useState('');
+  const [otp, setOtp] = useState('');
+  const [verifyToken, setVerifyToken] = useState('');
   const [loading, setLoading] = useState(true);
+  const [otpLoading, setOtpLoading] = useState(false);
   const [error, setError] = useState('');
   const [showPermissionModal, setShowPermissionModal] = useState(false);
   const [pendingOAuthUrl, setPendingOAuthUrl] = useState('');
+  const [attemptsLeft, setAttemptsLeft] = useState(5);
 
   // Validate invite token on mount
   useEffect(() => {
@@ -57,7 +61,7 @@ const FreeAuditSignup: React.FC = () => {
     validateInvite();
   }, [inviteToken]);
 
-  const handleStartAudit = async () => {
+  const handleSendOtp = async () => {
     if (!email.includes('@')) {
       setError('Please enter a valid email');
       return;
@@ -67,29 +71,71 @@ const FreeAuditSignup: React.FC = () => {
     setError('');
 
     try {
-      console.log('🔍 Starting audit request...');
-      const response = await api.post('/api/audits/request', { email });
+      console.log('🔍 Sending OTP...');
+      const response = await api.post('/api/audits/send-otp', { email });
 
-      console.log('✅ Audit request successful:', response);
+      console.log('✅ OTP sent successfully:', response);
+
+      setVerifyToken(response.verifyToken);
+
+      // In dev mode, show the OTP code
+      if (response.devCode) {
+        setError(`Dev mode: OTP is ${response.devCode}`);
+      }
+
+      setStep('otp');
+    } catch (err: any) {
+      console.error('❌ OTP send error:', err);
+      const errorMsg = err.response?.data?.error || err.message || 'Failed to send OTP';
+      setError(errorMsg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (!otp || otp.length !== 6) {
+      setError('Please enter a 6-digit code');
+      return;
+    }
+
+    setOtpLoading(true);
+    setError('');
+
+    try {
+      console.log('🔍 Verifying OTP...');
+      const response = await api.post('/api/audits/verify-otp', {
+        verifyToken,
+        code: otp,
+      });
+
+      console.log('✅ OTP verified successfully:', response);
 
       // Check for Stripe configuration error
       if (response.needs_config) {
         setError('Audit feature not available. Please try again later.');
-        setLoading(false);
+        setOtpLoading(false);
         return;
       }
 
-      if (!response.stripe_oauth_url) {
+      if (!response.stripeAuthUrl) {
         throw new Error('No OAuth URL returned from server');
       }
 
-      setPendingOAuthUrl(response.stripe_oauth_url);
+      setPendingOAuthUrl(response.stripeAuthUrl);
       setShowPermissionModal(true);
     } catch (err: any) {
-      console.error('❌ Audit error:', err);
-      const errorMsg = err.response?.data?.error || err.message || 'Failed to start audit';
+      console.error('❌ OTP verification error:', err);
+      const errorMsg = err.response?.data?.error || err.message || 'Failed to verify OTP';
       setError(errorMsg);
-      setLoading(false);
+
+      // Extract attempts left from error message if available
+      const match = errorMsg.match(/(\d+) attempt/);
+      if (match) {
+        setAttemptsLeft(parseInt(match[1]));
+      }
+    } finally {
+      setOtpLoading(false);
     }
   };
 
@@ -182,6 +228,7 @@ const FreeAuditSignup: React.FC = () => {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleSendOtp()}
                   placeholder="you@company.com"
                   className="w-full px-4 py-2.5 border border-gray-300 dark:border-white/[0.08] rounded-lg bg-white dark:bg-white/[0.03] text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500"
                 />
@@ -204,17 +251,83 @@ const FreeAuditSignup: React.FC = () => {
               <Button
                 variant="primary"
                 size="lg"
-                onClick={handleStartAudit}
+                onClick={handleSendOtp}
                 loading={loading}
                 disabled={!email || loading}
                 className="w-full"
               >
-                Start Free Audit
+                Send Verification Code
               </Button>
 
               <p className="text-xs text-center text-gray-500 dark:text-gray-400">
-                We'll connect to your Stripe account (read-only) and analyze
-                your invoices in 48 hours. No credit card required.
+                We'll send a code to verify your email, then connect to your
+                Stripe account (read-only) to analyze your invoices.
+              </p>
+            </div>
+          )}
+
+          {step === 'otp' && (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Enter 6-Digit Code
+                </label>
+                <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">
+                  We sent a code to <strong>{email}</strong>
+                </p>
+                <input
+                  type="text"
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value.replace(/[^\d]/g, '').slice(0, 6))}
+                  onKeyPress={(e) => e.key === 'Enter' && handleVerifyOtp()}
+                  placeholder="000000"
+                  maxLength={6}
+                  className="w-full px-4 py-2.5 border border-gray-300 dark:border-white/[0.08] rounded-lg bg-white dark:bg-white/[0.03] text-gray-900 dark:text-white text-center text-lg tracking-widest focus:outline-none focus:ring-2 focus:ring-brand-500"
+                />
+              </div>
+
+              {error && (
+                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                  <div className="flex gap-2">
+                    <div className="text-red-600 dark:text-red-400 font-bold">⚠️</div>
+                    <div>
+                      <p className="text-sm font-medium text-red-900 dark:text-red-200">{error}</p>
+                      {attemptsLeft < 5 && (
+                        <p className="text-xs text-red-700 dark:text-red-300 mt-1">
+                          {attemptsLeft === 0 ? 'Try again in 1 hour' : `${attemptsLeft} attempt${attemptsLeft === 1 ? '' : 's'} remaining`}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <Button
+                variant="primary"
+                size="lg"
+                onClick={handleVerifyOtp}
+                loading={otpLoading}
+                disabled={otp.length !== 6 || otpLoading || attemptsLeft === 0}
+                className="w-full"
+              >
+                Verify Code
+              </Button>
+
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  setStep('email');
+                  setOtp('');
+                  setError('');
+                }}
+                className="w-full"
+              >
+                Back
+              </Button>
+
+              <p className="text-xs text-center text-gray-500 dark:text-gray-400">
+                Didn't receive the code? Check spam or <a href="mailto:support@recoverai.com" className="underline">contact support</a>
               </p>
             </div>
           )}

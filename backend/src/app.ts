@@ -39,7 +39,7 @@ import auditRoutes from './routes/audits';
 import requestsRoutes from './routes/requests';
 import pilotQueueRoutes from './routes/pilotQueue';
 import { getRequestContext, logError, logInfo, logWarn, withRequestContext } from './utils/logger';
-import { apiLimiter, authLimiter, authSlowDown, syncLimiter, aiLimiter } from './middleware/rateLimiter';
+import { apiLimiter, authLimiter, authSlowDown, syncLimiter, aiLimiter, webhookLimiter, emailLimiter, auditOtpLimiter, publicFormLimiter } from './middleware/rateLimiter';
 
 const app = express();
 
@@ -164,6 +164,24 @@ app.use('/api/auth/signup', authSlowDown);
 app.use('/api/auth/forgot-password', authSlowDown);
 app.use('/api/stripe/sync', syncLimiter);
 app.use('/api/ai', aiLimiter);
+// Webhook limiters (no auth, need protection)
+app.use('/api/stripe/webhook', webhookLimiter);
+app.use('/api/email/webhook', webhookLimiter);
+app.use('/api/voice/twiml', webhookLimiter);
+app.use('/api/voice/handle-dtmf', webhookLimiter);
+app.use('/api/voice/status-callback', webhookLimiter);
+app.use('/api/billing/webhook', webhookLimiter);
+app.use('/api/email/track', emailLimiter);
+// OTP and form submission limiters (more specific, before global apiLimiter)
+app.use('/api/auth/resend-otp', authLimiter);
+app.use('/api/auth/verify-email', authLimiter);
+app.use('/api/auth/bootstrap', authLimiter);
+app.use('/api/audits/send-otp', auditOtpLimiter);
+app.use('/api/audits/verify-otp', auditOtpLimiter);
+app.use('/api/pilots/request', publicFormLimiter);
+app.use('/api/pilots/setup-password', authLimiter);
+app.use('/api/payment-plans/accept', publicFormLimiter);
+// Global API limiter (applies to all remaining /api/ routes)
 app.use('/api/', apiLimiter);
 
 // Routes

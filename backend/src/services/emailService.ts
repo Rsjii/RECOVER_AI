@@ -75,8 +75,12 @@ class EmailService {
 
       // 3. Inject tracking pixel + unsubscribe footer (CAN-SPAM / GDPR compliance)
       const trackOpenUrl = `${backendUrl}/api/email/track/open?logId=${emailLogId}`;
-      const unsubToken = Buffer.from(`${job.recipientEmail}:${job.companyId}`).toString('base64');
-      const unsubUrl = `${frontendUrl}/unsubscribe?token=${unsubToken}`;
+      // Generate HMAC-SHA256 signed token (cryptographic, not just base64)
+      const unsubData = `${job.recipientEmail}:${job.companyId}`;
+      const hmac = crypto.createHmac('sha256', config.jwtSecret || 'fallback-secret');
+      hmac.update(unsubData);
+      const unsubToken = hmac.digest('hex');
+      const unsubUrl = `${frontendUrl}/unsubscribe?token=${unsubToken}&email=${encodeURIComponent(job.recipientEmail)}&company=${job.companyId}`;
 
       const bodyHtmlWithTracking = (generated.bodyHtml || '') +
         `<img src="${trackOpenUrl}" width="1" height="1" style="display:none" alt="" />` +

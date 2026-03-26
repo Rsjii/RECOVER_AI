@@ -84,6 +84,22 @@ export const RATE_LIMITS = {
     prod: 100,
     description: 'Webhook endpoints - should validate signature anyway',
   },
+
+  // Audit OTP (email verification before Stripe OAuth)
+  auditOtp: {
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    dev: 100,
+    prod: 5,
+    description: 'Audit OTP send - prove email ownership',
+  },
+
+  // Public form submissions (pilot request, payment plan accept, audit request)
+  publicForm: {
+    windowMs: 60 * 60 * 1000, // 1 hour
+    dev: 100,
+    prod: 10,
+    description: 'Public form submissions - gated by IP',
+  },
 };
 
 /**

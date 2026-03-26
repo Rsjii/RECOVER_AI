@@ -1,5 +1,7 @@
 import { Router } from 'express';
+import crypto from 'crypto';
 import { pool } from '../config/database';
+import { config } from '../config/env';
 import { logInfo } from '../utils/logger';
 
 const MODULE = 'UnsubscribeRoute';
@@ -7,33 +9,35 @@ const MODULE = 'UnsubscribeRoute';
 const router = Router();
 
 /**
- * POST /api/unsubscribe?token=xxx
+ * POST /api/unsubscribe?token=xxx&email=xxx&company=xxx
  * Handle unsubscribe requests from email links
- * Token is base64(customerId:companyId:timestamp)
+ * Token is HMAC-SHA256(email:companyId)
  */
 router.post('/', async (req, res) => {
   const handler = 'unsubscribe';
-  const { token } = req.query;
+  const { token, email, company } = req.query;
 
   try {
-    if (!token || typeof token !== 'string') {
-      res.status(400).json({ error: 'Missing or invalid token' });
+    if (!token || !email || !company || typeof token !== 'string' || typeof email !== 'string' || typeof company !== 'string') {
+      res.status(400).json({ error: 'Missing or invalid parameters' });
       return;
     }
 
-    // Decode token (simple base64, not cryptographic)
-    const decoded = Buffer.from(token, 'base64').toString('utf-8');
-    const [customerId, companyId] = decoded.split(':');
+    // Verify HMAC token
+    const unsubData = `${email}:${company}`;
+    const hmac = crypto.createHmac('sha256', config.jwtSecret || 'fallback-secret');
+    hmac.update(unsubData);
+    const expectedToken = hmac.digest('hex');
 
-    if (!customerId || !companyId) {
-      res.status(400).json({ error: 'Invalid token format' });
+    if (!crypto.timingSafeEqual(Buffer.from(token), Buffer.from(expectedToken))) {
+      res.status(400).json({ error: 'Invalid token' });
       return;
     }
 
-    // Verify customer exists and belongs to company
+    // Look up customer by email + company
     const customerResult = await pool.query(
-      'SELECT id, email FROM customers WHERE id = $1 AND company_id = $2',
-      [customerId, companyId]
+      'SELECT id FROM customers WHERE email = $1 AND company_id = $2',
+      [email, company]
     );
 
     if (customerResult.rows.length === 0) {
@@ -41,7 +45,7 @@ router.post('/', async (req, res) => {
       return;
     }
 
-    const customer = customerResult.rows[0];
+    const customerId = customerResult.rows[0].id;
 
     // Update customer to disable dunning emails
     await pool.query(
@@ -53,8 +57,8 @@ router.post('/', async (req, res) => {
 
     logInfo(MODULE, handler, 'Customer unsubscribed from dunning emails', {
       customerId,
-      companyId,
-      email: customer.email
+      company,
+      email
     });
 
     // Return HTML confirmation page

@@ -1,17 +1,42 @@
 import express from 'express';
 import * as auditController from '../controllers/auditController';
+import { auditOtpLimiter } from '../middleware/rateLimiter';
 
 const router = express.Router();
 
 /**
+ * ─────────────────────────────────────────────────────────────
+ * NEW OTP FLOW (Tier 3)
+ * ─────────────────────────────────────────────────────────────
+ */
+
+/**
+ * POST /api/audits/send-otp
+ * Step 1 (NEW): Prospect enters email, gets OTP
+ */
+router.post('/send-otp', auditOtpLimiter, auditController.sendAuditOtp);
+
+/**
+ * POST /api/audits/verify-otp
+ * Step 2 (NEW): Prospect enters OTP, gets audit created + OAuth link
+ */
+router.post('/verify-otp', auditOtpLimiter, auditController.verifyAuditOtp);
+
+/**
+ * ─────────────────────────────────────────────────────────────
+ * LEGACY FLOW (Still supported for backward compatibility)
+ * ─────────────────────────────────────────────────────────────
+ */
+
+/**
  * POST /api/audits/request
- * Step 1: Prospect enters email, gets OAuth link
+ * Step 1 (LEGACY): Prospect enters email, gets OAuth link
  */
 router.post('/request', auditController.createAuditRequest);
 
 /**
  * GET /api/audits/callback
- * Step 2: Stripe OAuth callback
+ * Step 2: Stripe OAuth callback (used by both flows)
  */
 router.get('/callback', auditController.handleStripeOAuthCallback);
 

@@ -11,12 +11,12 @@ export interface AuditRequest {
   completed_at?: Date;
 }
 
-export async function createAuditRequest(email: string): Promise<string> {
+export async function createAuditRequest(data: { token: string; companyName: string; email: string }): Promise<string> {
   const result = await pool.query(
-    `INSERT INTO audit_requests (email, status, created_at)
-     VALUES ($1, $2, NOW())
+    `INSERT INTO audit_requests (token, company_name, email, status)
+     VALUES ($1, $2, $3, $4)
      RETURNING id`,
-    [email, 'pending']
+    [data.token, data.companyName, data.email, 'pending']
   );
   return result.rows[0].id;
 }

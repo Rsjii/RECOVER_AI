@@ -121,27 +121,26 @@ export const updateCustomer = async (req: Request, res: Response): Promise<void>
 
 /**
  * POST /api/customers/unsubscribe (no auth — customers click link from email)
- * Body: { token } where token = base64(email:companyId)
+ * Body: { token, email, companyId } where token = HMAC-SHA256(email:companyId)
  */
 export const unsubscribeCustomer = async (req: Request, res: Response): Promise<void> => {
   const handler = 'unsubscribeCustomer';
   try {
-    const { token } = req.body as { token?: string };
-    if (!token) {
-      sendErrorResponse(res, 400, 'Missing unsubscribe token');
+    const { token, email, companyId } = req.body as { token?: string; email?: string; companyId?: string };
+    if (!token || !email || !companyId) {
+      sendErrorResponse(res, 400, 'Missing token, email, or companyId');
       return;
     }
 
-    let email: string, companyId: string;
-    try {
-      const decoded = Buffer.from(token, 'base64').toString('utf8');
-      [email, companyId] = decoded.split(':');
-    } catch {
-      sendErrorResponse(res, 400, 'Invalid unsubscribe token');
-      return;
-    }
+    // Verify HMAC token
+    const crypto = require('crypto');
+    const { config } = require('../config/env');
+    const unsubData = `${email}:${companyId}`;
+    const hmac = crypto.createHmac('sha256', config.jwtSecret || 'fallback-secret');
+    hmac.update(unsubData);
+    const expectedToken = hmac.digest('hex');
 
-    if (!email || !companyId) {
+    if (!crypto.timingSafeEqual(Buffer.from(token), Buffer.from(expectedToken))) {
       sendErrorResponse(res, 400, 'Invalid unsubscribe token');
       return;
     }

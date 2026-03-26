@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { createPilotCompany, createPilotUser, setupPilotPassword } from '../controllers/adminPilotController';
 import { authMiddleware } from '../middleware/auth';
+import { requireRole } from '../middleware/rbac';
 
 const router = Router();
 
@@ -8,10 +9,10 @@ const router = Router();
 router.use(authMiddleware);
 
 // Create a pilot company (admin only)
-router.post('/pilot-company', createPilotCompany);
+router.post('/pilot-company', requireRole('admin'), createPilotCompany);
 
 // Create a pilot user (admin only)
-router.post('/pilot-user', createPilotUser);
+router.post('/pilot-user', requireRole('admin'), createPilotUser);
 
 // Public endpoint - setup password (no auth required, just valid token)
 // This is exported separately for use without auth middleware

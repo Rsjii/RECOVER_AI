@@ -1,6 +1,8 @@
 import rateLimit from 'express-rate-limit';
 import slowDown from 'express-slow-down';
+import { RedisStore } from 'rate-limit-redis';
 import { RATE_LIMITS, getRateLimit, isDevEnvironment } from '../config/rateLimits';
+import { redisClient } from '../config/redis';
 
 // ============================================================================
 // RATE LIMITERS - Used to protect API endpoints from abuse
@@ -15,6 +17,21 @@ const limits = RATE_LIMITS;
 const isDev = isDevEnvironment();
 
 /**
+ * Create a Redis store for rate limiting (fails gracefully if Redis unavailable)
+ */
+function makeRedisStore(prefix: string) {
+  try {
+    return new RedisStore({
+      sendCommand: (...args: string[]) => (redisClient as any).sendCommand(args),
+      prefix: `rl:${prefix}:`,
+    });
+  } catch (err) {
+    // Fall back to memory store if Redis fails
+    return undefined;
+  }
+}
+
+/**
  * General API rate limiter
  * Dev: 1000 requests per 15 minutes
  * Prod: 100 requests per 15 minutes
@@ -25,6 +42,7 @@ export const apiLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many requests. Please try again later.' },
+  store: makeRedisStore('api'),
 });
 
 /**
@@ -36,6 +54,7 @@ export const authLimiter = rateLimit({
   windowMs: limits.auth.windowMs,
   max: getRateLimit('auth'),
   message: { error: 'Too many login attempts. Please wait 15 minutes.' },
+  store: makeRedisStore('auth'),
 });
 
 /**
@@ -60,6 +79,7 @@ export const syncLimiter = rateLimit({
   windowMs: limits.stripe.windowMs,
   max: getRateLimit('stripe'),
   message: { error: 'Sync limit reached. Try again in a few minutes.' },
+  store: makeRedisStore('sync'),
 });
 
 /**
@@ -93,6 +113,7 @@ export const emailLimiter = rateLimit({
   windowMs: limits.email.windowMs,
   max: getRateLimit('email'),
   message: { error: 'Email rate limit reached. Please slow down.' },
+  store: makeRedisStore('email'),
 });
 
 /**
@@ -104,5 +125,32 @@ export const webhookLimiter = rateLimit({
   windowMs: limits.webhook.windowMs,
   max: getRateLimit('webhook'),
   message: { error: 'Webhook rate limit reached.' },
+  store: makeRedisStore('webhook'),
+});
+
+/**
+ * Audit OTP limiter (email verification)
+ * Dev: 100 OTP sends per 15 minutes
+ * Prod: 5 OTP sends per 15 minutes
+ */
+export const auditOtpLimiter = rateLimit({
+  windowMs: limits.auditOtp.windowMs,
+  max: getRateLimit('auditOtp'),
+  message: { error: 'Too many OTP requests. Wait 15 minutes.' },
+  store: makeRedisStore('audit-otp'),
+  keyGenerator: (req) => req.ip || 'unknown',
+});
+
+/**
+ * Public form limiter (pilot request, payment plan accept, audit request)
+ * Dev: 100 submissions per hour
+ * Prod: 10 submissions per hour
+ */
+export const publicFormLimiter = rateLimit({
+  windowMs: limits.publicForm.windowMs,
+  max: getRateLimit('publicForm'),
+  message: { error: 'Too many requests. Try again in an hour.' },
+  store: makeRedisStore('public-form'),
+  keyGenerator: (req) => req.ip || 'unknown',
 });
 

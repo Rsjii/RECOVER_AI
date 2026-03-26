@@ -2,10 +2,12 @@ import { Request, Response } from 'express';
 import Stripe from 'stripe';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import { logInfo } from '../utils/logger';
 import { config } from '../config/env';
 import resendService from '../services/resendService';
 import { stripeService } from '../services/stripeService';
+import { redisClient } from '../config/redis';
 import * as CompanyDB from '../db/companies';
 import * as UserDB from '../db/users';
 import * as AuditDB from '../db/audits';
@@ -28,10 +30,27 @@ export const createAuditRequest = async (req: Request, res: Response) => {
 
     logInfo(MODULE, 'createAuditRequest', `Email: ${email}`);
 
-    // 1. Create audit_requests record
-    const auditId = await AuditDB.createAuditRequest(email);
+    // 1. Create audit_invite first (which generates its own token)
+    let inviteToken: string;
+    try {
+      const invite = await AuditInvitesDB.createAuditInvite({
+        email,
+        createdByType: 'website'
+      });
+      inviteToken = invite.token;
+    } catch (err: any) {
+      logInfo(MODULE, 'createAuditRequest', 'Failed to create audit invite', err.message);
+      return res.status(500).json({ error: 'Failed to create audit invite' });
+    }
 
-    // 2. Check if Stripe OAuth is configured
+    // 2. Create audit_requests record
+    const auditId = await AuditDB.createAuditRequest({
+      token: inviteToken,
+      companyName: email.split('@')[0],
+      email
+    });
+
+    // 3. Check if Stripe OAuth is configured
     if (!process.env.STRIPE_CLIENT_ID) {
       logInfo(MODULE, 'createAuditRequest', 'Stripe OAuth not configured', { auditId, email });
       return res.status(503).json({
@@ -41,7 +60,7 @@ export const createAuditRequest = async (req: Request, res: Response) => {
       });
     }
 
-    // 3. Generate Stripe OAuth URL OR demo analysis URL
+    // 4. Generate Stripe OAuth URL OR demo analysis URL
     let stripeAuthUrl: string;
 
     // DEMO MODE: Skip Stripe if DEMO_AUDIT_MODE enabled
@@ -732,5 +751,251 @@ export const validateInvite = async (req: Request, res: Response) => {
       expired: false,
       error: 'Validation failed',
     });
+  }
+};
+
+/**
+ * STEP 1 (NEW OTP FLOW): Send OTP to email
+ * POST /api/audits/send-otp { email }
+ * Returns: { verifyToken, devCode?, expiresIn }
+ */
+export const sendAuditOtp = async (req: Request, res: Response) => {
+  const { email } = req.body;
+  const handler = 'sendAuditOtp';
+
+  try {
+    // Validate email
+    if (!email || !email.includes('@')) {
+      return res.status(400).json({ error: 'Valid email required' });
+    }
+
+    logInfo(MODULE, handler, 'OTP request received', { email });
+
+    const isDev = config.nodeEnv === 'development' || config.nodeEnv === 'dev';
+
+    // Check Redis dedup: same email can only request once per 24h
+    const dedupKey = `audit:dedup:${email}`;
+    const existingDedup = await (redisClient as any).get(dedupKey);
+    if (existingDedup) {
+      logInfo(MODULE, handler, 'Dedup blocked (already submitted in 24h)', { email });
+      return res.status(409).json({
+        error: 'Already submitted. Check your email or wait 24 hours.',
+      });
+    }
+
+    // Generate OTP (6 digits)
+    const otp = isDev ? '123456' : String(Math.floor(100000 + Math.random() * 900000));
+
+    // Store OTP in Redis (15 min TTL)
+    const otpKey = `audit:otp:${email}`;
+    await (redisClient as any).setex(otpKey, 900, JSON.stringify({ code: otp, createdAt: Date.now() }));
+
+    // Generate verify token
+    const verifyToken = crypto.randomUUID();
+    const verifyKey = `audit:verify:${verifyToken}`;
+    await (redisClient as any).setex(verifyKey, 900, email);
+
+    logInfo(MODULE, handler, 'OTP stored in Redis', { email, otp: isDev ? otp : '***' });
+
+    // Send OTP via email (skip in dev)
+    if (!isDev) {
+      try {
+        await resendService.sendOTP({
+          email,
+          code: otp,
+        });
+        logInfo(MODULE, handler, 'OTP email sent', { email });
+      } catch (emailErr: any) {
+        logInfo(MODULE, handler, 'OTP email send failed (non-blocking)', { error: emailErr.message });
+        // Don't fail the request — user can still verify if they have the OTP
+      }
+    }
+
+    return res.json({
+      verifyToken,
+      devCode: isDev ? otp : undefined,
+      expiresIn: 900, // 15 minutes
+    });
+  } catch (err: any) {
+    logInfo(MODULE, handler, 'Error', { error: err.message });
+    return res.status(400).json({ error: 'Failed to send OTP' });
+  }
+};
+
+/**
+ * STEP 2 (NEW OTP FLOW): Verify OTP and create audit request
+ * POST /api/audits/verify-otp { verifyToken, code }
+ * Returns: { auditId, stripeAuthUrl }
+ */
+export const verifyAuditOtp = async (req: Request, res: Response) => {
+  const { verifyToken, code } = req.body;
+  const handler = 'verifyAuditOtp';
+
+  try {
+    // Validate input
+    if (!verifyToken || !code) {
+      return res.status(400).json({ error: 'Verify token and OTP code required' });
+    }
+
+    logInfo(MODULE, handler, 'OTP verification attempt', { verifyToken: verifyToken.substring(0, 8) });
+
+    // Get email from verify token
+    const verifyKey = `audit:verify:${verifyToken}`;
+    const email = await (redisClient as any).get(verifyKey);
+    if (!email) {
+      logInfo(MODULE, handler, 'Invalid or expired verify token', { verifyToken: verifyToken.substring(0, 8) });
+      return res.status(404).json({ error: 'Invalid or expired OTP session' });
+    }
+
+    // Check lockout (5 wrong attempts = 1 hour lockout)
+    const lockKey = `audit:lock:${email}`;
+    const lockCount = await (redisClient as any).get(lockKey);
+    if (lockCount && parseInt(lockCount) >= 5) {
+      logInfo(MODULE, handler, 'Account locked (too many attempts)', { email });
+      return res.status(429).json({
+        error: 'Too many attempts. Try again in 1 hour.',
+      });
+    }
+
+    // Get stored OTP
+    const otpKey = `audit:otp:${email}`;
+    const storedOtpData = await (redisClient as any).get(otpKey);
+    if (!storedOtpData) {
+      logInfo(MODULE, handler, 'OTP expired or not found', { email });
+      return res.status(400).json({ error: 'OTP expired. Request a new one.' });
+    }
+
+    const { code: storedCode } = JSON.parse(storedOtpData);
+
+    // Verify OTP code
+    if (code !== storedCode) {
+      const newCount = lockCount ? parseInt(lockCount) + 1 : 1;
+      const attemptsLeft = 5 - newCount;
+
+      // Set lockout with 1 hour expiry on first wrong attempt
+      if (newCount === 1) {
+        await (redisClient as any).setex(lockKey, 3600, String(newCount));
+      } else {
+        await (redisClient as any).incr(lockKey);
+      }
+
+      logInfo(MODULE, handler, 'Invalid OTP code', { email, attemptsLeft });
+      return res.status(400).json({
+        error: `Invalid code. ${attemptsLeft} attempt${attemptsLeft === 1 ? '' : 's'} remaining.`,
+      });
+    }
+
+    logInfo(MODULE, handler, 'OTP verified successfully', { email });
+
+    // Clear OTP and verify token
+    await (redisClient as any).del(otpKey);
+    await (redisClient as any).del(verifyKey);
+
+    // Set dedup (24 hour lockout on same email)
+    const dedupKey = `audit:dedup:${email}`;
+    await (redisClient as any).setex(dedupKey, 86400, '1');
+
+    // Create audit_invite + audit_request (existing flow)
+    let inviteToken: string;
+    try {
+      const invite = await AuditInvitesDB.createAuditInvite({
+        email,
+        createdByType: 'website',
+      });
+      inviteToken = invite.token;
+    } catch (err: any) {
+      logInfo(MODULE, handler, 'Failed to create audit invite', err.message);
+      return res.status(500).json({ error: 'Failed to create audit invite' });
+    }
+
+    const auditId = await AuditDB.createAuditRequest({
+      token: inviteToken,
+      companyName: email.split('@')[0],
+      email,
+    });
+
+    logInfo(MODULE, handler, 'Audit request created after OTP verification', { auditId, email });
+
+    // Generate Stripe OAuth URL
+    let stripeAuthUrl: string;
+
+    if (!process.env.STRIPE_CLIENT_ID) {
+      logInfo(MODULE, handler, 'Stripe OAuth not configured', { auditId, email });
+      return res.status(503).json({
+        error: 'Stripe audit not available. Please contact support.',
+        audit_id: auditId,
+        needs_config: true,
+      });
+    }
+
+    // DEMO MODE: Skip Stripe if DEMO_AUDIT_MODE enabled
+    if (process.env.DEMO_AUDIT_MODE === 'true') {
+      logInfo(MODULE, handler, 'Demo mode: redirecting to demo analysis', { auditId });
+      stripeAuthUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/audit-results/${auditId}?demo=true`;
+      // Auto-complete analysis for demo
+      await AuditDB.updateAuditRequest(auditId, {
+        status: 'complete',
+        analysis: JSON.stringify({
+          ar: {
+            total_invoices: 42,
+            total_overdue: 125000,
+            by_stage: {
+              stage1: { count: 12, amount: 45000, recovery_rate: 0.60 },
+              stage2: { count: 8, amount: 35000, recovery_rate: 0.35 },
+              stage3: { count: 5, amount: 25000, recovery_rate: 0.20 },
+              stage4: { count: 2, amount: 20000, recovery_rate: 0.08 },
+            },
+            decline_breakdown: { soft: 3, soft_percent: 0.07, hard: 2, hard_percent: 0.05 },
+            current_recovery: 0.15,
+            projected_recovery: 0.40,
+            delta: 31250,
+            previews: [],
+          },
+          dso: {
+            current_dso: 52,
+            benchmark_dso: 38,
+            gap: 14,
+            cost_per_day: 1042,
+            annual_cost: 14583,
+            projected_dso: 48,
+            working_capital_freed: 5833,
+          },
+          forecast: Array.from({ length: 90 }, (_, i) => ({
+            day: i,
+            balance: Math.round(i * 1000),
+            collection: Math.round(Math.random() * 2000),
+          })),
+          anomalies: { duplicates: 2, duplicate_savings: 8500, amount_spikes: 1, fraud_patterns: 0 },
+          total: {
+            ar_recovery: 31250,
+            dso_reduction: 5833,
+            anomaly_savings: 8500,
+            total: 45583,
+            monthly_cost: 2500,
+            monthly_recovery_fee: 0,
+            roi: 17,
+          },
+        }),
+        completed_at: new Date(),
+      });
+    } else {
+      // PRODUCTION: Real Stripe OAuth
+      stripeAuthUrl =
+        `https://connect.stripe.com/oauth/authorize?` +
+        `response_type=code&` +
+        `client_id=${process.env.STRIPE_CLIENT_ID}&` +
+        `scope=read_invoices,read_charges&` +
+        `state=${auditId}`;
+    }
+
+    logInfo(MODULE, handler, 'Audit ready for Stripe OAuth', { auditId, demo: process.env.DEMO_AUDIT_MODE === 'true' });
+
+    return res.json({
+      auditId,
+      stripeAuthUrl,
+    });
+  } catch (err: any) {
+    logInfo(MODULE, handler, 'Error', { error: err.message });
+    return res.status(400).json({ error: 'Failed to verify OTP' });
   }
 };
