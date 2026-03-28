@@ -38,8 +38,9 @@ export async function findUserById(id: string): Promise<UserRow | null> {
 
 export async function findUserWithCompany(userId: string) {
   const result = await pool.query(
-    `SELECT u.id, u.company_id, u.email, u.first_name, u.last_name, u.role, u.email_verified,
-            c.name as company_name, c.timezone, c.preferred_currency
+    `SELECT u.id, u.company_id, u.email, u.first_name, u.last_name, u.role, u.email_verified, u.onboarding_status,
+            c.name as company_name, c.timezone, c.preferred_currency,
+            c.account_type, c.pilot_mode, c.pilot_ends_at, c.stripe_account_id
      FROM users u
      JOIN companies c ON u.company_id = c.id
      WHERE u.id = $1`,
@@ -50,8 +51,8 @@ export async function findUserWithCompany(userId: string) {
 
 export async function findUserWithCompanyByEmail(email: string) {
   const result = await pool.query(
-    `SELECT u.id, u.company_id, u.email, u.password_hash, u.is_active, u.first_name, u.last_name, u.role, u.email_verified,
-            c.name as company_name, c.timezone, c.preferred_currency
+    `SELECT u.id, u.company_id, u.email, u.password_hash, u.is_active, u.first_name, u.last_name, u.role, u.email_verified, u.onboarding_status,
+            c.name as company_name, c.timezone, c.preferred_currency, c.account_type, c.pilot_mode, c.pilot_ends_at, c.stripe_account_id
      FROM users u
      JOIN companies c ON u.company_id = c.id
      WHERE u.email = $1`,
@@ -62,6 +63,20 @@ export async function findUserWithCompanyByEmail(email: string) {
 
 export async function updateLastLogin(userId: string): Promise<void> {
   await pool.query('UPDATE users SET last_login = NOW() WHERE id = $1', [userId]);
+}
+
+export async function setOnboardingActiveByCompanyId(companyId: string): Promise<void> {
+  await pool.query(
+    `UPDATE users SET onboarding_status = 'active', updated_at = NOW() WHERE company_id = $1`,
+    [companyId]
+  );
+}
+
+export async function updateOnboardingStatus(userId: string, status: 'company_form' | 'stripe_pending' | 'active'): Promise<void> {
+  await pool.query(
+    'UPDATE users SET onboarding_status = $1, updated_at = NOW() WHERE id = $2',
+    [status, userId]
+  );
 }
 
 export async function updateUser(userId: string, updates: Record<string, any>): Promise<UserRow> {

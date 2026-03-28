@@ -100,12 +100,17 @@ class AuthService {
         lastName: user.last_name,
         role: user.role,
         emailVerified: false,
+        onboardingStatus: 'active' as const,
       },
       company: {
         id: company.id,
         name: company.name,
         timezone: company.timezone,
         preferredCurrency: company.preferred_currency,
+        accountType: 'paid' as const,
+        pilotMode: null,
+        pilotEndsAt: null,
+        stripeConnected: false,
       },
       tokens: { accessToken, refreshToken },
     };
@@ -166,12 +171,17 @@ class AuthService {
         lastName: user.last_name,
         role: user.role,
         emailVerified: user.email_verified || false,
+        onboardingStatus: user.onboarding_status || 'active',
       },
       company: {
         id: user.company_id,
         name: user.company_name,
         timezone: user.timezone,
         preferredCurrency: user.preferred_currency,
+        accountType: user.account_type || 'paid',
+        pilotMode: user.pilot_mode || null,
+        pilotEndsAt: user.pilot_ends_at || null,
+        stripeConnected: !!user.stripe_account_id,
       },
       tokens: { accessToken, refreshToken },
     };
@@ -243,11 +253,16 @@ class AuthService {
       lastName: user.last_name,
       role: user.role,
       emailVerified: user.email_verified || false,
+      onboardingStatus: user.onboarding_status || 'active',
       company: {
         id: user.company_id,
         name: user.company_name,
         timezone: user.timezone,
         preferredCurrency: user.preferred_currency,
+        accountType: user.account_type || 'paid',
+        pilotMode: user.pilot_mode || null,
+        pilotEndsAt: user.pilot_ends_at || null,
+        stripeConnected: !!user.stripe_account_id,
       },
     };
   }
@@ -426,16 +441,29 @@ async googleLogin(code: string): Promise<AuthResponse> {
       firstName: user.first_name,
       lastName: user.last_name,
       role: user.role,
+      emailVerified: user.email_verified || true,
+      onboardingStatus: (user.onboarding_status || 'active') as string,
     },
     company: {
       id: user.company_id,
       name: user.company_name,
       timezone: user.timezone,
       preferredCurrency: user.preferred_currency,
+      accountType: (user.account_type || 'paid') as 'pilot' | 'paid',
+      pilotMode: (user.pilot_mode || null) as 'shadow' | 'auto' | 'paused' | null,
+      pilotEndsAt: user.pilot_ends_at || null,
+      stripeConnected: !!user.stripe_account_id,
     },
     tokens: { accessToken, refreshToken },
   };
 }
+
+  /**
+   * Public method to generate auth tokens (for use in onboarding)
+   */
+  public createAuthTokens(userId: string, companyId: string, email: string) {
+    return this.generateTokens(userId, companyId, email);
+  }
 }
 
 export const authService = new AuthService();

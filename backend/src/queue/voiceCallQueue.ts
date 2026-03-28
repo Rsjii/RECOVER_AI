@@ -1,5 +1,6 @@
 import { Queue, Worker } from 'bullmq';
 import { config } from '../config/env';
+import { isRedisConnected } from '../config/redis';
 import { logInfo, logError } from '../utils/logger';
 import { initiateVoiceCall, VoiceCallRequest } from '../services/twilioService';
 import { pool } from '../config/database';
@@ -26,26 +27,51 @@ function getRedisConnection() {
   };
 }
 
-const redisConnection = getRedisConnection();
+// OPTIMIZATION: Lazy load queue instead of creating at module load time
+// This prevents errors in dev mode without REDIS_URL
+let voiceCallQueue: Queue | null = null;
 
-export const voiceCallQueue = new Queue('voice-calls', {
-  connection: redisConnection,
-  defaultJobOptions: {
-    attempts: 2,
-    backoff: {
-      type: 'exponential',
-      delay: 2000,
-    },
-    removeOnComplete: true,
-  },
-});
+export function getVoiceCallQueue(): Queue | null {
+  if (!voiceCallQueue) {
+    const redisUrl = config.redisUrl;
+    if (!redisUrl) {
+      logError(MODULE, 'getVoiceCallQueue', 'REDIS_URL not configured - queue disabled');
+      return null;
+    }
+
+    if (!isRedisConnected()) {
+      logError(MODULE, 'getVoiceCallQueue', 'Redis not connected - queue disabled');
+      return null;
+    }
+
+    voiceCallQueue = new Queue('voice-calls', {
+      connection: getRedisConnection(),
+      defaultJobOptions: {
+        attempts: 2,
+        backoff: {
+          type: 'exponential',
+          delay: 2000,
+        },
+        removeOnComplete: true,
+      },
+    });
+  }
+
+  return voiceCallQueue;
+}
 
 /**
  * Add a voice call to the queue
  */
 export async function queueVoiceCall(req: VoiceCallRequest): Promise<string> {
   try {
-    const job = await voiceCallQueue.add('initiate-call', req, {
+    const queue = getVoiceCallQueue();
+    if (!queue) {
+      logError(MODULE, 'queueVoiceCall', 'Queue unavailable - skipping voice call', { invoiceId: req.invoiceId });
+      return 'queue-unavailable';
+    }
+
+    const job = await queue.add('initiate-call', req, {
       jobId: `voice-${req.invoiceId}`,
       delay: 0, // Immediate
     });
@@ -69,6 +95,12 @@ export async function queueVoiceCall(req: VoiceCallRequest): Promise<string> {
  * Start the voice call worker
  */
 export async function startVoiceCallWorker(): Promise<void> {
+  // OPTIMIZATION: Check if Redis is available before starting worker
+  if (!isRedisConnected()) {
+    logError(MODULE, 'startVoiceCallWorker', 'Redis not connected - worker disabled');
+    return;
+  }
+
   const worker = new Worker(
     'voice-calls',
     async (job) => {
@@ -128,7 +160,7 @@ export async function startVoiceCallWorker(): Promise<void> {
       }
     },
     {
-      connection: redisConnection,
+      connection: getRedisConnection(),
       concurrency: 5, // Max 5 concurrent calls
     }
   );
@@ -157,9 +189,15 @@ export async function startVoiceCallWorker(): Promise<void> {
  */
 export async function cleanOldVoiceCalls(ageMinutes: number = 1440): Promise<void> {
   try {
+    const queue = getVoiceCallQueue();
+    if (!queue) {
+      logError(MODULE, 'cleanOldVoiceCalls', 'Queue unavailable - skipping cleanup');
+      return;
+    }
+
     const before = Date.now() - ageMinutes * 60 * 1000;
-    await voiceCallQueue.clean(before, 100, 'completed');
-    await voiceCallQueue.clean(before, 100, 'failed');
+    await queue.clean(before, 100, 'completed');
+    await queue.clean(before, 100, 'failed');
 
     logInfo(MODULE, 'cleanOldVoiceCalls', 'Cleaned old voice call jobs', {
       ageMinutes,

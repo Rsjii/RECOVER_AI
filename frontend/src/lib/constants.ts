@@ -135,6 +135,14 @@ export const STATUS_COLORS = {
   uncollectable: '#6b7280',
 };
 
+// Semantic colors based on invoice age/overdue status
+export const AGING_COLORS = {
+  paid: { bg: 'bg-green-100 dark:bg-green-900/30', text: 'text-green-700 dark:text-green-400', label: 'Paid' },
+  due_soon: { bg: 'bg-yellow-100 dark:bg-yellow-900/30', text: 'text-yellow-700 dark:text-yellow-400', label: 'Due Soon' },
+  overdue_7_30: { bg: 'bg-orange-100 dark:bg-orange-900/30', text: 'text-orange-700 dark:text-orange-400', label: 'Overdue' },
+  overdue_30plus: { bg: 'bg-red-100 dark:bg-red-900/30', text: 'text-red-700 dark:text-red-400', label: 'Past Due' },
+};
+
 export const DATE_FORMAT = 'MMM dd, yyyy';
 export const DATE_TIME_FORMAT = 'MMM dd, yyyy hh:mm a';
 

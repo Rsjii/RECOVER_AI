@@ -1,5 +1,6 @@
 import { Queue, Worker, Job } from 'bullmq';
 import { config } from '../config/env';
+import { isRedisConnected } from '../config/redis';
 import { DunningEmailJob, DunningEmailType } from '../types/email';
 import emailService from '../services/emailService';
 import { countEmailsSentForInvoice } from '../db/emailLogs';
@@ -39,8 +40,21 @@ export function getRedisConnection() {
 // ============================================================
 let dunningQueue: Queue<DunningEmailJob> | null = null;
 
-export function getDunningQueue(): Queue<DunningEmailJob> {
+export function getDunningQueue(): Queue<DunningEmailJob> | null {
   if (!dunningQueue) {
+    // OPTIMIZATION: Check if Redis is available before creating queue
+    // This prevents errors in dev mode without REDIS_URL
+    const redisUrl = config.redisUrl;
+    if (!redisUrl) {
+      logWarn(LOG_MODULE, 'getDunningQueue', 'REDIS_URL not configured - queue disabled');
+      return null;
+    }
+
+    if (!isRedisConnected()) {
+      logWarn(LOG_MODULE, 'getDunningQueue', 'Redis not connected yet - queue disabled');
+      return null;
+    }
+
     dunningQueue = new Queue<DunningEmailJob>(QUEUE_NAME, {
       connection: getRedisConnection(),
       defaultJobOptions: {
@@ -135,6 +149,13 @@ export async function scheduleDunningEmails(
   }
 
   const queue = getDunningQueue();
+
+  // OPTIMIZATION: If Redis not available, skip queuing but continue
+  if (!queue) {
+    logWarn(LOG_MODULE, method, 'Queue unavailable (Redis disconnected) - skipping email scheduling', { invoiceId });
+    return 0;
+  }
+
   const now = Date.now();
   const dueDate = new Date(invoice.due_date).getTime();
 
@@ -197,6 +218,15 @@ export async function queueEmailNow(job: DunningEmailJob): Promise<string> {
   }
 
   const queue = getDunningQueue();
+
+  // OPTIMIZATION: If Redis not available, log and skip
+  if (!queue) {
+    logWarn(LOG_MODULE, 'queueEmailNow', 'Queue unavailable (Redis disconnected) - skipping email queue', {
+      invoiceId: job.invoiceId,
+      emailType: job.emailType,
+    });
+    return 'queue-unavailable';
+  }
 
   const bullJob = await queue.add(job.emailType, job, {
     delay: 0,

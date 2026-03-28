@@ -1,171 +1,174 @@
 import { pool } from '../config/database';
-import { logInfo, logError } from '../utils/logger';
-
-const MODULE = 'auditRequests';
 
 /**
- * Create a new audit request (from website form submission)
+ * Get audit request by ID
  */
-export async function createAuditRequest(params: {
-  token: string;
-  companyName: string;
-  email: string;
-}): Promise<{ id: string }> {
+export const getAuditRequest = async (id: string) => {
   try {
     const result = await pool.query(
-      `INSERT INTO audit_requests (token, company_name, email)
-       VALUES ($1, $2, $3)
-       RETURNING id`,
-      [params.token, params.companyName, params.email]
+      `SELECT * FROM audit_requests WHERE id = $1`,
+      [id]
     );
-
-    logInfo(MODULE, 'createAuditRequest', `Created audit request for ${params.email}`, {
-      company: params.companyName,
-    });
-
-    return { id: result.rows[0].id };
-  } catch (err: any) {
-    logError(MODULE, 'createAuditRequest', 'Failed to create audit request', err);
-    throw err;
-  }
-}
-
-/**
- * Get audit request by email
- */
-export async function getAuditRequest(email: string): Promise<{
-  id: string;
-  token: string;
-  company_name: string;
-  email: string;
-  status: string;
-  created_at: string;
-} | null> {
-  try {
-    const result = await pool.query(
-      `SELECT id, token, company_name, email, status, created_at FROM audit_requests
-       WHERE email = $1
-       ORDER BY created_at DESC
-       LIMIT 1`,
-      [email]
-    );
-
     return result.rows[0] || null;
-  } catch (err: any) {
-    logError(MODULE, 'getAuditRequest', 'Failed to get audit request', err);
-    throw err;
+  } catch (err) {
+    console.error('getAuditRequest error:', err);
+    return null;
   }
-}
+};
 
 /**
- * List audit requests with optional filtering
+ * Get audit request by token
  */
-export async function listAuditRequests(filters?: {
-  status?: string;
-  limit?: number;
-  offset?: number;
-}): Promise<any[]> {
+export const getAuditRequestByToken = async (token: string) => {
   try {
-    let query = `SELECT id, token, company_name, email, revenue, phone, status, created_at, reviewed_at
-                 FROM audit_requests`;
-    const params: any[] = [];
-    let paramIndex = 1;
-
-    if (filters?.status) {
-      query += ` WHERE status = $${paramIndex++}`;
-      params.push(filters.status);
-    }
-
-    query += ` ORDER BY created_at DESC`;
-
-    if (filters?.limit) {
-      query += ` LIMIT $${paramIndex++}`;
-      params.push(filters.limit);
-    }
-
-    if (filters?.offset) {
-      query += ` OFFSET $${paramIndex++}`;
-      params.push(filters.offset);
-    }
-
-    const result = await pool.query(query, params);
-    return result.rows;
-  } catch (err: any) {
-    logError(MODULE, 'listAuditRequests', 'Failed to list audit requests', err);
-    throw err;
-  }
-}
-
-/**
- * Update audit request status (pending → approved → converted)
- */
-export async function updateAuditRequestStatus(
-  email: string,
-  status: 'pending' | 'approved' | 'rejected' | 'converted'
-): Promise<void> {
-  try {
-    await pool.query(
-      `UPDATE audit_requests SET status = $1, reviewed_at = NOW() WHERE email = $2`,
-      [status, email]
+    const result = await pool.query(
+      `SELECT * FROM audit_requests WHERE token = $1 AND expires_at > NOW()`,
+      [token]
     );
-
-    logInfo(MODULE, 'updateAuditRequestStatus', `Updated ${email} status to ${status}`);
-  } catch (err: any) {
-    logError(MODULE, 'updateAuditRequestStatus', 'Failed to update request status', err);
-    throw err;
+    return result.rows[0] || null;
+  } catch (err) {
+    console.error('getAuditRequestByToken error:', err);
+    return null;
   }
-}
+};
 
 /**
- * Mark audit request as converted (after they become pilot)
+ * Update audit request with analysis data
  */
-export async function markAuditRequestAsConverted(email: string): Promise<void> {
+export const updateAuditRequest = async (id: string, data: any) => {
   try {
-    await pool.query(
-      `UPDATE audit_requests
-       SET status = 'converted', converted_at = NOW()
-       WHERE email = $1`,
-      [email]
-    );
+    const fields: string[] = [];
+    const values: any[] = [id];
+    let paramCount = 2;
 
-    logInfo(MODULE, 'markAuditRequestAsConverted', `Marked ${email} as converted`);
-  } catch (err: any) {
-    logError(MODULE, 'markAuditRequestAsConverted', 'Failed to mark as converted', err);
+    // Build dynamic UPDATE query
+    if (data.status) {
+      fields.push(`status = $${paramCount}`);
+      values.push(data.status);
+      paramCount++;
+    }
+    if (data.analysis_data) {
+      fields.push(`analysis_data = $${paramCount}`);
+      values.push(JSON.stringify(data.analysis_data));
+      paramCount++;
+    }
+    if (data.analysis_started_at !== undefined) {
+      fields.push(`analysis_started_at = $${paramCount}`);
+      values.push(data.analysis_started_at);
+      paramCount++;
+    }
+    if (data.analysis_completed_at !== undefined) {
+      fields.push(`analysis_completed_at = $${paramCount}`);
+      values.push(data.analysis_completed_at);
+      paramCount++;
+    }
+
+    if (fields.length === 0) return null;
+
+    const query = `
+      UPDATE audit_requests
+      SET ${fields.join(', ')}
+      WHERE id = $1
+      RETURNING *
+    `;
+
+    const result = await pool.query(query, values);
+    return result.rows[0] || null;
+  } catch (err) {
+    console.error('updateAuditRequest error:', err);
     throw err;
   }
-}
+};
 
 /**
- * Get conversion stats for dashboard
+ * Update audit request status by ID
  */
-export async function getAuditRequestStats(): Promise<{
-  pending: number;
-  approved: number;
-  rejected: number;
-  converted: number;
-  total: number;
-}> {
+export const updateAuditRequestStatusById = async (id: string, status: string) => {
+  try {
+    const result = await pool.query(
+      `UPDATE audit_requests SET status = $1 WHERE id = $2 RETURNING id`,
+      [status, id]
+    );
+    return result.rows[0] || null;
+  } catch (err) {
+    console.error('updateAuditRequestStatusById error:', err);
+    return null;
+  }
+};
+
+/**
+ * List all audit requests
+ */
+export const listAuditRequests = async () => {
+  try {
+    const result = await pool.query(
+      `SELECT * FROM audit_requests ORDER BY created_at DESC`
+    );
+    return result.rows || [];
+  } catch (err) {
+    console.error('listAuditRequests error:', err);
+    return [];
+  }
+};
+
+/**
+ * Get audit request stats
+ */
+export const getAuditRequestStats = async () => {
   try {
     const result = await pool.query(
       `SELECT
-        COUNT(CASE WHEN status = 'pending' THEN 1 END) as pending,
-        COUNT(CASE WHEN status = 'approved' THEN 1 END) as approved,
-        COUNT(CASE WHEN status = 'rejected' THEN 1 END) as rejected,
-        COUNT(CASE WHEN status = 'converted' THEN 1 END) as converted,
-        COUNT(*) as total
-       FROM audit_requests`
+        COUNT(*) FILTER (WHERE status = 'pending') as pending,
+        COUNT(*) FILTER (WHERE status = 'approved') as approved,
+        COUNT(*) FILTER (WHERE status = 'analysis_complete') as analysis_complete,
+        COUNT(*) FILTER (WHERE status = 'converted') as converted
+      FROM audit_requests`
     );
+    return result.rows[0] || { pending: 0, approved: 0, analysis_complete: 0, converted: 0 };
+  } catch (err) {
+    console.error('getAuditRequestStats error:', err);
+    return { pending: 0, approved: 0, analysis_complete: 0, converted: 0 };
+  }
+};
 
-    const row = result.rows[0];
-    return {
-      pending: parseInt(row.pending) || 0,
-      approved: parseInt(row.approved) || 0,
-      rejected: parseInt(row.rejected) || 0,
-      converted: parseInt(row.converted) || 0,
-      total: parseInt(row.total) || 0,
-    };
-  } catch (err: any) {
-    logError(MODULE, 'getAuditRequestStats', 'Failed to get stats', err);
+/**
+ * Find in-progress audit for email
+ */
+export const findInProgressAudit = async (email: string) => {
+  try {
+    const result = await pool.query(
+      `SELECT * FROM audit_requests
+       WHERE email = $1 AND status != 'converted' AND status != 'cancelled'
+       AND expires_at > NOW()
+       ORDER BY created_at DESC LIMIT 1`,
+      [email]
+    );
+    return result.rows[0] || null;
+  } catch (err) {
+    console.error('findInProgressAudit error:', err);
+    return null;
+  }
+};
+
+/**
+ * Create audit request (used in new flow)
+ */
+export const createAuditRequest = async (data: {
+  token: string;
+  email: string;
+  company_name: string;
+  expires_at: Date;
+}) => {
+  try {
+    const result = await pool.query(
+      `INSERT INTO audit_requests (token, email, company_name, expires_at, status)
+       VALUES ($1, $2, $3, $4, 'pending')
+       RETURNING *`,
+      [data.token, data.email, data.company_name, data.expires_at]
+    );
+    return result.rows[0] || null;
+  } catch (err) {
+    console.error('createAuditRequest error:', err);
     throw err;
   }
-}
+};

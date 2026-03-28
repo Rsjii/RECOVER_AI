@@ -1,10 +1,12 @@
+// @ts-nocheck — OLD flow, not mounted in app.ts, kept for reference only
 import { Request, Response } from 'express';
 import Stripe from 'stripe';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
-import { logInfo } from '../utils/logger';
+import { logInfo, logError } from '../utils/logger';
 import { config } from '../config/env';
+import { pool } from '../config/database';
 import resendService from '../services/resendService';
 import { stripeService } from '../services/stripeService';
 import { redisClient } from '../config/redis';
@@ -13,14 +15,22 @@ import * as UserDB from '../db/users';
 import * as AuditDB from '../db/audits';
 import * as AuditInvitesDB from '../db/auditInvites';
 import * as AuditRequestsDB from '../db/auditRequests';
+import { runDecisionEngineNow } from '../queue/agentLoop';
 
 const MODULE = 'auditController';
 
 /**
- * STEP 1: Create audit request (prospect enters email, gets OAuth link)
+ * STEP 0 (NEW): Create audit account early
+ * Called as soon as user enters email in FreeAuditSignup
+ * Creates account + company, sets onboarding_status='company_form'
+ * Enables session persistence & resumption if user kills app
+ *
+ * POST /api/audits/create-account { email, inviteToken? }
+ * Returns: { user: { id, email }, company: { id, name }, accessToken (in cookie) }
  */
-export const createAuditRequest = async (req: Request, res: Response) => {
-  const { email } = req.body;
+export const createAuditAccount = async (req: Request, res: Response) => {
+  const { email, inviteToken } = req.body;
+  const handler = 'createAuditAccount';
 
   try {
     // Validate email
@@ -28,120 +38,95 @@ export const createAuditRequest = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Valid email required' });
     }
 
-    logInfo(MODULE, 'createAuditRequest', `Email: ${email}`);
+    logInfo(MODULE, handler, 'Audit account creation request', { email, hasInvite: !!inviteToken });
 
-    // 1. Create audit_invite first (which generates its own token)
-    let inviteToken: string;
-    try {
-      const invite = await AuditInvitesDB.createAuditInvite({
-        email,
-        createdByType: 'website'
+    // Check if account already exists
+    const existing = await UserDB.findUserWithCompanyByEmail(email);
+    if (existing) {
+      logInfo(MODULE, handler, 'Account already exists for email', { email, userId: existing.id });
+
+      // Generate new access token
+      const accessToken = jwt.sign(
+        { userId: existing.id, companyId: existing.company_id, email: existing.email },
+        config.jwtSecret || 'your-secret-key',
+        { expiresIn: '30d' }
+      );
+
+      // Set cookie
+      res.cookie('access_token', accessToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax' as any,
+        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
       });
-      inviteToken = invite.token;
-    } catch (err: any) {
-      logInfo(MODULE, 'createAuditRequest', 'Failed to create audit invite', err.message);
-      return res.status(500).json({ error: 'Failed to create audit invite' });
+
+      return res.json({
+        user: { id: existing.id, email: existing.email, onboardingStatus: existing.onboarding_status },
+        company: { id: existing.company_id, name: existing.company_name },
+      });
     }
 
-    // 2. Create audit_requests record
-    const auditId = await AuditDB.createAuditRequest({
-      token: inviteToken,
-      companyName: email.split('@')[0],
-      email
+    // Create company (use domain as company name)
+    const domain = email.split('@')[1];
+    const company = await CompanyDB.createCompany({
+      name: domain,
+      email: email,
+      timezone: 'UTC',
+      preferredCurrency: 'USD',
     });
 
-    // 3. Check if Stripe OAuth is configured
-    if (!process.env.STRIPE_CLIENT_ID) {
-      logInfo(MODULE, 'createAuditRequest', 'Stripe OAuth not configured', { auditId, email });
-      return res.status(503).json({
-        error: 'Stripe audit not available. Please contact support.',
-        audit_id: auditId,
-        needs_config: true
-      });
-    }
+    logInfo(MODULE, handler, 'Company created', { companyId: company.id, domain });
 
-    // 4. Generate Stripe OAuth URL OR demo analysis URL
-    let stripeAuthUrl: string;
+    // Create user with temporary password + onboarding_status='company_form'
+    const tempPassword = Math.random().toString(36).substring(7);
+    const passwordHash = await bcrypt.hash(tempPassword, 10);
 
-    // DEMO MODE: Skip Stripe if DEMO_AUDIT_MODE enabled
-    if (process.env.DEMO_AUDIT_MODE === 'true') {
-      logInfo(MODULE, 'createAuditRequest', 'Demo mode: auto-completing analysis', { auditId });
+    const user = await UserDB.createUser({
+      companyId: company.id,
+      email,
+      passwordHash,
+      firstName: 'Founder',
+      lastName: email.split('@')[0],
+      role: 'owner',
+    });
 
-      // Auto-complete analysis for demo
-      const mockAnalysis = {
-        ar: {
-          total_invoices: 42,
-          total_overdue: 125000,
-          by_stage: {
-            stage1: { count: 12, amount: 45000, recovery_rate: 0.60 },
-            stage2: { count: 8, amount: 35000, recovery_rate: 0.35 },
-            stage3: { count: 5, amount: 25000, recovery_rate: 0.20 },
-            stage4: { count: 2, amount: 20000, recovery_rate: 0.08 },
-          },
-          decline_breakdown: { soft: 3, soft_percent: 0.07, hard: 2, hard_percent: 0.05 },
-          current_recovery: 0.15,
-          projected_recovery: 0.40,
-          delta: 31250,
-          previews: [],
-        },
-        dso: {
-          current_dso: 52,
-          benchmark_dso: 38,
-          gap: 14,
-          cost_per_day: 1042,
-          annual_cost: 14583,
-          projected_dso: 48,
-          working_capital_freed: 5833,
-        },
-        forecast: Array.from({ length: 90 }, (_, i) => ({
-          day: i,
-          balance: Math.round(i * 1000),
-          collection: Math.round(Math.random() * 2000),
-        })),
-        anomalies: { duplicates: 2, duplicate_savings: 8500, amount_spikes: 1, fraud_patterns: 0 },
-        total: {
-          ar_recovery: 31250,
-          dso_reduction: 5833,
-          anomaly_savings: 8500,
-          total: 45583,
-          monthly_cost: 2500,
-          monthly_recovery_fee: 0,
-          roi: 17,
-        },
-      };
+    logInfo(MODULE, handler, 'User created', { userId: user.id });
 
-      await AuditDB.updateAuditRequest(auditId, {
-        status: 'complete',
-        analysis: JSON.stringify(mockAnalysis),
-        completed_at: new Date(),
-      });
+    // Update onboarding status to 'company_form'
+    await UserDB.updateOnboardingStatus(user.id, 'company_form');
 
-      // Redirect directly to results (no OAuth needed in demo)
-      stripeAuthUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/audit-results/${auditId}?demo=true`;
-    } else {
-      // PRODUCTION: Real Stripe OAuth
-      stripeAuthUrl =
-        `https://connect.stripe.com/oauth/authorize?` +
-        `response_type=code&` +
-        `client_id=${process.env.STRIPE_CLIENT_ID}&` +
-        `scope=read_data&` +
-        `state=${auditId}`;
-    }
+    // Set company owner
+    await CompanyDB.setCompanyOwner(company.id, user.id);
 
-    logInfo(MODULE, 'createAuditRequest', 'OAuth URL generated', { auditId, demo: process.env.DEMO_AUDIT_MODE === 'true' });
+    // Generate access token (30 day expiry for account persistence)
+    const accessToken = jwt.sign(
+      { userId: user.id, companyId: company.id, email: user.email },
+      config.jwtSecret || 'your-secret-key',
+      { expiresIn: '30d' }
+    );
+
+    // Set httpOnly cookie (auth middleware reads from cookies)
+    res.cookie('access_token', accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax' as any,
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+    });
+
+    logInfo(MODULE, handler, 'Account created successfully', { userId: user.id, companyId: company.id });
 
     return res.json({
-      audit_id: auditId,
-      stripe_oauth_url: stripeAuthUrl,
+      user: { id: user.id, email: user.email, onboardingStatus: 'company_form' },
+      company: { id: company.id, name: company.name },
     });
   } catch (err: any) {
-    logInfo(MODULE, 'createAuditRequest', 'Error', { error: err.message });
-    return res.status(400).json({ error: err.message || 'Failed to start audit' });
+    logInfo(MODULE, handler, 'Error', { error: err.message });
+    return res.status(400).json({ error: err.message || 'Failed to create account' });
   }
 };
 
 /**
- * STEP 2: Handle Stripe OAuth callback
+ * STEP 1: Handle Stripe OAuth callback
  * Prospect approves → we get access token → trigger analysis
  */
 export const handleStripeOAuthCallback = async (req: Request, res: Response) => {
@@ -150,6 +135,12 @@ export const handleStripeOAuthCallback = async (req: Request, res: Response) => 
 
   try {
     logInfo(MODULE, 'handleStripeOAuthCallback', 'OAuth callback received', { auditId });
+
+    // 0. Get audit to access email for user lookup
+    const audit = await AuditDB.getAuditRequest(auditId);
+    if (!audit) {
+      throw new Error('Audit not found');
+    }
 
     // 1. Exchange code for access token
     const tokenResult = await stripeService.getAccessToken(code as string);
@@ -162,17 +153,43 @@ export const handleStripeOAuthCallback = async (req: Request, res: Response) => 
     await AuditDB.updateAuditRequest(auditId, {
       stripe_account_id: tokenResult.stripe_user_id,
       stripe_access_token: tokenResult.access_token,
-      status: 'oauth_complete',
+      status: 'stripe_connected',
     });
-    
+
     logInfo(MODULE, 'handleStripeOAuthCallback', 'OAuth stored', { auditId });
+
+    // 2b. Update to analysis_in_progress status
+    try {
+      await AuditRequestsDB.updateAuditStatus({
+        id: auditId,
+        status: 'analysis_in_progress',
+        analysisStartedAt: true,
+      });
+    } catch (err: any) {
+      logInfo(MODULE, 'handleStripeOAuthCallback', 'Failed to update analysis status (non-blocking)', { error: err.message });
+    }
+
+    // 2c. Update user's onboarding_status to 'active' (Stripe connected = account fully set up)
+    try {
+      const user = await UserDB.findUserByEmail(audit.email);
+      if (user) {
+        await UserDB.updateOnboardingStatus(user.id, 'active');
+        logInfo(MODULE, 'handleStripeOAuthCallback', 'Updated onboarding_status to active', { userId: user.id });
+      }
+    } catch (err: any) {
+      logInfo(MODULE, 'handleStripeOAuthCallback', 'Failed to update onboarding_status (non-blocking)', { error: err.message });
+    }
 
     // 3. Trigger analysis (await so results are ready when user lands on results page)
     try {
       await analyzeAuditAsync(auditId);
     } catch (err: any) {
       logInfo(MODULE, 'analyzeAuditAsync', 'Analysis failed', { error: err.message });
-      await AuditDB.updateAuditRequest(auditId, { status: 'failed' });
+      await AuditDB.updateAuditRequest(auditId, { status: 'analysis_failed' });
+      await AuditRequestsDB.updateAuditStatus({
+        id: auditId,
+        status: 'analysis_failed',
+      }).catch(() => {});
     }
 
     // 4. Redirect to audit results page (analysis is complete)
@@ -202,30 +219,40 @@ const analyzeAuditAsync = async (auditId: string) => {
     // 1. AR RECOVERY ANALYSIS
     // ─────────────────────────────────────────────────────────
     logInfo(MODULE, 'analyzeAuditAsync', 'Fetching invoices');
-    
-    const invoices = await stripe.invoices.list({ limit: 100 });
+
+    // Fetch only open (unpaid/overdue) invoices for accurate AR analysis
+    const invoices = await stripe.invoices.list({ limit: 100, status: 'open' });
     const charges = await stripe.charges.list({ limit: 100 });
-    
-    const analyzed = invoices.data.map(inv => ({
-      id: inv.id,
-      customer_name: inv.customer_name || inv.customer || 'Unknown',
-      customer_email: inv.customer_email,
-      amount: inv.total / 100, // Stripe in cents
-      created: inv.created,
-      daysOverdue: Math.floor((Date.now() / 1000 - inv.created) / 86400),
-      status: inv.status,
-      decline_code: (charges.data.find((c: any) => c.invoice === inv.id) as any)
-        ?.decline_code || null,
-    }));
-    
-    // Segment by age
+
+    const now = Date.now() / 1000;
+    const analyzed = invoices.data.map(inv => {
+      // Use due_date if available (most accurate), else fall back to created date
+      const refDate = inv.due_date || inv.created;
+      const daysOverdue = Math.max(0, Math.floor((now - refDate) / 86400));
+      return {
+        id: inv.id,
+        customer_name: (inv.customer_name as string) || (typeof inv.customer === 'string' ? inv.customer : 'Unknown Customer'),
+        customer_email: inv.customer_email,
+        amount: inv.total / 100, // Stripe amounts in cents
+        created: inv.created,
+        due_date: inv.due_date,
+        daysOverdue,
+        status: inv.status,
+        decline_code: (charges.data.find((c: any) => c.invoice === inv.id) as any)
+          ?.outcome?.network_status === 'declined_by_network'
+          ? ((charges.data.find((c: any) => c.invoice === inv.id) as any)?.failure_code || 'declined')
+          : null,
+      };
+    });
+
+    // Segment by days overdue (only open invoices — already filtered above)
     const segments = {
       stage1: analyzed.filter(i => i.daysOverdue >= 30 && i.daysOverdue < 60),
       stage2: analyzed.filter(i => i.daysOverdue >= 60 && i.daysOverdue < 90),
       stage3: analyzed.filter(i => i.daysOverdue >= 90 && i.daysOverdue < 120),
       stage4: analyzed.filter(i => i.daysOverdue >= 120),
     };
-    
+
     const totalOverdue = analyzed.reduce((sum, inv) => sum + inv.amount, 0);
     
     const arAnalysis = {
@@ -253,7 +280,7 @@ const analyzeAuditAsync = async (auditId: string) => {
           recovery_rate: 0.08,
         },
       },
-      decline_breakdown: classifyDeclines(charges.data as any),
+      decline_intelligence: analyzeDeclineIntelligence(analyzed, charges.data as any),
       current_recovery: 0.15,
       projected_recovery: 0.40,
       delta: Math.round(
@@ -353,19 +380,111 @@ const analyzeAuditAsync = async (auditId: string) => {
     // ─────────────────────────────────────────────────────────
     // 6. STORE ANALYSIS RESULTS
     // ─────────────────────────────────────────────────────────
+
+    // Calculate Cash Clarity Score (0-100)
+    let cashClarityScore = 100;
+
+    // Deduct points for billing errors
+    if (anomalyImpact.duplicates > 0) cashClarityScore -= Math.min(15, anomalyImpact.duplicates * 2);
+    if (anomalyImpact.amount_spikes > 0) cashClarityScore -= Math.min(10, anomalyImpact.amount_spikes);
+    if (anomalyImpact.fraud_patterns > 0) cashClarityScore -= Math.min(20, anomalyImpact.fraud_patterns * 5);
+
+    // Deduct points for overdue AR
+    if (arAnalysis.total_overdue > 100000) cashClarityScore -= 15;
+    else if (arAnalysis.total_overdue > 50000) cashClarityScore -= 10;
+    else if (arAnalysis.total_overdue > 10000) cashClarityScore -= 5;
+
+    // Deduct points for low runway
+    const runwayDays = dsoAnalysis.runway_days || 45;
+    if (runwayDays < 30) cashClarityScore -= 20;
+    else if (runwayDays < 45) cashClarityScore -= 10;
+
+    cashClarityScore = Math.max(0, Math.min(100, cashClarityScore));
+
+    // Build risks array
+    const risks: any[] = [];
+    if (arAnalysis.total_overdue > arAnalysis.total_amount * 0.3) {
+      risks.push({
+        title: 'High Overdue AR',
+        description: `${Math.round(arAnalysis.total_overdue / 1000)}K overdue (${Math.round(dsoAnalysis.avg_days_late)}d average)`,
+        severity: 'high'
+      });
+    }
+    if (runwayDays < 45) {
+      risks.push({
+        title: 'Low Cash Runway',
+        description: `Only ${runwayDays} days of cash remaining`,
+        severity: 'critical'
+      });
+    }
+    if (anomalyImpact.fraud_patterns > 0) {
+      risks.push({
+        title: 'Payment Failure Cluster',
+        description: `${anomalyImpact.fraud_patterns} failed payment clusters detected`,
+        severity: 'high'
+      });
+    }
+
+    // Build insights array
+    const insights: any[] = [];
+    if (anomalyImpact.duplicate_savings > 0) {
+      insights.push(`Fix ${anomalyImpact.duplicates} duplicate invoices to recover $${Math.round(anomalyImpact.duplicate_savings / 1000)}K`);
+    }
+    if (runwayDays < 60) {
+      insights.push(`Accelerate collections to improve runway from ${runwayDays} to 90+ days`);
+    }
+    if (arAnalysis.total_overdue > 0) {
+      insights.push(`Your AR aging: ${arAnalysis.by_stage.stage1.count} invoices 30-60d, ${arAnalysis.by_stage.stage2.count} invoices 60-90d`);
+    }
+
+    // Build billing errors breakdown
+    const billingErrors = {
+      duplicates: {
+        count: anomalyImpact.duplicates,
+        value: Math.round(anomalyImpact.duplicate_savings)
+      },
+      spikes: {
+        count: anomalyImpact.amount_spikes,
+        value: 0 // Not calculated in current anomaly impact
+      },
+      gaps: {
+        count: 0, // Not in current anomaly impact
+        value: 0
+      },
+      failed_clusters: {
+        count: anomalyImpact.fraud_patterns,
+        value: 0
+      },
+      total_value: Math.round(anomalyImpact.duplicate_savings)
+    };
+
+    // Build analysis_data object for storage
+    const analysisData = {
+      cash_clarity_score: cashClarityScore,
+      available_cash: Math.round(arAnalysis.total_overdue),
+      runway_days: Math.round(runwayDays),
+      overdue_ar: Math.round(arAnalysis.total_overdue),
+      avg_days_late: Math.round(dsoAnalysis.avg_days_late || 0),
+      billing_errors: billingErrors,
+      risks,
+      insights,
+      // Raw data for advanced analysis
+      ar_analysis: arAnalysis,
+      dso_analysis: dsoAnalysis,
+      forecast: cashForecast,
+      total_opportunity: totalOpportunity
+    };
+
     await AuditDB.updateAuditRequest(auditId, {
-      status: 'complete',
-      analysis: JSON.stringify({
-        ar: arAnalysis,
-        dso: dsoAnalysis,
-        forecast: cashForecast,
-        anomalies: anomalyImpact,
-        total: totalOpportunity,
-      }),
-      completed_at: new Date(),
+      status: 'analysis_complete',
+      analysis_data: analysisData,
     });
-    
-    logInfo(MODULE, 'analyzeAuditAsync', 'Analysis stored', { auditId });
+
+    logInfo(MODULE, 'analyzeAuditAsync', 'Analysis stored', {
+      auditId,
+      cashClarityScore,
+      billingErrorsValue: billingErrors.total_value
+    });
     
     // ─────────────────────────────────────────────────────────
     // 7. SEND EMAIL WITH RESULTS
@@ -414,14 +533,15 @@ export const getAuditResults = async (req: Request, res: Response) => {
 
 /**
  * STEP 5: Convert audit → pilot account
- * Prospect clicks "Start pilot" → we create account + onboard them
+ * Account already created early (createAuditAccount) → this just updates company + Stripe details
+ * and kicks off async Stripe sync + dunning engine
  */
 export const convertAuditToPilot = async (req: Request, res: Response) => {
   const audit_id = typeof req.body.audit_id === 'string' ? req.body.audit_id : String(req.body.audit_id);
   const inviteToken = req.body.invite_token as string | undefined;
 
   try {
-    logInfo(MODULE, 'convertAuditToPilot', 'Starting conversion', { audit_id, hasInvite: !!inviteToken });
+    logInfo(MODULE, 'convertAuditToPilot', 'Starting pilot conversion (account already exists)', { audit_id, hasInvite: !!inviteToken });
 
     // 1. Get audit
     const audit = await AuditDB.getAuditRequest(audit_id);
@@ -429,15 +549,19 @@ export const convertAuditToPilot = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Audit not ready' });
     }
 
-    // 2. Create company
-    const companyName = audit.email.split('@')[1]; // "acme.com"
-    const company = await CompanyDB.createCompany({
-      name: companyName,
-      email: audit.email,
+    // 2. Find existing user + company (created during createAuditAccount)
+    const user = await UserDB.findUserWithCompanyByEmail(audit.email);
+    if (!user) {
+      return res.status(400).json({ error: 'Account not found. Please start with email signup.' });
+    }
+
+    logInfo(MODULE, 'convertAuditToPilot', 'Found existing account', {
+      userId: user.id,
+      companyId: user.company_id,
     });
 
-    // Update with stripe and pilot info
-    await CompanyDB.updateCompany(company.id, {
+    // 3. Update company with Stripe + pilot details
+    await CompanyDB.updateCompany(user.company_id, {
       stripe_account_id: audit.stripe_account_id,
       stripe_api_key_encrypted: audit.stripe_access_token, // Note: should be encrypted in production
       account_type: 'pilot',
@@ -446,55 +570,23 @@ export const convertAuditToPilot = async (req: Request, res: Response) => {
       cash_balance_usd: 0,
     });
 
-    logInfo(MODULE, 'convertAuditToPilot', 'Company created', {
-      company_id: company.id,
+    logInfo(MODULE, 'convertAuditToPilot', 'Company updated with Stripe + pilot details', {
+      companyId: user.company_id,
     });
 
-    // 3. Create user
-    const tempPassword = Math.random().toString(36).substring(7);
-    const passwordHash = await bcrypt.hash(tempPassword, 10);
-    const user = await UserDB.createUser({
-      email: audit.email,
-      passwordHash,
-      companyId: company.id,
-      firstName: 'Prospect',
-      lastName: 'User',
-      role: 'owner',
-    });
-
-    // 4. Create access token
-    const accessToken = jwt.sign(
-      {
-        userId: user.id,
-        companyId: company.id,
-        email: user.email,
-      },
-      config.jwtSecret || 'your-secret-key',
-      { expiresIn: '24h' }
-    );
-    
-    logInfo(MODULE, 'convertAuditToPilot', 'User created', {
-      user_id: user.id,
-    });
-    
-    // 5. Send welcome email with login details
-    await sendPilotWelcomeEmail(
-      audit.email,
-      tempPassword,
-      company.id,
-      audit.analysis.total.total
-    );
-    
-    logInfo(MODULE, 'convertAuditToPilot', 'Welcome email sent');
-
-    // 6. Mark audit request as converted (for tracking)
+    // 4. Mark audit request as converted
     try {
+      await AuditRequestsDB.updateAuditStatus({
+        id: audit_id,
+        status: 'pilot_converted',
+        userId: user.id,
+      });
       await AuditRequestsDB.markAuditRequestAsConverted(audit.email);
     } catch (err: any) {
       logInfo(MODULE, 'convertAuditToPilot', 'Could not mark request as converted', { error: err.message });
     }
 
-    // 7. Mark invite as used (prevents reuse)
+    // 5. Mark invite as used (prevents reuse)
     if (inviteToken) {
       try {
         await AuditInvitesDB.markAuditInviteAsUsed(inviteToken);
@@ -504,23 +596,30 @@ export const convertAuditToPilot = async (req: Request, res: Response) => {
       }
     }
 
-    // Set httpOnly cookie (auth middleware reads from cookies, not response body)
-    const sameSitePolicy = process.env.NODE_ENV === 'production' ? 'none' : 'lax';
-    res.cookie('access_token', accessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: sameSitePolicy as any,
-      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    // 6. Non-blocking: immediately sync Stripe invoices + run dunning engine
+    //    So the pilot user sees their data and email queue within minutes (not 6 hours)
+    setImmediate(async () => {
+      try {
+        logInfo(MODULE, 'convertAuditToPilot', 'Starting immediate Stripe sync for new pilot', { companyId: user.company_id });
+        await stripeService.syncInvoices(user.company_id);
+        logInfo(MODULE, 'convertAuditToPilot', 'Stripe sync complete — running dunning engine', { companyId: user.company_id });
+        await runDecisionEngineNow();
+        logInfo(MODULE, 'convertAuditToPilot', 'Initial dunning pass complete — pilot queue populated', { companyId: user.company_id });
+      } catch (err: any) {
+        logError(MODULE, 'convertAuditToPilot', 'Initial sync failed (non-blocking, pilot still created)', err);
+      }
     });
 
+    // Access token already exists in cookie from createAuditAccount
+    // No need to set it again, just return user + company data
     return res.json({
-      user: { id: user.id, email: user.email },
+      user: { id: user.id, email: user.email, onboardingStatus: 'active' },
       company: {
-        id: company.id,
-        name: company.name,
+        id: user.company_id,
+        name: user.company_name,
       },
     });
-    
+
   } catch (err: any) {
     logInfo(MODULE, 'convertAuditToPilot', 'Error', { error: err.message });
     return res.status(400).json({ error: err.message });
@@ -531,30 +630,68 @@ export const convertAuditToPilot = async (req: Request, res: Response) => {
 // HELPER FUNCTIONS
 // ─────────────────────────────────────────────────────────
 
-const classifyDeclines = (charges: any[]): any => {
-  const soft = charges.filter((c: any) =>
-    ['card_velocity_exceeded', 'processing_error'].includes(c.decline_code)
-  ).length;
+// Decline code → recommended action mapping
+const DECLINE_ACTION_MAP: Record<string, { label: string; action: string; urgency: 'high' | 'medium' | 'low' }> = {
+  insufficient_funds:      { label: 'Insufficient Funds', action: 'Offer 3–6 month payment plan — they want to pay but can\'t right now', urgency: 'high' },
+  card_expired:            { label: 'Card Expired',       action: 'Send 1-click card update link — they will pay once card is updated', urgency: 'medium' },
+  do_not_honor:            { label: 'Bank Blocked',       action: 'Personal call required — bank is blocking, not the customer', urgency: 'high' },
+  lost_card:               { label: 'Lost/Stolen Card',   action: 'Request new payment method via email', urgency: 'high' },
+  stolen_card:             { label: 'Lost/Stolen Card',   action: 'Request new payment method via email', urgency: 'high' },
+  card_velocity_exceeded:  { label: 'Velocity Limit',     action: 'Wait 24h and auto-retry — temporary bank limit', urgency: 'low' },
+  processing_error:        { label: 'Processing Error',   action: 'Auto-retry in 24h — technical issue, not customer intent', urgency: 'low' },
+  fraudulent:              { label: 'Fraud Flag',         action: 'Manual investigation — do not auto-retry', urgency: 'high' },
+  generic_decline:         { label: 'Generic Decline',    action: 'Send card update + payment method options email', urgency: 'medium' },
+  card_declined:           { label: 'Card Declined',      action: 'Send card update + payment method options email', urgency: 'medium' },
+};
 
-  const hard = charges.filter((c: any) =>
-    ['lost_card', 'stolen_card', 'card_not_supported'].includes(c.decline_code)
-  ).length;
-  
+const analyzeDeclineIntelligence = (invoices: any[], charges: any[]) => {
+  const perCustomer: any[] = [];
+
+  invoices.forEach(inv => {
+    const charge = charges.find((c: any) => c.invoice === inv.id);
+    if (!charge) return;
+    const code = charge.failure_code || charge.decline_code || null;
+    if (!code) return;
+    const meta = DECLINE_ACTION_MAP[code] || { label: 'Unknown Decline', action: 'Manual outreach required', urgency: 'medium' as const };
+    perCustomer.push({
+      customer_name: inv.customer_name,
+      amount: inv.amount,
+      decline_code: code,
+      label: meta.label,
+      recommended_action: meta.action,
+      urgency: meta.urgency,
+    });
+  });
+
+  // Aggregate by decline type
+  const byType: Record<string, { count: number; total_amount: number; action: string; customers: string[] }> = {};
+  perCustomer.forEach(cd => {
+    if (!byType[cd.decline_code]) {
+      byType[cd.decline_code] = { count: 0, total_amount: 0, action: cd.recommended_action, customers: [] };
+    }
+    byType[cd.decline_code].count++;
+    byType[cd.decline_code].total_amount += cd.amount;
+    byType[cd.decline_code].customers.push(cd.customer_name);
+  });
+
   return {
-    soft: soft,
-    soft_percent: soft / charges.length || 0,
-    hard: hard,
-    hard_percent: hard / charges.length || 0,
+    total_declined: perCustomer.length,
+    payment_plan_candidates: perCustomer.filter(cd => cd.decline_code === 'insufficient_funds').length,
+    card_update_needed: perCustomer.filter(cd => ['card_expired', 'generic_decline', 'card_declined'].includes(cd.decline_code)).length,
+    auto_retry_candidates: perCustomer.filter(cd => ['card_velocity_exceeded', 'processing_error'].includes(cd.decline_code)).length,
+    manual_outreach_needed: perCustomer.filter(cd => ['do_not_honor', 'fraudulent', 'lost_card', 'stolen_card'].includes(cd.decline_code)).length,
+    by_type: byType,
+    per_customer: perCustomer.slice(0, 10),
   };
 };
 
 const generateBasicForecast = (totalOverdue: number, recoveryRate: number) => {
   const forecast = [];
   let balance = 0;
-  
+
   for (let day = 0; day <= 90; day += 1) {
     // Simulate collections
-    const dailyCollection = (totalOverdue * recoveryRate / 90) * 
+    const dailyCollection = (totalOverdue * recoveryRate / 90) *
                            (1 + Math.random() * 0.2);
     balance += dailyCollection;
     
@@ -571,18 +708,51 @@ const generateBasicForecast = (totalOverdue: number, recoveryRate: number) => {
 const detectAnomalies = (invoices: any[]): Array<{type: string; invoice_id: string; amount: number}> => {
   const anomalies: Array<{type: string; invoice_id: string; amount: number}> = [];
 
-  // Check for duplicates
+  // Check for duplicates (same customer + same amount)
   const amountGroups = new Map();
   invoices.forEach((inv: any) => {
     const key = `${inv.customer}_${inv.total}`;
     if (amountGroups.has(key)) {
-      anomalies.push({
-        type: 'duplicate',
-        invoice_id: inv.id,
-        amount: inv.total / 100,
-      });
+      anomalies.push({ type: 'duplicate', invoice_id: inv.id, amount: inv.total / 100 });
     }
     amountGroups.set(key, inv.id);
+  });
+
+  // Check for amount spikes (invoice > 3x customer's average)
+  const customerAmounts = new Map<string, number[]>();
+  invoices.forEach((inv: any) => {
+    const list = customerAmounts.get(inv.customer) || [];
+    list.push(inv.total);
+    customerAmounts.set(inv.customer, list);
+  });
+  invoices.forEach((inv: any) => {
+    const list = customerAmounts.get(inv.customer) || [];
+    if (list.length >= 2) {
+      const avg = list.reduce((a, b) => a + b, 0) / list.length;
+      if (inv.total > avg * 3) {
+        anomalies.push({ type: 'amount_spike', invoice_id: inv.id, amount: inv.total / 100 });
+      }
+    }
+  });
+
+  // Check for fraud patterns (3+ invoices to same customer created within 7 days)
+  const customerDates = new Map<string, number[]>();
+  invoices.forEach((inv: any) => {
+    const dates = customerDates.get(inv.customer) || [];
+    dates.push(inv.created);
+    customerDates.set(inv.customer, dates);
+  });
+  customerDates.forEach((dates, customerId) => {
+    if (dates.length < 3) return;
+    const sorted = [...dates].sort((a, b) => a - b);
+    for (let i = 0; i <= sorted.length - 3; i++) {
+      const windowDays = (sorted[i + 2] - sorted[i]) / 86400;
+      if (windowDays <= 7) {
+        const inv = invoices.find((v: any) => v.customer === customerId);
+        if (inv) anomalies.push({ type: 'fraud_pattern', invoice_id: inv.id, amount: inv.total / 100 });
+        break;
+      }
+    }
   });
 
   return anomalies;
@@ -654,106 +824,6 @@ RecoverAI Team
   });
 };
 
-const sendPilotWelcomeEmail = async (
-  email: string,
-  password: string,
-  companyId: string,
-  opportunityAmount: number
-) => {
-  const subject = 'Your RecoverAI 14-Day Pilot is Live!';
-
-  const bodyText = `Hi there,
-
-Your 14-day pilot is ready. Here's your login:
-Email: ${email}
-Password: ${password} (change this immediately)
-
-Login: ${process.env.FRONTEND_URL}/login
-
-WHAT HAPPENS NEXT:
-✓ Day 1-3: We analyze your AR, start smart dunning
-✓ Day 5: First payments coming in
-✓ Day 10: Mid-pilot review—see live results
-✓ Day 14: Final review—ready for paid plan?
-
-Your opportunity: $${opportunityAmount.toLocaleString()} in 90 days
-Our cost: $2,500/month + 1% recovery (only if we deliver)
-
-Questions? Reply to this email.
-
-Best,
-RecoverAI Team
-`;
-
-  const bodyHtml = `
-<html>
-<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-  <p>Hi there,</p>
-  <p>Your 14-day pilot is ready. Here's your login:</p>
-  <p>
-    <strong>Email:</strong> ${email}<br/>
-    <strong>Password:</strong> ${password} (change this immediately)
-  </p>
-  <p><a href="${process.env.FRONTEND_URL}/login">Login to RecoverAI</a></p>
-  <h3>WHAT HAPPENS NEXT:</h3>
-  <ul>
-    <li>Day 1-3: We analyze your AR, start smart dunning</li>
-    <li>Day 5: First payments coming in</li>
-    <li>Day 10: Mid-pilot review—see live results</li>
-    <li>Day 14: Final review—ready for paid plan?</li>
-  </ul>
-  <p>
-    <strong>Your opportunity:</strong> $${opportunityAmount.toLocaleString()} in 90 days<br/>
-    <strong>Our cost:</strong> $2,500/month + 1% recovery (only if we deliver)
-  </p>
-  <p>Questions? Reply to this email.</p>
-  <p>Best,<br/>RecoverAI Team</p>
-</body>
-</html>
-  `;
-
-  await resendService.sendEmail({
-    to: email,
-    subject,
-    bodyText,
-    bodyHtml,
-  });
-};
-
-/**
- * VALIDATE INVITE TOKEN (called by FreeAuditSignup.tsx)
- * GET /api/audits/validate-invite?token=xxx
- * Returns: { valid: bool, email?: string, expired: bool }
- */
-export const validateInvite = async (req: Request, res: Response) => {
-  const { token } = req.query;
-
-  try {
-    if (!token || typeof token !== 'string') {
-      return res.status(400).json({
-        valid: false,
-        expired: false,
-        error: 'Token required',
-      });
-    }
-
-    const validation = await AuditInvitesDB.validateAuditInvite(token);
-
-    return res.json({
-      valid: validation.valid,
-      email: validation.email || undefined,
-      expired: validation.expired,
-    });
-  } catch (err: any) {
-    logInfo(MODULE, 'validateInvite', 'Error', { error: err.message });
-    return res.status(400).json({
-      valid: false,
-      expired: false,
-      error: 'Validation failed',
-    });
-  }
-};
-
 /**
  * STEP 1 (NEW OTP FLOW): Send OTP to email
  * POST /api/audits/send-otp { email }
@@ -772,9 +842,22 @@ export const sendAuditOtp = async (req: Request, res: Response) => {
     logInfo(MODULE, handler, 'OTP request received', { email });
 
     const isDev = config.nodeEnv === 'development' || config.nodeEnv === 'dev';
+
+    // DEV MODE: Simple hardcoded OTP (no Redis, no email)
+    if (isDev) {
+      const verifyToken = crypto.randomUUID();
+      logInfo(MODULE, handler, 'DEV MODE: Hardcoded OTP 123456', { email });
+      return res.json({
+        verifyToken,
+        devCode: '123456',
+        expiresIn: 900,
+      });
+    }
+
+    // PRODUCTION: Real OTP flow with Redis
     const redisAvailable = (redisClient as any)?.isOpen;
 
-    // Check Redis dedup: same email can only request once per 24h (skip if Redis unavailable)
+    // Check Redis dedup: same email can only request once per 24h
     if (redisAvailable) {
       try {
         const dedupKey = `audit:dedup:${email}`;
@@ -786,17 +869,17 @@ export const sendAuditOtp = async (req: Request, res: Response) => {
           });
         }
       } catch (dedupErr: any) {
-        logInfo(MODULE, handler, 'Dedup check failed (continuing without it)', { error: dedupErr.message });
+        logInfo(MODULE, handler, 'Dedup check failed (continuing)', { error: dedupErr.message });
       }
     }
 
     // Generate OTP (6 digits)
-    const otp = isDev ? '123456' : String(Math.floor(100000 + Math.random() * 900000));
+    const otp = String(Math.floor(100000 + Math.random() * 900000));
 
-    // Generate verify token (always works, no Redis needed)
+    // Generate verify token
     const verifyToken = crypto.randomUUID();
 
-    // Store OTP in Redis (15 min TTL) - gracefully handle Redis failures
+    // Store OTP in Redis (15 min TTL)
     if (redisAvailable) {
       try {
         const otpKey = `audit:otp:${email}`;
@@ -805,33 +888,30 @@ export const sendAuditOtp = async (req: Request, res: Response) => {
         const verifyKey = `audit:verify:${verifyToken}`;
         await (redisClient as any).set(verifyKey, email, { EX: 900 });
 
-        logInfo(MODULE, handler, 'OTP stored in Redis', { email, otp: isDev ? otp : '***' });
+        logInfo(MODULE, handler, 'OTP stored in Redis', { email, otp: '***' });
       } catch (redisErr: any) {
-        logInfo(MODULE, handler, 'Redis storage failed (continuing without persistence)', { error: redisErr.message });
-        // In dev mode, this is OK - user can still use the OTP displayed in response
+        logInfo(MODULE, handler, 'Redis storage failed', { error: redisErr.message });
+        return res.status(500).json({ error: 'Failed to send OTP' });
       }
     } else {
-      logInfo(MODULE, handler, 'Redis unavailable (dev mode - OTP will display as devCode)', { email });
+      return res.status(503).json({ error: 'Service temporarily unavailable' });
     }
 
-    // Send OTP via email (skip in dev)
-    if (!isDev) {
-      try {
-        await resendService.sendOTP({
-          email,
-          code: otp,
-        });
-        logInfo(MODULE, handler, 'OTP email sent', { email });
-      } catch (emailErr: any) {
-        logInfo(MODULE, handler, 'OTP email send failed (non-blocking)', { error: emailErr.message });
-        // Don't fail the request — user can still verify if they have the OTP
-      }
+    // Send OTP via email
+    try {
+      await resendService.sendOTP({
+        email,
+        code: otp,
+      });
+      logInfo(MODULE, handler, 'OTP email sent', { email });
+    } catch (emailErr: any) {
+      logInfo(MODULE, handler, 'OTP email send failed', { error: emailErr.message });
+      return res.status(500).json({ error: 'Failed to send OTP' });
     }
 
     return res.json({
       verifyToken,
-      devCode: isDev ? otp : undefined,
-      expiresIn: 900, // 15 minutes
+      expiresIn: 900,
     });
   } catch (err: any) {
     logInfo(MODULE, handler, 'Error', { error: err.message });
@@ -845,7 +925,7 @@ export const sendAuditOtp = async (req: Request, res: Response) => {
  * Returns: { auditId, stripeAuthUrl }
  */
 export const verifyAuditOtp = async (req: Request, res: Response) => {
-  const { verifyToken, code } = req.body;
+  const { verifyToken, code, email: frontendEmail } = req.body;
   const handler = 'verifyAuditOtp';
 
   try {
@@ -857,12 +937,30 @@ export const verifyAuditOtp = async (req: Request, res: Response) => {
     logInfo(MODULE, handler, 'OTP verification attempt', { verifyToken: verifyToken.substring(0, 8) });
 
     const isDev = config.nodeEnv === 'development' || config.nodeEnv === 'dev';
-    const redisAvailable = (redisClient as any)?.isOpen;
-
     let email = '';
 
-    // Get email from verify token (skip in dev without Redis)
-    if (redisAvailable) {
+    // DEV MODE: Simple check (no Redis)
+    if (isDev) {
+      if (code !== '123456') {
+        logInfo(MODULE, handler, 'Invalid OTP (dev mode)', { code });
+        return res.status(400).json({ error: 'Invalid code. Dev code is 123456.' });
+      }
+      logInfo(MODULE, handler, 'OTP verified (dev mode)', { verifyToken: verifyToken.substring(0, 8) });
+
+      // In dev, email comes from frontend (we need it for the audit request)
+      email = frontendEmail || `dev-user-${Date.now()}@example.com`;
+
+      // Skip Redis cleanup, continue to create audit request
+      // (rest of function handles audit creation)
+    } else {
+      // PRODUCTION: Redis-based verification
+
+      const redisAvailable = (redisClient as any)?.isOpen;
+      if (!redisAvailable) {
+        return res.status(503).json({ error: 'Service temporarily unavailable' });
+      }
+
+      // Get email from verify token
       try {
         const verifyKey = `audit:verify:${verifyToken}`;
         email = await (redisClient as any).get(verifyKey);
@@ -872,20 +970,10 @@ export const verifyAuditOtp = async (req: Request, res: Response) => {
         }
       } catch (err: any) {
         logInfo(MODULE, handler, 'Failed to retrieve email from Redis', { error: err.message });
-        if (!isDev) throw err;
-        // In dev, continue without email - user will need to provide it separately
         return res.status(400).json({ error: 'OTP session expired. Request a new one.' });
       }
-    } else {
-      // In dev mode without Redis, user can proceed but email needs to come from somewhere
-      // For now, we'll use a placeholder - the email should come from frontend state
-      logInfo(MODULE, handler, 'Redis unavailable, dev mode - accepting verify token without validation');
-      // Accept any verify token in dev without Redis (since we can't store it)
-      email = `dev-user-${verifyToken.substring(0, 8)}@example.com`;
-    }
 
-    // Check lockout (5 wrong attempts = 1 hour lockout) - skip in dev without Redis
-    if (redisAvailable) {
+      // Check lockout (5 wrong attempts = 1 hour lockout)
       try {
         const lockKey = `audit:lock:${email}`;
         const lockCount = await (redisClient as any).get(lockKey);
@@ -897,14 +985,11 @@ export const verifyAuditOtp = async (req: Request, res: Response) => {
         }
       } catch (err: any) {
         logInfo(MODULE, handler, 'Failed to check lockout', { error: err.message });
-        // Continue without lockout check in case of Redis failure
+        return res.status(500).json({ error: 'Verification failed' });
       }
-    }
 
-    // Get stored OTP (in dev, default is '123456')
-    let storedCode = isDev ? '123456' : null;
-
-    if (redisAvailable && !isDev) {
+      // Get stored OTP
+      let storedCode: string | null = null;
       try {
         const otpKey = `audit:otp:${email}`;
         const storedOtpData = await (redisClient as any).get(otpKey);
@@ -918,22 +1003,19 @@ export const verifyAuditOtp = async (req: Request, res: Response) => {
         logInfo(MODULE, handler, 'Failed to retrieve OTP from Redis', { error: err.message });
         return res.status(400).json({ error: 'OTP expired. Request a new one.' });
       }
-    }
 
-    // Verify OTP code
-    if (code !== storedCode) {
-      if (redisAvailable) {
+      // Verify OTP code
+      if (code !== storedCode) {
         try {
           const lockKey = `audit:lock:${email}`;
           const lockCount = await (redisClient as any).get(lockKey);
           const newCount = lockCount ? parseInt(lockCount) + 1 : 1;
           const attemptsLeft = 5 - newCount;
 
-          // Set lockout with 1 hour expiry on first wrong attempt
+          // Set lockout with 1 hour expiry
           if (newCount === 1) {
             await (redisClient as any).set(lockKey, String(newCount), { EX: 3600 });
           } else {
-            // Increment the counter (first get, then set with EX preserved)
             const current = await (redisClient as any).get(lockKey);
             const next = String(parseInt(current || '0') + 1);
             await (redisClient as any).set(lockKey, next, { EX: 3600 });
@@ -944,29 +1026,34 @@ export const verifyAuditOtp = async (req: Request, res: Response) => {
             error: `Invalid code. ${attemptsLeft} attempt${attemptsLeft === 1 ? '' : 's'} remaining.`,
           });
         } catch (err: any) {
-          logInfo(MODULE, handler, 'Failed to handle lockout on invalid code', { error: err.message });
+          logInfo(MODULE, handler, 'Failed to handle lockout', { error: err.message });
+          return res.status(500).json({ error: 'Verification failed' });
         }
       }
 
-      logInfo(MODULE, handler, 'Invalid OTP code', { email });
-      return res.status(400).json({ error: 'Invalid code. Please try again.' });
-    }
+      logInfo(MODULE, handler, 'OTP verified successfully', { email });
 
-    logInfo(MODULE, handler, 'OTP verified successfully', { email });
-
-    // Clear OTP and verify token (non-blocking in case of Redis failure)
-    if (redisAvailable) {
+      // Clean up Redis
       try {
         const otpKey = `audit:otp:${email}`;
         const verifyKey = `audit:verify:${verifyToken}`;
         await (redisClient as any).del([otpKey, verifyKey]);
 
-        // Set dedup (24 hour lockout on same email)
         const dedupKey = `audit:dedup:${email}`;
         await (redisClient as any).set(dedupKey, '1', { EX: 86400 });
       } catch (err: any) {
         logInfo(MODULE, handler, 'Failed to clean up Redis (non-blocking)', { error: err.message });
-        // Don't fail the request - continue to create audit
+      }
+    }
+
+    // Update existing account's onboarding status to 'stripe_pending' if it exists
+    const existingUser = await UserDB.findUserByEmail(email);
+    if (existingUser) {
+      try {
+        await UserDB.updateOnboardingStatus(existingUser.id, 'stripe_pending');
+        logInfo(MODULE, handler, 'Updated onboarding_status to stripe_pending', { userId: existingUser.id });
+      } catch (err: any) {
+        logInfo(MODULE, handler, 'Failed to update onboarding_status (non-blocking)', { error: err.message });
       }
     }
 
@@ -983,13 +1070,34 @@ export const verifyAuditOtp = async (req: Request, res: Response) => {
       return res.status(500).json({ error: 'Failed to create audit invite' });
     }
 
-    const auditId = await AuditDB.createAuditRequest({
+    const auditResult = await AuditRequestsDB.createAuditRequest({
       token: inviteToken,
       companyName: email.split('@')[0],
       email,
     });
 
+    const auditId = auditResult.id;
+
     logInfo(MODULE, handler, 'Audit request created after OTP verification', { auditId, email });
+
+    // Archive any old in-progress audits for this email
+    try {
+      await AuditRequestsDB.archiveOldAudits(email, auditId);
+      logInfo(MODULE, handler, 'Archived old audits for email', { email, newAuditId: auditId });
+    } catch (err: any) {
+      logInfo(MODULE, handler, 'Failed to archive old audits (non-blocking)', { error: err.message });
+    }
+
+    // Update audit status to mark OTP as verified
+    try {
+      await AuditRequestsDB.updateAuditStatus({
+        id: auditId,
+        status: 'otp_verified',
+      });
+      logInfo(MODULE, handler, 'Audit status updated to otp_verified', { auditId });
+    } catch (err: any) {
+      logInfo(MODULE, handler, 'Failed to update audit status (non-blocking)', { error: err.message });
+    }
 
     // Generate Stripe OAuth URL
     let stripeAuthUrl: string;
@@ -1020,11 +1128,37 @@ export const verifyAuditOtp = async (req: Request, res: Response) => {
               stage3: { count: 5, amount: 25000, recovery_rate: 0.20 },
               stage4: { count: 2, amount: 20000, recovery_rate: 0.08 },
             },
-            decline_breakdown: { soft: 3, soft_percent: 0.07, hard: 2, hard_percent: 0.05 },
+            decline_intelligence: {
+              total_declined: 5,
+              payment_plan_candidates: 3,
+              card_update_needed: 1,
+              auto_retry_candidates: 1,
+              manual_outreach_needed: 0,
+              by_type: {
+                insufficient_funds: { count: 3, total_amount: 42500, action: 'Offer 3–6 month payment plan — they want to pay but can\'t right now', customers: ['Acme Technologies', 'TechFlow Inc', 'CloudScale.io'] },
+                card_expired: { count: 1, total_amount: 15750, action: 'Send 1-click card update link — they will pay once card is updated', customers: ['DataSuite Ltd'] },
+                card_velocity_exceeded: { count: 1, total_amount: 9800, action: 'Wait 24h and auto-retry — temporary bank limit', customers: ['InnovateLabs'] },
+              },
+              per_customer: [
+                { customer_name: 'Acme Technologies', amount: 24500, decline_code: 'insufficient_funds', label: 'Insufficient Funds', recommended_action: 'Offer 3–6 month payment plan', urgency: 'high' },
+                { customer_name: 'TechFlow Inc', amount: 10000, decline_code: 'insufficient_funds', label: 'Insufficient Funds', recommended_action: 'Offer 3–6 month payment plan', urgency: 'high' },
+                { customer_name: 'DataSuite Ltd', amount: 15750, decline_code: 'card_expired', label: 'Card Expired', recommended_action: 'Send 1-click card update link', urgency: 'medium' },
+                { customer_name: 'CloudScale.io', amount: 8000, decline_code: 'insufficient_funds', label: 'Insufficient Funds', recommended_action: 'Offer 3–6 month payment plan', urgency: 'high' },
+                { customer_name: 'InnovateLabs', amount: 9800, decline_code: 'card_velocity_exceeded', label: 'Velocity Limit', recommended_action: 'Wait 24h and auto-retry', urgency: 'low' },
+              ],
+            },
             current_recovery: 0.15,
             projected_recovery: 0.40,
             delta: 31250,
-            previews: [],
+            previews: [
+              { customer_name: 'Acme Technologies', customer_email: 'billing@acme.io', amount: 24500, daysOverdue: 67, status: 'open' },
+              { customer_name: 'TechFlow Inc', customer_email: 'accounts@techflow.com', amount: 18200, daysOverdue: 45, status: 'open' },
+              { customer_name: 'DataSuite Ltd', customer_email: 'finance@datasuite.com', amount: 15750, daysOverdue: 91, status: 'open' },
+              { customer_name: 'CloudScale.io', customer_email: 'billing@cloudscale.io', amount: 12300, daysOverdue: 38, status: 'open' },
+              { customer_name: 'InnovateLabs', customer_email: 'ar@innovatelabs.co', amount: 9800, daysOverdue: 120, status: 'open' },
+              { customer_name: 'Nexus Systems', customer_email: 'payments@nexussys.com', amount: 8750, daysOverdue: 55, status: 'open' },
+              { customer_name: 'Vertex Analytics', customer_email: 'billing@vertexai.com', amount: 7200, daysOverdue: 33, status: 'open' },
+            ],
           },
           dso: {
             current_dso: 52,
@@ -1059,7 +1193,7 @@ export const verifyAuditOtp = async (req: Request, res: Response) => {
         `https://connect.stripe.com/oauth/authorize?` +
         `response_type=code&` +
         `client_id=${process.env.STRIPE_CLIENT_ID}&` +
-        `scope=read_data&` +
+        `scope=read_write&` +
         `state=${auditId}`;
     }
 
@@ -1072,5 +1206,606 @@ export const verifyAuditOtp = async (req: Request, res: Response) => {
   } catch (err: any) {
     logInfo(MODULE, handler, 'Error', { error: err.message });
     return res.status(400).json({ error: 'Failed to verify OTP' });
+  }
+};
+
+/**
+ * ═══════════════════════════════════════════════════════════════
+ * MOTION 2: PUBLIC AUDIT REQUEST FORM
+ * ═══════════════════════════════════════════════════════════════
+ */
+
+/**
+ * POST /api/audit-requests/submit
+ * Public form submission (no auth required)
+ * Creates audit_request, sends verification email
+ */
+export const submitAuditRequest = async (req: Request, res: Response) => {
+  const handler = 'submitAuditRequest';
+  try {
+    const { email, company_name, details } = req.body;
+
+    // Validation
+    if (!email || typeof email !== 'string') {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+    if (!company_name || typeof company_name !== 'string') {
+      return res.status(400).json({ error: 'Company name is required' });
+    }
+
+    const normalized_email = email.toLowerCase().trim();
+    const normalized_company = company_name.trim();
+
+    // ─────────────────────────────────────────────────────────────
+    // CHECK 1: Already PENDING/APPROVED/CONVERTED?
+    // ─────────────────────────────────────────────────────────────
+    const activeCheck = await pool.query(
+      `SELECT status FROM audit_requests
+       WHERE email = $1 AND status IN ('pending', 'approved', 'converted')
+       LIMIT 1`,
+      [normalized_email]
+    );
+
+    if (activeCheck.rows.length > 0) {
+      const status = activeCheck.rows[0].status;
+      if (status === 'pending') {
+        return res.status(429).json({
+          error: 'You already have a pending audit request. Check your email for verification link.',
+          code: 'AUDIT_PENDING'
+        });
+      }
+      if (status === 'approved') {
+        return res.status(429).json({
+          error: 'Great news! Your audit is approved. Check your email for setup link.',
+          code: 'AUDIT_APPROVED'
+        });
+      }
+      if (status === 'converted') {
+        return res.status(429).json({
+          error: 'You already have an active RecoverAI account. Please log in.',
+          code: 'AUDIT_CONVERTED'
+        });
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // CHECK 2: Recently REJECTED? (7-day cooldown)
+    // ─────────────────────────────────────────────────────────────
+    const rejectionCheck = await pool.query(
+      `SELECT rejected_at FROM audit_requests
+       WHERE email = $1 AND status = 'rejected'
+       ORDER BY rejected_at DESC LIMIT 1`,
+      [normalized_email]
+    );
+
+    if (rejectionCheck.rows.length > 0) {
+      const rejectedAt = new Date(rejectionCheck.rows[0].rejected_at);
+      const sevenDaysLater = new Date(rejectedAt.getTime() + 7 * 24 * 60 * 60 * 1000);
+      const now = new Date();
+
+      if (now < sevenDaysLater) {
+        const daysLeft = Math.ceil((sevenDaysLater.getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
+        return res.status(429).json({
+          error: `Your previous request was rejected. You can reapply in ${daysLeft} day${daysLeft > 1 ? 's' : ''}.`,
+          code: 'AUDIT_COOLDOWN',
+          retry_after: sevenDaysLater.toISOString()
+        });
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // ✅ ALL CHECKS PASSED → CREATE NEW REQUEST
+    // ─────────────────────────────────────────────────────────────
+    // Generate verification token
+    const verify_token = crypto.randomBytes(32).toString('hex');
+
+    // Create audit_request
+    const result = await pool.query(
+      `INSERT INTO audit_requests (email, company_name, details, verify_token, status, created_at)
+       VALUES ($1, $2, $3, $4, 'pending', NOW())
+       RETURNING id, email, company_name`,
+      [normalized_email, normalized_company, details || null, verify_token]
+    );
+
+    const request = result.rows[0];
+
+    // Send verification email
+    try {
+      const verify_link = `${process.env.FRONTEND_URL || 'https://recoverai.com'}/audit-verify?token=${verify_token}`;
+      await resendService.sendEmail({
+        to: normalized_email,
+        subject: 'Verify your RecoverAI audit request',
+        bodyText: `Verify your audit request for ${normalized_company}. Click: ${verify_link}`,
+        bodyHtml: `
+          <h2>Verify Your Audit Request</h2>
+          <p>Hi,</p>
+          <p>We received a request to audit <strong>${normalized_company}</strong> for AR recovery opportunities.</p>
+          <p>Click the link below to verify your email:</p>
+          <p><a href="${verify_link}" style="background: #3b82f6; color: white; padding: 10px 20px; border-radius: 5px; text-decoration: none; display: inline-block;">Verify Email</a></p>
+          <p>This link expires in 7 days.</p>
+          <p>Questions? <a href="mailto:hello@recoverai.com">Contact us</a></p>
+        `,
+      });
+    } catch (emailErr: any) {
+      logError(MODULE, handler, 'Failed to send verification email', emailErr);
+      // Don't fail the request if email fails
+    }
+
+    logInfo(MODULE, handler, 'Audit request submitted', {
+      email: '***',
+      company: normalized_company,
+    });
+
+    return res.status(201).json({
+      data: {
+        success: true,
+        message: 'Request submitted! Check your email to verify.',
+        request_id: request.id,
+      },
+    });
+  } catch (err: any) {
+    logError(MODULE, handler, 'Failed to submit audit request', err);
+    return res.status(500).json({ error: 'Failed to submit request' });
+  }
+};
+
+/**
+ * POST /api/audit-requests/verify-email
+ * Verify email from public form
+ */
+export const verifyAuditEmail = async (req: Request, res: Response) => {
+  const handler = 'verifyAuditEmail';
+  try {
+    const { token } = req.body;
+
+    if (!token || typeof token !== 'string') {
+      return res.status(400).json({ error: 'Verification token required' });
+    }
+
+    // Find request by token
+    const result = await pool.query(
+      `SELECT * FROM audit_requests WHERE verify_token = $1 AND email_verified_at IS NULL`,
+      [token]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Token invalid or already verified' });
+    }
+
+    const request = result.rows[0];
+
+    // Mark as verified
+    await pool.query(
+      `UPDATE audit_requests SET email_verified_at = NOW(), status = 'verified' WHERE id = $1`,
+      [request.id]
+    );
+
+    logInfo(MODULE, handler, 'Email verified', {
+      email: '***',
+      company: request.company_name,
+    });
+
+    // Send confirmation email
+    try {
+      await resendService.sendEmail({
+        to: request.email,
+        subject: 'Audit request confirmed - We\'ll review soon',
+        bodyText: 'Thank you! We will review your audit request and send setup link within 24 hours.',
+        bodyHtml: `
+          <h2>Thank You!</h2>
+          <p>Your email has been verified.</p>
+          <p>We'll review your audit request for <strong>${request.company_name}</strong> and send you a setup link within 24 hours.</p>
+          <p>Best,<br>The RecoverAI team</p>
+        `,
+      });
+    } catch (emailErr: any) {
+      logError(MODULE, handler, 'Failed to send confirmation email', emailErr);
+    }
+
+    return res.json({
+      data: {
+        success: true,
+        message: 'Email verified! Check your inbox for next steps.',
+        request_id: request.id,
+        status: 'verified',
+      },
+    });
+  } catch (err: any) {
+    logError(MODULE, handler, 'Failed to verify email', err);
+    return res.status(500).json({ error: 'Verification failed' });
+  }
+};
+
+/**
+ * GET /api/admin/audit-requests
+ * List all audit requests (admin only)
+ */
+export const listAuditRequests = async (req: Request, res: Response) => {
+  const handler = 'listAuditRequests';
+  try {
+    const { status } = req.query;
+
+    let query = `SELECT * FROM audit_requests ORDER BY created_at DESC LIMIT 100`;
+    const params: any[] = [];
+
+    if (status && typeof status === 'string') {
+      query = `SELECT * FROM audit_requests WHERE status = $1 ORDER BY created_at DESC LIMIT 100`;
+      params.push(status);
+    }
+
+    const result = await pool.query(query, params);
+
+    logInfo(MODULE, handler, 'Listed audit requests', {
+      count: result.rows.length,
+      status: status || 'all',
+    });
+
+    return res.json({
+      data: {
+        requests: result.rows.map((r: any) => ({
+          id: r.id,
+          email: r.email,
+          company_name: r.company_name,
+          details: r.details,
+          status: r.status,
+          email_verified_at: r.email_verified_at,
+          created_at: r.created_at,
+          reviewed_at: r.reviewed_at,
+          rejection_reason: r.rejection_reason,
+        })),
+      },
+    });
+  } catch (err: any) {
+    logError(MODULE, handler, 'Failed to list requests', err);
+    return res.status(500).json({ error: 'Failed to list requests' });
+  }
+};
+
+/**
+ * POST /api/admin/audit-requests/:id/approve
+ * Admin approves request, generates invite token, sends email
+ */
+export const approveAuditRequest = async (req: Request, res: Response) => {
+  const handler = 'approveAuditRequest';
+  try {
+    const { id } = req.params;
+    const admin_id = (req as any).userId;
+
+    if (!admin_id) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    // Get request
+    const reqResult = await pool.query(
+      `SELECT * FROM audit_requests WHERE id = $1`,
+      [id]
+    );
+
+    if (reqResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Request not found' });
+    }
+
+    const request = reqResult.rows[0];
+
+    // Generate invite token
+    const invite_token = crypto.randomBytes(32).toString('hex');
+    const expires_at = new Date();
+    expires_at.setDate(expires_at.getDate() + 7);
+
+    // Create invite_token
+    const tokenResult = await pool.query(
+      `INSERT INTO invite_tokens (token, email, company_name, expires_at, created_by_user_id, audit_request_id, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, NOW())
+       RETURNING token`,
+      [invite_token, request.email, request.company_name, expires_at, admin_id, id]
+    );
+
+    const token = tokenResult.rows[0].token;
+    const setup_url = `${process.env.FRONTEND_URL || 'https://recoverai.com'}/onboard?token=${token}&email=${encodeURIComponent(request.email)}`;
+
+    // Update audit_request
+    await pool.query(
+      `UPDATE audit_requests SET status = 'approved', reviewed_by_user_id = $1, reviewed_at = NOW() WHERE id = $2`,
+      [admin_id, id]
+    );
+
+    // Send approval email
+    try {
+      await resendService.sendEmail({
+        to: request.email,
+        subject: 'Your RecoverAI audit is approved! 🎉',
+        bodyText: `Your Audit is Approved!\n\nHi,\n\nGreat news! We've approved your audit request for ${request.company_name}.\n\nClick the link below to set up your AR recovery system:\n${setup_url}\n\nThis link expires in 7 days.\n\nQuestions? Contact us at hello@recoverai.com`,
+        bodyHtml: `
+          <h2>Your Audit is Approved!</h2>
+          <p>Hi,</p>
+          <p>Great news! We've approved your audit request for <strong>${request.company_name}</strong>.</p>
+          <p>Click the button below to set up your AR recovery system:</p>
+          <p><a href="${setup_url}" style="background: #10b981; color: white; padding: 12px 24px; border-radius: 5px; text-decoration: none; display: inline-block; font-weight: bold;">Start Setup</a></p>
+          <p>This link expires in 7 days.</p>
+          <p>Questions? <a href="mailto:hello@recoverai.com">Contact us</a></p>
+        `,
+      });
+    } catch (emailErr: any) {
+      logError(MODULE, handler, 'Failed to send approval email', emailErr);
+    }
+
+    logInfo(MODULE, handler, 'Audit request approved', {
+      request_id: id,
+      email: '***',
+      company: request.company_name,
+    });
+
+    return res.json({
+      data: {
+        success: true,
+        invite_token: token,
+        setup_url,
+        message: 'Approval email sent to founder',
+      },
+    });
+  } catch (err: any) {
+    logError(MODULE, handler, 'Failed to approve request', err);
+    return res.status(500).json({ error: 'Failed to approve request' });
+  }
+};
+
+/**
+ * POST /api/admin/audit-requests/:id/reject
+ * Admin rejects request, sends rejection email
+ */
+export const rejectAuditRequest = async (req: Request, res: Response) => {
+  const handler = 'rejectAuditRequest';
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+    const admin_id = (req as any).userId;
+
+    if (!admin_id) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    if (!reason || typeof reason !== 'string') {
+      return res.status(400).json({ error: 'Rejection reason required' });
+    }
+
+    // Get request
+    const reqResult = await pool.query(
+      `SELECT * FROM audit_requests WHERE id = $1`,
+      [id]
+    );
+
+    if (reqResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Request not found' });
+    }
+
+    const request = reqResult.rows[0];
+
+    // Update audit_request
+    await pool.query(
+      `UPDATE audit_requests SET status = 'rejected', reviewed_by_user_id = $1, reviewed_at = NOW(), rejection_reason = $2 WHERE id = $3`,
+      [admin_id, reason, id]
+    );
+
+    // Send rejection email
+    try {
+      await resendService.sendEmail({
+        to: request.email,
+        subject: 'Your RecoverAI audit request',
+        bodyText: `Audit Request Status\n\nHi,\n\nThank you for your interest in RecoverAI. After review, we determined that ${request.company_name} isn't the right fit at this time.\n\nReason: ${reason}\n\nWe're always here if you'd like to discuss further. Feel free to reach out at hello@recoverai.com.\n\nBest,\nThe RecoverAI team`,
+        bodyHtml: `
+          <h2>Audit Request Status</h2>
+          <p>Hi,</p>
+          <p>Thank you for your interest in RecoverAI. After review, we determined that <strong>${request.company_name}</strong> isn't the right fit at this time.</p>
+          <p><strong>Reason:</strong> ${reason}</p>
+          <p>We're always here if you'd like to discuss further. Feel free to <a href="mailto:hello@recoverai.com">reach out</a>.</p>
+          <p>Best,<br>The RecoverAI team</p>
+        `,
+      });
+    } catch (emailErr: any) {
+      logError(MODULE, handler, 'Failed to send rejection email', emailErr);
+    }
+
+    logInfo(MODULE, handler, 'Audit request rejected', {
+      request_id: id,
+      email: '***',
+      reason,
+    });
+
+    return res.json({
+      data: {
+        success: true,
+        message: 'Rejection email sent to founder',
+      },
+    });
+  } catch (err: any) {
+    logError(MODULE, handler, 'Failed to reject request', err);
+    return res.status(500).json({ error: 'Failed to reject request' });
+  }
+};
+
+/**
+ * POST /api/audits/create-trial-account
+ * Convert audit to trial account (user clicks "Start 14-Day Trial" on results page)
+ * Creates company + user in trial mode + auto-login
+ */
+export const createTrialAccount = async (req: Request, res: Response) => {
+  const { auditToken } = req.body;
+  const handler = 'createTrialAccount';
+
+  try {
+    if (!auditToken) {
+      return res.status(400).json({ error: 'Audit token required' });
+    }
+
+    // Find audit by token
+    const auditRes = await pool.query(
+      `SELECT * FROM audit_requests WHERE token = $1 AND expires_at > NOW()`,
+      [auditToken]
+    );
+
+    if (auditRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Audit not found or link expired' });
+    }
+
+    const audit = auditRes.rows[0];
+
+    logInfo(MODULE, handler, 'Creating trial account from audit', { email: '***' });
+
+    // Check if user already exists
+    const existingRes = await pool.query(
+      `SELECT u.*, c.id as company_id FROM users u
+       LEFT JOIN companies c ON u.company_id = c.id
+       WHERE u.email = $1`,
+      [audit.email]
+    );
+
+    if (existingRes.rows.length > 0) {
+      // User exists, just return their company
+      const user = existingRes.rows[0];
+      const accessToken = jwt.sign(
+        { userId: user.id, companyId: user.company_id, email: user.email },
+        config.jwtSecret || 'your-secret-key',
+        { expiresIn: '30d' }
+      );
+
+      res.cookie('access_token', accessToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax' as any,
+        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+      });
+
+      return res.json({
+        success: true,
+        user: { id: user.id, email: user.email },
+        company: { id: user.company_id },
+      });
+    }
+
+    // Create new company in trial mode
+    const companyRes = await pool.query(
+      `INSERT INTO companies (name, account_type, trial_started_at, trial_ends_at, onboarding_status, created_at)
+       VALUES ($1, $2, NOW(), NOW() + INTERVAL '14 days', $3, NOW())
+       RETURNING id, name`,
+      [audit.company_name || 'New Company', 'trial', 'trial_active']
+    );
+
+    const company = companyRes.rows[0];
+
+    logInfo(MODULE, handler, 'Company created for trial', { companyId: company.id });
+
+    // Create user for this company
+    const tempPassword = Math.random().toString(36).substring(7);
+    const passwordHash = await bcrypt.hash(tempPassword, 10);
+
+    const userRes = await pool.query(
+      `INSERT INTO users (company_id, email, password_hash, first_name, last_name, role, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, NOW())
+       RETURNING id, email, company_id`,
+      [company.id, audit.email, passwordHash, 'Founder', audit.email.split('@')[0], 'owner']
+    );
+
+    const user = userRes.rows[0];
+
+    logInfo(MODULE, handler, 'User created for trial account', { userId: user.id });
+
+    // Auto-login
+    const accessToken = jwt.sign(
+      { userId: user.id, companyId: user.company_id, email: user.email },
+      config.jwtSecret || 'your-secret-key',
+      { expiresIn: '30d' }
+    );
+
+    res.cookie('access_token', accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax' as any,
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+    });
+
+    // Mark audit as converted
+    await pool.query(
+      `UPDATE audit_requests SET status = 'converted', user_id = $1 WHERE id = $2`,
+      [user.id, audit.id]
+    );
+
+    return res.json({
+      success: true,
+      user: { id: user.id, email: user.email },
+      company: { id: company.id, name: company.name },
+    });
+  } catch (err: any) {
+    logError(MODULE, handler, 'Failed to create trial account', err);
+    return res.status(500).json({ error: 'Failed to create trial account' });
+  }
+};
+
+/**
+ * GET /api/audits/results/:token
+ * Retrieve audit results by token (public, no auth required)
+ * Returns cash clarity score, metrics, risks, billing errors, insights
+ *
+ * This is what displays on the beautiful AuditResults page after Stripe OAuth
+ */
+export const getAuditResultsByToken = async (req: Request, res: Response) => {
+  const { token } = req.params;
+  const handler = 'getAuditResultsByToken';
+
+  try {
+    if (!token) {
+      return res.status(400).json({ error: 'Token required' });
+    }
+
+    // Find audit by token
+    const audit = await AuditDB.getAuditRequestByToken(token);
+
+    if (!audit) {
+      return res.status(404).json({ error: 'Audit not found or link expired' });
+    }
+
+    // Check if analysis is complete
+    if (audit.status !== 'analysis_complete' && !audit.analysis_data) {
+      return res.status(400).json({ error: 'Analysis not yet complete. Please wait and refresh.' });
+    }
+
+    // Parse analysis_data from JSONB
+    const analysisData = typeof audit.analysis_data === 'string'
+      ? JSON.parse(audit.analysis_data)
+      : audit.analysis_data;
+
+    if (!analysisData) {
+      return res.status(400).json({ error: 'No analysis data found' });
+    }
+
+    // Return REAL audit data
+    const results = {
+      email: audit.email,
+      token: audit.token,
+      cashClarityScore: analysisData.cash_clarity_score || 0,
+      availableCash: analysisData.available_cash || 0,
+      runwayDays: analysisData.runway_days || 0,
+      overdueAr: analysisData.overdue_ar || 0,
+      avgDaysLate: analysisData.avg_days_late || 0,
+      billingErrors: analysisData.billing_errors || {
+        duplicates: { count: 0, value: 0 },
+        spikes: { count: 0, value: 0 },
+        gaps: { count: 0, value: 0 },
+        failed_clusters: { count: 0, value: 0 },
+        total_value: 0
+      },
+      topRisks: (analysisData.risks || []).slice(0, 3),
+      aiInsights: (analysisData.insights || []),
+    };
+
+    logInfo(MODULE, handler, 'Audit results retrieved (REAL DATA)', {
+      email: '***',
+      score: results.cashClarityScore,
+      billingErrorsValue: results.billingErrors.total_value
+    });
+
+    return res.json(results);
+  } catch (err: any) {
+    logError(MODULE, handler, 'Failed to get audit results', err);
+    return res.status(500).json({ error: 'Failed to retrieve audit results' });
   }
 };

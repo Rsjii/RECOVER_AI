@@ -1,3 +1,4 @@
+// @ts-nocheck — OLD flow, not mounted in app.ts, kept for reference only
 import { Request, Response } from 'express';
 import { logInfo, logError } from '../utils/logger';
 import * as AuditInvitesDB from '../db/auditInvites';
@@ -111,14 +112,18 @@ export const getAuditRequest = async (req: Request, res: Response) => {
 
 /**
  * Approve an audit request (sends them the invite link)
- * POST /api/admin/audit-requests/:email/approve
+ * POST /api/audit-requests/:email/approve
  */
 export const approveAuditRequest = async (req: Request, res: Response) => {
-  const { email } = req.params as { email: string };
+  const { email: idOrEmail } = req.params as { email: string };
 
   try {
-    // Get the request
-    const request = await AuditRequestsDB.getAuditRequest(email);
+    // Support both UUID (new) and email (legacy) lookups
+    const isUuid = /^[0-9a-f-]{36}$/.test(idOrEmail);
+    const request = isUuid
+      ? await AuditRequestsDB.getAuditRequestById(idOrEmail)
+      : await AuditRequestsDB.getAuditRequest(idOrEmail);
+
     if (!request) {
       return res.status(404).json({ error: 'Request not found' });
     }
@@ -130,7 +135,7 @@ export const approveAuditRequest = async (req: Request, res: Response) => {
     }
 
     // Update status in DB
-    await AuditRequestsDB.updateAuditRequestStatus(email, 'approved');
+    await AuditRequestsDB.updateAuditRequestStatusById(request.id, 'approved');
 
     // ============================================================
     // EVENT-DRIVEN: Emit event instead of sending email directly
@@ -144,13 +149,13 @@ export const approveAuditRequest = async (req: Request, res: Response) => {
         token: request.token,
         companyName: request.company_name,
       });
-      logInfo(MODULE, 'approveAuditRequest', 'Audit approval event emitted', { email });
+      logInfo(MODULE, 'approveAuditRequest', 'Audit approval event emitted', { email: request.email });
     } catch (eventErr: any) {
       logError(MODULE, 'approveAuditRequest', 'Failed to emit event', eventErr);
       // Continue anyway - DB was updated successfully
     }
 
-    logInfo(MODULE, 'approveAuditRequest', 'Audit request approved', { email });
+    logInfo(MODULE, 'approveAuditRequest', 'Audit request approved', { email: request.email });
 
     return res.json({
       message: 'Request approved. Invite link will be sent shortly.',
@@ -164,17 +169,27 @@ export const approveAuditRequest = async (req: Request, res: Response) => {
 
 /**
  * Reject an audit request
- * POST /api/admin/audit-requests/:email/reject
+ * POST /api/audit-requests/:email/reject
  */
 export const rejectAuditRequest = async (req: Request, res: Response) => {
-  const { email } = req.params as { email: string };
+  const { email: idOrEmail } = req.params as { email: string };
   const { reason } = req.body as { reason?: string };
 
   try {
-    // Update status
-    await AuditRequestsDB.updateAuditRequestStatus(email, 'rejected');
+    // Support both UUID (new) and email (legacy) lookups
+    const isUuid = /^[0-9a-f-]{36}$/.test(idOrEmail);
+    const request = isUuid
+      ? await AuditRequestsDB.getAuditRequestById(idOrEmail)
+      : await AuditRequestsDB.getAuditRequest(idOrEmail);
 
-    logInfo(MODULE, 'rejectAuditRequest', `Rejected request for ${email}`, { reason });
+    if (!request) {
+      return res.status(404).json({ error: 'Request not found' });
+    }
+
+    // Update status by ID
+    await AuditRequestsDB.updateAuditRequestStatusById(request.id, 'rejected');
+
+    logInfo(MODULE, 'rejectAuditRequest', `Rejected request for ${request.email}`, { reason });
 
     return res.json({
       message: 'Request rejected',

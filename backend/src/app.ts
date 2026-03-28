@@ -33,10 +33,10 @@ import voiceRoutes from './routes/voice';
 import attributionRoutes from './routes/attribution';
 import unsubscribeRoutes from './routes/unsubscribe';
 import pilotRoutes from './routes/pilots';
+import inviteRoutes from './routes/invites';
 import adminPilotRoutes from './routes/adminPilot';
 import pilotManagementRoutes from './routes/pilotManagement';
-import auditRoutes from './routes/audits';
-import requestsRoutes from './routes/requests';
+import auditStagesRoutes from './routes/auditStages';
 import pilotQueueRoutes from './routes/pilotQueue';
 import { getRequestContext, logError, logInfo, logWarn, withRequestContext } from './utils/logger';
 import { apiLimiter, authLimiter, authSlowDown, syncLimiter, aiLimiter, webhookLimiter, emailLimiter, auditOtpLimiter, publicFormLimiter } from './middleware/rateLimiter';
@@ -186,6 +186,7 @@ app.use('/api/', apiLimiter);
 
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/invites', inviteRoutes);
 app.use('/api/stripe', stripeRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/email', emailRoutes);
@@ -215,8 +216,7 @@ app.use('/api/attribution', attributionRoutes);
 app.use('/api/unsubscribe', unsubscribeRoutes);
 app.use('/api/pilots', pilotRoutes);
 app.use('/api/admin/pilots', pilotManagementRoutes);
-app.use('/api/audits', auditRoutes);
-app.use('/api/audit-requests', requestsRoutes);
+app.use('/api/audits', auditStagesRoutes);  // CashOS Stages 1-5 new flow
 app.use('/api/pilot-queue', pilotQueueRoutes);
 
 // Health check

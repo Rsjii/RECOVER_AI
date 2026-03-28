@@ -3,8 +3,14 @@ import type { User, Company, AuthState } from '../types';
 import { api } from '../lib/api';
 import { API_ENDPOINTS } from '../lib/constants';
 
+export interface AuditResume {
+  token: string;
+  status: string;
+  company_name: string;
+}
+
 export interface AuthContextType extends AuthState {
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<{ auditResume?: AuditResume } | void>;
   signup: (email: string, password: string, companyName: string, firstName?: string, lastName?: string, planCode?: string) => Promise<void>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
@@ -83,8 +89,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     dispatch({ type: 'SET_ERROR', payload: null });
     try {
       const response: any = await api.post(API_ENDPOINTS.auth.login, { email, password });
-      const { user, company } = response;
+      const { user, company, auditResume } = response;
       dispatch({ type: 'LOGIN_SUCCESS', payload: { user, company } });
+      return { auditResume };
     } catch (error: any) {
       dispatch({ type: 'SET_ERROR', payload: error.message || 'Login failed' });
       throw error;

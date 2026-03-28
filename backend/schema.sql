@@ -30,7 +30,6 @@ CREATE TABLE IF NOT EXISTS companies (
   chargebee_api_key_encrypted TEXT,
 
   -- Subscription & Billing (RecoverAI platform SaaS)
-  subscription_status        VARCHAR(50) DEFAULT 'trial',  -- trial | active | past_due | canceled
   lemon_squeezy_customer_id  VARCHAR(255),
   razorpay_customer_id       VARCHAR(120),
   razorpay_subscription_id   VARCHAR(120),
@@ -47,6 +46,20 @@ CREATE TABLE IF NOT EXISTS companies (
   pilot_mode                 VARCHAR(20) DEFAULT 'auto',    -- 'shadow' | 'auto' | 'paused'
   manual_mode                BOOLEAN DEFAULT false,         -- when true, all emails queued for approval
   reply_to_email             VARCHAR(255),                  -- company email for dunning replies
+
+  -- Pilot program & account type (Motion 1 - Onboarding)
+  account_type               VARCHAR(20) DEFAULT 'paid',    -- 'pilot' or 'paid'
+  pilot_ends_at              TIMESTAMPTZ,                   -- When pilot mode expires
+  company_name               VARCHAR(255),                  -- Display name (from onboarding)
+
+  -- CashOS: Trial tracking (new flow)
+  trial_status               VARCHAR(20) DEFAULT 'not_started',  -- 'not_started' | 'active' | 'expired' | 'converted_to_paid'
+  trial_starts_at            TIMESTAMPTZ,
+  trial_ends_at              TIMESTAMPTZ,
+  trial_extended_at          TIMESTAMPTZ,                   -- Tracks if extended once
+  onboarding_stage           VARCHAR(50) DEFAULT 'pending', -- 'pending' | 'details_form' | 'create_account' | 'integrations' | 'audit_report' | 'trial_offer' | 'trial_active' | 'paid_active'
+  subscription_tier          VARCHAR(20) DEFAULT 'free',    -- 'free' | 'startup' | 'growth' | 'enterprise'
+  subscription_status        VARCHAR(20) DEFAULT 'trial',   -- 'trial' | 'active' | 'paused' | 'cancelled'
 
   created_at                 TIMESTAMPTZ DEFAULT NOW(),
   updated_at                 TIMESTAMPTZ DEFAULT NOW()
@@ -73,6 +86,12 @@ CREATE TABLE IF NOT EXISTS users (
   auth_provider VARCHAR(20) DEFAULT 'email',     -- 'email' | 'google' | 'both'
   google_id     VARCHAR(255),
   avatar_url    VARCHAR(500),
+
+  -- Onboarding flow
+  signup_method VARCHAR(20),                     -- 'google_oauth' | 'email_password' | 'invite_token'
+  onboarding_status VARCHAR(20) DEFAULT 'onboarding',  -- 'onboarding' | 'company_form' | 'stripe_pending' | 'active'
+  onboarding_completed_at TIMESTAMPTZ,
+
   created_at    TIMESTAMPTZ DEFAULT NOW(),
   updated_at    TIMESTAMPTZ DEFAULT NOW()
 );
@@ -892,10 +911,6 @@ ALTER TABLE payment_plan_charges FORCE ROW LEVEL SECURITY;
 -- PILOT PROGRAM
 -- ============================================================
 
--- Add account_type column to companies (if not exists)
-ALTER TABLE companies ADD COLUMN IF NOT EXISTS account_type VARCHAR(20) DEFAULT 'paid';  -- 'pilot' or 'paid'
-ALTER TABLE companies ADD COLUMN IF NOT EXISTS pilot_ends_at TIMESTAMPTZ;
-
 -- Pilots table - stores applications from prospects
 CREATE TABLE IF NOT EXISTS pilots (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -973,12 +988,55 @@ CREATE TABLE IF NOT EXISTS audit_invites (
   expires_at          TIMESTAMPTZ,
   used_at             TIMESTAMPTZ,
   created_by_user_id  UUID,
-  created_by_type     VARCHAR(20) DEFAULT 'admin'  -- 'admin' (cold outreach) | 'website' (form submission)
+  created_by_type     VARCHAR(20) DEFAULT 'admin',  -- 'admin' (cold outreach) | 'website' (form submission)
+
+  -- CashOS: Warm vs Cold path distinction
+  invite_type         VARCHAR(20) DEFAULT 'cold',  -- 'warm' (auto-approved CEO) | 'cold' (requires admin approval)
+  admin_approved      BOOLEAN DEFAULT false,       -- true = approved | false = pending
+  approval_reason     TEXT,                        -- Why was it approved/rejected?
+  approved_by_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  approved_at         TIMESTAMPTZ
 );
 
 CREATE INDEX IF NOT EXISTS idx_audit_invites_token ON audit_invites(token);
 CREATE INDEX IF NOT EXISTS idx_audit_invites_email ON audit_invites(invited_email);
 CREATE INDEX IF NOT EXISTS idx_audit_invites_expires ON audit_invites(expires_at);
+CREATE INDEX IF NOT EXISTS idx_audit_invites_type_approved ON audit_invites(invite_type, admin_approved);
+
+-- ============================================================
+-- ONBOARDING FLOW: INVITE TOKENS (Motion 1 - Personalized Invites)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS invite_tokens (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  token VARCHAR(256) NOT NULL UNIQUE,
+
+  -- Invite metadata (ONLY email + company_name, no research_data per user request)
+  email VARCHAR(255),  -- optional, if known from LinkedIn research
+  company_name VARCHAR(255) NOT NULL,
+  company_domain VARCHAR(100),  -- e.g., "company.xyz" for domain validation
+
+  -- Token lifecycle
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  expires_at TIMESTAMPTZ NOT NULL,
+  used_at TIMESTAMPTZ,
+  used_by_email VARCHAR(255),  -- track who actually used the token
+
+  -- Admin metadata
+  created_by_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+
+  -- Company created from this invite
+  created_company_id UUID REFERENCES companies(id) ON DELETE SET NULL,
+
+  -- Circular FK: Link back to audit_requests (added after both tables exist via ALTER)
+  audit_request_id UUID,
+
+  created_at_timestamp TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_invite_tokens_token ON invite_tokens(token);
+CREATE INDEX IF NOT EXISTS idx_invite_tokens_expires ON invite_tokens(expires_at) WHERE used_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_invite_tokens_email ON invite_tokens(email);
 
 -- Audit Requests: Inbound form submissions from website
 -- You review these and decide who to send invite links to
@@ -989,9 +1047,28 @@ CREATE TABLE IF NOT EXISTS audit_requests (
   email               VARCHAR(255) NOT NULL,
   revenue             INT,
   phone               VARCHAR(20),
-  status              VARCHAR(20) DEFAULT 'pending',  -- pending | approved | rejected | converted
+  -- New: Link to user (set after OTP verification or pilot conversion)
+  user_id             UUID REFERENCES users(id) ON DELETE SET NULL,
+  status              VARCHAR(20) DEFAULT 'pending',  -- pending | approved | email_entered | otp_verified | stripe_started | stripe_connected | analysis_in_progress | analysis_complete | pilot_offered | pilot_converting | converted | expired | cancelled
   reviewed_at         TIMESTAMPTZ,
   reviewed_by_user_id UUID,
+
+  -- Email verification (Motion 2)
+  verify_token        VARCHAR(256) UNIQUE,
+  email_verified_at   TIMESTAMPTZ,
+  invite_token_id     UUID REFERENCES invite_tokens(id) ON DELETE SET NULL,
+
+  -- New: Timeline tracking
+  analysis_started_at TIMESTAMPTZ,
+  analysis_completed_at TIMESTAMPTZ,
+  pilot_offered_at    TIMESTAMPTZ,
+
+  -- Expiry tracking: 7-day validity for audit requests
+  expires_at          TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '7 days'),
+
+  -- Analysis results storage (JSONB): {cash_clarity_score, available_cash, runway_days, overdue_ar, avg_days_late, billing_errors: {duplicates, spikes, gaps, failed_clusters}, risks, insights}
+  analysis_data       JSONB,
+
   created_at          TIMESTAMPTZ DEFAULT NOW(),
   converted_at        TIMESTAMPTZ
 );
@@ -999,3 +1076,13 @@ CREATE TABLE IF NOT EXISTS audit_requests (
 CREATE INDEX IF NOT EXISTS idx_audit_requests_email ON audit_requests(email);
 CREATE INDEX IF NOT EXISTS idx_audit_requests_status ON audit_requests(status);
 CREATE INDEX IF NOT EXISTS idx_audit_requests_created ON audit_requests(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_requests_expires ON audit_requests(expires_at) WHERE expires_at IS NOT NULL;
+
+-- Add circular FK from invite_tokens back to audit_requests (both tables now exist)
+DO $$
+BEGIN
+  ALTER TABLE invite_tokens ADD CONSTRAINT fk_invite_tokens_audit_request FOREIGN KEY (audit_request_id) REFERENCES audit_requests(id) ON DELETE SET NULL;
+EXCEPTION WHEN duplicate_object THEN
+  NULL;  -- Constraint already exists, skip
+END $$;
+

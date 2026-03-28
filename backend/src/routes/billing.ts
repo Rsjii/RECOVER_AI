@@ -19,6 +19,7 @@ import {
   generateRazorpayInvoiceForCompany,
   handleRazorpayWebhook,
   setCompanyBillingTier,
+  startPilotConversion,
 } from '../controllers/billingController';
 
 const router = Router();
@@ -40,6 +41,9 @@ router.get('/entitlements', getEntitlements);
 // LemonSqueezy routes
 router.post('/checkout', createLemonSqueezyCheckout);
 router.post('/webhook/lemonsqueezy', handleLemonSqueezyWebhook);
+
+// Pilot conversion
+router.post('/checkout/pilot-conversion', startPilotConversion);
 
 // Razorpay routes
 router.post('/razorpay/generate-invoices', requireRole('admin'), generateRazorpayInvoices);

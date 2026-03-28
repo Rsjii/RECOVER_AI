@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../lib/api';
 import { Button } from '../components/ui/Button';
+import { Modal } from '../components/ui/Modal';
 import { useNotification } from '../hooks/useNotification';
+import { Spinner } from '../components/ui/Spinner';
 
 interface QueuedEmail {
   id: string;
@@ -23,6 +25,9 @@ const EmailQueue: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [approving, setApproving] = useState<string | null>(null);
   const [approvingAll, setApprovingAll] = useState(false);
+  const [previewEmail, setPreviewEmail] = useState<QueuedEmail | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [preview, setPreview] = useState<{ subject: string; body: string } | null>(null);
 
   useEffect(() => {
     document.title = 'Email Queue — RecoverAI';
@@ -102,6 +107,25 @@ const EmailQueue: React.FC = () => {
       });
     } finally {
       setApprovingAll(false);
+    }
+  };
+
+  const handlePreviewEmail = async (email: QueuedEmail) => {
+    setPreviewEmail(email);
+    setPreviewLoading(true);
+    setPreview(null);
+    try {
+      const res = await api.get<{ data: { subject: string; body: string } }>(
+        `/api/email/preview/${email.invoice_id}/${email.email_type}`
+      );
+      setPreview(res.data);
+    } catch (err: any) {
+      addToast({
+        type: 'error',
+        message: err.message || 'Failed to load email preview',
+      });
+    } finally {
+      setPreviewLoading(false);
     }
   };
 
@@ -220,6 +244,13 @@ const EmailQueue: React.FC = () => {
                           {email.status === 'pending' ? (
                             <>
                               <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => handlePreviewEmail(email)}
+                              >
+                                👁 Preview
+                              </Button>
+                              <Button
                                 variant="primary"
                                 size="sm"
                                 onClick={() => handleApproveEmail(email.id)}
@@ -257,6 +288,78 @@ const EmailQueue: React.FC = () => {
               </table>
             </div>
           </div>
+        )}
+
+        {/* Email Preview Modal */}
+        {previewEmail && (
+          <Modal
+            size="lg"
+            isOpen={!!previewEmail}
+            onClose={() => {
+              setPreviewEmail(null);
+              setPreview(null);
+            }}
+            title="Email Preview"
+          >
+            <div className="space-y-4">
+              <div>
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Customer:</p>
+                <p className="text-gray-900 dark:text-white">{previewEmail.customer_name}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{previewEmail.recipient_email}</p>
+              </div>
+
+              {previewLoading ? (
+                <div className="flex justify-center py-12">
+                  <Spinner text="Generating preview..." />
+                </div>
+              ) : preview ? (
+                <div className="space-y-4 bg-gray-50 dark:bg-white/[0.03] rounded-lg p-4">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 uppercase tracking-wide">
+                      Subject
+                    </label>
+                    <div className="bg-white dark:bg-white/[0.05] rounded px-3 py-2 text-sm text-gray-900 dark:text-white font-medium">
+                      {preview.subject}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 uppercase tracking-wide">
+                      Body
+                    </label>
+                    <div className="bg-white dark:bg-white/[0.05] rounded px-3 py-2 text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed max-h-96 overflow-y-auto">
+                      {preview.body}
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="flex gap-3 justify-end mt-6">
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setPreviewEmail(null);
+                  setPreview(null);
+                }}
+              >
+                Close
+              </Button>
+              {preview && (
+                <Button
+                  variant="primary"
+                  onClick={() => {
+                    handleApproveEmail(previewEmail.id);
+                    setPreviewEmail(null);
+                    setPreview(null);
+                  }}
+                  loading={approving === previewEmail.id}
+                  disabled={approving !== null}
+                >
+                  Approve & Send
+                </Button>
+              )}
+            </div>
+          </Modal>
         )}
       </div>
     </div>

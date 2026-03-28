@@ -2,7 +2,7 @@ import React from 'react';
 import { Table } from '../ui/Table';
 import { Badge } from '../ui/Badge';
 import { formatCurrency, formatDate, calculateDaysOverdue } from '../../lib/utils';
-import { STATUS_COLORS } from '../../lib/constants';
+import { STATUS_COLORS, AGING_COLORS } from '../../lib/constants';
 import type { Invoice, TableColumn } from '../../types';
 
 interface InvoiceTableProps {
@@ -23,6 +23,19 @@ function dunningBadge(stage: number | undefined) {
   if (s <= 2) return { label: `Stage ${s}`, cls: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' };
   if (s <= 3) return { label: `Stage ${s}`, cls: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300' };
   return { label: `Stage ${s}`, cls: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300' };
+}
+
+function agingBadge(status: string, daysOverdue: number) {
+  if (status === 'paid') {
+    return { label: AGING_COLORS.paid.label, cls: `${AGING_COLORS.paid.bg} ${AGING_COLORS.paid.text}` };
+  }
+  if (daysOverdue <= 0) {
+    return { label: AGING_COLORS.due_soon.label, cls: `${AGING_COLORS.due_soon.bg} ${AGING_COLORS.due_soon.text}` };
+  }
+  if (daysOverdue <= 30) {
+    return { label: AGING_COLORS.overdue_7_30.label, cls: `${AGING_COLORS.overdue_7_30.bg} ${AGING_COLORS.overdue_7_30.text}` };
+  }
+  return { label: AGING_COLORS.overdue_30plus.label, cls: `${AGING_COLORS.overdue_30plus.bg} ${AGING_COLORS.overdue_30plus.text}` };
 }
 
 export const InvoiceTable: React.FC<InvoiceTableProps> = ({
@@ -112,6 +125,17 @@ export const InvoiceTable: React.FC<InvoiceTableProps> = ({
             <div className="text-gray-600 dark:text-gray-300">{formatDate(val)}</div>
             {days > 0 && <div className="text-xs text-red-500 font-medium">{days}d overdue</div>}
           </div>
+        );
+      },
+    },
+    {
+      key: 'status',
+      label: 'Age',
+      render: (_, row) => {
+        const days = calculateDaysOverdue(row.due_date);
+        const { label, cls } = agingBadge(row.status, days);
+        return (
+          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${cls}`}>{label}</span>
         );
       },
     },

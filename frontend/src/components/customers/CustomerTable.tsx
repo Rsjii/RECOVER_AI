@@ -9,8 +9,6 @@ interface CustomerTableProps {
   loading: boolean;
   pagination?: { page: number; pages: number; total: number; onPageChange: (p: number) => void };
   onRowClick: (customer: Customer) => void;
-  onEmailClick?: (customer: Customer) => void;
-  onPaymentPlanClick?: (customer: Customer) => void;
 }
 
 type SortKey = 'total_ar_balance' | 'max_risk_score' | 'last_payment_date' | null;
@@ -69,7 +67,7 @@ function RiskSignals({ customer }: { customer: Customer }) {
 }
 
 export const CustomerTable: React.FC<CustomerTableProps> = ({
-  customers, loading, pagination, onRowClick, onEmailClick, onPaymentPlanClick,
+  customers, loading, pagination, onRowClick,
 }) => {
   const [sortKey, setSortKey] = useState<SortKey>(null);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
@@ -199,24 +197,6 @@ export const CustomerTable: React.FC<CustomerTableProps> = ({
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button
-                        title="Send Email"
-                        onClick={(e) => { e.stopPropagation(); onEmailClick?.(c); }}
-                        className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-white/[0.1] text-gray-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
-                      >
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                        </svg>
-                      </button>
-                      <button
-                        title="Payment Plan"
-                        onClick={(e) => { e.stopPropagation(); onPaymentPlanClick?.(c); }}
-                        className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-white/[0.1] text-gray-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
-                      >
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
-                        </svg>
-                      </button>
                       <button
                         title="View Details"
                         onClick={(e) => { e.stopPropagation(); onRowClick(c); }}

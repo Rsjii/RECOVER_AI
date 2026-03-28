@@ -17,6 +17,7 @@ import { createPlanForInvoice } from './paymentPlanService';
 import { getOptimalRetryTime } from './paymentBehaviorService';
 import { addRetryJob } from '../queue/retryQueue';
 import { logIntegrationSync } from '../db/integrationLogs';
+import resendService from './resendService';
 
 function getStripeClient(apiKey: string): Stripe {
   return new Stripe(apiKey);
@@ -327,6 +328,53 @@ class StripeService {
       });
     } catch (err) {
       logError('stripeService', method, 'Failed to send Slack alert (non-blocking)', err);
+    }
+
+    // Pilot celebration email — send "X just paid!" to company owner when in pilot mode
+    try {
+      const company = await CompanyDB.findCompanyById(invoice.company_id);
+      if (company && (company as any).account_type === 'pilot' && company.email) {
+        const customerName = invoice.customer_name || 'A customer';
+        const formattedAmount = amountPaid.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        await resendService.sendEmail({
+          to: company.email,
+          subject: `${customerName} just paid $${formattedAmount}! 🎉`,
+          bodyHtml: `
+            <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;background:#f9fafb;border-radius:16px;">
+              <div style="background:#fff;border-radius:12px;padding:32px;border:1px solid #e5e7eb;">
+                <div style="text-align:center;margin-bottom:24px;">
+                  <div style="background:#16a34a;color:#fff;font-size:36px;width:64px;height:64px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;">&#127881;</div>
+                </div>
+                <h1 style="font-size:22px;font-weight:800;color:#111827;text-align:center;margin:0 0 8px;">
+                  Payment Received!
+                </h1>
+                <p style="color:#6b7280;text-align:center;font-size:14px;margin:0 0 24px;">
+                  RecoverAI just recovered another invoice for you
+                </p>
+                <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:20px;text-align:center;margin-bottom:24px;">
+                  <div style="font-size:36px;font-weight:900;color:#15803d;font-variant-numeric:tabular-nums;">$${formattedAmount}</div>
+                  <div style="color:#166534;font-size:14px;margin-top:4px;">paid by <strong>${customerName}</strong></div>
+                </div>
+                <p style="color:#374151;font-size:14px;line-height:1.6;margin:0 0 20px;">
+                  This payment was recovered as part of your RecoverAI pilot. Login to your dashboard to see full recovery stats.
+                </p>
+                <a href="${process.env.FRONTEND_URL}/dashboard" style="display:block;background:#2563eb;color:#fff;text-decoration:none;padding:14px 24px;border-radius:8px;text-align:center;font-weight:700;font-size:15px;">
+                  View Dashboard
+                </a>
+              </div>
+              <p style="color:#9ca3af;font-size:12px;text-align:center;margin-top:16px;">RecoverAI - Autonomous AR Recovery</p>
+            </div>
+          `,
+          bodyText: `${customerName} just paid $${formattedAmount}!\n\nThis payment was recovered as part of your RecoverAI pilot.\n\nLogin: ${process.env.FRONTEND_URL}/dashboard`,
+          replyTo: 'hello@recoverai.com',
+        });
+        logInfo('stripeService', method, 'Pilot celebration email sent', {
+          companyId: invoice.company_id,
+          amount: amountPaid,
+        });
+      }
+    } catch (notifyErr) {
+      logError('stripeService', method, 'Pilot notification failed (non-blocking)', notifyErr);
     }
 
     logInfo('stripeService', method, 'Invoice paid handled', {

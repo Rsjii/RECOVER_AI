@@ -29,9 +29,12 @@ export const getSettings = async (req: Request, res: Response): Promise<void> =>
         timezone: company.timezone,
         preferredCurrency: company.preferred_currency,
         dunningStrategy: company.dunning_strategy,
-        pilotMode: (company as any).pilot_mode || 'auto',  // P0
-        replyToEmail: (company as any).reply_to_email || null,  // P0
-        manualMode: company.manual_mode ?? false,  // P0
+        pilotMode: (company as any).pilot_mode || 'auto',
+        replyToEmail: (company as any).reply_to_email || null,
+        manualMode: company.manual_mode ?? false,
+        accountType: (company as any).account_type || 'paid',
+        trialStatus: (company as any).trial_status || 'not_started',
+        trialEndsAt: (company as any).trial_ends_at || null,
         integrations: {
           stripe: !!company.stripe_api_key_encrypted,
           stripeLastSyncedAt: (company as any).stripe_last_synced_at || null,

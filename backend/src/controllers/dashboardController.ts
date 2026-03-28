@@ -510,3 +510,70 @@ export const getRecoveryToday = async (req: Request, res: Response): Promise<voi
     sendErrorResponse(res, statusCode, message);
   }
 };
+
+/**
+ * GET /api/dashboard/trial-analysis
+ * Returns stored audit analysis for trial users (no real data sync yet)
+ */
+export const getTrialAnalysis = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'getTrialAnalysis';
+  const companyId = (req as any).companyId;
+
+  try {
+    // Fetch the audit analysis stored during trial creation
+    const result = await pool.query(
+      `SELECT
+        ar.analysis_data,
+        ar.created_at as audit_date,
+        c.trial_ends_at,
+        c.account_type
+      FROM companies c
+      LEFT JOIN audit_requests ar ON c.id = ar.user_id OR c.email = ar.email
+      WHERE c.id = $1
+      ORDER BY ar.created_at DESC
+      LIMIT 1`,
+      [companyId]
+    );
+
+    if (result.rows.length === 0) {
+      sendErrorResponse(res, 404, 'No trial analysis found');
+      return;
+    }
+
+    const row = result.rows[0];
+    const analysisData = typeof row.analysis_data === 'string'
+      ? JSON.parse(row.analysis_data)
+      : row.analysis_data;
+
+    if (!analysisData) {
+      sendErrorResponse(res, 400, 'Analysis not yet available');
+      return;
+    }
+
+    // Calculate trial days remaining
+    const trialEndsAt = new Date(row.trial_ends_at);
+    const now = new Date();
+    const daysRemaining = Math.max(0, Math.ceil((trialEndsAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
+
+    const response = {
+      data: {
+        ...analysisData,
+        trial_days_remaining: daysRemaining,
+        trial_ends_at: row.trial_ends_at,
+        audit_date: row.audit_date,
+      }
+    };
+
+    logInfo(LOG_MODULE, handler, 'Trial analysis fetched', {
+      companyId,
+      score: analysisData.cash_clarity_score,
+      daysRemaining
+    });
+
+    res.status(200).json(response);
+  } catch (error) {
+    logError(LOG_MODULE, handler, 'Failed to get trial analysis', error);
+    const { statusCode, message } = parseError(error);
+    sendErrorResponse(res, statusCode, message);
+  }
+};

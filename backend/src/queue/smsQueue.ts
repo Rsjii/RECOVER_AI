@@ -1,5 +1,6 @@
 import { Queue, Worker, Job } from 'bullmq';
 import { getRedisConnection } from './dunningQueue';
+import { isRedisConnected } from '../config/redis';
 import { sendSMS } from '../services/smsService';
 import { generateSMSMessage } from '../services/smsGenerationService';
 import { checkTCPACompliance, getUSEasternHour } from '../utils/tcpaCompliance';
@@ -24,8 +25,14 @@ export interface SMSJob {
 
 let smsQueue: Queue<SMSJob> | null = null;
 
-export function getSMSQueue(): Queue<SMSJob> {
+export function getSMSQueue(): Queue<SMSJob> | null {
   if (!smsQueue) {
+    // OPTIMIZATION: Check if Redis is available before creating queue
+    if (!isRedisConnected()) {
+      logWarn(LOG_MODULE, 'getSMSQueue', 'Redis not connected - queue disabled');
+      return null;
+    }
+
     smsQueue = new Queue<SMSJob>(QUEUE_NAME, {
       connection: getRedisConnection(),
       defaultJobOptions: {
@@ -44,6 +51,15 @@ export function getSMSQueue(): Queue<SMSJob> {
 
 export async function queueSMSNow(job: SMSJob): Promise<void> {
   const queue = getSMSQueue();
+
+  // OPTIMIZATION: If Redis not available, skip queuing
+  if (!queue) {
+    logWarn(LOG_MODULE, 'queueSMSNow', 'Queue unavailable (Redis disconnected) - skipping SMS queue', {
+      invoiceId: job.invoiceId,
+    });
+    return;
+  }
+
   await queue.add('send-sms', job, { jobId: `sms-${job.invoiceId}-${Date.now()}` });
   logInfo(LOG_MODULE, 'queueSMSNow', 'SMS queued', {
     invoiceId: job.invoiceId,

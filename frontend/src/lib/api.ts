@@ -1,7 +1,9 @@
 import axios from 'axios';
 import type { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+// Dev: empty → requests go through Vite proxy (/api/* → localhost:3000) → same-origin, cookies work
+// Prod: VITE_API_BASE_URL is set to production backend URL
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
 const instance: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
@@ -55,7 +57,7 @@ instance.interceptors.response.use(
       } catch (refreshErr) {
         processQueue(refreshErr);
         // Only redirect to login if on a protected page (not public pages)
-        const publicPages = ['/', '/landing', '/pricing', '/security', '/terms', '/privacy', '/cookie-policy', '/dpa', '/demo', '/unsubscribe', '/login', '/signup', '/forgot-password', '/auth/google/callback', '/stripe/oauth/callback'];
+        const publicPages = ['/', '/landing', '/pricing', '/security', '/terms', '/privacy', '/cookie-policy', '/dpa', '/demo', '/unsubscribe', '/login', '/signup', '/forgot-password', '/auth/google/callback', '/stripe/oauth/callback', '/onboard'];
         const currentPath = window.location.pathname;
         if (!publicPages.some(page => currentPath.startsWith(page))) {
           window.location.href = '/login';

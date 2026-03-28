@@ -3,6 +3,7 @@ import { stripeService } from '../services/stripeService';
 import { logError as baseLogError, logInfo as baseLogInfo } from '../utils/logger';
 import { sendErrorResponse, parseError } from '../utils/errorHandler';
 import { getSyncHistory as getSyncHistoryDB } from '../db/integrationLogs';
+import { setOnboardingActiveByCompanyId } from '../db/users';
 
 // ============ Structured Logger ============
 const LOG_MODULE = 'stripeController';
@@ -33,6 +34,13 @@ export const connectStripe = async (req: Request, res: Response) => {
     }
 
     await stripeService.connectStripe(companyId, userId, { stripe_api_key });
+
+    // Mark onboarding complete — manual key connection counts as Stripe connected
+    try {
+      await setOnboardingActiveByCompanyId(companyId);
+    } catch (err: any) {
+      logError(handler, 'Failed to set onboarding active (non-blocking)', err);
+    }
 
     const elapsed = Date.now() - startTime;
     logInfo(handler, `Completed in ${elapsed}ms`, { companyId });
@@ -105,12 +113,13 @@ export const stripeOAuthAuthorize = async (req: Request, res: Response) => {
 
     const params = new URLSearchParams({
       client_id: STRIPE_CLIENT_ID,
-      state: companyId,
+      response_type: 'code',
       scope: 'read_write',
       redirect_uri: `${BACKEND_URL}/api/stripe/oauth/callback`,
+      state: companyId,
     });
 
-    const authUrl = `https://connect.stripe.com/oauth/authorize?${params.toString()}`;
+    const authUrl = `https://connect.stripe.com/oauth/v2/authorize?${params.toString()}`;
     logInfo(handler, 'Redirecting to Stripe OAuth', { companyId });
 
     return res.redirect(authUrl);
@@ -177,10 +186,18 @@ export const stripeOAuthCallback = async (req: Request, res: Response) => {
 
     await stripeService.connectViaOAuth(companyId, userId, code as string);
 
+    // Mark all users in this company as fully onboarded
+    try {
+      await setOnboardingActiveByCompanyId(companyId);
+    } catch (err: any) {
+      logError(handler, 'Failed to set onboarding active (non-blocking)', err);
+    }
+
     const elapsed = Date.now() - startTime;
     logInfo(handler, `OAuth completed in ${elapsed}ms`, { companyId });
 
-    return res.redirect(`${FRONTEND_URL}/setup/success?stripe=connected`);
+    // Redirect to setup page (not dashboard) — setup page detects stripe=connected and goes to dashboard
+    return res.redirect(`${FRONTEND_URL}/setup?stripe=connected`);
   } catch (err: any) {
     const elapsed = Date.now() - startTime;
     logError(handler, `OAuth callback failed after ${elapsed}ms`, err);

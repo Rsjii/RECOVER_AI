@@ -86,16 +86,6 @@ const Customers: React.FC = () => {
   const totalAR = filtered.reduce((sum, c) => sum + Number(c.total_ar_balance ?? 0), 0);
   const atRiskCount = filtered.filter(c => (c.max_risk_score ?? 0) > 60).length;
 
-  const handleEmailClick = (c: Customer) => {
-    addToast({ type: 'info', message: `Email actions for ${c.name} — open their profile to send` });
-    setSelected(c);
-  };
-
-  const handlePaymentPlanClick = (c: Customer) => {
-    addToast({ type: 'info', message: `Payment plan for ${c.name} — open their profile to set up` });
-    setSelected(c);
-  };
-
   return (
     <div className="space-y-6 pb-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -163,8 +153,6 @@ const Customers: React.FC = () => {
         loading={loading}
         pagination={{ page, pages: totalPages, total, onPageChange: setPage }}
         onRowClick={setSelected}
-        onEmailClick={handleEmailClick}
-        onPaymentPlanClick={handlePaymentPlanClick}
       />
       <CustomerModal customer={selected} isOpen={!!selected} onClose={() => setSelected(null)} />
     </div>

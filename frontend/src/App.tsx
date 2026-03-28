@@ -8,7 +8,6 @@ import { useAuth } from './hooks/useAuth';
 
 // Pages (lazy loaded)
 import Login from './pages/Login';
-import Setup from './pages/Setup';
 import VerifyEmail from './pages/VerifyEmail';
 import NotFound from './pages/NotFound';
 import ForgotPassword from './pages/ForgotPassword';
@@ -22,15 +21,16 @@ import Refund from './pages/Refund';
 import CookiePolicy from './pages/CookiePolicy';
 import Dpa from './pages/Dpa';
 import GoogleCallback from './pages/GoogleCallback';
-import Onboarding from './pages/Onboarding';
-import PlanSelection from './pages/PlanSelection';
 import StripeCallback from './pages/StripeCallback';
 import Unsubscribe from './pages/Unsubscribe';
 import BillingSuccess from './pages/BillingSuccess';
-import FreeAuditSignup from './pages/FreeAuditSignup';
-import AuditResults from './pages/AuditResults';
-import AuditRequestForm from './pages/AuditRequestForm';
 import EmailQueue from './pages/EmailQueue';
+import Onboard from './pages/Onboard';
+import { Stage1 } from './pages/onboard/Stage1';
+import { Stage2 } from './pages/onboard/Stage2';
+import { Stage3 } from './pages/onboard/Stage3';
+import { Stage4 } from './pages/onboard/Stage4';
+import { Stage5 } from './pages/onboard/Stage5';
 
 // Placeholder pages (create empty files for now, fill in later phases)
 const Dashboard = React.lazy(() => import('./pages/Dashboard'));
@@ -41,7 +41,6 @@ const Settings = React.lazy(() => import('./pages/Settings'));
 const Reports = React.lazy(() => import('./pages/Reports'));
 const Activity = React.lazy(() => import('./pages/Activity'));
 const Billing = React.lazy(() => import('./pages/Billing'));
-const Team = React.lazy(() => import('./pages/Team'));
 const Admin = React.lazy(() => import('./pages/Admin'));
 
 /**
@@ -107,9 +106,15 @@ const App: React.FC = () => {
             <Route path="/auth/google/callback" element={<GoogleCallback />} />
             <Route path="/stripe/oauth/callback" element={<StripeCallback />} />
             <Route path="/unsubscribe" element={<Unsubscribe />} />
-            <Route path="/audit" element={<FreeAuditSignup />} />
-            <Route path="/audit-request" element={<AuditRequestForm />} />
-            <Route path="/audit-results/:auditId" element={<AuditResults />} />
+            <Route path="/onboard" element={<Onboard />} />
+
+            {/* CashOS Stages (Audit → Trial → Paid flow) */}
+            <Route path="/onboard/stage-1" element={<Stage1 />} />
+            <Route path="/onboard/stage-2" element={<Stage2 />} />
+            <Route path="/onboard/stage-3" element={<Stage3 />} />
+            <Route path="/onboard/stage-4" element={<Stage4 />} />
+            <Route path="/onboard/stage-5" element={<Stage5 />} />
+
             <Route
               path="/verify-email"
               element={
@@ -119,34 +124,10 @@ const App: React.FC = () => {
               }
             />
             <Route
-              path="/setup"
-              element={
-                <ProtectedRoute>
-                  <Setup />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/onboarding"
-              element={
-                <ProtectedRoute>
-                  <Onboarding />
-                </ProtectedRoute>
-              }
-            />
-            <Route
               path="/billing/success"
               element={
                 <ProtectedRoute>
                   <BillingSuccess />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/plan-selection"
-              element={
-                <ProtectedRoute>
-                  <PlanSelection />
                 </ProtectedRoute>
               }
             />
@@ -240,16 +221,6 @@ const App: React.FC = () => {
                 <ProtectedRoute requireEmailVerification>
                   <Layout>
                     <Billing />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/team"
-              element={
-                <ProtectedRoute requireEmailVerification>
-                  <Layout>
-                    <Team />
                   </Layout>
                 </ProtectedRoute>
               }

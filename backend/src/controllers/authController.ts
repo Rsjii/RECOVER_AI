@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import bcrypt from 'bcrypt';
 import { authService } from '../services/authService';
 import { SignupInput, LoginInput } from '../types/auth';
 import { config } from '../config/env';
@@ -180,6 +181,7 @@ export const me = async (req: Request, res: Response) => {
         lastName: result.lastName,
         role: result.role,
         emailVerified: result.emailVerified,
+        onboardingStatus: result.onboardingStatus,
       },
       company: result.company,
     });
@@ -546,6 +548,26 @@ export const bootstrap = async (req: Request, res: Response) => {
       [result.user.id]
     );
 
+    // ✅ CRITICAL: Set company to PAID_ACTIVE - NO TRIAL, NO ONBOARDING, FULL DASHBOARD ACCESS
+    await pool.query(
+      `UPDATE companies
+       SET account_type = 'paid',
+           onboarding_stage = 'paid_active',
+           trial_status = NULL,
+           trial_starts_at = NULL,
+           trial_ends_at = NULL,
+           billing_tier = 4,
+           updated_at = NOW()
+       WHERE id = $1`,
+      [result.company.id]
+    );
+
+    // ✅ Ensure user role is 'admin'
+    await pool.query(
+      `UPDATE users SET role = 'admin' WHERE id = $1`,
+      [result.user.id]
+    );
+
     // Create session
     await SecurityDB.createSession({
       userId: result.user.id,
@@ -559,15 +581,226 @@ export const bootstrap = async (req: Request, res: Response) => {
     // Set cookies
     setCookies(res, result.tokens.accessToken, result.tokens.refreshToken);
 
-    logInfo(handler, '✅ Bootstrap successful — first admin created', { email, companyId: result.company.id });
+    logInfo(handler, '✅ Bootstrap successful — admin created with FULL DASHBOARD ACCESS', {
+      email,
+      companyId: result.company.id,
+      accountType: 'paid',
+      onboardingStage: 'paid_active',
+      billingTier: 4,
+      userRole: 'admin'
+    });
 
     return res.status(201).json({
-      message: 'Admin account created successfully',
-      user: result.user,
-      company: result.company,
+      message: 'Admin account created successfully - DIRECT DASHBOARD ACCESS',
+      user: { ...result.user, role: 'admin' },
+      company: {
+        ...result.company,
+        account_type: 'paid',
+        onboarding_stage: 'paid_active',
+        billing_tier: 4
+      },
+      redirect: '/dashboard',
     });
   } catch (err: any) {
     logError(handler, 'Bootstrap failed', err);
+    const { statusCode, message } = parseError(err);
+    return sendErrorResponse(res, statusCode, message);
+  }
+};
+
+/**
+ * Onboard via invite token (Motion 1 - Personalized invites)
+ * POST /api/auth/onboard-with-token
+ *
+ * Body: {
+ *   token: "abc123...",
+ *   email: "john@company.xyz",
+ *   first_name: "John",
+ *   last_name: "Smith",
+ *   password?: "password123", // optional, required if no oauth
+ *   oauth_provider?: "google",
+ *   oauth_email?: "john@company.xyz"
+ * }
+ */
+export const onboardWithToken = async (req: Request, res: Response) => {
+  const handler = 'onboardWithToken';
+  try {
+    const { token, email, first_name, last_name, password, oauth_provider, oauth_email } = req.body;
+
+    // Validation
+    if (!token || !email) {
+      return res.status(400).json({ error: 'token and email are required' });
+    }
+
+    if (!first_name || !last_name) {
+      return res.status(400).json({ error: 'first_name and last_name are required' });
+    }
+
+    // Import here to avoid circular deps
+    const { validateInviteToken, markTokenUsed, linkTokenToCompany } = await import('../db/invites');
+
+    // Validate token
+    const validation = await validateInviteToken(token, email);
+    if (!validation.valid) {
+      logInfo(handler, 'Token validation failed', { reason: validation.reason });
+      return res.status(400).json({ error: validation.reason || 'Invalid token' });
+    }
+
+    const invite = validation.invite!;
+
+    // Check if user already exists
+    const existing_user = await UserDB.findUserByEmail(email);
+    if (existing_user) {
+      return res.status(400).json({ error: 'Email already registered' });
+    }
+
+    const existing_company = await pool.query(
+      'SELECT * FROM companies WHERE email = $1',
+      [email]
+    );
+    if (existing_company.rows.length > 0) {
+      return res.status(400).json({ error: 'Company already registered' });
+    }
+
+    // Hash password if provided
+    let password_hash = null;
+    if (password) {
+      password_hash = await bcrypt.hash(password, 10);
+    }
+
+    // Create company
+    const company_result = await pool.query(
+      `INSERT INTO companies (name, email, created_at, updated_at)
+       VALUES ($1, $2, NOW(), NOW())
+       RETURNING *`,
+      [invite.company_name, email]
+    );
+    const company = company_result.rows[0];
+
+    // Create user
+    const user_result = await pool.query(
+      `INSERT INTO users (company_id, email, password_hash, first_name, last_name, role, email_verified, signup_method, onboarding_status, auth_provider, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, 'owner', true, $6, 'company_form', $7, NOW(), NOW())
+       RETURNING id, email, first_name, last_name, company_id`,
+      [
+        company.id,
+        email,
+        password_hash,
+        first_name.trim(),
+        last_name.trim(),
+        oauth_provider ? 'google_oauth' : 'email_password',
+        oauth_provider || 'email'
+      ]
+    );
+    const user = user_result.rows[0];
+
+    // Set company owner
+    await pool.query(
+      'UPDATE companies SET owner_id = $1 WHERE id = $2',
+      [user.id, company.id]
+    );
+
+    // Mark token as used
+    await markTokenUsed(token, email);
+    await linkTokenToCompany(token, company.id);
+
+    // Create session
+    const tokens = authService.createAuthTokens(user.id, company.id, user.email);
+    await SecurityDB.createSession({
+      userId: user.id,
+      companyId: company.id,
+      refreshToken: tokens.refreshToken,
+      userAgent: req.get('user-agent') || undefined,
+      ipAddress: req.ip,
+      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+    });
+
+    // Set cookies
+    setCookies(res, tokens.accessToken, tokens.refreshToken);
+
+    logInfo(handler, '✅ Onboard successful', {
+      email: '***',
+      company: company.name,
+      method: oauth_provider ? 'oauth' : 'password'
+    });
+
+    return res.status(201).json({
+      data: {
+        user: {
+          id: user.id,
+          email: user.email,
+          first_name: user.first_name,
+          last_name: user.last_name,
+        },
+        company: {
+          id: company.id,
+          name: company.name,
+        },
+        onboarding_status: 'company_form',
+        redirect: '/onboard/company'
+      }
+    });
+  } catch (err: any) {
+    logError(handler, 'Onboard failed', err);
+    const { statusCode, message } = parseError(err);
+    return sendErrorResponse(res, statusCode, message);
+  }
+};
+
+/**
+ * Complete company form during onboarding
+ * POST /api/onboard/company-info
+ *
+ * Only accepts company_name (as per user requirement)
+ * No revenue/employees fields
+ */
+export const completeCompanyForm = async (req: Request, res: Response) => {
+  const handler = 'completeCompanyForm';
+  try {
+    const user_id = (req as any).userId;
+    const company_id = (req as any).companyId;
+
+    if (!user_id || !company_id) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const { company_name } = req.body;
+
+    if (!company_name || typeof company_name !== 'string') {
+      return res.status(400).json({ error: 'company_name is required' });
+    }
+
+    if (company_name.trim().length === 0) {
+      return res.status(400).json({ error: 'company_name cannot be empty' });
+    }
+
+    // Update company name
+    await pool.query(
+      'UPDATE companies SET name = $1, updated_at = NOW() WHERE id = $2',
+      [company_name.trim(), company_id]
+    );
+
+    // Update user onboarding status
+    await pool.query(
+      'UPDATE users SET onboarding_status = $1, updated_at = NOW() WHERE id = $2',
+      [company_id === company_id ? 'stripe_pending' : 'stripe_pending', user_id]
+    );
+
+    logInfo(handler, 'Company form completed', {
+      company: company_name,
+      companyId: company_id
+    });
+
+    return res.json({
+      data: {
+        success: true,
+        company_name: company_name.trim(),
+        next_step: 'stripe_connection',
+        redirect: '/onboard/stripe'
+      }
+    });
+  } catch (err: any) {
+    logError(handler, 'Failed to complete company form', err);
     const { statusCode, message } = parseError(err);
     return sendErrorResponse(res, statusCode, message);
   }

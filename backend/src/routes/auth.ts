@@ -15,18 +15,24 @@ import {
   revokeSessionById,
   revokeAllSessions,
   bootstrap,
+  onboardWithToken,
+  completeCompanyForm,
 } from '../controllers/authController';
 import { authMiddleware } from '../middleware/auth';
 import { requireRole } from '../middleware/rbac';
 import { validate } from '../middleware/validate';
 import { loginSchema } from '../types/schemas';
-import { authLimiter } from '../middleware/rateLimiter';
+import { authLimiter, publicFormLimiter } from '../middleware/rateLimiter';
 
 const router = Router();
 
 // Public routes
 // Bootstrap: only works on empty DB (first admin setup)
 router.post('/bootstrap', bootstrap);
+
+// Onboarding with invite token (Motion 1 - Personalized invites)
+router.post('/onboard-with-token', publicFormLimiter, onboardWithToken);
+router.post('/onboard/company-info', authMiddleware, completeCompanyForm);
 
 // Signup disabled - pilots only apply via /api/pilots/request
 router.post('/login', authLimiter, validate(loginSchema), login);

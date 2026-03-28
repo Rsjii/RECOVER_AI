@@ -9,6 +9,8 @@ export interface ButtonProps {
   onClick?: () => void;
   children: ReactNode;
   type?: 'button' | 'submit' | 'reset';
+  fullWidth?: boolean;
+  href?: string;
 }
 
 export interface CardProps {

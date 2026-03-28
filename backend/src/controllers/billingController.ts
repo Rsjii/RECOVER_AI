@@ -587,4 +587,61 @@ export const setCompanyBillingTier = async (req: Request, res: Response): Promis
   }
 };
 
+/**
+ * POST /api/billing/checkout
+ * Initiate checkout for pilot conversion (upgrade to paid plan)
+ */
+export const startPilotConversion = async (req: Request, res: Response): Promise<void> => {
+  const companyId = (req as any).companyId as string;
+  const fn = 'startPilotConversion';
+
+  try {
+    // Get company details
+    const company = await pool.query(
+      `SELECT id, company_name, account_type FROM companies WHERE id = $1`,
+      [companyId]
+    );
+
+    if (!company.rows[0]) {
+      sendErrorResponse(res, 404, 'Company not found');
+      return;
+    }
+
+    const comp = company.rows[0];
+
+    // Verify company is in pilot mode
+    if (comp.account_type !== 'pilot') {
+      sendErrorResponse(res, 400, 'Only pilot accounts can convert to paid');
+      return;
+    }
+
+    // Create Razorpay payment link for pilot conversion
+    // Tier 1 pricing: $2,500 base fee
+    const amountInPaise = 2500 * 100; // Razorpay uses paise (1/100th of rupee equivalent)
+    const description = `RecoverAI Pilot Conversion - ${comp.company_name}`;
+
+    // For now, return a simple checkout URL
+    // In production, this would create a Razorpay payment link
+    const checkoutUrl = `https://checkout.razorpay.com/?key=${process.env.RAZORPAY_KEY_ID}`;
+
+    logInfo(LOG_MODULE, fn, 'Pilot conversion initiated', {
+      companyId,
+      company: comp.company_name,
+    });
+
+    res.status(200).json({
+      data: {
+        checkoutUrl,
+        amount: 2500,
+        currency: 'USD',
+        description,
+      },
+    });
+  } catch (error) {
+    logError(LOG_MODULE, fn, 'Failed to start pilot conversion', error);
+    const { statusCode, message } = parseError(error);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
+
 

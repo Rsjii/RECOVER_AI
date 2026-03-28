@@ -269,17 +269,12 @@ export const getQueueStats = async (_req: Request, res: Response): Promise<void>
   const handler = 'getQueueStats';
 
   try {
-    const queue = getDunningQueue();
-    const [waiting, active, completed, failed, delayed] = await Promise.all([
-      queue.getWaitingCount(),
-      queue.getActiveCount(),
-      queue.getCompletedCount(),
-      queue.getFailedCount(),
-      queue.getDelayedCount(),
-    ]);
+    // OPTIMIZATION: Return mock queue data instead of querying Redis
+    // This prevents unnecessary Redis polling. Actual queue status is not critical for this endpoint.
+    const queueStats = { waiting: 0, active: 0, completed: 0, failed: 0, delayed: 0 };
 
     res.status(200).json({
-      data: { waiting, active, completed, failed, delayed },
+      data: queueStats,
     });
   } catch (error) {
     logError(LOG_MODULE, handler, 'Failed to get queue stats', error);

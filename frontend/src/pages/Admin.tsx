@@ -10,6 +10,7 @@ import {
 } from 'recharts';
 import { format, parseISO } from 'date-fns';
 import { cn } from '../lib/utils';
+import { UsersTab } from '../components/admin/UsersTab';
 import { AuditRequestsTab } from '../components/admin/AuditRequestsTab';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -58,7 +59,7 @@ interface MetricsData {
   redisHistory: { date: string; commands: number; bandwidth_bytes: number }[];
 }
 
-type Tab = 'overview' | 'emails' | 'costs' | 'queue' | 'invoices' | 'audits';
+type Tab = 'overview' | 'emails' | 'costs' | 'queue' | 'invoices' | 'users' | 'audits';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -126,8 +127,9 @@ const Admin: React.FC = () => {
     { id: 'emails',    label: 'Emails' },
     { id: 'costs',     label: 'AI Costs' },
     { id: 'queue',     label: 'Queue' },
+    { id: 'audits',    label: '🔗 Audits' },
+    { id: 'users',     label: '👥 Users' },
     { id: 'invoices',  label: '💳 Invoices' },
-    { id: 'audits',    label: '📋 Audits' },
   ];
 
   return (
@@ -178,15 +180,21 @@ const Admin: React.FC = () => {
         <QueueTab metrics={metrics} />
       )}
 
+      {/* ── Tab: Audits ───────────────────────────────────────────────────────── */}
+      {activeTab === 'audits' && (
+        <AuditRequestsTab />
+      )}
+
+      {/* ── Tab: Users ────────────────────────────────────────────────────────── */}
+      {activeTab === 'users' && (
+        <UsersTab />
+      )}
+
       {/* ── Tab: Invoices ─────────────────────────────────────────────────────── */}
       {activeTab === 'invoices' && (
         <InvoicesTab />
       )}
 
-      {/* ── Tab: Audits ───────────────────────────────────────────────────────── */}
-      {activeTab === 'audits' && (
-        <AuditRequestsTab />
-      )}
     </div>
   );
 };

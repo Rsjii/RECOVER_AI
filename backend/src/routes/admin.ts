@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { authMiddleware } from '../middleware/auth';
 import { tenantScopeGuard } from '../middleware/tenantScope';
-import { getMetrics, getEmailLogs } from '../controllers/adminController';
+import { getMetrics, getEmailLogs, getUsers } from '../controllers/adminController';
 
 const router = Router();
 
@@ -10,5 +10,6 @@ router.use(tenantScopeGuard);
 
 router.get('/metrics', getMetrics);
 router.get('/email-logs', getEmailLogs);
+router.get('/users', getUsers);
 
 export default router;

@@ -30,6 +30,7 @@ export interface AuthUser {
   lastName: string;
   role: string;
   emailVerified?: boolean;
+  onboardingStatus?: string;
 }
 
 export interface AuthCompany {
@@ -37,6 +38,10 @@ export interface AuthCompany {
   name: string;
   timezone: string;
   preferredCurrency: string;
+  accountType: 'pilot' | 'paid';
+  pilotMode: 'shadow' | 'auto' | 'paused' | null;
+  pilotEndsAt: string | null;
+  stripeConnected: boolean;
 }
 
 export interface AuthTokens {

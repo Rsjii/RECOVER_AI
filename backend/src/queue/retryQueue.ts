@@ -2,6 +2,7 @@ import { Queue, Worker, Job } from 'bullmq';
 import Stripe from 'stripe';
 import { config } from '../config/env';
 import { getRedisConnection } from './dunningQueue';
+import { isRedisConnected } from '../config/redis';
 import { findInvoiceById, updateInvoiceStatus } from '../db/invoices';
 import { findCompanyById } from '../db/companies';
 import { decryptField } from '../lib/encryption';
@@ -30,8 +31,14 @@ export interface RetryJob {
 // ============================================================
 let retryQueue: Queue<RetryJob> | null = null;
 
-export function getRetryQueue(): Queue<RetryJob> {
+export function getRetryQueue(): Queue<RetryJob> | null {
   if (!retryQueue) {
+    // OPTIMIZATION: Check if Redis is available before creating queue
+    if (!isRedisConnected()) {
+      logWarn(LOG_MODULE, 'getRetryQueue', 'Redis not connected - queue disabled');
+      return null;
+    }
+
     retryQueue = new Queue<RetryJob>(QUEUE_NAME, {
       connection: getRedisConnection(),
       defaultJobOptions: {
@@ -57,6 +64,15 @@ export async function addRetryJob(
   }
 
   const queue = getRetryQueue();
+
+  // OPTIMIZATION: If Redis not available, skip queuing
+  if (!queue) {
+    logWarn(LOG_MODULE, 'addRetryJob', 'Queue unavailable (Redis disconnected) - skipping retry job', {
+      invoiceId: data.invoiceId,
+    });
+    return undefined;
+  }
+
   const jobId = `retry-${data.invoiceId}-attempt-${data.attempt}-${Date.now()}`;
   const job = await queue.add('retry', data, {
     delay: options.delay ?? 0,
