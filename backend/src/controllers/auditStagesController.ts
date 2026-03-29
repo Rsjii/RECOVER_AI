@@ -466,7 +466,8 @@ export const generateAuditAnalysis = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Company not found' });
     }
 
-    if (!isDev && !company.stripe_account_id) {
+    // Check for encrypted API key (set by /api/stripe/validate-key endpoint, not stripe_account_id)
+    if (!isDev && !company.stripe_api_key_encrypted) {
       return res.status(400).json({ error: 'Stripe not connected' });
     }
 

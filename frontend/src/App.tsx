@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import ProtectedRoute from './components/ProtectedRoute';
+import { StageGuard } from './components/StageGuard';
 import { Layout } from './components/layout/Layout';
 import { ToastContainer } from './components/ui/Toast';
 import { useNotification } from './hooks/useNotification';
@@ -108,12 +109,12 @@ const App: React.FC = () => {
             <Route path="/unsubscribe" element={<Unsubscribe />} />
             <Route path="/onboard" element={<Onboard />} />
 
-            {/* CashOS Stages (Audit → Trial → Paid flow) */}
-            <Route path="/onboard/stage-1" element={<Stage1 />} />
-            <Route path="/onboard/stage-2" element={<Stage2 />} />
-            <Route path="/onboard/stage-3" element={<Stage3 />} />
-            <Route path="/onboard/stage-4" element={<Stage4 />} />
-            <Route path="/onboard/stage-5" element={<Stage5 />} />
+            {/* CashOS Stages (Audit → Trial → Paid flow) - with strict stage gating */}
+            <Route path="/onboard/stage-1" element={<StageGuard stage={1}><Stage1 /></StageGuard>} />
+            <Route path="/onboard/stage-2" element={<StageGuard stage={2}><Stage2 /></StageGuard>} />
+            <Route path="/onboard/stage-3" element={<StageGuard stage={3}><Stage3 /></StageGuard>} />
+            <Route path="/onboard/stage-4" element={<StageGuard stage={4}><Stage4 /></StageGuard>} />
+            <Route path="/onboard/stage-5" element={<StageGuard stage={5}><Stage5 /></StageGuard>} />
 
             <Route
               path="/verify-email"
