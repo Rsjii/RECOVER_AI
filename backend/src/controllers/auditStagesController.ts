@@ -329,7 +329,8 @@ export const proceedFromStage4 = async (req: Request, res: Response) => {
     }
 
     // In dev mode, Stripe is optional so flow can be tested end-to-end
-    if (!isDev && !company.stripe_account_id) {
+    // Check for encrypted API key (set by /api/stripe/validate-key endpoint)
+    if (!isDev && !company.stripe_api_key_encrypted) {
       return res.status(400).json({ error: 'Stripe connection required' });
     }
 
@@ -340,7 +341,7 @@ export const proceedFromStage4 = async (req: Request, res: Response) => {
     });
 
     // AUTO-SYNC: Fetch invoices from Stripe immediately after connection
-    if ((isDev || company.stripe_account_id) && company.stripe_api_key_encrypted) {
+    if (isDev || company.stripe_api_key_encrypted) {
       try {
         logInfo(MODULE, handler, 'Starting Stripe sync', { isDev, has_key: !!company.stripe_api_key_encrypted });
 
