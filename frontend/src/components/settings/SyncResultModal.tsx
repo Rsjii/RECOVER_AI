@@ -28,7 +28,7 @@ const REASON_LABEL: Record<string, string> = {
 
 const REASON_FIX: Record<string, string> = {
   NO_EMAIL: 'Add email to this customer in Stripe Dashboard',
-  ZERO_AMOUNT: 'Zero-amount invoices are not collected by RecoverAI',
+  ZERO_AMOUNT: 'Zero-amount invoices are not collected by CashOS',
 };
 
 export const SyncResultModal: React.FC<SyncResultModalProps> = ({ result, onClose }) => {

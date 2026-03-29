@@ -127,7 +127,7 @@ export function generateIVRScript(invoiceNumber: string, amount: number): string
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Say voice="alice" language="en-US">
-    Hi, this is RecoverAI calling about invoice ${invoiceNumber} for ${formattedAmount}.
+    Hi, this is CashOS calling about invoice ${invoiceNumber} for ${formattedAmount}.
   </Say>
 
   <Gather numDigits="1" action="/api/voice/handle-dtmf" method="POST" timeout="10">

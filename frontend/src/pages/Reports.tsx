@@ -83,7 +83,7 @@ const fmt = (v: number) => v >= 1000 ? `$${(v / 1000).toFixed(1)}K` : `$${v.toFi
 // ─── Component ───────────────────────────────────────────────────────────────
 
 const Reports: React.FC = () => {
-  useEffect(() => { document.title = 'Reports — RecoverAI'; }, []);
+  useEffect(() => { document.title = 'Reports — CashOS'; }, []);
   const { theme } = useTheme();
   const isDark = theme === 'dark';
 

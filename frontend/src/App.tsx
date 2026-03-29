@@ -62,7 +62,7 @@ const RootRedirect: React.FC = () => {
         <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center mb-3">
           <span className="text-white font-bold">R</span>
         </div>
-        <div className="text-gray-500 dark:text-gray-400">Loading RecoverAI...</div>
+        <div className="text-gray-500 dark:text-gray-400">Loading CashOS...</div>
       </div>
     );
   }
@@ -84,7 +84,7 @@ const App: React.FC = () => {
               <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center mb-3">
                 <span className="text-white font-bold">R</span>
               </div>
-              <div className="text-gray-500 dark:text-gray-400">Loading RecoverAI...</div>
+              <div className="text-gray-500 dark:text-gray-400">Loading CashOS...</div>
             </div>
           }
         >

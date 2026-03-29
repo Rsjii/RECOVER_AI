@@ -300,7 +300,7 @@ class AuthService {
     const resetLink = `${config.frontendUrl}/reset-password?token=${resetToken}`;
     resendService.sendEmail({
       to: email,
-      subject: 'Reset your RecoverAI password',
+      subject: 'Reset your CashOS password',
       bodyText: `Click this link to reset your password: ${resetLink}\n\nValid for 1 hour.`,
       bodyHtml: `<p>Click <a href="${resetLink}">here</a> to reset your password.</p><p>Valid for 1 hour.</p>`,
     }).catch((err: any) => {

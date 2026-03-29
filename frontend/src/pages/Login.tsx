@@ -13,7 +13,7 @@ const Login: React.FC = () => {
   const { addToast } = useNotification();
 
   useEffect(() => {
-    document.title = 'Sign In — RecoverAI';
+    document.title = 'Sign In — CashOS';
     // Redirect authenticated users to dashboard
     if (isAuthenticated && !isLoading) {
       navigate('/dashboard', { replace: true });
@@ -126,7 +126,7 @@ const Login: React.FC = () => {
           <div className="w-12 h-12 rounded-xl bg-brand-600 flex items-center justify-center mx-auto mb-4">
             <span className="text-white text-xl font-bold">R</span>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">RecoverAI</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">CashOS</h1>
           <p className="text-gray-500 dark:text-gray-400 mt-1">Sign in to your account</p>
         </div>
 
@@ -246,7 +246,7 @@ const Login: React.FC = () => {
 
           {/* Pilot Program Link */}
           <p className="mt-6 text-center text-sm text-gray-500 dark:text-gray-400">
-            New to RecoverAI?{' '}
+            New to CashOS?{' '}
             <Link
               to="/landing"
               className="text-brand-600 hover:text-blue-700 font-medium"

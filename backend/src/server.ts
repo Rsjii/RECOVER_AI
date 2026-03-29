@@ -13,7 +13,7 @@ logInfo('server', 'bootstrap', 'App imported');
 const PORT = config.port;
 
 async function startServer() {
-  logInfo('server', 'startServer', 'RecoverAI backend starting');
+  logInfo('server', 'startServer', 'CashOS backend starting');
 
   try {
     await initObservability();

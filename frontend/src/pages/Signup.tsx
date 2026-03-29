@@ -10,7 +10,7 @@ const Signup: React.FC = () => {
   const { signup, isAuthenticated, isLoading } = useAuth();
   const { addToast } = useNotification();
 
-  useEffect(() => { document.title = 'Sign Up — RecoverAI'; }, []);
+  useEffect(() => { document.title = 'Sign Up — CashOS'; }, []);
 
   // Redirect authenticated users to dashboard
   useEffect(() => {

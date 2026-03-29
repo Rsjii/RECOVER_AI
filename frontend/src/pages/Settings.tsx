@@ -51,7 +51,7 @@ const Settings: React.FC = () => {
   const [confirmRevokeId, setConfirmRevokeId] = useState<string | null>(null);
 
   useEffect(() => {
-    document.title = 'Settings — RecoverAI';
+    document.title = 'Settings — CashOS';
   }, []);
   const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
   const [settings, setSettings] = useState<CompanySettings | null>(null);
@@ -688,7 +688,7 @@ const TwilioSettingsSection: React.FC = () => {
             <div>
               <p className="text-sm font-medium text-green-900 dark:text-green-100">Allow Voice Calling</p>
               <p className="text-xs text-green-700 dark:text-green-300 mt-0.5">
-                By enabling this, you consent to have RecoverAI make automated outbound calls to Tier 4 customers (90+ days overdue) in accordance with TCPA regulations.
+                By enabling this, you consent to have CashOS make automated outbound calls to Tier 4 customers (90+ days overdue) in accordance with TCPA regulations.
               </p>
             </div>
           </label>

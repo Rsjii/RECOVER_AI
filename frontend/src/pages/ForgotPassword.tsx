@@ -6,7 +6,7 @@ import { Button } from '../components/ui/Button';
 import { validateEmail } from '../lib/utils';
 
 const ForgotPassword: React.FC = () => {
-  useEffect(() => { document.title = 'Reset Password — RecoverAI'; }, []);
+  useEffect(() => { document.title = 'Reset Password — CashOS'; }, []);
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);
   const [submitting, setSubmitting] = useState(false);

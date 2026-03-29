@@ -647,7 +647,7 @@ export const startPilotConversion = async (req: Request, res: Response): Promise
     // Create Razorpay payment link for pilot conversion
     // Tier 1 pricing: $2,500 base fee
     const amountInPaise = 2500 * 100; // Razorpay uses paise (1/100th of rupee equivalent)
-    const description = `RecoverAI Pilot Conversion - ${comp.company_name}`;
+    const description = `CashOS Pilot Conversion - ${comp.company_name}`;
 
     // For now, return a simple checkout URL
     // In production, this would create a Razorpay payment link

@@ -41,7 +41,7 @@ export const TrialCountdown: React.FC<TrialCountdownProps> = ({ trialEndsAt, onU
         <div className="flex items-center justify-between">
           <div>
             <h3 className="font-semibold text-red-900 dark:text-red-100">Trial Expired</h3>
-            <p className="text-sm text-red-700 dark:text-red-200">Your trial has ended. Upgrade to continue using RecoverAI.</p>
+            <p className="text-sm text-red-700 dark:text-red-200">Your trial has ended. Upgrade to continue using CashOS.</p>
           </div>
           <Button onClick={onUpgrade} className="bg-red-600 hover:bg-red-700">
             Upgrade Now →
@@ -60,7 +60,7 @@ export const TrialCountdown: React.FC<TrialCountdownProps> = ({ trialEndsAt, onU
           </h3>
           <p className="text-sm text-yellow-700 dark:text-yellow-200">
             {daysLeft === 1
-              ? 'Your trial expires tomorrow. Upgrade now to keep using RecoverAI.'
+              ? 'Your trial expires tomorrow. Upgrade now to keep using CashOS.'
               : `You have ${daysLeft} days left in your trial. Upgrade when you're ready.`}
           </p>
         </div>

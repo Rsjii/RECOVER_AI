@@ -36,7 +36,7 @@ export function registerEventListeners() {
     try {
       const link = `${process.env.FRONTEND_URL || 'https://recoverai.com'}/audit?invite=${payload.token}`;
 
-      const subject = '🎯 Your RecoverAI AR Analysis Link';
+      const subject = '🎯 Your CashOS AR Analysis Link';
       const bodyText = `
 Hi ${payload.companyName || 'there'},
 
@@ -47,13 +47,13 @@ ${link}
 This link expires in 7 days.
 
 Best,
-RecoverAI Team
+CashOS Team
       `.trim();
 
       const bodyHtml = `
 <html>
 <body style="font-family: Arial, sans-serif; line-height: 1.6;">
-  <h2>🎯 Your RecoverAI AR Analysis</h2>
+  <h2>🎯 Your CashOS AR Analysis</h2>
   <p>Hi ${payload.companyName || 'there'},</p>
   <p>We've approved your request! Click below to get your custom AR analysis.</p>
   <p>
@@ -61,7 +61,7 @@ RecoverAI Team
       Start Analysis
     </a>
   </p>
-  <p style="font-size: 12px; color: #999;">RecoverAI</p>
+  <p style="font-size: 12px; color: #999;">CashOS</p>
 </body>
 </html>
       `;

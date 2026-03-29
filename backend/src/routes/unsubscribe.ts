@@ -119,7 +119,7 @@ router.post('/', async (req, res) => {
   <div class="container">
     <div class="icon">✓</div>
     <h1>You've been unsubscribed</h1>
-    <p>You will no longer receive dunning emails from RecoverAI.</p>
+    <p>You will no longer receive dunning emails from CashOS.</p>
 
     <div class="note">
       <strong>Note:</strong> You may still receive important notifications about your account, but collection-related dunning emails will be paused.

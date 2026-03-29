@@ -40,7 +40,7 @@ const DemoLaunch: React.FC = () => {
   const [launching, setLaunching] = useState(false);
 
   useEffect(() => {
-    document.title = 'Try RecoverAI Demo';
+    document.title = 'Try CashOS Demo';
   }, []);
 
   const handleSampleDemo = async () => {
@@ -95,7 +95,7 @@ const DemoLaunch: React.FC = () => {
             </div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Agent Preview — Acme SaaS Demo</h1>
             <p className="text-gray-500 dark:text-gray-400 text-sm">
-              This is what RecoverAI's agent would send if you approved it now.
+              This is what CashOS's agent would send if you approved it now.
               <span className="font-medium text-blue-600"> No emails were sent.</span>
             </p>
           </div>
@@ -200,7 +200,7 @@ const DemoLaunch: React.FC = () => {
       </div>
 
       <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2 text-center">
-        See RecoverAI in action
+        See CashOS in action
       </h1>
       <p className="text-gray-500 dark:text-gray-400 text-center mb-10 max-w-md">
         Autonomous AR agent for SaaS — recovers unpaid invoices with zero manual work.

@@ -198,7 +198,7 @@ const Dashboard: React.FC = () => {
   const [trialDaysRemaining, setTrialDaysRemaining] = useState(0);
 
   useEffect(() => {
-    document.title = 'Dashboard — RecoverAI';
+    document.title = 'Dashboard — CashOS';
     // Check localStorage first (set during demo login) — works even if token expired
     if (localStorage.getItem('isDemo') === 'true') {
       setIsDemo(true);
@@ -849,7 +849,7 @@ const Dashboard: React.FC = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
           </div>
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Get started with RecoverAI</h3>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Get started with CashOS</h3>
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-4 max-w-md mx-auto">
             Connect your Stripe account to start syncing invoices. Our agent will automatically detect overdue invoices and begin recovery.
           </p>

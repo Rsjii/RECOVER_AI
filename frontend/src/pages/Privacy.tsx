@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 
 const Privacy: React.FC = () => {
-  useEffect(() => { document.title = 'Privacy Policy — RecoverAI'; }, []);
+  useEffect(() => { document.title = 'Privacy Policy — CashOS'; }, []);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-[#09090b]">
@@ -10,7 +10,7 @@ const Privacy: React.FC = () => {
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Privacy Policy</h1>
         <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Effective Date: March 1, 2026</p>
         <p className="mt-4 text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
-          RecoverAI, Inc. ("RecoverAI," "we," "us," or "our") is committed to protecting the privacy of our customers and their end users. This Privacy Policy describes how we collect, use, disclose, and safeguard information when you use our autonomous accounts receivable recovery platform (the "Service"). By using the Service, you consent to the practices described in this policy.
+          CashOS, Inc. ("CashOS," "we," "us," or "our") is committed to protecting the privacy of our customers and their end users. This Privacy Policy describes how we collect, use, disclose, and safeguard information when you use our autonomous accounts receivable recovery platform (the "Service"). By using the Service, you consent to the practices described in this policy.
         </p>
 
         <h2 className="text-xl font-semibold text-gray-900 dark:text-white mt-8 mb-3">1. Information We Collect</h2>
@@ -86,7 +86,7 @@ const Privacy: React.FC = () => {
           <li><span className="font-medium text-gray-900 dark:text-gray-100">Right to Object:</span> You may object to our processing of your personal data in certain circumstances.</li>
         </ul>
         <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed mt-3">
-          To exercise any of these rights, contact us at privacy@recoverai.com. We will respond to verified requests within 30 days. For end users whose data is processed by RecoverAI on behalf of our customers, please contact the relevant business directly, as they are the data controller for your information.
+          To exercise any of these rights, contact us at privacy@recoverai.com. We will respond to verified requests within 30 days. For end users whose data is processed by CashOS on behalf of our customers, please contact the relevant business directly, as they are the data controller for your information.
         </p>
 
         <h2 className="text-xl font-semibold text-gray-900 dark:text-white mt-8 mb-3">7. International Data Transfers</h2>
@@ -106,7 +106,7 @@ const Privacy: React.FC = () => {
 
         <h2 className="text-xl font-semibold text-gray-900 dark:text-white mt-8 mb-3">10. Contact Us</h2>
         <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
-          If you have questions or concerns about this Privacy Policy or our data practices, please contact us at privacy@recoverai.com or by mail at RecoverAI, Inc., 1209 Orange Street, Wilmington, DE 19801, United States.
+          If you have questions or concerns about this Privacy Policy or our data practices, please contact us at privacy@recoverai.com or by mail at CashOS, Inc., 1209 Orange Street, Wilmington, DE 19801, United States.
         </p>
 
         <div className="mt-12 pt-6 border-t border-gray-200 dark:border-white/[0.06]">

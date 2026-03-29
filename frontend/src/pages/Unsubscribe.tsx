@@ -9,7 +9,7 @@ const Unsubscribe: React.FC = () => {
   const token = searchParams.get('token');
 
   useEffect(() => {
-    document.title = 'Unsubscribe — RecoverAI';
+    document.title = 'Unsubscribe — CashOS';
   }, []);
 
   const handleUnsubscribe = async () => {

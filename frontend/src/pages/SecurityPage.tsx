@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 
 const SecurityPage: React.FC = () => {
   useEffect(() => {
-    document.title = 'Security — RecoverAI';
+    document.title = 'Security — CashOS';
   }, []);
 
   return (
@@ -19,7 +19,7 @@ const SecurityPage: React.FC = () => {
             Enterprise-grade security
           </h1>
           <p className="mt-4 text-lg sm:text-xl text-gray-600 dark:text-gray-400 max-w-2xl mx-auto leading-relaxed">
-            Your customers' financial data deserves the highest level of protection. RecoverAI is built
+            Your customers' financial data deserves the highest level of protection. CashOS is built
             from the ground up with security, privacy, and compliance at its core.
           </p>
         </div>

@@ -37,7 +37,7 @@ const DemoPreview: React.FC = () => {
   const historyCleanedRef = useRef(false);
 
   useEffect(() => {
-    document.title = 'See RecoverAI in Action';
+    document.title = 'See CashOS in Action';
 
     // Clean history: when user presses back from /demo-preview, logout and go to landing
     // Must call logout API before navigating to clear auth completely
@@ -143,7 +143,7 @@ const DemoPreview: React.FC = () => {
             <div className="w-12 h-12 rounded-xl bg-blue-600 flex items-center justify-center mx-auto mb-4">
               <span className="text-white font-bold text-xl">R</span>
             </div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">See RecoverAI in Action</h1>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">See CashOS in Action</h1>
             <p className="text-gray-600 dark:text-gray-400 max-w-lg mx-auto">
               Watch how our autonomous agent analyzes Acme SaaS's invoices and generates recovery emails.
               <span className="font-medium text-blue-600"> No emails were actually sent.</span>

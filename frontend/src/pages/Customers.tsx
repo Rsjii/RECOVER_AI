@@ -39,7 +39,7 @@ function exportCustomersCSV(customers: Customer[]) {
 
 const Customers: React.FC = () => {
   useEffect(() => {
-    document.title = 'Customers — RecoverAI';
+    document.title = 'Customers — CashOS';
   }, []);
   const { addToast } = useNotification();
   const [customers, setCustomers] = useState<Customer[]>([]);

@@ -64,7 +64,7 @@ class EmailService {
         daysOverdue: job.daysOverdue,
         riskScore: job.riskScore,
         previousReminders: job.attemptNumber - 1,
-        companyName: 'RecoverAI',
+        companyName: 'CashOS',
         paymentLink: job.paymentLink,
       }, job.companyId);
 

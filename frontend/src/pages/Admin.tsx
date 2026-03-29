@@ -97,7 +97,7 @@ const Admin: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>('overview');
 
   useEffect(() => {
-    document.title = 'Admin — RecoverAI';
+    document.title = 'Admin — CashOS';
     api.get<{ data: MetricsData }>('/api/admin/metrics')
       .then(res => setMetrics((res as any).data || res))
       .catch((err: any) => {

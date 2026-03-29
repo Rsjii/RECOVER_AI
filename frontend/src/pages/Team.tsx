@@ -24,7 +24,7 @@ const Team: React.FC = () => {
   };
 
   useEffect(() => {
-    document.title = 'Team — RecoverAI';
+    document.title = 'Team — CashOS';
     void load();
   }, []);
 

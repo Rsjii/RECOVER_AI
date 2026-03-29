@@ -140,7 +140,7 @@ export const Sidebar: React.FC = () => {
   }, []);
 
   const trialLabel = () => {
-    if (!trial) return { title: 'RecoverAI', sub: 'Loading plan...' };
+    if (!trial) return { title: 'CashOS', sub: 'Loading plan...' };
     if (trial.status === 'active') return { title: 'Active Plan', sub: 'Subscription active' };
     if (trial.status === 'trialing') {
       const days = trial.daysRemaining ?? 0;
@@ -204,7 +204,7 @@ export const Sidebar: React.FC = () => {
           <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center flex-shrink-0">
             <span className="text-white font-bold text-sm">R</span>
           </div>
-          {!collapsed && <span className="text-lg font-bold text-gray-900 dark:text-white">RecoverAI</span>}
+          {!collapsed && <span className="text-lg font-bold text-gray-900 dark:text-white">CashOS</span>}
         </Link>
         {!collapsed && (
           <button onClick={toggleCollapsed} className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded transition-colors" title="Collapse sidebar">

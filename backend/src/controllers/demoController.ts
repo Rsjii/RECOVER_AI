@@ -496,7 +496,7 @@ export const demoLogin = async (req: Request, res: Response): Promise<void> => {
         const openedAt = opened ? d(inv.daysAgoDue - t * 7 - 1 + 0.2) : null;
         const clickedAt = clicked ? d(inv.daysAgoDue - t * 7 - 1 + 0.4) : null;
         const status = clicked ? 'clicked' : opened ? 'opened' : 'delivered';
-        const body = `Dear ${cust.name},\n\nThis is a reminder regarding your outstanding invoice of $${inv.amount.toLocaleString()}.\n\nPlease arrange payment at your earliest convenience.\n\nBest regards,\nRecoverAI`;
+        const body = `Dear ${cust.name},\n\nThis is a reminder regarding your outstanding invoice of $${inv.amount.toLocaleString()}.\n\nPlease arrange payment at your earliest convenience.\n\nBest regards,\nCashOS`;
 
         const b = emailLogIdx * 11;
         emailLogPH.push(`($${b+1},$${b+2},$${b+3},$${b+4},$${b+5},$${b+6},$${b+7},$${b+8},$${b+9},$${b+10},$${b+11})`);

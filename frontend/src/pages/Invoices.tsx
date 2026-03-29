@@ -16,7 +16,7 @@ const Invoices: React.FC = () => {
   const { addToast } = useNotification();
 
   useEffect(() => {
-    document.title = 'Invoices — RecoverAI';
+    document.title = 'Invoices — CashOS';
   }, []);
 
   const [invoices, setInvoices] = useState<Invoice[]>([]);

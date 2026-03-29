@@ -9,7 +9,7 @@ const client = new Anthropic({ apiKey: config.anthropic.apiKey });
 
 export interface GenerateSMSParams {
   customerName: string;
-  companyName: string;      // The RecoverAI customer's company name (sender)
+  companyName: string;      // The CashOS customer's company name (sender)
   invoiceAmount: number;
   daysOverdue: number;
 }
