@@ -98,13 +98,14 @@ export const Stage5: React.FC = () => {
 
     fetchAnalysis();
 
-    // Prevent browser back button from Stage 5 in PRODUCTION only
-    // Dev mode (import.meta.env.DEV): Allow back navigation to Stage 4
-    // Prod mode: Lock Stage 5, prevent going back
+    // Back button prevention logic:
+    // - DEV: Always allow back navigation (Stage 5 → Stage 4)
+    // - PROD: Allow back if analysis failed or still loading. Block only when analysis succeeds.
     const isDev = import.meta.env.DEV;
 
-    if (!isDev) {
-      // Production: Block back button
+    // Only prevent back in PROD if analysis is SUCCESSFULLY generated
+    if (!isDev && analysis && !error) {
+      // Production + Analysis successful: Block back button
       window.history.pushState({ stage5: true }, '', window.location.href);
 
       const preventBack = () => {
@@ -118,8 +119,8 @@ export const Stage5: React.FC = () => {
       return () => window.removeEventListener('popstate', preventBack);
     }
 
-    // Dev mode: No back button prevention, allow normal navigation
-  }, []);
+    // Dev mode OR (analysis failed/loading): Allow normal back navigation
+  }, [analysis, error]);
 
 
   const handleStartTrial = async () => {
@@ -156,9 +157,14 @@ export const Stage5: React.FC = () => {
           <div className="text-6xl mb-4">⚠️</div>
           <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Analysis Failed</h2>
           <p className="text-slate-600 dark:text-slate-400 mb-6">{error || 'Unable to load analysis'}</p>
-          <Button onClick={() => window.location.reload()} className="w-full" variant="primary">
-            Try Again
-          </Button>
+          <div className="space-y-3">
+            <Button onClick={() => window.location.reload()} className="w-full" variant="primary">
+              Try Again
+            </Button>
+            <Button onClick={() => window.history.back()} className="w-full" variant="secondary">
+              Go Back to Stripe Connection
+            </Button>
+          </div>
         </Card>
       </div>
     );
