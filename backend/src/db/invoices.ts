@@ -24,9 +24,9 @@ export async function upsertInvoice(input: CreateInvoiceInput): Promise<{ row: I
 
     if (existing.rows.length > 0) {
       const updated = await pool.query(
-        `UPDATE invoices SET amount = $1, currency = $2, due_date = $3, updated_at = NOW()
-         WHERE id = $4 RETURNING *`,
-        [amount, currency, dueDate, existing.rows[0].id]
+        `UPDATE invoices SET customer_id = $1, amount = $2, currency = $3, due_date = $4, updated_at = NOW()
+         WHERE id = $5 RETURNING *`,
+        [customerId, amount, currency, dueDate, existing.rows[0].id]
       );
       return { row: updated.rows[0], isNew: false };
     }

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { useNotification } from '../hooks/useNotification';
+import { useAuth } from '../hooks/useAuth';
 import { API_ENDPOINTS } from '../lib/constants';
 import { formatCurrency } from '../lib/utils';
 import { DashboardSkeleton } from '../components/ui/Skeleton';
@@ -21,6 +22,7 @@ import { AtRiskCustomersSection } from '../components/dashboard/AtRiskCustomersS
 import { AgentActivitySection } from '../components/dashboard/AgentActivitySection';
 import { BillingOptimizationSection } from '../components/dashboard/BillingOptimizationSection';
 import { VoiceStatsCard } from '../components/dashboard/VoiceStatsCard';
+import { TrialCountdown } from '../components/TrialCountdown';
 import type { DashboardStats, InvoicePipeline, CustomerRisk } from '../types';
 import type { WorkingCapitalFreed, DSOReduction, BillingAnomaly, EnhancedCashForecast } from '../types/invoice';
 
@@ -159,6 +161,7 @@ const CACHE_TTL = 30_000; // 30 seconds — show cached data instantly on tab sw
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const { addToast } = useNotification();
+  const { company } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [pipeline, setPipeline] = useState<InvoicePipeline | null>(null);
   const [riskList, setRiskList] = useState<CustomerRisk[]>([]);
@@ -651,12 +654,21 @@ const Dashboard: React.FC = () => {
             </Button>
           )}
           {!isDemo && (
-            <Button variant="secondary" size="sm" onClick={handleTriggerAgent} loading={triggeringAgent}>
-              <svg className="w-4 h-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-              Run Agent Now
-            </Button>
+            <div title={company?.onboarding_stage === 'trial_active' ? 'Only available on paid plans' : undefined}>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleTriggerAgent}
+                loading={triggeringAgent}
+                disabled={company?.onboarding_stage === 'trial_active'}
+                className={company?.onboarding_stage === 'trial_active' ? 'opacity-50 cursor-not-allowed' : ''}
+              >
+                <svg className="w-4 h-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                Run Agent Now
+              </Button>
+            </div>
           )}
 
           {/* Recovery Counter */}
@@ -702,6 +714,16 @@ const Dashboard: React.FC = () => {
           </p>
         </div>
       </div>
+
+      {/* ════════════════════════════════════════════════════════════════ */}
+      {/* TRIAL COUNTDOWN BANNER */}
+      {/* ════════════════════════════════════════════════════════════════ */}
+      {company?.trial_ends_at && (
+        <TrialCountdown
+          trialEndsAt={company.trial_ends_at}
+          onUpgrade={() => navigate('/pricing')}
+        />
+      )}
 
       {/* ════════════════════════════════════════════════════════════════ */}
       {/* TIER 1: EXECUTIVE SUMMARY — Always visible, above fold */}

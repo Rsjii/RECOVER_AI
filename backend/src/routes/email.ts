@@ -11,6 +11,7 @@ import {
 } from '../controllers/emailController';
 import { authMiddleware } from '../middleware/auth';
 import { requireActiveSubscription } from '../middleware/subscriptionGate';
+import { checkTrialStatus, requireNotTrial } from '../middleware/trialGating';
 
 const router = Router();
 
@@ -21,12 +22,13 @@ router.get('/track/click', trackEmailClick);
 
 // All other routes require auth
 router.use(authMiddleware);
+router.use(checkTrialStatus);
 
 // Schedule dunning emails for an invoice
-router.post('/schedule', requireActiveSubscription, scheduleInvoiceEmails);
+router.post('/schedule', requireActiveSubscription, requireNotTrial, scheduleInvoiceEmails);
 
 // Send a dunning email immediately
-router.post('/send-now', requireActiveSubscription, sendEmailNow);
+router.post('/send-now', requireActiveSubscription, requireNotTrial, sendEmailNow);
 
 // Get email logs
 router.get('/logs', getEmailLogs);

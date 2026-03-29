@@ -1269,79 +1269,102 @@ export const submitAuditRequest = async (req: Request, res: Response) => {
     }
 
     // ─────────────────────────────────────────────────────────────
-    // CHECK 2: Recently REJECTED? (7-day cooldown)
+    // CHECK 2: Recently REJECTED? (1-week cooldown period)
     // ─────────────────────────────────────────────────────────────
     const rejectionCheck = await pool.query(
       `SELECT rejected_at FROM audit_requests
-       WHERE email = $1 AND status = 'rejected'
+       WHERE email = $1 AND status = 'rejected' AND rejected_at IS NOT NULL
        ORDER BY rejected_at DESC LIMIT 1`,
       [normalized_email]
     );
 
     if (rejectionCheck.rows.length > 0) {
       const rejectedAt = new Date(rejectionCheck.rows[0].rejected_at);
-      const sevenDaysLater = new Date(rejectedAt.getTime() + 7 * 24 * 60 * 60 * 1000);
+      const cooldownEnd = new Date(rejectedAt.getTime() + 7 * 24 * 60 * 60 * 1000); // 7 days
       const now = new Date();
 
-      if (now < sevenDaysLater) {
-        const daysLeft = Math.ceil((sevenDaysLater.getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
+      if (now < cooldownEnd) {
+        const hoursLeft = Math.ceil((cooldownEnd.getTime() - now.getTime()) / (1000 * 60 * 60));
         return res.status(429).json({
-          error: `Your previous request was rejected. You can reapply in ${daysLeft} day${daysLeft > 1 ? 's' : ''}.`,
-          code: 'AUDIT_COOLDOWN',
-          retry_after: sevenDaysLater.toISOString()
+          error: `Your previous audit request was rejected. Please try again in ${hoursLeft} hours.`,
+          code: 'AUDIT_REJECTED_COOLDOWN',
+          cooldownUntil: cooldownEnd.toISOString()
         });
       }
     }
 
     // ─────────────────────────────────────────────────────────────
-    // ✅ ALL CHECKS PASSED → CREATE NEW REQUEST
+    // ✅ ALL CHECKS PASSED → CREATE NEW REQUEST WITH OTP
     // ─────────────────────────────────────────────────────────────
-    // Generate verification token
-    const verify_token = crypto.randomBytes(32).toString('hex');
+    // Generate verify_token for OTP flow (Motion 2 - public form)
+    // Note: token field is reserved for Motion 1 (invites), requires FK to audit_invites
+    const verifyToken = crypto.randomBytes(32).toString('hex');
+    const isDev = config.nodeEnv === 'development' || config.nodeEnv === 'dev';
 
-    // Create audit_request
+    // Create audit_request without token (public form uses verify_token instead)
     const result = await pool.query(
-      `INSERT INTO audit_requests (email, company_name, details, verify_token, status, created_at)
-       VALUES ($1, $2, $3, $4, 'pending', NOW())
+      `INSERT INTO audit_requests (email, company_name, status, verify_token, expires_at, created_at)
+       VALUES ($1, $2, 'pending', $3, NOW() + INTERVAL '7 days', NOW())
        RETURNING id, email, company_name`,
-      [normalized_email, normalized_company, details || null, verify_token]
+      [normalized_email, normalized_company, verifyToken]
     );
 
     const request = result.rows[0];
+    const requestId = request.id;
 
-    // Send verification email
+    // DEV MODE: Return hardcoded OTP (no email sent)
+    if (isDev) {
+      logInfo(MODULE, handler, 'DEV MODE: Audit request with OTP 123456', {
+        email: '***',
+        company: normalized_company,
+      });
+      return res.status(201).json({
+        requestId,
+        devCode: '123456',
+        message: '[DEV] Use OTP: 123456',
+      });
+    }
+
+    // PROD MODE: Generate and send OTP via email
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // Store OTP in Redis (expires in 15 minutes)
     try {
-      const verify_link = `${process.env.FRONTEND_URL || 'https://recoverai.com'}/audit-verify?token=${verify_token}`;
+      await (redisClient as any).setex(`audit-otp:${requestId}`, 900, otp);
+    } catch (redisErr: any) {
+      logError(MODULE, handler, 'Failed to store OTP in Redis', redisErr);
+      // Continue anyway - OTP won't be verifiable but request exists
+    }
+
+    // Send OTP email
+    try {
       await resendService.sendEmail({
         to: normalized_email,
-        subject: 'Verify your RecoverAI audit request',
-        bodyText: `Verify your audit request for ${normalized_company}. Click: ${verify_link}`,
+        subject: 'Your RecoverAI Audit Verification Code',
+        bodyText: `Your verification code is: ${otp}\n\nThis code expires in 15 minutes.`,
         bodyHtml: `
           <h2>Verify Your Audit Request</h2>
           <p>Hi,</p>
           <p>We received a request to audit <strong>${normalized_company}</strong> for AR recovery opportunities.</p>
-          <p>Click the link below to verify your email:</p>
-          <p><a href="${verify_link}" style="background: #3b82f6; color: white; padding: 10px 20px; border-radius: 5px; text-decoration: none; display: inline-block;">Verify Email</a></p>
-          <p>This link expires in 7 days.</p>
+          <p>Your verification code is:</p>
+          <p style="font-size: 24px; font-weight: bold; letter-spacing: 2px; text-align: center;">${otp}</p>
+          <p style="color: #666; font-size: 14px;">This code expires in 15 minutes.</p>
           <p>Questions? <a href="mailto:hello@recoverai.com">Contact us</a></p>
         `,
       });
     } catch (emailErr: any) {
-      logError(MODULE, handler, 'Failed to send verification email', emailErr);
+      logError(MODULE, handler, 'Failed to send OTP email', emailErr);
       // Don't fail the request if email fails
     }
 
-    logInfo(MODULE, handler, 'Audit request submitted', {
+    logInfo(MODULE, handler, 'Audit request submitted with OTP', {
       email: '***',
       company: normalized_company,
     });
 
     return res.status(201).json({
-      data: {
-        success: true,
-        message: 'Request submitted! Check your email to verify.',
-        request_id: request.id,
-      },
+      requestId,
+      message: 'OTP sent to your email. Check spam folder if you don\'t see it.',
     });
   } catch (err: any) {
     logError(MODULE, handler, 'Failed to submit audit request', err);
@@ -1351,25 +1374,45 @@ export const submitAuditRequest = async (req: Request, res: Response) => {
 
 /**
  * POST /api/audit-requests/verify-email
- * Verify email from public form
+ * Verify OTP from public form (Motion 2)
  */
 export const verifyAuditEmail = async (req: Request, res: Response) => {
   const handler = 'verifyAuditEmail';
   try {
-    const { token } = req.body;
+    const { requestId, otp } = req.body;
 
-    if (!token || typeof token !== 'string') {
-      return res.status(400).json({ error: 'Verification token required' });
+    if (!requestId || typeof requestId !== 'string') {
+      return res.status(400).json({ error: 'Request ID required' });
+    }
+    if (!otp || typeof otp !== 'string') {
+      return res.status(400).json({ error: 'OTP required' });
     }
 
-    // Find request by token
+    const isDev = config.nodeEnv === 'development' || config.nodeEnv === 'dev';
+
+    // DEV MODE: Check hardcoded OTP
+    if (isDev) {
+      if (otp !== '123456') {
+        return res.status(400).json({ error: 'Invalid OTP' });
+      }
+    } else {
+      // PROD MODE: Check Redis OTP
+      const storedOtp = await (redisClient as any).get(`audit-otp:${requestId}`);
+      if (!storedOtp || storedOtp !== otp) {
+        return res.status(400).json({ error: 'Invalid or expired OTP' });
+      }
+      // Delete OTP after successful verification
+      await (redisClient as any).del(`audit-otp:${requestId}`);
+    }
+
+    // Find request by ID
     const result = await pool.query(
-      `SELECT * FROM audit_requests WHERE verify_token = $1 AND email_verified_at IS NULL`,
-      [token]
+      `SELECT * FROM audit_requests WHERE id = $1 AND status = 'pending'`,
+      [requestId]
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Token invalid or already verified' });
+      return res.status(404).json({ error: 'Request not found or already verified' });
     }
 
     const request = result.rows[0];
@@ -1425,11 +1468,19 @@ export const listAuditRequests = async (req: Request, res: Response) => {
   try {
     const { status } = req.query;
 
-    let query = `SELECT * FROM audit_requests ORDER BY created_at DESC LIMIT 100`;
+    let query = `SELECT ar.id, ar.email, ar.company_name, ar.status, ar.email_verified_at, ar.created_at, ar.reviewed_at, ar.token, it.token as invite_token
+                 FROM audit_requests ar
+                 LEFT JOIN invite_tokens it ON ar.id = it.audit_request_id
+                 WHERE ar.token IS NULL
+                 ORDER BY ar.created_at DESC LIMIT 100`;
     const params: any[] = [];
 
     if (status && typeof status === 'string') {
-      query = `SELECT * FROM audit_requests WHERE status = $1 ORDER BY created_at DESC LIMIT 100`;
+      query = `SELECT ar.id, ar.email, ar.company_name, ar.status, ar.email_verified_at, ar.created_at, ar.reviewed_at, ar.token, it.token as invite_token
+               FROM audit_requests ar
+               LEFT JOIN invite_tokens it ON ar.id = it.audit_request_id
+               WHERE ar.token IS NULL AND ar.status = $1
+               ORDER BY ar.created_at DESC LIMIT 100`;
       params.push(status);
     }
 
@@ -1442,17 +1493,35 @@ export const listAuditRequests = async (req: Request, res: Response) => {
 
     return res.json({
       data: {
-        requests: result.rows.map((r: any) => ({
-          id: r.id,
-          email: r.email,
-          company_name: r.company_name,
-          details: r.details,
-          status: r.status,
-          email_verified_at: r.email_verified_at,
-          created_at: r.created_at,
-          reviewed_at: r.reviewed_at,
-          rejection_reason: r.rejection_reason,
-        })),
+        requests: result.rows.map((r: any) => {
+          // Determine submission method
+          let submissionMethod = 'email_otp';
+          if (r.token && r.token.length > 0) {
+            submissionMethod = 'invite'; // Motion 1
+          }
+
+          // Build setup URL if approved with invite token
+          let setup_url = null;
+          if (r.status === 'approved' && r.invite_token) {
+            const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+            setup_url = `${frontendUrl}/onboard?token=${r.invite_token}&email=${encodeURIComponent(r.email)}`;
+          }
+
+          return {
+            id: r.id,
+            email: r.email,
+            company_name: r.company_name,
+            status: r.status,
+            submission_method: submissionMethod,
+            email_verified_at: r.email_verified_at,
+            created_at: r.created_at,
+            reviewed_at: r.reviewed_at,
+            setup_url,
+            invite_token: r.invite_token,
+            approval_link: `/admin/audits/${r.id}/approve`,
+            rejection_link: `/admin/audits/${r.id}/reject`,
+          };
+        }),
       },
     });
   } catch (err: any) {
@@ -1501,7 +1570,7 @@ export const approveAuditRequest = async (req: Request, res: Response) => {
     );
 
     const token = tokenResult.rows[0].token;
-    const setup_url = `${process.env.FRONTEND_URL || 'https://recoverai.com'}/onboard?token=${token}&email=${encodeURIComponent(request.email)}`;
+    const setup_url = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/onboard?token=${token}&email=${encodeURIComponent(request.email)}`;
 
     // Update audit_request
     await pool.query(
@@ -1580,9 +1649,9 @@ export const rejectAuditRequest = async (req: Request, res: Response) => {
 
     const request = reqResult.rows[0];
 
-    // Update audit_request
+    // Update audit_request with rejection timestamp
     await pool.query(
-      `UPDATE audit_requests SET status = 'rejected', reviewed_by_user_id = $1, reviewed_at = NOW(), rejection_reason = $2 WHERE id = $3`,
+      `UPDATE audit_requests SET status = 'rejected', reviewed_by_user_id = $1, reviewed_at = NOW(), rejected_at = NOW(), rejection_reason = $2 WHERE id = $3`,
       [admin_id, reason, id]
     );
 
@@ -1620,6 +1689,104 @@ export const rejectAuditRequest = async (req: Request, res: Response) => {
   } catch (err: any) {
     logError(MODULE, handler, 'Failed to reject request', err);
     return res.status(500).json({ error: 'Failed to reject request' });
+  }
+};
+
+/**
+ * GET /api/audits/validate-token
+ * Validate invite token from email link
+ * Used by Stage1 onboarding to verify token is valid
+ */
+export const validateInviteToken = async (req: Request, res: Response) => {
+  const handler = 'validateInviteToken';
+  try {
+    const { token, email } = req.query;
+
+    if (!token || typeof token !== 'string') {
+      return res.status(400).json({ error: 'Token required', code: 'INVALID_TOKEN' });
+    }
+
+    // Find invite token
+    const result = await pool.query(
+      `SELECT it.*, ar.email as audit_email, ar.company_name
+       FROM invite_tokens it
+       LEFT JOIN audit_requests ar ON it.audit_request_id = ar.id
+       WHERE it.token = $1 AND it.expires_at > NOW()`,
+      [token]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Invalid or expired link', code: 'LINK_INVALID' });
+    }
+
+    const inviteToken = result.rows[0];
+
+    // Validate email if provided
+    if (email && typeof email === 'string' && inviteToken.email && inviteToken.email !== email) {
+      return res.status(400).json({
+        error: 'Email mismatch',
+        code: 'EMAIL_MISMATCH',
+        expectedEmail: inviteToken.email
+      });
+    }
+
+    logInfo(MODULE, handler, 'Token validated', { email: '***' });
+
+    return res.json({
+      data: {
+        valid: true,
+        token,
+        email: inviteToken.email || inviteToken.audit_email,
+        company_name: inviteToken.company_name,
+        expiresAt: inviteToken.expires_at,
+      },
+    });
+  } catch (err: any) {
+    logError(MODULE, handler, 'Failed to validate token', err);
+    return res.status(500).json({ error: 'Failed to validate token' });
+  }
+};
+
+/**
+ * GET /api/audits/check-stage
+ * Check current onboarding stage for authenticated user
+ */
+export const checkOnboardingStage = async (req: Request, res: Response) => {
+  const handler = 'checkOnboardingStage';
+  try {
+    const userId = (req as any).userId;
+    const companyId = (req as any).companyId;
+
+    if (!userId || !companyId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    // Get company onboarding stage
+    const result = await pool.query(
+      `SELECT onboarding_stage, account_type FROM companies WHERE id = $1`,
+      [companyId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Company not found' });
+    }
+
+    const company = result.rows[0];
+
+    logInfo(MODULE, handler, 'Checked onboarding stage', {
+      stage: company.onboarding_stage,
+      accountType: company.account_type,
+    });
+
+    return res.json({
+      data: {
+        stage: company.onboarding_stage || 'stage-1',
+        accountType: company.account_type,
+      },
+    });
+  } catch (err: any) {
+    logError(MODULE, handler, 'Failed to check stage', err);
+    return res.status(500).json({ error: 'Failed to check stage' });
   }
 };
 

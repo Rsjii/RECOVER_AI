@@ -59,6 +59,61 @@ router.get('/results/:token', auditController.getAuditResultsByToken);
 router.post('/create-trial-account', publicFormLimiter, auditController.createTrialAccount);
 
 /**
+ * ─────────────────────────────────────────────────────────────
+ * MOTION 2: PUBLIC AUDIT REQUEST FORM + ADMIN DASHBOARD
+ * MUST come before /:auditId to prevent route conflicts
+ * ─────────────────────────────────────────────────────────────
+ */
+
+/**
+ * POST /api/audits/requests/submit
+ * Motion 2 Step 1: Public form submission (rate limited)
+ */
+router.post('/requests/submit', publicFormLimiter, auditController.submitAuditRequest);
+
+/**
+ * POST /api/audits/requests/verify-email
+ * Motion 2 Step 2: Verify email from form
+ */
+router.post('/requests/verify-email', auditOtpLimiter, auditController.verifyAuditEmail);
+
+/**
+ * GET /api/audits/requests (Admin only)
+ * List all audit requests with optional status filter
+ */
+router.get('/requests', authMiddleware, requireRole('admin'), auditController.listAuditRequests);
+
+/**
+ * POST /api/audits/requests/:id/approve (Admin only)
+ * Admin approves request, generates token, sends email
+ */
+router.post('/requests/:id/approve', authMiddleware, requireRole('admin'), auditController.approveAuditRequest);
+
+/**
+ * POST /api/audits/requests/:id/reject (Admin only)
+ * Admin rejects request, sends rejection email
+ */
+router.post('/requests/:id/reject', authMiddleware, requireRole('admin'), auditController.rejectAuditRequest);
+
+/**
+ * GET /api/audits/validate-token
+ * Validate invite token for onboarding flow
+ */
+router.get('/validate-token', auditController.validateInviteToken);
+
+/**
+ * GET /api/audits/check-stage
+ * Check current onboarding stage for user
+ */
+router.get('/check-stage', authMiddleware, auditController.checkOnboardingStage);
+
+/**
+ * ─────────────────────────────────────────────────────────────
+ * PARAMETERIZED ROUTES - MUST come last
+ * ─────────────────────────────────────────────────────────────
+ */
+
+/**
  * GET /api/audits/:auditId
  * Step 4: Retrieve audit results
  */
@@ -69,41 +124,5 @@ router.get('/:auditId', auditController.getAuditResults);
  * Step 5: Convert to pilot account
  */
 router.post('/:auditId/convert-to-pilot', auditController.convertAuditToPilot);
-
-/**
- * ─────────────────────────────────────────────────────────────
- * MOTION 2: PUBLIC AUDIT REQUEST FORM + ADMIN DASHBOARD
- * ─────────────────────────────────────────────────────────────
- */
-
-/**
- * POST /api/audit-requests/submit
- * Motion 2 Step 1: Public form submission (rate limited)
- */
-router.post('/requests/submit', publicFormLimiter, auditController.submitAuditRequest);
-
-/**
- * POST /api/audit-requests/verify-email
- * Motion 2 Step 2: Verify email from form
- */
-router.post('/requests/verify-email', auditController.verifyAuditEmail);
-
-/**
- * GET /api/audit-requests (Admin only)
- * List all audit requests with optional status filter
- */
-router.get('/requests', authMiddleware, requireRole('admin'), auditController.listAuditRequests);
-
-/**
- * POST /api/audit-requests/:id/approve (Admin only)
- * Admin approves request, generates token, sends email
- */
-router.post('/requests/:id/approve', authMiddleware, requireRole('admin'), auditController.approveAuditRequest);
-
-/**
- * POST /api/audit-requests/:id/reject (Admin only)
- * Admin rejects request, sends rejection email
- */
-router.post('/requests/:id/reject', authMiddleware, requireRole('admin'), auditController.rejectAuditRequest);
 
 export default router;

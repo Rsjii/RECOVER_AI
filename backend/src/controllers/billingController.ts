@@ -60,6 +60,35 @@ export const listPlans = async (_req: Request, res: Response): Promise<void> => 
 export const getCurrentSubscription = async (req: Request, res: Response): Promise<void> => {
   const companyId = (req as any).companyId as string;
   try {
+    // Check if company is in trial mode
+    const companyRes = await pool.query(
+      `SELECT trial_status, trial_starts_at, trial_ends_at, account_type FROM companies WHERE id = $1`,
+      [companyId]
+    );
+
+    const company = companyRes.rows[0];
+
+    // If in trial, return trial information instead of subscription
+    if (company?.trial_status === 'active' && company?.trial_ends_at) {
+      const trialEndDate = new Date(company.trial_ends_at);
+      const now = new Date();
+      const daysRemaining = Math.ceil((trialEndDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+      res.status(200).json({
+        data: {
+          status: 'trialing',
+          plan_code: 'trial-14-day',
+          plan_name: '14-Day Trial',
+          next_billing_date: company.trial_ends_at,
+          trial_ends_at: company.trial_ends_at,
+          days_remaining: Math.max(0, daysRemaining),
+          is_trial: true,
+        },
+        recoveryFee: null,
+      });
+      return;
+    }
+
     const subscription = await BillingDB.getCurrentSubscription(companyId);
 
     // Augment with real-time recovery fee for current billing period

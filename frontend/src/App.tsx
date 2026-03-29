@@ -14,6 +14,7 @@ import NotFound from './pages/NotFound';
 import ForgotPassword from './pages/ForgotPassword';
 import Landing from './pages/Landing';
 import Pricing from './pages/Pricing';
+import AuditRequest from './pages/AuditRequest';
 import SecurityPage from './pages/SecurityPage';
 import Terms from './pages/Terms';
 import Privacy from './pages/Privacy';
@@ -92,6 +93,7 @@ const App: React.FC = () => {
             <Route path="/landing" element={<Landing />} />
             <Route path="/" element={<RootRedirect />} />
             <Route path="/pricing" element={<Pricing />} />
+            <Route path="/audit-request" element={<AuditRequest />} />
             <Route path="/security" element={<SecurityPage />} />
             <Route path="/terms" element={<Terms />} />
             <Route path="/terms-of-service" element={<Terms />} />

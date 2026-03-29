@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { authMiddleware } from '../middleware/auth';
 import { requireActiveSubscription } from '../middleware/subscriptionGate';
+import { checkTrialStatus, requireNotTrial } from '../middleware/trialGating';
 import { getStats, getPipeline, getRiskList, getRecoveryTimeline, getAtRisk, getCashPositionHandler, updateCashBalanceHandler, getWhatIfHandler, getRunwayHandler, getCashLeakageHandler, getKpi, getAgingAnalysisHandler, getEmailAnalyticsHandler, getRiskDriversHandler, getPaymentPlansSummaryHandler, getPaymentEvents, getSmsActivity, getWorkingCapitalFreedHandler, getDSOReductionHandler, getCashForecastHandler, getVoiceStatsHandler, getRecoveryToday, getTrialAnalysis } from '../controllers/dashboardController';
 import { runDecisionEngineNow, runDecisionEngineDryRun } from '../queue/agentLoop';
 import { findInvoiceById } from '../db/invoices';
@@ -10,6 +11,7 @@ import { logInfo, logError } from '../utils/logger';
 const router = Router();
 
 router.use(authMiddleware);
+router.use(checkTrialStatus);
 
 router.get('/stats', getStats);
 router.get('/pipeline', getPipeline);
@@ -38,8 +40,9 @@ router.get('/trial-analysis', getTrialAnalysis);
 /**
  * POST /api/dashboard/agent/trigger
  * Manually trigger an agent run and return a real-time summary.
+ * Only available on paid plans (blocks if trial)
  */
-router.post('/agent/trigger', requireActiveSubscription, async (req, res) => {
+router.post('/agent/trigger', requireActiveSubscription, requireNotTrial, async (req, res) => {
   try {
     logInfo('dashboardRoute', 'agentTrigger', 'Manual agent run starting', {
       companyId: (req as any).companyId,
@@ -85,8 +88,9 @@ router.post('/agent/preview', async (req, res) => {
  * POST /api/dashboard/agent/trigger-single
  * Send a single email for a specific invoice (called by dashboard individual Send button).
  * Accepts invoiceId and optional emailOverride.
+ * Only available on paid plans (blocks if trial)
  */
-router.post('/agent/trigger-single', requireActiveSubscription, async (req, res) => {
+router.post('/agent/trigger-single', requireActiveSubscription, requireNotTrial, async (req, res) => {
   try {
     const companyId = (req as any).companyId as string;
     const { invoiceId, emailOverride } = req.body;

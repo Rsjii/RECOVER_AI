@@ -29,6 +29,10 @@ export interface Company {
   stripeConnected?: boolean;
   // CashOS: Onboarding stage tracking
   onboarding_stage?: 'pending' | 'details_form' | 'create_account' | 'integrations' | 'audit_report' | 'trial_offer' | 'trial_active' | 'paid_active';
+  // Trial tracking
+  trial_status?: 'not_started' | 'active' | 'expired' | 'converted_to_paid' | null;
+  trial_starts_at?: string | null;
+  trial_ends_at?: string | null;
 }
 
 export interface AuthState {

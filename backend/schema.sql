@@ -1078,6 +1078,25 @@ CREATE INDEX IF NOT EXISTS idx_audit_requests_status ON audit_requests(status);
 CREATE INDEX IF NOT EXISTS idx_audit_requests_created ON audit_requests(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_audit_requests_expires ON audit_requests(expires_at) WHERE expires_at IS NOT NULL;
 
+-- Add rejection tracking column
+ALTER TABLE audit_requests ADD COLUMN IF NOT EXISTS rejected_at TIMESTAMPTZ;
+
+-- Make token nullable for public form submissions (Motion 2 uses verify_token instead)
+DO $$
+BEGIN
+  ALTER TABLE audit_requests ALTER COLUMN token DROP NOT NULL;
+EXCEPTION WHEN others THEN
+  NULL;  -- Already nullable or column doesn't exist
+END $$;
+
+-- Drop invalid FK constraint if it references non-existent audit_invites table
+DO $$
+BEGIN
+  ALTER TABLE audit_requests DROP CONSTRAINT IF EXISTS audit_requests_token_fkey;
+EXCEPTION WHEN others THEN
+  NULL;  -- Constraint doesn't exist, skip
+END $$;
+
 -- Add circular FK from invite_tokens back to audit_requests (both tables now exist)
 DO $$
 BEGIN
