@@ -11,7 +11,6 @@ import {
 import { format, parseISO } from 'date-fns';
 import { cn } from '../lib/utils';
 import { UsersTab } from '../components/admin/UsersTab';
-import { AuditRequestsTab } from '../components/admin/AuditRequestsTab';
 import { PublicAuditRequestsTab } from '../components/admin/PublicAuditRequestsTab';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
