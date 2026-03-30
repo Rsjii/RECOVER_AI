@@ -513,165 +513,61 @@ export const getRecoveryToday = async (req: Request, res: Response): Promise<voi
 
 /**
  * GET /api/dashboard/trial-analysis
- * Returns trial dashboard data for trial users only.
- * Fails (404) if user is not in trial_active stage — triggers paid dashboard fallback.
+ * Returns stored audit analysis for trial users (no real data sync yet)
  */
 export const getTrialAnalysis = async (req: Request, res: Response): Promise<void> => {
   const handler = 'getTrialAnalysis';
   const companyId = (req as any).companyId;
 
   try {
-    // Step 1: Fetch company and check if in trial_active stage
-    const companyResult = await pool.query(
-      `SELECT id, onboarding_stage, trial_ends_at, trial_status FROM companies WHERE id = $1`,
+    // Fetch the audit analysis stored during trial creation
+    const result = await pool.query(
+      `SELECT
+        ar.analysis_data,
+        ar.created_at as audit_date,
+        c.trial_ends_at,
+        c.account_type
+      FROM companies c
+      LEFT JOIN audit_requests ar ON c.id = ar.user_id OR c.email = ar.email
+      WHERE c.id = $1
+      ORDER BY ar.created_at DESC
+      LIMIT 1`,
       [companyId]
     );
 
-    if (companyResult.rows.length === 0) {
-      sendErrorResponse(res, 404, 'Company not found');
+    if (result.rows.length === 0) {
+      sendErrorResponse(res, 404, 'No trial analysis found');
       return;
     }
 
-    const company = companyResult.rows[0];
+    const row = result.rows[0];
+    const analysisData = typeof row.analysis_data === 'string'
+      ? JSON.parse(row.analysis_data)
+      : row.analysis_data;
 
-    // If NOT in trial_active, return 404 so frontend falls back to paid dashboard
-    if (company.onboarding_stage !== 'trial_active') {
-      logInfo(LOG_MODULE, handler, `User not in trial mode (stage: ${company.onboarding_stage})`, { companyId });
-      sendErrorResponse(res, 404, 'Not in trial mode');
-      return;
-    }
-
-    // Step 2: Fetch trial audit data from audit_requests table (linked through user)
-    const auditResult = await pool.query(
-      `SELECT ar.analysis_data, ar.created_at FROM audit_requests ar
-       JOIN users u ON ar.user_id = u.id
-       WHERE u.company_id = $1
-       ORDER BY ar.created_at DESC
-       LIMIT 1`,
-      [companyId]
-    );
-
-    let analysisData: any = null;
-    if (auditResult.rows.length > 0) {
-      const row = auditResult.rows[0];
-      if (row.analysis_data) {
-        analysisData = typeof row.analysis_data === 'string'
-          ? JSON.parse(row.analysis_data)
-          : row.analysis_data;
-      }
-    }
-
-    // If no audit data exists yet, provide empty/default structure
-    // (user may not have completed audit generation yet)
     if (!analysisData) {
-      analysisData = {
-        overdue_ar: 0,
-        avg_days_late: 0,
-        billing_errors: { duplicates: { count: 0, estimated_value: 0 }, spikes: { count: 0, estimated_value: 0 }, total_at_risk: 0 },
-        trend: { direction: 'stable', percent_change: 0 },
-        high_risk_invoices: { count: 0, total_amount: 0 },
-        customer_concentration: { customers_holding_80_percent: 0 },
-        next_steps: ['Connect your Stripe account to generate an audit analysis.'],
-        total_invoiced: 0,
-      };
+      sendErrorResponse(res, 400, 'Analysis not yet available');
+      return;
     }
 
-    // Step 3: Calculate trial days remaining
-    const trialEndsAt = new Date(company.trial_ends_at);
+    // Calculate trial days remaining
+    const trialEndsAt = new Date(row.trial_ends_at);
     const now = new Date();
     const daysRemaining = Math.max(0, Math.ceil((trialEndsAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
 
-    // Step 4: Build trial dashboard response
-    const overdueAr = analysisData?.overdue_ar || 0;
-    const avgDaysLate = analysisData?.avg_days_late || 0;
-    const billingErrors = analysisData?.billing_errors || { duplicates: { count: 0, estimated_value: 0 }, spikes: { count: 0, estimated_value: 0 }, total_at_risk: 0 };
-
-    // Generate risks from billing errors and high-risk invoices
-    const risks: any[] = [];
-    if (billingErrors.duplicates?.count > 0) {
-      risks.push({
-        severity: 'high',
-        title: 'Duplicate Invoices',
-        description: `Found ${billingErrors.duplicates.count} duplicate invoices worth $${Math.round(billingErrors.duplicates.estimated_value)}`,
-      });
-    }
-    if (billingErrors.spikes?.count > 0) {
-      risks.push({
-        severity: 'medium',
-        title: 'Billing Anomalies',
-        description: `Detected ${billingErrors.spikes.count} unusual charges that may warrant review`,
-      });
-    }
-    if (overdueAr > 0) {
-      risks.push({
-        severity: 'high',
-        title: 'Overdue AR',
-        description: `${Math.round(overdueAr)} in overdue invoices averaging ${avgDaysLate} days late`,
-      });
-    }
-    if (analysisData?.high_risk_invoices?.count > 0) {
-      risks.push({
-        severity: 'critical',
-        title: 'High-Risk Invoices',
-        description: `${analysisData.high_risk_invoices.count} invoices 30+ days late and ≥$50K ready for collection`,
-      });
-    }
-
-    // Generate insights from trend and metrics
-    const insights: string[] = [];
-    if (analysisData?.trend?.direction === 'improving') {
-      insights.push(`✅ Good news: your unpaid AR is decreasing (${analysisData.trend.percent_change}% change)`);
-    } else if (analysisData?.trend?.direction === 'worsening') {
-      insights.push(`⚠️ Alert: your unpaid AR is growing (${analysisData.trend.percent_change}% change)`);
-    } else {
-      insights.push(`📊 Your unpaid AR is stable`);
-    }
-
-    if (analysisData?.customer_concentration?.customers_holding_80_percent) {
-      insights.push(`💰 Top ${analysisData.customer_concentration.customers_holding_80_percent} customers hold 80% of unpaid AR`);
-    }
-
-    if (analysisData?.next_steps) {
-      insights.push(...analysisData.next_steps.slice(0, 2));
-    }
-
-    // Step 5: Return trial dashboard data structure
     const response = {
       data: {
-        // Trial metadata
-        trial_ends_at: company.trial_ends_at,
-        trial_days_remaining: daysRemaining,
-        trial_status: company.trial_status,
-
-        // Cash position (mock values for trial)
-        available_cash: Math.round(analysisData?.total_invoiced || 50000),
-        runway_days: Math.ceil(Math.random() * 90 + 30), // Mock: 30-120 days
-
-        // Core AR metrics
-        overdue_ar: overdueAr,
-        avg_days_late: avgDaysLate,
-
-        // Billing errors breakdown
-        billing_errors: {
-          duplicates: billingErrors.duplicates,
-          spikes: billingErrors.spikes,
-          total_at_risk: billingErrors.total_at_risk || 0,
-        },
-
-        // Risks and insights for trial dashboard
-        risks,
-        insights,
-
-        // Full audit data for reference
         ...analysisData,
+        trial_days_remaining: daysRemaining,
+        trial_ends_at: row.trial_ends_at,
+        audit_date: row.audit_date,
       }
     };
 
     logInfo(LOG_MODULE, handler, 'Trial analysis fetched', {
       companyId,
-      daysRemaining,
-      overdueAr,
-      riskCount: risks.length,
+      score: analysisData.cash_clarity_score,
+      daysRemaining
     });
 
     res.status(200).json(response);

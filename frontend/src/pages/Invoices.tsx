@@ -2,7 +2,6 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { api } from '../lib/api';
 import { API_ENDPOINTS, PAGINATION_LIMIT } from '../lib/constants';
 import { useNotification } from '../hooks/useNotification';
-import { useAuth } from '../hooks/useAuth';
 import { FilterBar } from '../components/invoices/FilterBar';
 import { InvoiceTable } from '../components/invoices/InvoiceTable';
 import { InvoiceModal } from '../components/invoices/InvoiceModal';
@@ -12,19 +11,9 @@ import { CSVUploadModal } from '../components/invoices/CSVUploadModal';
 import { Button } from '../components/ui/Button';
 import { formatCurrency } from '../lib/utils';
 import type { Invoice } from '../types';
-import InvoicesTrial from './InvoicesTrial';
 
 const Invoices: React.FC = () => {
   const { addToast } = useNotification();
-  const { company } = useAuth();
-
-  // Check if user is in trial
-  const isTrial = company?.onboardingStage === 'trial_active';
-
-  // Render trial version if user is in trial
-  if (isTrial) {
-    return <InvoicesTrial />;
-  }
 
   useEffect(() => {
     document.title = 'Invoices — CashOS';
