@@ -4,6 +4,7 @@ import { API_ENDPOINTS } from '../lib/constants';
 import { Spinner } from '../components/ui/Spinner';
 import { Modal } from '../components/ui/Modal';
 import { useNotification } from '../hooks/useNotification';
+import { useAuth } from '../hooks/useAuth';
 import { ProfileSection } from '../components/settings/ProfileSection';
 import { NotificationsSection } from '../components/settings/NotificationsSection';
 import { IntegrationSection } from '../components/settings/IntegrationSection';
@@ -12,6 +13,7 @@ import { SlackSection } from '../components/settings/SlackSection';
 import { GeneralSection } from '../components/settings/GeneralSection';
 import { cn } from '../lib/utils';
 import type { CompanySettings } from '../types';
+import SettingsTrial from './Settings_trial';
 
 type SettingsTab = 'profile' | 'integrations' | 'automation' | 'advanced';
 
@@ -48,7 +50,16 @@ const EMAIL_TEMPLATES = [
 
 const Settings: React.FC = () => {
   const { addToast } = useNotification();
+  const { company } = useAuth();
   const [confirmRevokeId, setConfirmRevokeId] = useState<string | null>(null);
+
+  // Check if user is in trial
+  const isTrial = company?.onboardingStage === 'trial_active';
+
+  // Render trial version if user is in trial
+  if (isTrial) {
+    return <SettingsTrial />;
+  }
 
   useEffect(() => {
     document.title = 'Settings — CashOS';

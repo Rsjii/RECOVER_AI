@@ -24,8 +24,10 @@ import { AgentActivitySection } from '../components/dashboard/AgentActivitySecti
 import { BillingOptimizationSection } from '../components/dashboard/BillingOptimizationSection';
 import { VoiceStatsCard } from '../components/dashboard/VoiceStatsCard';
 import { TrialCountdown } from '../components/TrialCountdown';
+import { CollapsibleSection } from '../components/dashboard/CollapsibleSection';
 import { PayablesTracker } from '../components/dashboard/PayablesTracker';
 import { WeeklyUpdateForm } from '../components/dashboard/WeeklyUpdateForm';
+import DashboardTrial from './DashboardTrial';
 import type { DashboardStats, InvoicePipeline, CustomerRisk } from '../types';
 import type { WorkingCapitalFreed, DSOReduction, BillingAnomaly, EnhancedCashForecast } from '../types/invoice';
 
@@ -166,6 +168,8 @@ const Dashboard: React.FC = () => {
   const { addToast } = useNotification();
   const { company } = useAuth();
   const { accountCreated, trialStarted, step } = useOnboarding();
+  const [isTrialMode, setIsTrialMode] = useState<boolean | null>(null);
+  const [trialLoading, setTrialLoading] = useState(true);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [pipeline, setPipeline] = useState<InvoicePipeline | null>(null);
   const [riskList, setRiskList] = useState<CustomerRisk[]>([]);
@@ -196,10 +200,6 @@ const Dashboard: React.FC = () => {
   const [pilotMode, setPilotMode] = useState<string | null>(null);
   const [recoveryToday, setRecoveryToday] = useState<{ amount: number; count: number } | null>(null);
   const [pausingAgent, setPausingAgent] = useState(false);
-  // Trial mode
-  const [isTrialMode, setIsTrialMode] = useState(false);
-  const [trialAnalysis, setTrialAnalysis] = useState<any>(null);
-  const [trialDaysRemaining, setTrialDaysRemaining] = useState(0);
 
   useEffect(() => {
     document.title = 'Dashboard — CashOS';
@@ -252,6 +252,21 @@ const Dashboard: React.FC = () => {
     detectDemo();
   }, [company?.onboardingStage, accountCreated, trialStarted, step]);
 
+  // Detect trial vs paid mode
+  useEffect(() => {
+    const detectMode = async () => {
+      try {
+        await api.get('/api/dashboard/trial-analysis');
+        setIsTrialMode(true);
+      } catch (err) {
+        setIsTrialMode(false);
+      } finally {
+        setTrialLoading(false);
+      }
+    };
+    detectMode();
+  }, []);
+
   useEffect(() => {
     // ✅ Show cached data instantly if fresh (tab switch = no loading spinner)
     if (dashCache && Date.now() - dashCache.ts < CACHE_TTL) {
@@ -282,21 +297,7 @@ const Dashboard: React.FC = () => {
       setLoading(true);
       setError(null);
       try {
-        // TRY TRIAL MODE FIRST
-        try {
-          const trialRes = await api.get<{ data: any }>('/api/dashboard/trial-analysis');
-          if (trialRes.data) {
-            setIsTrialMode(true);
-            setTrialAnalysis(trialRes.data);
-            setTrialDaysRemaining(trialRes.data.trial_days_remaining || 0);
-            setLoading(false);
-            return;
-          }
-        } catch (err) {
-          // Not trial mode, fall through to normal dashboard
-        }
-
-        // NORMAL DASHBOARD MODE
+        // PAID DASHBOARD MODE
         const [statsRes, pipelineRes, riskRes, atRiskRes, cashRes, runwayRes, leakageRes,
                kpiRes, agingRes, emailAnalyticsRes, riskDriversRes, plansSummaryRes,
                workingCapitalRes, dsoReductionRes, billingAnomaliesRes, cashForecastRes] = await Promise.all([
@@ -530,146 +531,20 @@ const Dashboard: React.FC = () => {
     );
   }
 
+  // Show loading while detecting trial/paid mode
+  if (trialLoading) return <DashboardSkeleton />;
+
+  // Show trial dashboard if user is in trial
+  if (isTrialMode) return <DashboardTrial />;
+
+  // Otherwise render paid dashboard
   return (
     <div className="bg-white dark:bg-[#09090b] min-h-full">
       <div className="max-w-7xl mx-auto px-6 sm:px-8 py-6">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
       </div>
 
-      {/* TRIAL BANNER */}
-      {isTrialMode && trialDaysRemaining >= 0 && (
-        <div className="max-w-7xl mx-auto px-6 sm:px-8 mb-6">
-          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <h3 className="font-bold text-blue-900 dark:text-blue-100">🎯 14-Day Free Trial</h3>
-                <p className="text-sm text-blue-800 dark:text-blue-200">{trialDaysRemaining} days remaining</p>
-              </div>
-              <div className="text-right">
-                <p className="text-lg font-bold text-blue-600 dark:text-blue-400">{Math.round((14 - trialDaysRemaining) / 14 * 100)}%</p>
-              </div>
-            </div>
-            <div className="w-full bg-blue-200 dark:bg-blue-800 h-2 rounded-full overflow-hidden">
-              <div
-                className="bg-blue-600 dark:bg-blue-400 h-full transition-all"
-                style={{ width: `${Math.round((14 - trialDaysRemaining) / 14 * 100)}%` }}
-              />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* TRIAL MODE: Show audit analysis */}
-      {isTrialMode && trialAnalysis && (
-        <div className="max-w-7xl mx-auto px-6 sm:px-8 pb-6 flex flex-col space-y-6">
-          {/* Cash Clarity Score */}
-          <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-gray-800 rounded-lg p-6">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Cash Clarity Score</h2>
-            <div className="flex items-center gap-4">
-              <div className="text-5xl font-bold text-blue-600 dark:text-blue-400">{trialAnalysis.cash_clarity_score}/100</div>
-              <div className="flex-1">
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Your cash health rating based on real Stripe data</p>
-                <div className="w-full bg-gray-200 dark:bg-gray-700 h-3 rounded-full overflow-hidden">
-                  <div
-                    className="bg-blue-600 dark:bg-blue-400 h-full transition-all"
-                    style={{ width: `${trialAnalysis.cash_clarity_score}%` }}
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Key Metrics */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-gray-800 rounded-lg p-4">
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Available Cash</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">${(trialAnalysis.available_cash / 1000).toFixed(0)}K</p>
-            </div>
-            <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-gray-800 rounded-lg p-4">
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Runway</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{trialAnalysis.runway_days} days</p>
-            </div>
-            <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-gray-800 rounded-lg p-4">
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Overdue AR</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">${(trialAnalysis.overdue_ar / 1000).toFixed(0)}K</p>
-            </div>
-            <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-gray-800 rounded-lg p-4">
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Avg Days Late</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{trialAnalysis.avg_days_late}d</p>
-            </div>
-          </div>
-
-          {/* Billing Errors */}
-          {trialAnalysis.billing_errors && trialAnalysis.billing_errors.total_value > 0 && (
-            <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-gray-800 rounded-lg p-6">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">💰 Billing Errors Detected: ${(trialAnalysis.billing_errors.total_value / 1000).toFixed(0)}K</h2>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="border-l-4 border-orange-500 pl-4">
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Duplicates</p>
-                  <p className="text-lg font-bold text-gray-900 dark:text-white">{trialAnalysis.billing_errors.duplicates.count}</p>
-                  <p className="text-xs text-orange-600 dark:text-orange-400">${(trialAnalysis.billing_errors.duplicates.value / 1000).toFixed(0)}K</p>
-                </div>
-                <div className="border-l-4 border-yellow-500 pl-4">
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Spikes</p>
-                  <p className="text-lg font-bold text-gray-900 dark:text-white">{trialAnalysis.billing_errors.spikes.count}</p>
-                  <p className="text-xs text-yellow-600 dark:text-yellow-400">${(trialAnalysis.billing_errors.spikes.value / 1000).toFixed(0)}K</p>
-                </div>
-                <div className="border-l-4 border-red-500 pl-4">
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Failed Clusters</p>
-                  <p className="text-lg font-bold text-gray-900 dark:text-white">{trialAnalysis.billing_errors.failed_clusters.count}</p>
-                  <p className="text-xs text-red-600 dark:text-red-400">${(trialAnalysis.billing_errors.failed_clusters.value / 1000).toFixed(0)}K</p>
-                </div>
-                <div className="border-l-4 border-blue-500 pl-4">
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Gaps</p>
-                  <p className="text-lg font-bold text-gray-900 dark:text-white">{trialAnalysis.billing_errors.gaps.count}</p>
-                  <p className="text-xs text-blue-600 dark:text-blue-400">${(trialAnalysis.billing_errors.gaps.value / 1000).toFixed(0)}K</p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Risks */}
-          {trialAnalysis.risks && trialAnalysis.risks.length > 0 && (
-            <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-gray-800 rounded-lg p-6">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">⚠️ Top Risks Found</h2>
-              <div className="space-y-3">
-                {trialAnalysis.risks.map((risk: any, idx: number) => (
-                  <div key={idx} className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                    <div className="mt-0.5">
-                      {risk.severity === 'critical' && <div className="w-3 h-3 rounded-full bg-red-600" />}
-                      {risk.severity === 'high' && <div className="w-3 h-3 rounded-full bg-orange-600" />}
-                      {risk.severity === 'medium' && <div className="w-3 h-3 rounded-full bg-yellow-600" />}
-                      {risk.severity === 'low' && <div className="w-3 h-3 rounded-full bg-blue-600" />}
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-medium text-gray-900 dark:text-white">{risk.title}</p>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">{risk.description}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Insights */}
-          {trialAnalysis.insights && trialAnalysis.insights.length > 0 && (
-            <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-gray-800 rounded-lg p-6">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">💡 AI Insights</h2>
-              <ul className="space-y-2">
-                {trialAnalysis.insights.map((insight: string, idx: number) => (
-                  <li key={idx} className="flex items-start gap-3 text-sm text-gray-600 dark:text-gray-400">
-                    <span className="text-blue-600 dark:text-blue-400 mt-0.5">→</span>
-                    <span>{insight}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* NORMAL MODE: Show regular dashboard */}
-      {!isTrialMode && (
+      {/* PAID DASHBOARD */}
       <div className="max-w-7xl mx-auto px-6 sm:px-8 pb-6 flex flex-col space-y-6">
       <div className="flex items-center justify-between">
         <div></div>
@@ -806,35 +681,65 @@ const Dashboard: React.FC = () => {
       {/* ════════════════════════════════════════════════════════════════ */}
 
       {/* Billing Optimization Agent */}
-      <BillingOptimizationSection
-        anomalies={billingAnomalies}
-        loading={loading}
-        onConfirm={handleConfirmAnomaly}
-        onDismiss={handleDismissAnomaly}
-      />
+      <CollapsibleSection
+        title="Billing Optimization"
+        subtitle="Detect and resolve billing issues"
+        icon="⚙️"
+      >
+        <BillingOptimizationSection
+          anomalies={billingAnomalies}
+          loading={loading}
+          onConfirm={handleConfirmAnomaly}
+          onDismiss={handleDismissAnomaly}
+        />
+      </CollapsibleSection>
 
       {/* Cash Flow & Projections */}
-      <CashFlowSection
-        runway={runway}
-        cashPosition={cashPosition}
-        leakage={leakage}
-        customers={whatIfCustomers}
-        cashBalanceInput={cashBalanceInput}
-        onBalanceChange={setCashBalanceInput}
-        onBalanceSubmit={handleCashBalanceSubmit}
-        onWhatIf={handleWhatIf}
-        forecast={cashForecast}
-        loading={loading}
-      />
+      <CollapsibleSection
+        title="Cash Flow & Projections"
+        subtitle="Runway, leakage, and forecast scenarios"
+        icon="💰"
+      >
+        <CashFlowSection
+          runway={runway}
+          cashPosition={cashPosition}
+          leakage={leakage}
+          customers={whatIfCustomers}
+          cashBalanceInput={cashBalanceInput}
+          onBalanceChange={setCashBalanceInput}
+          onBalanceSubmit={handleCashBalanceSubmit}
+          onWhatIf={handleWhatIf}
+          forecast={cashForecast}
+          loading={loading}
+        />
+      </CollapsibleSection>
 
       {/* Payables Tracker */}
-      <PayablesTracker loading={loading} />
+      <CollapsibleSection
+        title="Payables Tracker"
+        subtitle="Track bills and upcoming payments"
+        icon="📋"
+      >
+        <PayablesTracker loading={loading} />
+      </CollapsibleSection>
 
       {/* Weekly Forecast Update */}
-      <WeeklyUpdateForm />
+      <CollapsibleSection
+        title="Weekly Forecast"
+        subtitle="Update growth and expense assumptions"
+        icon="📈"
+      >
+        <WeeklyUpdateForm />
+      </CollapsibleSection>
 
       {/* Risk Signals */}
-      <RiskDriversSection drivers={riskDrivers ?? undefined} loading={loading} />
+      <CollapsibleSection
+        title="Risk Drivers"
+        subtitle="Payment failures, expirations, and inactivity"
+        icon="⚠️"
+      >
+        <RiskDriversSection drivers={riskDrivers ?? undefined} loading={loading} />
+      </CollapsibleSection>
 
       {/* ════════════════════════════════════════════════════════════════ */}
       {/* TIER 4: ACTION ITEMS & DETAILS — Collapsible sections */}
@@ -924,8 +829,8 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
       )}
+
       </div>
-      )}
 
       {/* Email Preview Modal */}
       {selectedEmailForModal && (
