@@ -55,7 +55,7 @@ const Landing: React.FC = () => {
           <Link to="/security" className="text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">Security</Link>
           <ThemeToggle />
           <Link to="/login" className="text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">Sign in</Link>
-          <Button size="sm" onClick={() => navigate('/audit-request')}>Become a Pilot</Button>
+          <Button size="sm" onClick={() => navigate('/signup')}>Sign up</Button>
         </nav>
         <div className="flex md:hidden items-center gap-2">
           <ThemeToggle className="p-2 text-gray-500 dark:text-gray-400 rounded-lg hover:bg-gray-100 dark:hover:bg-white/[0.06] transition-colors" />
@@ -74,7 +74,7 @@ const Landing: React.FC = () => {
           <Link to="/pricing" onClick={() => setMobileMenuOpen(false)} className="text-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">Pricing</Link>
           <Link to="/security" onClick={() => setMobileMenuOpen(false)} className="text-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">Security</Link>
           <Link to="/login" onClick={() => setMobileMenuOpen(false)} className="text-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">Sign in</Link>
-          <Button size="sm" className="w-full" onClick={() => { setMobileMenuOpen(false); navigate('/audit-request'); }}>Become a Pilot</Button>
+          <Button size="sm" className="w-full" onClick={() => { setMobileMenuOpen(false); navigate('/signup'); }}>Sign up</Button>
         </div>
       )}
 
@@ -95,9 +95,9 @@ const Landing: React.FC = () => {
           <Button
             size="lg"
             className="px-8"
-            onClick={() => navigate('/audit-request')}
+            onClick={() => navigate('/signup')}
           >
-            Become a Pilot
+            Start free trial
           </Button>
           <Button
             size="lg"
@@ -109,7 +109,7 @@ const Landing: React.FC = () => {
             {demoLoading ? 'Loading demo...' : 'Try live demo'}
           </Button>
         </div>
-        <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">14 days free pilot • See results fast</p>
+        <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">14 days free • No credit card</p>
         <p className="mt-6 text-xs text-gray-400 dark:text-gray-500 max-w-md mx-auto">
           We only access your read-only invoice and payment data to analyze and automate recovery.
           We never move, hold, or process payments. You remain in control of all automation settings.

@@ -4,7 +4,6 @@ import { useAuth } from '../hooks/useAuth';
 import { useNotification } from '../hooks/useNotification';
 import { Button } from '../components/ui/Button';
 import { validateEmail } from '../lib/utils';
-import { api } from '../lib/api';
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
@@ -18,7 +17,7 @@ const Login: React.FC = () => {
     if (isAuthenticated && !isLoading) {
       navigate('/dashboard', { replace: true });
     }
-  }, [isAuthenticated, isLoading, navigate]);
+  }, [isAuthenticated, isLoading]);
 
   const [form, setForm] = useState({ email: '', password: '' });
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
@@ -69,40 +68,10 @@ const Login: React.FC = () => {
     setApiError(null);
     setSubmitting(true);
     try {
-      const result = await login(form.email, form.password);
+      await login(form.email, form.password);
 
-      // Check if user has an in-progress audit
-      if (result?.auditResume) {
-        const { status, token } = result.auditResume;
-
-        if (status === 'analysis_in_progress') {
-          // Redirect to analyzing page
-          navigate(`/audit-analyzing/${token}`, { replace: true });
-          return;
-        } else if (status === 'otp_verified' || status === 'email_entered') {
-          // Redirect back to OTP/email step
-          navigate(`/audit`, { replace: true, state: { resumeToken: token } });
-          return;
-        } else if (status === 'stripe_started' || status === 'stripe_connected') {
-          // Redirect to Stripe OAuth or results
-          navigate(`/audit-results/${token}`, { replace: true });
-          return;
-        }
-      }
-
-      // Check if user is mid-onboarding (after exiting and logging back in)
-      try {
-        const check: any = await api.get('/api/audits/check-stage');
-        if (check?.stage && check.stage > 0) {
-          // User is mid-onboarding, resume from that stage
-          addToast({ type: 'success', message: 'Resuming your onboarding...' });
-          navigate(`/onboard/stage-${check.stage}`, { replace: true });
-          return;
-        }
-      } catch {
-        // Not in onboarding, proceed to dashboard
-      }
-
+      // After login, user's onboarding state will be restored from /api/auth/me
+      // ProtectedRoute and Dashboard guards handle redirecting to correct step
       addToast({ type: 'success', message: 'Welcome back!' });
       const from = (location.state as any)?.from?.pathname || '/dashboard';
       navigate(from, { replace: true });
@@ -244,14 +213,14 @@ const Login: React.FC = () => {
             </Button>
           </form>
 
-          {/* Pilot Program Link */}
+          {/* Signup Link */}
           <p className="mt-6 text-center text-sm text-gray-500 dark:text-gray-400">
             New to CashOS?{' '}
             <Link
-              to="/landing"
+              to="/signup"
               className="text-brand-600 hover:text-blue-700 font-medium"
             >
-              Become a pilot
+              Sign up
             </Link>
           </p>
 

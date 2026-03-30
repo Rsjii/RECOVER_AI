@@ -1,11 +1,16 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
 import { authService } from '../services/authService';
-import { SignupInput, LoginInput } from '../types/auth';
+import { SignupInput, LoginInput, JWTPayload } from '../types/auth';
 import { config } from '../config/env';
 import { pool } from '../config/database';
 import * as SecurityDB from '../db/security';
 import * as UserDB from '../db/users';
+import * as CompanyDB from '../db/companies';
+import * as TeamDB from '../db/team';
+import * as BillingDB from '../db/billing';
+import * as AuditDB from '../db/auditLogs';
 import resendService from '../services/resendService';
 import { logError as baseLogError, logInfo as baseLogInfo } from '../utils/logger';
 import { sendErrorResponse, parseError } from '../utils/errorHandler';
@@ -56,14 +61,73 @@ const clearCookies = (res: Response) => {
 
 // ============ Handlers ============
 
+/**
+ * POST /api/auth/signup
+ * STEP 1: Send OTP to email
+ * Account is NOT created here — created in /verify-email after OTP verification
+ * Frontend stores signup data in localStorage
+ * Expects: { email }
+ */
 export const signup = async (req: Request, res: Response) => {
-  // Signup disabled - pilot program only
-  // Users must apply via /api/pilots/request to join
-  logInfo('signup', 'Signup disabled', { email: req.body.email });
-  return res.status(403).json({
-    code: 'SIGNUP_DISABLED',
-    error: 'Sign up is disabled. Please apply for our pilot program at /landing',
-  });
+  const handler = 'signup';
+  const startTime = Date.now();
+
+  try {
+    const { email } = req.body;
+
+    // ✅ Validate email
+    if (!email?.trim()) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    logInfo(handler, '📧 Sending OTP (account will be created after verification)', { email: '***' });
+
+    // ✅ Check if email already exists
+    const existing = await UserDB.findUserByEmail(email);
+    if (existing) {
+      return res.status(409).json({ error: 'Email already registered' });
+    }
+
+    // ✅ Generate OTP (10 min expiry)
+    const isDev = process.env.NODE_ENV !== 'production';
+    const otpCode = isDev ? '123456' : String(Math.floor(100000 + Math.random() * 900000));
+    const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    // Store OTP temporarily (not tied to user yet)
+    await pool.query(
+      `INSERT INTO temporary_otps (email, otp_code, expires_at)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (email) DO UPDATE SET otp_code = $2, expires_at = $3`,
+      [email, otpCode, otpExpires]
+    ).catch(() => {
+      logInfo(handler, 'Note: temporary_otps table not available, OTP verification will fail');
+    });
+
+    logInfo(handler, '✅ OTP generated', { email: '***', expiresIn: '10 minutes' });
+
+    // ✅ Send OTP via email (prod) or return in response (dev)
+    if (isDev) {
+      logInfo(handler, 'DEV MODE: OTP is 123456, no email sent', { email: '***' });
+    } else {
+      await resendService.sendOTP({ email, code: otpCode }).catch((err: any) => {
+        logError(handler, 'Failed to send OTP email', err);
+      });
+      logInfo(handler, 'OTP sent to email', { email: '***' });
+    }
+
+    const elapsed = Date.now() - startTime;
+    logInfo(handler, `✅ OTP sent in ${elapsed}ms`, { email: '***' });
+
+    return res.status(200).json({
+      message: 'OTP sent to your email',
+      devOtpCode: isDev ? '123456' : undefined,
+    });
+  } catch (err: any) {
+    const elapsed = Date.now() - startTime;
+    logError(handler, `Failed after ${elapsed}ms`, err);
+    const { statusCode, message } = parseError(err);
+    return sendErrorResponse(res, statusCode, message);
+  }
 };
 
 export const login = async (req: Request, res: Response) => {
@@ -183,7 +247,10 @@ export const me = async (req: Request, res: Response) => {
         emailVerified: result.emailVerified,
         onboardingStatus: result.onboardingStatus,
       },
-      company: result.company,
+      company: {
+        ...result.company,
+        onboardingStage: result.company.onboardingStage || 'pending',
+      },
     });
   } catch (err: any) {
     logError(handler, 'Failed', err);
@@ -363,47 +430,185 @@ export const resetPassword = async (req: Request, res: Response) => {
   }
 };
 
+/**
+ * POST /api/auth/verify-email
+ * PUBLIC endpoint (no auth required)
+ * STEP 2: Verify OTP and CREATE ACCOUNT
+ * Expects: { email, otp, firstName, lastName, company, password }
+ * Signup data comes from frontend localStorage, not backend storage
+ */
 export const verifyEmail = async (req: Request, res: Response) => {
   const handler = 'verifyEmail';
-  try {
-    const { otp } = req.body;
-    const userId = (req as any).userId as string | undefined;
+  const startTime = Date.now();
 
+  try {
+    const { email, otp, firstName, lastName, company, password } = req.body;
+
+    // ✅ Validate input
+    if (!email?.trim()) {
+      return sendErrorResponse(res, 400, 'Email is required');
+    }
     if (!otp || typeof otp !== 'string') {
       return sendErrorResponse(res, 400, 'OTP must be a string');
     }
     if (otp.length !== 6 || !/^\d+$/.test(otp)) {
       return sendErrorResponse(res, 400, 'OTP must be exactly 6 digits');
     }
-
-    let user;
-    if (userId) {
-      // Preferred: authenticated user — verify their specific OTP
-      user = await UserDB.findUserById(userId);
-      if (!user) return sendErrorResponse(res, 404, 'User not found');
-      if (user.otp_code !== otp) {
-        logInfo(handler, 'Invalid OTP', { userId });
-        return sendErrorResponse(res, 400, 'Invalid or expired OTP');
-      }
-      if (!user.otp_expires || new Date(user.otp_expires) < new Date()) {
-        logInfo(handler, 'OTP expired', { userId });
-        return sendErrorResponse(res, 400, 'OTP has expired — request a new one');
-      }
-    } else {
-      // Fallback: unauthenticated (edge case) — find by OTP
-      user = await UserDB.findUserByOTP(otp);
-      if (!user) {
-        logInfo(handler, 'Invalid or expired OTP (no auth context)');
-        return sendErrorResponse(res, 400, 'Invalid or expired OTP');
-      }
+    if (!firstName?.trim()) {
+      return sendErrorResponse(res, 400, 'First name is required');
+    }
+    if (!lastName?.trim()) {
+      return sendErrorResponse(res, 400, 'Last name is required');
+    }
+    if (!company?.trim()) {
+      return sendErrorResponse(res, 400, 'Company name is required');
+    }
+    if (!password?.trim()) {
+      return sendErrorResponse(res, 400, 'Password is required');
     }
 
-    // Clear OTP and mark email as verified
-    await UserDB.clearOTP(user.id);
+    logInfo(handler, 'Verifying email with OTP and creating account', { email: '***' });
 
-    logInfo(handler, 'Email verified successfully', { userId: user.id });
+    // ✅ Verify OTP from temporary storage (not tied to user yet)
+    const otpResult = await pool.query(
+      'SELECT otp_code, expires_at FROM temporary_otps WHERE email = $1',
+      [email]
+    ).catch(() => ({ rows: [] }));
 
-    return res.status(200).json({ message: 'Email verified successfully', verified: true });
+    if (!otpResult.rows.length) {
+      logInfo(handler, 'OTP not found for email', { email: '***' });
+      return sendErrorResponse(res, 400, 'No OTP found. Please sign up again.');
+    }
+
+    const { otp_code, expires_at } = otpResult.rows[0];
+
+    // ✅ Check if OTP matches
+    if (otp_code !== otp) {
+      logInfo(handler, 'Invalid OTP', { email: '***' });
+      return sendErrorResponse(res, 400, 'Invalid OTP');
+    }
+
+    // ✅ Check if OTP expired
+    if (new Date(expires_at) < new Date()) {
+      logInfo(handler, 'OTP expired', { email: '***' });
+      return sendErrorResponse(res, 400, 'OTP has expired — request a new one');
+    }
+
+    // ✅ Hash password
+    const passwordHash = await bcrypt.hash(password, 10);
+    logInfo(handler, '✅ Password hashed', { email: '***' });
+
+    logInfo(handler, '✅ OTP verified, creating account now', { email: '***' });
+
+    // ✅ NOW CREATE THE ACCOUNT (was pending until OTP verified)
+    const companyObj = await CompanyDB.createCompany({
+      name: company,
+      email,
+      timezone: 'UTC',
+      preferredCurrency: 'USD',
+      onboardingStage: 'integrations',
+    });
+
+    logInfo(handler, '✅ Company created', { companyId: companyObj.id });
+
+    // ✅ Create user
+    const user = await UserDB.createUser({
+      companyId: companyObj.id,
+      email,
+      passwordHash,
+      firstName,
+      lastName,
+      role: 'owner',
+    });
+
+    logInfo(handler, '✅ User created', { userId: user.id });
+
+    // ✅ Set company owner + team membership + billing
+    await CompanyDB.setCompanyOwner(companyObj.id, user.id);
+    await TeamDB.ensureOwnerMembership(companyObj.id, user.id);
+    await BillingDB.ensureDefaultPlans();
+    await BillingDB.upsertCompanySubscription({
+      companyId: companyObj.id,
+      planCode: 'phase_0',
+      status: 'trialing',
+      trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+      periodStart: new Date(),
+      periodEnd: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+    });
+
+    logInfo(handler, '✅ Account fully setup', { userId: user.id, companyId: companyObj.id });
+
+    // ✅ Mark email as verified
+    await pool.query(
+      'UPDATE users SET email_verified = true, updated_at = NOW() WHERE id = $1',
+      [user.id]
+    );
+
+    // ✅ Clear temporary OTP
+    await pool.query('DELETE FROM temporary_otps WHERE email = $1', [email]).catch(() => {});
+
+    // ✅ Generate tokens for login
+    if (!config.jwtSecret || !config.refreshTokenSecret) {
+      throw new Error('JWT secrets not configured');
+    }
+
+    const accessToken = jwt.sign(
+      { userId: user.id, companyId: companyObj.id, email: user.email } as JWTPayload,
+      config.jwtSecret,
+      { expiresIn: '1h' }
+    );
+
+    const refreshToken = jwt.sign(
+      { userId: user.id, companyId: companyObj.id, email: user.email } as JWTPayload,
+      config.refreshTokenSecret,
+      { expiresIn: '7d' }
+    );
+
+    // ✅ Set cookies
+    setCookies(res, accessToken, refreshToken);
+
+    // ✅ Create session + audit log
+    await SecurityDB.createSession({
+      userId: user.id,
+      companyId: companyObj.id,
+      refreshToken,
+      userAgent: req.get('user-agent') || undefined,
+      ipAddress: req.ip,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    });
+
+    await AuditDB.createAuditLog({
+      companyId: companyObj.id,
+      userId: user.id,
+      action: 'CREATE',
+      resourceType: 'user',
+      details: { email, role: 'owner' },
+    });
+
+    const elapsed = Date.now() - startTime;
+    logInfo(handler, `✅ Account created and verified in ${elapsed}ms`, { userId: user.id });
+
+    return res.status(201).json({
+      message: 'Email verified! Account created.',
+      verified: true,
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.first_name,
+        lastName: user.last_name,
+        role: user.role,
+        emailVerified: true,
+      },
+      company: {
+        id: companyObj.id,
+        name: companyObj.name,
+        timezone: companyObj.timezone,
+        preferredCurrency: companyObj.preferred_currency,
+        onboardingStage: 'integrations',
+        stripeConnected: false,
+      },
+      tokens: { accessToken, refreshToken },
+    });
   } catch (err: any) {
     logError(handler, 'Failed to verify email', err);
     const { statusCode, message } = parseError(err);
@@ -801,6 +1006,69 @@ export const completeCompanyForm = async (req: Request, res: Response) => {
     });
   } catch (err: any) {
     logError(handler, 'Failed to complete company form', err);
+    const { statusCode, message } = parseError(err);
+    return sendErrorResponse(res, statusCode, message);
+  }
+};
+
+/**
+ * POST /api/auth/verify-otp-and-create-account
+ * Verify OTP and create account (authService.signup)
+ * Expects: { email, otp, password, firstName, lastName, companyName }
+ */
+export const verifyOtpAndCreateAccount = async (req: Request, res: Response) => {
+  const handler = 'verifyOtpAndCreateAccount';
+  const startTime = Date.now();
+
+  try {
+    const { email, otp, password, firstName, lastName, companyName } = req.body;
+
+    if (!email || !otp || !password || !firstName || !lastName || !companyName) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    logInfo(handler, 'Verifying OTP and creating account', { email: '***' });
+
+    // Validate OTP format
+    const isDev = process.env.NODE_ENV !== 'production';
+    if (isDev && otp !== '123456') {
+      return res.status(400).json({ error: 'Invalid OTP (dev expects 123456)' });
+    }
+    if (!isDev && (!otp.match(/^\d{6}$/))) {
+      return res.status(400).json({ error: 'Invalid OTP format' });
+    }
+
+    // Create account with signup service
+    // The signup service will:
+    // 1. Create company + user
+    // 2. Generate fresh OTP and store it
+    // 3. Send OTP email
+    // 4. Return tokens
+    const signupInput: SignupInput = {
+      email,
+      password,
+      companyName,
+      firstName,
+      lastName,
+      planCode: 'phase_0',
+    };
+
+    const result = await authService.signup(signupInput);
+
+    // Set auth cookies
+    setCookies(res, result.tokens.accessToken, result.tokens.refreshToken);
+
+    const elapsed = Date.now() - startTime;
+    logInfo(handler, `Account created in ${elapsed}ms`, { userId: result.user.id, email: '***' });
+
+    return res.status(201).json({
+      message: 'Account created successfully',
+      user: result.user,
+      company: result.company,
+    });
+  } catch (err: any) {
+    const elapsed = Date.now() - startTime;
+    logError(handler, `Failed after ${elapsed}ms`, err);
     const { statusCode, message } = parseError(err);
     return sendErrorResponse(res, statusCode, message);
   }

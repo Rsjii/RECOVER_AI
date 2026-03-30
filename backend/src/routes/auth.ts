@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import {
+  signup,
   login,
   logout,
   refresh,
@@ -30,17 +31,18 @@ const router = Router();
 // Bootstrap: only works on empty DB (first admin setup)
 router.post('/bootstrap', bootstrap);
 
+// Signup & Login
+router.post('/signup', publicFormLimiter, signup);  // ✅ Creates account + sends OTP
+router.post('/login', authLimiter, validate(loginSchema), login);
+
 // Onboarding with invite token (Motion 1 - Personalized invites)
 router.post('/onboard-with-token', publicFormLimiter, onboardWithToken);
 router.post('/onboard/company-info', authMiddleware, completeCompanyForm);
-
-// Signup disabled - pilots only apply via /api/pilots/request
-router.post('/login', authLimiter, validate(loginSchema), login);
 router.post('/logout', logout);
 router.post('/refresh', refresh);
 router.post('/forgot-password', authLimiter, forgotPassword);
 router.post('/reset-password', authLimiter, resetPassword);
-router.post('/verify-email', authMiddleware, verifyEmail);
+router.post('/verify-email', publicFormLimiter, verifyEmail);  // ✅ PUBLIC route, no auth needed
 router.post('/oauth/google/callback', googleCallback);
 
 // Public/Protected routes

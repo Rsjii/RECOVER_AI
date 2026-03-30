@@ -1,23 +1,55 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { useOnboarding } from '../hooks/useOnboarding';
 import { useNotification } from '../hooks/useNotification';
 import { Button } from '../components/ui/Button';
 import { validateEmail, validatePassword, getPasswordStrength } from '../lib/utils';
+import { api } from '../lib/api';
 
 const Signup: React.FC = () => {
   const navigate = useNavigate();
-  const { signup, isAuthenticated, isLoading } = useAuth();
+  const { updateState, accountCreated, resetOnboarding } = useOnboarding();
+  const { user, company } = useAuth();
   const { addToast } = useNotification();
 
-  useEffect(() => { document.title = 'Sign Up — CashOS'; }, []);
-
-  // Redirect authenticated users to dashboard
   useEffect(() => {
-    if (isAuthenticated && !isLoading) {
-      navigate('/dashboard', { replace: true });
+    document.title = 'Sign Up — CashOS';
+
+    if (!user) {
+      // Not authenticated - stay on signup
+      return;
     }
-  }, [isAuthenticated, isLoading, navigate]);
+
+    // If authenticated, check backend onboarding stage and redirect if needed
+    const stage = company?.onboardingStage;
+    if (stage) {
+      if (stage === 'integrations' || stage === 'audit_report' || stage === 'trial_offer') {
+        // User is past signup, send to integrations
+        navigate('/integrations', { replace: true });
+        return;
+      } else if (stage === 'trial_active') {
+        // User has completed onboarding, go to dashboard
+        navigate('/dashboard', { replace: true });
+        return;
+      } else if (stage === 'pending') {
+        // User just created account but hasn't verified OTP yet
+        updateState({ accountCreated: false }); // Let them stay on signup or go to OTP
+        return;
+      }
+    }
+
+    // If no user authenticated and accountCreated is somehow true, reset to prevent confusion
+    if (!user && accountCreated) {
+      resetOnboarding();
+      return;
+    }
+
+    // If authenticated and account created, move to next step (OTP)
+    if (user && accountCreated) {
+      navigate('/otp', { replace: true });
+    }
+  }, [accountCreated, user, company?.onboardingStage]);
 
   const [form, setForm] = useState({
     firstName: '',
@@ -26,54 +58,29 @@ const Signup: React.FC = () => {
     password: '',
     company_name: '',
   });
-  const [errors, setErrors] = useState<{
-    firstName?: string;
-    lastName?: string;
-    email?: string;
-    password?: string;
-    company_name?: string;
-  }>({});
-  const [submitting, setSubmitting] = useState(false);
+
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [apiError, setApiError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const handleChange = (field: keyof typeof form, value: string) => {
     setForm(prev => ({ ...prev, [field]: value }));
     if (apiError) setApiError(null);
-    if (errors[field]) setErrors(prev => ({ ...prev, [field]: undefined }));
+    if (errors[field]) setErrors(prev => ({ ...prev, [field]: '' }));
   };
 
   const validate = () => {
-    const newErrors: typeof errors = {};
-    if (!form.firstName.trim()) newErrors.firstName = 'First name is required';
-    if (!form.lastName.trim()) newErrors.lastName = 'Last name is required';
-    if (!form.company_name.trim()) newErrors.company_name = 'Company name is required';
-    if (!form.email) newErrors.email = 'Email is required';
-    else if (!validateEmail(form.email)) newErrors.email = 'Enter a valid email';
-    if (!form.password) newErrors.password = 'Password is required';
+    const newErrors: Record<string, string> = {};
+    if (!form.firstName.trim()) newErrors.firstName = 'First name required';
+    if (!form.lastName.trim()) newErrors.lastName = 'Last name required';
+    if (!form.company_name.trim()) newErrors.company_name = 'Company name required';
+    if (!form.email) newErrors.email = 'Email required';
+    else if (!validateEmail(form.email)) newErrors.email = 'Valid email required';
+    if (!form.password) newErrors.password = 'Password required';
     else if (!validatePassword(form.password))
-      newErrors.password = 'Min 8 chars, 1 uppercase, 1 number';
+      newErrors.password = 'Min 8 chars, 1 uppercase, 1 number, 1 special char';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  };
-
-  const handleGoogleSignup = () => {
-    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-    const redirectUri = `${window.location.origin}/auth/google/callback`;
-    const scope = 'openid email profile';
-    const responseType = 'code';
-    const state = Math.random().toString(36).substring(7);
-
-    sessionStorage.setItem('oauth_state', state);
-
-    const params = new URLSearchParams({
-      client_id: clientId,
-      redirect_uri: redirectUri,
-      scope,
-      response_type: responseType,
-      state,
-    });
-
-    window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -82,13 +89,52 @@ const Signup: React.FC = () => {
 
     setApiError(null);
     setSubmitting(true);
+
     try {
-      await signup(form.email, form.password, form.company_name, form.firstName, form.lastName, 'phase_0');
-      addToast({ type: 'success', message: 'Account created! Verify your email to continue.' });
-      // Use replace: true to remove signup page from history
-      navigate('/verify-email', { replace: true });
+      // ✅ Call /signup to SEND OTP (account NOT created yet)
+      const response: any = await api.post('/api/auth/signup', {
+        firstName: form.firstName,
+        lastName: form.lastName,
+        company: form.company_name,
+        email: form.email,
+        password: form.password,
+      });
+
+      console.log('Signup response:', response);
+
+      // ✅ Store signup data in localStorage for OTP verification
+      localStorage.setItem('signupData', JSON.stringify({
+        email: form.email,
+        password: form.password,
+        firstName: form.firstName,
+        lastName: form.lastName,
+        company: form.company_name,
+      }));
+
+      updateState({
+        email: form.email,
+        password: form.password,
+        firstName: form.firstName,
+        lastName: form.lastName,
+        companyName: form.company_name,
+        authMethod: 'email',
+        accountCreated: false, // ⭐ Account NOT created yet
+        step: 'otp',
+      });
+
+      addToast({ type: 'success', message: 'OTP sent to your email' });
+
+      // Show OTP in dev mode
+      if (response?.devOtpCode) {
+        addToast({ type: 'info', message: `Dev OTP: ${response.devOtpCode}` });
+      }
+
+      // ✅ Navigate to OTP verification page
+      navigate('/otp', { replace: true });
     } catch (err: any) {
-      setApiError(err.message || 'Signup failed. Please try again.');
+      console.error('Signup error:', err);
+      setApiError(err.message || 'Failed to send OTP');
+      addToast({ type: 'error', message: err.message });
     } finally {
       setSubmitting(false);
     }
@@ -100,20 +146,17 @@ const Signup: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-[#09090b] flex items-center justify-center px-4 py-8">
       <div className="w-full max-w-md">
-        {/* Logo */}
         <div className="text-center mb-8">
           <div className="w-12 h-12 rounded-xl bg-brand-600 flex items-center justify-center mx-auto mb-4">
-            <span className="text-white text-xl font-bold">R</span>
+            <span className="text-white text-xl font-bold">C</span>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Start recovering revenue</h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">14-day pilot program, no credit card</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">See your cash forecast</h1>
+          <p className="text-gray-500 dark:text-gray-400 mt-1">14-day trial, no credit card</p>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">Step 1 of 5</p>
         </div>
 
-        {/* Card */}
         <div className="bg-white dark:bg-[#111113] rounded-xl shadow-sm border border-gray-200 dark:border-white/[0.06] p-8">
           <form onSubmit={handleSubmit} className="space-y-4">
-
-            {/* API Error Banner */}
             {apiError && (
               <div className="flex items-start gap-2.5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg px-4 py-3">
                 <svg className="w-4 h-4 text-red-500 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
@@ -123,7 +166,6 @@ const Signup: React.FC = () => {
               </div>
             )}
 
-            {/* Name Row */}
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
@@ -157,7 +199,6 @@ const Signup: React.FC = () => {
               </div>
             </div>
 
-            {/* Company Name */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                 Company name
@@ -174,7 +215,6 @@ const Signup: React.FC = () => {
               {errors.company_name && <p className="mt-1 text-xs text-red-500">{errors.company_name}</p>}
             </div>
 
-            {/* Email */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                 Work email
@@ -191,7 +231,6 @@ const Signup: React.FC = () => {
               {errors.email && <p className="mt-1 text-xs text-red-500">{errors.email}</p>}
             </div>
 
-            {/* Password */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                 Password
@@ -206,24 +245,21 @@ const Signup: React.FC = () => {
                 }`}
               />
               {errors.password && <p className="mt-1 text-xs text-red-500">{errors.password}</p>}
-              {strength && form.password.length > 0 && (
+              {strength && (
                 <div className="mt-2">
-                  <div className="flex gap-1">
-                    {[0, 1, 2, 3].map((i) => (
+                  <div className="flex gap-1 mb-1">
+                    {[0, 1, 2, 3].map(i => (
                       <div
                         key={i}
-                        className={`h-1 flex-1 rounded-full ${
-                          i < strength.score ? strengthColors[strength.score - 1] : 'bg-gray-200 dark:bg-gray-600'
-                        }`}
+                        className={`flex-1 h-1 rounded-full ${i < strength.score ? strengthColors[strength.score - 1] : 'bg-gray-300 dark:bg-gray-700'}`}
                       />
                     ))}
                   </div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{strength.message}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{strength.message}</p>
                 </div>
               )}
             </div>
 
-            {/* Submit */}
             <Button
               type="submit"
               variant="primary"
@@ -232,46 +268,16 @@ const Signup: React.FC = () => {
               disabled={submitting}
               className="w-full"
             >
-              Create account
+              Continue
             </Button>
-
-            <div className="relative py-1">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-200 dark:border-white/[0.06]" />
-              </div>
-              <div className="relative flex justify-center">
-                <span className="px-2 text-xs text-gray-500 dark:text-gray-400 bg-white dark:bg-[#111113]">OR</span>
-              </div>
-            </div>
-
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full"
-              onClick={handleGoogleSignup}
-            >
-              Continue with Google
-            </Button>
-
-            <p className="text-xs text-center text-gray-500 dark:text-gray-400">
-              By signing up, you agree to our{' '}
-              <Link to="/terms" className="text-brand-600 hover:underline">Terms</Link> and{' '}
-              <Link to="/privacy" className="text-brand-600 hover:underline">Privacy Policy</Link>
-            </p>
           </form>
 
           <p className="mt-6 text-center text-sm text-gray-500 dark:text-gray-400">
             Already have an account?{' '}
-            <Link to="/login" className="text-brand-600 hover:text-blue-700 font-medium">Sign in</Link>
+            <a href="/login" className="text-brand-600 hover:text-blue-700 font-medium">
+              Sign in
+            </a>
           </p>
-
-          {/* Back Button */}
-          <button
-            onClick={() => navigate('/landing', { replace: true })}
-            className="w-full text-center text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white text-sm font-medium transition py-2 mt-3"
-          >
-            ← Back to Home
-          </button>
         </div>
       </div>
     </div>

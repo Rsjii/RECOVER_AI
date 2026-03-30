@@ -27,27 +27,24 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requireEmailV
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  // Enforce onboarding flow: block dashboard access if not completed
-  // BUT: Skip for admin/owner users (they don't go through onboarding)
-  // Users must complete: stage-1 → stage-2 → stage-3 → stage-4 → dashboard
+  // Enforce onboarding flow: ONLY allow dashboard access after trial starts
+  // New CashOS flow: Signup → OTP → Integrations → GenerateAudit → Trial → Dashboard
   if (_requireEmailVerification) {
-    const stage = company?.onboarding_stage;
+    const stage = company?.onboardingStage;
     const isAdmin = user?.role === 'admin' || user?.role === 'owner';
 
-    // Allow if onboarding is complete OR if user is admin
+    // Dashboard is ONLY accessible after trial is active
+    // Admins/owners skip the flow
     if (!isAdmin && stage !== 'trial_active' && stage !== 'paid_active') {
-      // Redirect to appropriate onboarding stage based on current progress
-      const stageMap: Record<string, string> = {
-        pending: '/onboard/stage-1',
-        create_account: '/onboard/stage-3',  // Account created, do company details
-        details_form: '/onboard/stage-3',     // Company details form, stay on stage-3
-        integrations: '/onboard/stage-4',     // Connecting integrations
-        audit_report: '/onboard/stage-5',     // Showing analysis
-        trial_offer: '/onboard/stage-5',      // Trial offer page
-      };
-
-      const redirectTo = stageMap[stage || 'pending'] || '/onboard/stage-1';
-      return <Navigate to={redirectTo} replace />;
+      // Redirect to where they actually are in the pipeline
+      if (!stage || stage === 'pending') {
+        return <Navigate to="/signup" replace />;
+      } else if (stage === 'integrations') {
+        return <Navigate to="/integrations" replace />;
+      } else if (stage === 'audit_report' || stage === 'trial_offer') {
+        return <Navigate to="/generate-audit" replace />;
+      }
+      return <Navigate to="/signup" replace />;
     }
   }
 

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { useNotification } from '../hooks/useNotification';
 import { useAuth } from '../hooks/useAuth';
+import { useOnboarding } from '../hooks/useOnboarding';
 import { API_ENDPOINTS } from '../lib/constants';
 import { formatCurrency } from '../lib/utils';
 import { DashboardSkeleton } from '../components/ui/Skeleton';
@@ -23,6 +24,8 @@ import { AgentActivitySection } from '../components/dashboard/AgentActivitySecti
 import { BillingOptimizationSection } from '../components/dashboard/BillingOptimizationSection';
 import { VoiceStatsCard } from '../components/dashboard/VoiceStatsCard';
 import { TrialCountdown } from '../components/TrialCountdown';
+import { PayablesTracker } from '../components/dashboard/PayablesTracker';
+import { WeeklyUpdateForm } from '../components/dashboard/WeeklyUpdateForm';
 import type { DashboardStats, InvoicePipeline, CustomerRisk } from '../types';
 import type { WorkingCapitalFreed, DSOReduction, BillingAnomaly, EnhancedCashForecast } from '../types/invoice';
 
@@ -162,6 +165,7 @@ const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const { addToast } = useNotification();
   const { company } = useAuth();
+  const { accountCreated, trialStarted, step } = useOnboarding();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [pipeline, setPipeline] = useState<InvoicePipeline | null>(null);
   const [riskList, setRiskList] = useState<CustomerRisk[]>([]);
@@ -199,6 +203,35 @@ const Dashboard: React.FC = () => {
 
   useEffect(() => {
     document.title = 'Dashboard — CashOS';
+
+    // ONBOARDING GUARD: Backend state is source of truth
+    // User must reach trial_active or paid_active stage to access dashboard
+    const stage = company?.onboardingStage;
+    if (stage && stage !== 'trial_active' && stage !== 'paid_active') {
+      // Not at trial stage — redirect to correct step
+      if (stage === 'pending' || stage === 'details_form') {
+        navigate('/signup', { replace: true });
+      } else if (stage === 'integrations') {
+        navigate('/integrations', { replace: true });
+      } else if (stage === 'audit_report' || stage === 'trial_offer') {
+        navigate('/generate-audit', { replace: true });
+      }
+      return;
+    }
+
+    // Fallback: check local state if backend state not ready yet
+    if (!stage && accountCreated && !trialStarted) {
+      // They created account but haven't completed onboarding flow
+      if (step === 'signup' || step === 'otp') {
+        navigate('/signup', { replace: true });
+      } else if (step === 'integrations') {
+        navigate('/integrations', { replace: true });
+      } else if (step === 'audit') {
+        navigate('/generate-audit', { replace: true });
+      }
+      return;
+    }
+
     // Check localStorage first (set during demo login) — works even if token expired
     if (localStorage.getItem('isDemo') === 'true') {
       setIsDemo(true);
@@ -217,7 +250,7 @@ const Dashboard: React.FC = () => {
       }
     };
     detectDemo();
-  }, []);
+  }, [company?.onboardingStage, accountCreated, trialStarted, step]);
 
   useEffect(() => {
     // ✅ Show cached data instantly if fresh (tab switch = no loading spinner)
@@ -654,14 +687,14 @@ const Dashboard: React.FC = () => {
             </Button>
           )}
           {!isDemo && (
-            <div title={company?.onboarding_stage === 'trial_active' ? 'Only available on paid plans' : undefined}>
+            <div title={company?.onboardingStage === 'trial_active' ? 'Only available on paid plans' : undefined}>
               <Button
                 variant="secondary"
                 size="sm"
                 onClick={handleTriggerAgent}
                 loading={triggeringAgent}
-                disabled={company?.onboarding_stage === 'trial_active'}
-                className={company?.onboarding_stage === 'trial_active' ? 'opacity-50 cursor-not-allowed' : ''}
+                disabled={company?.onboardingStage === 'trial_active'}
+                className={company?.onboardingStage === 'trial_active' ? 'opacity-50 cursor-not-allowed' : ''}
               >
                 <svg className="w-4 h-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -793,6 +826,12 @@ const Dashboard: React.FC = () => {
         forecast={cashForecast}
         loading={loading}
       />
+
+      {/* Payables Tracker */}
+      <PayablesTracker loading={loading} />
+
+      {/* Weekly Forecast Update */}
+      <WeeklyUpdateForm />
 
       {/* Risk Signals */}
       <RiskDriversSection drivers={riskDrivers ?? undefined} loading={loading} />

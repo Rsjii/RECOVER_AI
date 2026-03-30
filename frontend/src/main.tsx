@@ -5,6 +5,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import { AuthProvider } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { NotificationProvider } from './contexts/NotificationContext';
+import { OnboardingProvider } from './contexts/OnboardingContext';
 import './index.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
@@ -13,7 +14,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       <ThemeProvider>
         <AuthProvider>
           <NotificationProvider>
-            <App />
+            <OnboardingProvider>
+              <App />
+            </OnboardingProvider>
           </NotificationProvider>
         </AuthProvider>
       </ThemeProvider>

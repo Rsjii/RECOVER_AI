@@ -40,7 +40,7 @@ export async function findUserWithCompany(userId: string) {
   const result = await pool.query(
     `SELECT u.id, u.company_id, u.email, u.first_name, u.last_name, u.role, u.email_verified, u.onboarding_status,
             c.name as company_name, c.timezone, c.preferred_currency,
-            c.account_type, c.pilot_mode, c.pilot_ends_at, c.stripe_account_id
+            c.account_type, c.pilot_mode, c.pilot_ends_at, c.stripe_account_id, c.onboarding_stage
      FROM users u
      JOIN companies c ON u.company_id = c.id
      WHERE u.id = $1`,
@@ -52,7 +52,7 @@ export async function findUserWithCompany(userId: string) {
 export async function findUserWithCompanyByEmail(email: string) {
   const result = await pool.query(
     `SELECT u.id, u.company_id, u.email, u.password_hash, u.is_active, u.first_name, u.last_name, u.role, u.email_verified, u.onboarding_status,
-            c.name as company_name, c.timezone, c.preferred_currency, c.account_type, c.pilot_mode, c.pilot_ends_at, c.stripe_account_id
+            c.name as company_name, c.timezone, c.preferred_currency, c.account_type, c.pilot_mode, c.pilot_ends_at, c.stripe_account_id, c.onboarding_stage
      FROM users u
      JOIN companies c ON u.company_id = c.id
      WHERE u.email = $1`,
