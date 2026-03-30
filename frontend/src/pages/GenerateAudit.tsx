@@ -74,7 +74,7 @@ interface AuditResults {
 export default function GenerateAudit() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, company, logout, setCompany } = useAuth();
+  const { user, company, logout } = useAuth();
   const { updateState } = useOnboarding();
   const { addToast } = useNotification();
 
@@ -168,28 +168,22 @@ export default function GenerateAudit() {
 
     try {
       // Start 14-day free trial
-      await api.post('/api/audits/trial/start');
+      const res = await api.post('/api/audits/trial/start');
 
-      // Refresh user data from backend (crucial: updates company.onboardingStage to trial_active)
-      const updatedUser = await api.get('/api/auth/me');
+      if (res) {
+        // Mark trial as started in onboarding context
+        updateState({ trialStarted: true });
 
-      if (updatedUser?.company) {
-        // Update auth context with fresh company data
-        setCompany(updatedUser.company);
+        addToast({
+          type: 'success',
+          message: '🎉 Trial activated! Welcome to CashOS.',
+        });
+
+        // Redirect to dashboard
+        setTimeout(() => {
+          navigate('/dashboard', { replace: true });
+        }, 1500);
       }
-
-      // Mark trial as started in onboarding context
-      updateState({ trialStarted: true });
-
-      addToast({
-        type: 'success',
-        message: '🎉 Trial activated! Welcome to CashOS.',
-      });
-
-      // Redirect to dashboard after short delay
-      setTimeout(() => {
-        navigate('/dashboard', { replace: true });
-      }, 1500);
     } catch (err: any) {
       addToast({
         type: 'error',

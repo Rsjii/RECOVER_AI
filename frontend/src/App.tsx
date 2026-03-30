@@ -17,8 +17,6 @@ import Signup from './pages/Signup';
 import OTP from './pages/OTP';
 import Integrations from './pages/Integrations';
 import GenerateAudit from './pages/GenerateAudit';
-import TestIntegrations from './pages/TestIntegrations';
-import TestGenerateAudit from './pages/TestGenerateAudit';
 import SecurityPage from './pages/SecurityPage';
 import Terms from './pages/Terms';
 import Privacy from './pages/Privacy';
@@ -97,10 +95,6 @@ const App: React.FC = () => {
             <Route path="/otp" element={<OTP />} />
             <Route path="/integrations" element={<Integrations />} />
             <Route path="/generate-audit" element={<GenerateAudit />} />
-
-            {/* TEST PAGES - NO GUARDS (localhost only) */}
-            <Route path="/test/integrations" element={<TestIntegrations />} />
-            <Route path="/test/generate-audit" element={<TestGenerateAudit />} />
 
             <Route path="/security" element={<SecurityPage />} />
             <Route path="/terms" element={<Terms />} />

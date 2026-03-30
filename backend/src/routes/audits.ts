@@ -4,40 +4,8 @@ import * as generateAuditController from '../controllers/generateAuditController
 import { auditOtpLimiter, publicFormLimiter } from '../middleware/rateLimiter';
 import { authMiddleware } from '../middleware/auth';
 import { requireRole } from '../middleware/rbac';
-import * as companyDb from '../db/companies';
 
 const router = express.Router();
-const TEST_COMPANY_ID = '00000000-0000-0000-0000-000000000001';
-
-// Dev-only middleware: block test endpoints in production + inject test companyId
-const devOnlyMiddleware = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
-  const isDev = !process.env.NODE_ENV || process.env.NODE_ENV === 'development';
-  if (!isDev) {
-    return res.status(403).json({ error: 'Test endpoints only available in development' });
-  }
-
-  try {
-    // Ensure test company exists (create if not)
-    let testCompany = await companyDb.findCompanyById(TEST_COMPANY_ID);
-    if (!testCompany) {
-      // For UUID, we need to use raw SQL with explicit ID
-      const { pool } = await import('../config/database');
-      await pool.query(
-        `INSERT INTO companies (id, name, email, timezone, preferred_currency, onboarding_stage)
-         VALUES ($1, $2, $3, $4, $5, $6)
-         ON CONFLICT (id) DO NOTHING`,
-        [TEST_COMPANY_ID, 'Test Company (DEV)', 'test@dev.local', 'UTC', 'USD', 'integrations']
-      );
-    }
-
-    // Inject test company ID
-    (req as any).companyId = TEST_COMPANY_ID;
-    next();
-  } catch (err) {
-    console.error('Dev middleware error:', err);
-    res.status(500).json({ error: 'Failed to setup test environment' });
-  }
-};
 
 /**
  * ─────────────────────────────────────────────────────────────
@@ -204,42 +172,6 @@ router.post('/integrations/validate-stripe-key', authMiddleware, generateAuditCo
  * AUTHENTICATED
  */
 router.post('/integrations/upload-invoices', authMiddleware, generateAuditController.uploadInvoices);
-
-/**
- * ─────────────────────────────────────────────────────────────
- * TEST ENDPOINTS - NO AUTH REQUIRED (DEV ONLY)
- * ─────────────────────────────────────────────────────────────
- */
-
-/**
- * GET /api/test/audit/generate
- * TEST: Generate audit without auth (dev testing only)
- */
-router.get('/test/audit/generate', devOnlyMiddleware, generateAuditController.generateAudit);
-
-/**
- * POST /api/test/trial/start
- * TEST: Start trial without auth (dev testing only)
- */
-router.post('/test/trial/start', devOnlyMiddleware, generateAuditController.startTrial);
-
-/**
- * POST /api/test/integrations/validate-stripe-key
- * TEST: Validate Stripe key without auth (dev testing only)
- */
-router.post('/test/integrations/validate-stripe-key', devOnlyMiddleware, generateAuditController.validateStripeKey);
-
-/**
- * POST /api/test/integrations/upload-invoices
- * TEST: Upload invoices without auth (dev testing only)
- */
-router.post('/test/integrations/upload-invoices', devOnlyMiddleware, generateAuditController.uploadInvoices);
-
-/**
- * POST /api/test/integrations/proceed
- * TEST: Proceed from integrations without auth (dev testing only)
- */
-router.post('/test/integrations/proceed', devOnlyMiddleware, generateAuditController.proceedFromIntegrations);
 
 /**
  * ─────────────────────────────────────────────────────────────
