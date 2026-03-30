@@ -134,7 +134,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     dispatch({ type: 'SET_LOADING', payload: true });
     try { await api.post(API_ENDPOINTS.auth.logout); } catch {}
     localStorage.removeItem('isDemo');
-    localStorage.removeItem('cashos_onboarding_state');
     // Prevent re-authentication on next mount
     sessionStorage.setItem('justLoggedOut', 'true');
     dispatch({ type: 'LOGOUT_SUCCESS' });

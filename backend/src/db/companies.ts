@@ -6,17 +6,16 @@ export interface CreateCompanyInput {
   email: string;
   timezone?: string;
   preferredCurrency?: string;
-  onboardingStage?: string;
 }
 
 export async function createCompany(input: CreateCompanyInput): Promise<CompanyRow> {
-  const { name, email, timezone = 'UTC', preferredCurrency = 'USD', onboardingStage = 'pending' } = input;
+  const { name, email, timezone = 'UTC', preferredCurrency = 'USD' } = input;
 
   const result = await pool.query(
-    `INSERT INTO companies (name, email, timezone, preferred_currency, onboarding_stage)
-     VALUES ($1, $2, $3, $4, $5)
+    `INSERT INTO companies (name, email, timezone, preferred_currency)
+     VALUES ($1, $2, $3, $4)
      RETURNING *`,
-    [name, email, timezone, preferredCurrency, onboardingStage]
+    [name, email, timezone, preferredCurrency]
   );
 
   return result.rows[0];

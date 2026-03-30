@@ -16,7 +16,7 @@ const poolConfig: PoolConfig = {
   connectionString: cleanDbUrl,
   max: 20,
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 30000,
+  connectionTimeoutMillis: 10000,
 };
 
 // SSL required for Supabase (both dev and prod)

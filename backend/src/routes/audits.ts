@@ -1,6 +1,5 @@
 import express from 'express';
 import * as auditController from '../controllers/auditController';
-import * as generateAuditController from '../controllers/generateAuditController';
 import { auditOtpLimiter, publicFormLimiter } from '../middleware/rateLimiter';
 import { authMiddleware } from '../middleware/auth';
 import { requireRole } from '../middleware/rbac';
@@ -107,71 +106,6 @@ router.get('/validate-token', auditController.validateInviteToken);
  * Check current onboarding stage for user
  */
 router.get('/check-stage', authMiddleware, auditController.checkOnboardingStage);
-
-/**
- * POST /api/audits/generate
- * NEW: Generate audit analysis from Stripe data
- * Called from GenerateAudit page (auto-triggered on load)
- * Requires authentication
- */
-router.post('/generate', authMiddleware, generateAuditController.generateAudit);
-
-/**
- * POST /api/audits/start-trial
- * NEW: Start 14-day trial for authenticated user
- * Called when user clicks "Start Trial" on GenerateAudit page
- * Creates trial company if needed, sets trial_ends_at
- */
-router.post('/start-trial', authMiddleware, generateAuditController.startTrial);
-
-/**
- * ─────────────────────────────────────────────────────────────
- * CASHOS NEW FLOW ENDPOINTS (replaces Stage 4-5)
- * ─────────────────────────────────────────────────────────────
- */
-
-/**
- * GET /api/integrations/status
- * Check if Stripe/QB connected (replaces /api/audits/stage/4)
- * AUTHENTICATED
- */
-router.get('/integrations/status', authMiddleware, generateAuditController.getIntegrationStatus);
-
-/**
- * POST /api/integrations/proceed
- * Proceed to audit generation after Stripe connected (replaces /api/audits/stage/4/next)
- * AUTHENTICATED
- */
-router.post('/integrations/proceed', authMiddleware, generateAuditController.proceedFromIntegrations);
-
-/**
- * GET /api/audit/generate
- * Generate full audit analysis from Stripe data (replaces /api/audits/stage/5/analysis)
- * Returns 6 advanced metrics: aging buckets, concentration, high-risk, trend, billing errors
- * AUTHENTICATED
- */
-router.get('/audit/generate', authMiddleware, generateAuditController.generateAudit);
-
-/**
- * POST /api/trial/start
- * Start 14-day free trial (replaces /api/audits/stage/5/start-trial)
- * AUTHENTICATED
- */
-router.post('/trial/start', authMiddleware, generateAuditController.startTrial);
-
-/**
- * POST /api/integrations/validate-stripe-key
- * Validate and store Stripe API key (manual entry)
- * AUTHENTICATED
- */
-router.post('/integrations/validate-stripe-key', authMiddleware, generateAuditController.validateStripeKey);
-
-/**
- * POST /api/integrations/upload-invoices
- * Upload invoice CSV file (manual entry)
- * AUTHENTICATED
- */
-router.post('/integrations/upload-invoices', authMiddleware, generateAuditController.uploadInvoices);
 
 /**
  * ─────────────────────────────────────────────────────────────

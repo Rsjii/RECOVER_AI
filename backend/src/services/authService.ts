@@ -34,18 +34,12 @@ class AuthService {
     // Hash password
     const passwordHash = await bcrypt.hash(password, 10);
 
-    // Create company with onboarding_stage = 'integrations' (account creation already verifies OTP)
+    // Create company
     const company = await CompanyDB.createCompany({
       name: companyName,
       email,
       timezone,
       preferredCurrency,
-      onboardingStage: 'integrations',
-    });
-
-    logInfo('authService', 'signup', '✅ Company created with onboarding_stage = integrations', {
-      companyId: company.id,
-      stage: company.onboarding_stage
     });
 
     // Create user
@@ -117,7 +111,6 @@ class AuthService {
         pilotMode: null,
         pilotEndsAt: null,
         stripeConnected: false,
-        onboardingStage: company.onboarding_stage || 'pending',
       },
       tokens: { accessToken, refreshToken },
     };
@@ -189,7 +182,6 @@ class AuthService {
         pilotMode: user.pilot_mode || null,
         pilotEndsAt: user.pilot_ends_at || null,
         stripeConnected: !!user.stripe_account_id,
-        onboardingStage: user.onboarding_stage || 'pending',
       },
       tokens: { accessToken, refreshToken },
     };
@@ -271,7 +263,6 @@ class AuthService {
         pilotMode: user.pilot_mode || null,
         pilotEndsAt: user.pilot_ends_at || null,
         stripeConnected: !!user.stripe_account_id,
-        onboardingStage: user.onboarding_stage || 'pending',
       },
     };
   }
@@ -462,7 +453,6 @@ async googleLogin(code: string): Promise<AuthResponse> {
       pilotMode: (user.pilot_mode || null) as 'shadow' | 'auto' | 'paused' | null,
       pilotEndsAt: user.pilot_ends_at || null,
       stripeConnected: !!user.stripe_account_id,
-      onboardingStage: user.onboarding_stage || 'pending',
     },
     tokens: { accessToken, refreshToken },
   };
