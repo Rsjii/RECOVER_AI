@@ -3,6 +3,7 @@ import { logInfo, logError, logWarn } from '../utils/logger';
 import { pool } from '../config/database';
 import * as CompanyDB from '../db/companies';
 import { encryptField } from '../lib/encryption';
+import { stripeService } from '../services/stripeService';
 
 const MODULE = 'generateAuditController';
 const isDev = process.env.NODE_ENV !== 'production';
@@ -140,29 +141,71 @@ export const generateAudit = async (req: Request, res: Response) => {
     // STEP 2: DETECT BILLING ERRORS
     // ═══════════════════════════════════════════════════════════════════════════
 
-    // === DUPLICATES: Exact same customer + amount + created same day ===
-    const duplicateGroups = new Map<string, any[]>();
+    // === DUPLICATES: Same customer + amount + created within 24 hours (excluding recurring patterns) ===
+    // For SaaS: monthly subscriptions (20-35 days apart) are legitimate, not duplicates
+    const duplicates: any[] = [];
+
+    // Group invoices by customer + rounded amount
+    const amountGroups = new Map<string, any[]>();
     invoices.forEach((inv: any) => {
-      const createdDate = new Date(inv.created_at).toLocaleDateString('en-CA');
-      const key = `${inv.customer_id}|${Math.round(parseFloat(inv.amount))}|${createdDate}`;
-      if (!duplicateGroups.has(key)) {
-        duplicateGroups.set(key, []);
+      const roundedAmount = Math.round(parseFloat(inv.amount));
+      const key = `${inv.customer_id}|${roundedAmount}`;
+      if (!amountGroups.has(key)) {
+        amountGroups.set(key, []);
       }
-      duplicateGroups.get(key)!.push(inv);
+      amountGroups.get(key)!.push(inv);
     });
 
-    const duplicates: any[] = [];
-    duplicateGroups.forEach((group) => {
+    // Detect duplicates: same amount, created within 24 hours, NOT recurring monthly
+    amountGroups.forEach((group) => {
       if (group.length >= 2) {
-        group.forEach((inv: any) => {
-          duplicates.push({
-            invoice_id: inv.id,
-            customer_id: inv.customer_id,
-            amount: parseFloat(inv.amount),
-            created_date: new Date(inv.created_at).toLocaleDateString('en-CA'),
-            group_size: group.length,
-          });
+        // Sort by created date
+        const sorted = [...group].sort((a, b) =>
+          new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        );
+
+        // Check for duplicates: within 24 hours apart
+        for (let i = 0; i < sorted.length - 1; i++) {
+          const curr = sorted[i];
+          const next = sorted[i + 1];
+          const hoursApart = (new Date(next.created_at).getTime() - new Date(curr.created_at).getTime()) / (1000 * 60 * 60);
+
+          // Flag as duplicate ONLY if:
+          // 1. Created within 24 hours AND
+          // 2. NOT part of recurring monthly pattern (20-35 days apart)
+          if (hoursApart > 0 && hoursApart <= 24) {
+            // This is a likely duplicate (accidental duplicate, not recurring)
+            duplicates.push({
+              invoice_id: curr.id,
+              customer_id: curr.customer_id,
+              amount: parseFloat(curr.amount),
+              created_date: new Date(curr.created_at).toLocaleDateString('en-CA'),
+              group_size: group.length,
+            });
+          }
+        }
+
+        // Check if this might be recurring (monthly): if invoices are 20-35 days apart with same amount
+        // Only flag if we have >= 2 items that DON'T fit recurring pattern
+        const recurringThreshold = 20; // Don't flag invoices 20+ days apart
+        const isRecurring = sorted.length >= 2 && sorted.every((inv, idx) => {
+          if (idx === 0) return true;
+          const daysBetween = (new Date(inv.created_at).getTime() - new Date(sorted[idx - 1].created_at).getTime()) / (1000 * 60 * 60 * 24);
+          return daysBetween >= recurringThreshold;
         });
+
+        if (!isRecurring && duplicates.length === 0 && group.length >= 2) {
+          // Not recurring, might be duplicate - flag all items in group
+          group.forEach((inv: any) => {
+            duplicates.push({
+              invoice_id: inv.id,
+              customer_id: inv.customer_id,
+              amount: parseFloat(inv.amount),
+              created_date: new Date(inv.created_at).toLocaleDateString('en-CA'),
+              group_size: group.length,
+            });
+          });
+        }
       }
     });
 
@@ -509,6 +552,17 @@ export const validateStripeKey = async (req: Request, res: Response) => {
 
     logInfo(MODULE, handler, 'Stripe key validated and stored', { companyId });
 
+    // Sync invoices from Stripe in the background (non-blocking)
+    setImmediate(async () => {
+      try {
+        logInfo(MODULE, handler, 'Starting Stripe invoice sync', { companyId });
+        await stripeService.syncInvoices(companyId);
+        logInfo(MODULE, handler, 'Stripe invoice sync complete', { companyId });
+      } catch (err: any) {
+        logError(MODULE, handler, 'Stripe invoice sync failed (non-blocking)', err);
+      }
+    });
+
     return res.json({
       success: true,
       message: 'Stripe key validated and saved',
@@ -579,13 +633,125 @@ export const uploadInvoices = async (req: Request, res: Response) => {
 
     logInfo(MODULE, handler, 'CSV headers parsed', { headers, headerLine });
 
-    // Check for required fields
-    const requiredFields = ['customer_name', 'customer_email', 'amount', 'due_date', 'issued_date'];
-    const missingFields = requiredFields.filter(f => !headers.includes(f));
-    if (missingFields.length > 0) {
-      return res.status(400).json({
-        error: `Missing required columns: ${missingFields.join(', ')}. Required: ${requiredFields.join(', ')}`
+    // ═══ SMART FUZZY COLUMN MATCHING ═══
+    // Automatic detection using Levenshtein distance + keyword matching (NO hardcoded variations needed!)
+
+    const keywordMap: Record<string, string[]> = {
+      customer_name: ['customer', 'name', 'cust', 'bill_to', 'sold_to', 'party', 'account'],
+      customer_email: ['email', 'contact', 'mail'],
+      amount: ['amount', 'total', 'balance', 'outstanding', 'invoice', 'sum', 'open'],
+      due_date: ['due', 'payable', 'maturity', 'payment', 'duedate'],
+      issued_date: ['issued', 'created', 'posting', 'document', 'invoice', 'date']
+    };
+
+    // Levenshtein distance for fuzzy matching
+    const levenshteinDistance = (s1: string, s2: string): number => {
+      const a = s1.replace(/[_\-\s]/g, '').toLowerCase();
+      const b = s2.replace(/[_\-\s]/g, '').toLowerCase();
+      const matrix: number[][] = [];
+
+      for (let i = 0; i <= b.length; i++) matrix[i] = [i];
+      for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
+
+      for (let i = 1; i <= b.length; i++) {
+        for (let j = 1; j <= a.length; j++) {
+          if (b[i - 1] === a[j - 1]) {
+            matrix[i][j] = matrix[i - 1][j - 1];
+          } else {
+            matrix[i][j] = Math.min(matrix[i - 1][j - 1] + 1, matrix[i][j - 1] + 1, matrix[i - 1][j] + 1);
+          }
+        }
+      }
+      return matrix[b.length][a.length];
+    };
+
+    // Find best matching column for each field
+    const columnIndex: Record<string, number> = {};
+    for (const [fieldName, keywords] of Object.entries(keywordMap)) {
+      let bestMatch = -1;
+      let bestScore = Infinity;
+
+      for (let colIdx = 0; colIdx < headers.length; colIdx++) {
+        const header = headers[colIdx];
+        const parts = header.split(/[_\-\s]+/).filter(p => p.length > 0);
+
+        // Calculate similarity score
+        let score = Infinity;
+        for (const keyword of keywords) {
+          const minDistance = Math.min(...parts.map(part => levenshteinDistance(part, keyword)));
+          score = Math.min(score, minDistance);
+        }
+
+        // Bonus: exact substring match (very strong signal)
+        if (keywords.some(kw => header.toLowerCase().includes(kw.toLowerCase()))) {
+          score = Math.max(0, score - 2);
+        }
+
+        if (score < bestScore) {
+          bestScore = score;
+          bestMatch = colIdx;
+        }
+      }
+
+      // Accept match if score is reasonable (Levenshtein distance < 4)
+      if (bestScore <= 3 && bestMatch >= 0) {
+        columnIndex[fieldName] = bestMatch;
+        logInfo(MODULE, handler, `✓ Auto-matched`, {
+          field: fieldName,
+          column: headers[bestMatch],
+          similarity: bestScore
+        });
+      }
+    }
+
+    // Check for CRITICAL required fields (for cash forecasting, email is optional)
+    const criticalFields = ['customer_name', 'amount', 'due_date', 'issued_date'];
+    const missingCritical = criticalFields.filter(f => !columnIndex.hasOwnProperty(f));
+    if (missingCritical.length > 0) {
+      logWarn(MODULE, handler, 'Critical columns not found - cannot import', {
+        missingFields: missingCritical,
+        availableHeaders: headers,
+        detected: Object.keys(columnIndex)
       });
+      return res.status(400).json({
+        error: `Missing critical columns: ${missingCritical.join(', ')}. Detected: ${Object.keys(columnIndex).join(', ')}`
+      });
+    }
+
+    // Optional: customer_email fallback (smart fuzzy match for customer ID)
+    if (!columnIndex.hasOwnProperty('customer_email')) {
+      // Try fuzzy match for customer identifier (cust_number, customer_id, etc.)
+      const custIdKeywords = ['cust', 'customer', 'id', 'code', 'number'];
+      let bestCustIdMatch = -1;
+      let bestCustIdScore = Infinity;
+
+      for (let colIdx = 0; colIdx < headers.length; colIdx++) {
+        if (columnIndex.customer_name === colIdx) continue; // Skip name column
+        const header = headers[colIdx];
+        const parts = header.split(/[_\-\s]+/).filter(p => p.length > 0);
+
+        let score = Infinity;
+        for (const kw of custIdKeywords) {
+          const minDistance = Math.min(...parts.map(part => levenshteinDistance(part, kw)));
+          score = Math.min(score, minDistance);
+        }
+
+        if (score <= 3 && score < bestCustIdScore) {
+          bestCustIdScore = score;
+          bestCustIdMatch = colIdx;
+        }
+      }
+
+      if (bestCustIdMatch >= 0) {
+        columnIndex['_cust_number_idx'] = bestCustIdMatch;
+        logInfo(MODULE, handler, '✓ No email - using customer ID for fallback', {
+          custIdColumn: headers[bestCustIdMatch]
+        });
+      } else {
+        logWarn(MODULE, handler, '⚠️ No email or customer ID found - will generate pseudo-emails', {
+          availableHeaders: headers
+        });
+      }
     }
 
     let successCount = 0;
@@ -602,19 +768,64 @@ export const uploadInvoices = async (req: Request, res: Response) => {
       const rowNum = i + 1;
 
       try {
-        // Map CSV columns to fields
-        const rowData: any = {};
-        headers.forEach((header: string, idx: number) => {
-          rowData[header] = row[idx] || '';
+        // Extract critical values using column indices
+        const customer_name = row[columnIndex.customer_name] || '';
+        const amount = row[columnIndex.amount] || '';
+        const due_date = row[columnIndex.due_date] || '';
+        const issued_date = row[columnIndex.issued_date] || '';
+
+        // Customer email: try email column first, fallback to cust_number-based pseudo-email
+        let customer_email = columnIndex.customer_email !== undefined ? row[columnIndex.customer_email] : '';
+
+        if (!customer_email) {
+          // Fallback: generate pseudo-email from customer number or name
+          if (columnIndex._cust_number_idx !== undefined && row[columnIndex._cust_number_idx]) {
+            const custNum = row[columnIndex._cust_number_idx];
+            customer_email = `cust_${custNum}@company.local`;
+          } else if (customer_name) {
+            // Generate from name as last resort
+            const nameSlug = customer_name.toLowerCase().replace(/\s+/g, '_').substring(0, 20);
+            customer_email = `${nameSlug}_${rowNum}@company.local`;
+          }
+        }
+
+        // Optional fields - try to find them if available
+        let status: string | undefined;
+        let invoice_id: string | undefined;
+
+        // Try to find status column (optional)
+        const statusVariations = ['status', 'invoice_status', 'payment_status', 'isopen'];
+        const statusColIdx = headers.findIndex(h => statusVariations.some(v => h === v || h.includes(v)));
+        if (statusColIdx >= 0 && row[statusColIdx]) {
+          const statusVal = row[statusColIdx]?.toString().toLowerCase() || '';
+          // Map common status values
+          if (statusVal === 'true' || statusVal === '1' || statusVal === 'open' || statusVal === 'x') {
+            status = 'unpaid';
+          } else if (statusVal === 'false' || statusVal === '0' || statusVal === 'paid' || statusVal === '') {
+            status = 'paid';
+          }
+        }
+
+        // Try to find invoice_id column (optional)
+        const invoiceIdVariations = ['invoice_id', 'invoice_number', 'doc_id', 'doc_number', 'reference'];
+        const invoiceIdColIdx = headers.findIndex(h => invoiceIdVariations.some(v => h === v || h.includes(v)));
+        if (invoiceIdColIdx >= 0 && row[invoiceIdColIdx]) {
+          invoice_id = row[invoiceIdColIdx];
+        }
+
+        logInfo(MODULE, handler, `Processing row ${rowNum}`, {
+          customer_name,
+          customer_email: customer_email.includes('@company.local') ? '(generated)' : 'provided',
+          amount,
+          due_date,
+          issued_date,
+          status: status || 'unpaid',
+          invoice_id: invoice_id || 'auto-generated'
         });
 
-        logInfo(MODULE, handler, `Processing row ${rowNum}`, { rowData });
-
-        const { customer_name, customer_email, amount, due_date, issued_date, invoice_id, status } = rowData;
-
-        // ═══ VALIDATION: Required Fields ═══
-        if (!customer_name || !customer_email || !amount || !due_date || !issued_date) {
-          errors.push(`Row ${rowNum}: Missing required fields (name, email, amount, due_date, issued_date)`);
+        // ═══ VALIDATION: Critical Fields ═══
+        if (!customer_name || !amount || !due_date || !issued_date) {
+          errors.push(`Row ${rowNum}: Missing critical fields (name, amount, due_date, issued_date)`);
           errorCount++;
           continue;
         }

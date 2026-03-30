@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { useAuth } from '../hooks/useAuth';
 import { useOnboarding } from '../hooks/useOnboarding';
@@ -73,8 +73,7 @@ interface AuditResults {
 
 export default function GenerateAudit() {
   const navigate = useNavigate();
-  const location = useLocation();
-  const { user, company, logout, setCompany } = useAuth();
+  const { logout } = useAuth();
   const { updateState } = useOnboarding();
   const { addToast } = useNotification();
 
@@ -95,49 +94,14 @@ export default function GenerateAudit() {
     navigate('/landing', { replace: true });
   };
 
-  // Hard block back button
+  // TEST PAGE - NO GUARDS, NO AUTH REQUIRED
   useEffect(() => {
-    window.history.pushState(null, '', window.location.href);
-    const onPop = () => window.history.pushState(null, '', window.location.href);
-    window.addEventListener('popstate', onPop);
-    return () => window.removeEventListener('popstate', onPop);
-  }, []);
+    document.title = 'Your Cash Audit — CashOS (TEST)';
 
-  // Auth + pipeline guard + auto-generate
-  useEffect(() => {
-    document.title = 'Your Cash Audit — CashOS';
-
-    if (!user) {
-      navigate('/landing', { replace: true });
-      return;
-    }
-
-    // Backend is source of truth — redirect if not at audit_report or trial_offer stage
-    // UNLESS we're coming from integrations (stage might not be synced yet)
-    const stage = company?.onboardingStage;
-    const fromIntegrations = (location.state as any)?.fromIntegrations;
-
-    if (stage) {
-      if (stage === 'pending' || stage === 'details_form') {
-        navigate('/signup', { replace: true });
-        return;
-      }
-      if (stage === 'integrations' && !fromIntegrations) {
-        navigate('/integrations', { replace: true });
-        return;
-      }
-      if (stage === 'trial_active' || stage === 'paid_active') {
-        navigate('/dashboard', { replace: true });
-        return;
-      }
-      if (stage === 'audit_report' || stage === 'trial_offer') {
-        updateState({ accountCreated: true, auditGenerated: true });
-      }
-    }
-
-    // Auto-generate audit on page load
+    // Test page: works without auth, no guards
+    updateState({ accountCreated: true, auditGenerated: true });
     generateAudit();
-  }, [user, company?.onboardingStage, location.state]);
+  }, []);
 
   const generateAudit = async () => {
     setLoading(true);
@@ -145,7 +109,7 @@ export default function GenerateAudit() {
 
     try {
       // Call backend endpoint to generate audit analysis with 6 metrics
-      const res = await api.get<AuditResults>('/api/audits/audit/generate');
+      const res = await api.get<AuditResults>('/api/audits/test/audit/generate');
 
       if (res) {
         setResults(res);
@@ -168,28 +132,22 @@ export default function GenerateAudit() {
 
     try {
       // Start 14-day free trial
-      await api.post('/api/audits/trial/start');
+      const res = await api.post('/api/audits/test/trial/start');
 
-      // Refresh user data from backend (crucial: updates company.onboardingStage to trial_active)
-      const updatedUser = await api.get('/api/auth/me');
+      if (res) {
+        // Mark trial as started in onboarding context
+        updateState({ trialStarted: true });
 
-      if (updatedUser?.company) {
-        // Update auth context with fresh company data
-        setCompany(updatedUser.company);
+        addToast({
+          type: 'success',
+          message: '🎉 Trial activated! Welcome to CashOS.',
+        });
+
+        // Redirect to dashboard
+        setTimeout(() => {
+          navigate('/dashboard', { replace: true });
+        }, 1500);
       }
-
-      // Mark trial as started in onboarding context
-      updateState({ trialStarted: true });
-
-      addToast({
-        type: 'success',
-        message: '🎉 Trial activated! Welcome to CashOS.',
-      });
-
-      // Redirect to dashboard after short delay
-      setTimeout(() => {
-        navigate('/dashboard', { replace: true });
-      }, 1500);
     } catch (err: any) {
       addToast({
         type: 'error',
