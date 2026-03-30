@@ -22,34 +22,34 @@ async function sendTrialWarningEmail(
 ): Promise<void> {
   const urgent = daysLeft <= 1;
   const subject = urgent
-    ? `Final notice — your CashOS trial expires tomorrow`
-    : `Your CashOS trial ends in ${daysLeft} days`;
+    ? `Final notice — your RecoverAI trial expires tomorrow`
+    : `Your RecoverAI trial ends in ${daysLeft} days`;
 
   const bodyText = urgent
-    ? `Hi,\n\nYour CashOS free trial expires tomorrow. After that, your account will be suspended and the agent will stop recovering invoices.\n\nUpgrade now to keep your AR recovery running:\n${APP_URL}/billing\n\nCashOS Team`
-    : `Hi,\n\nYour CashOS free trial ends in ${daysLeft} days. Upgrade before it expires to keep the agent running without interruption.\n\nView your usage and upgrade:\n${APP_URL}/billing\n\nCashOS Team`;
+    ? `Hi,\n\nYour RecoverAI free trial expires tomorrow. After that, your account will be suspended and the agent will stop recovering invoices.\n\nUpgrade now to keep your AR recovery running:\n${APP_URL}/billing\n\nRecoverAI Team`
+    : `Hi,\n\nYour RecoverAI free trial ends in ${daysLeft} days. Upgrade before it expires to keep the agent running without interruption.\n\nView your usage and upgrade:\n${APP_URL}/billing\n\nRecoverAI Team`;
 
   const bodyHtml = urgent
     ? `<p>Hi,</p>
-       <p>Your CashOS free trial expires <strong>tomorrow</strong>. After that, your account will be suspended and the agent will stop recovering overdue invoices.</p>
+       <p>Your RecoverAI free trial expires <strong>tomorrow</strong>. After that, your account will be suspended and the agent will stop recovering overdue invoices.</p>
        <p><a href="${APP_URL}/billing" style="background:#4f46e5;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block;margin:16px 0">Upgrade Now →</a></p>
-       <p style="color:#6b7280;font-size:14px">CashOS Team</p>`
+       <p style="color:#6b7280;font-size:14px">RecoverAI Team</p>`
     : `<p>Hi,</p>
-       <p>Your CashOS free trial ends in <strong>${daysLeft} days</strong>. Upgrade before it expires to keep the agent running without interruption.</p>
+       <p>Your RecoverAI free trial ends in <strong>${daysLeft} days</strong>. Upgrade before it expires to keep the agent running without interruption.</p>
        <p>Your recovery activity so far is on your <a href="${APP_URL}/billing">billing page</a>.</p>
        <p><a href="${APP_URL}/billing" style="background:#4f46e5;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block;margin:16px 0">View Plans &amp; Upgrade →</a></p>
-       <p style="color:#6b7280;font-size:14px">CashOS Team</p>`;
+       <p style="color:#6b7280;font-size:14px">RecoverAI Team</p>`;
 
   await resendService.sendEmail({ to: email, subject, bodyText, bodyHtml });
 }
 
 async function sendTrialExpiredEmail(email: string, companyName: string): Promise<void> {
-  const subject = `Your CashOS trial has expired — reactivate to resume recovery`;
-  const bodyText = `Hi,\n\nYour CashOS free trial has expired. Your account is now suspended and the agent has stopped recovering invoices.\n\nReactivate your account to resume:\n${APP_URL}/billing\n\nCashOS Team`;
+  const subject = `Your RecoverAI trial has expired — reactivate to resume recovery`;
+  const bodyText = `Hi,\n\nYour RecoverAI free trial has expired. Your account is now suspended and the agent has stopped recovering invoices.\n\nReactivate your account to resume:\n${APP_URL}/billing\n\nRecoverAI Team`;
   const bodyHtml = `<p>Hi,</p>
-     <p>Your CashOS free trial has expired. Your account is now <strong>suspended</strong> and the recovery agent has stopped.</p>
+     <p>Your RecoverAI free trial has expired. Your account is now <strong>suspended</strong> and the recovery agent has stopped.</p>
      <p><a href="${APP_URL}/billing" style="background:#4f46e5;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block;margin:16px 0">Reactivate Account →</a></p>
-     <p style="color:#6b7280;font-size:14px">CashOS Team</p>`;
+     <p style="color:#6b7280;font-size:14px">RecoverAI Team</p>`;
 
   await resendService.sendEmail({ to: email, subject, bodyText, bodyHtml });
 }

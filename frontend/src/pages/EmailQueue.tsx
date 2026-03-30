@@ -30,7 +30,7 @@ const EmailQueue: React.FC = () => {
   const [preview, setPreview] = useState<{ subject: string; body: string } | null>(null);
 
   useEffect(() => {
-    document.title = 'Email Queue — CashOS';
+    document.title = 'Email Queue — RecoverAI';
     fetchEmails();
   }, []);
 

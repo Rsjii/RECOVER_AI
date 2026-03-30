@@ -788,7 +788,7 @@ Start 14-day FREE pilot:
 ${process.env.FRONTEND_URL}/audit-results/${auditId}
 
 Best,
-CashOS Team
+RecoverAI Team
 `;
 
   const bodyHtml = `
@@ -810,7 +810,7 @@ CashOS Team
     <li>Cash Visibility: Priceless (90-day forecast)</li>
   </ul>
   <p><a href="${process.env.FRONTEND_URL}/audit-results/${auditId}">Start 14-day FREE pilot</a></p>
-  <p>Best,<br/>CashOS Team</p>
+  <p>Best,<br/>RecoverAI Team</p>
 </body>
 </html>
   `;
@@ -1262,7 +1262,7 @@ export const submitAuditRequest = async (req: Request, res: Response) => {
       }
       if (status === 'converted') {
         return res.status(429).json({
-          error: 'You already have an active CashOS account. Please log in.',
+          error: 'You already have an active RecoverAI account. Please log in.',
           code: 'AUDIT_CONVERTED'
         });
       }
@@ -1340,7 +1340,7 @@ export const submitAuditRequest = async (req: Request, res: Response) => {
     try {
       await resendService.sendEmail({
         to: normalized_email,
-        subject: 'Your CashOS Audit Verification Code',
+        subject: 'Your RecoverAI Audit Verification Code',
         bodyText: `Your verification code is: ${otp}\n\nThis code expires in 15 minutes.`,
         bodyHtml: `
           <h2>Verify Your Audit Request</h2>
@@ -1438,7 +1438,7 @@ export const verifyAuditEmail = async (req: Request, res: Response) => {
           <h2>Thank You!</h2>
           <p>Your email has been verified.</p>
           <p>We'll review your audit request for <strong>${request.company_name}</strong> and send you a setup link within 24 hours.</p>
-          <p>Best,<br>The CashOS team</p>
+          <p>Best,<br>The RecoverAI team</p>
         `,
       });
     } catch (emailErr: any) {
@@ -1582,7 +1582,7 @@ export const approveAuditRequest = async (req: Request, res: Response) => {
     try {
       await resendService.sendEmail({
         to: request.email,
-        subject: 'Your CashOS audit is approved! 🎉',
+        subject: 'Your RecoverAI audit is approved! 🎉',
         bodyText: `Your Audit is Approved!\n\nHi,\n\nGreat news! We've approved your audit request for ${request.company_name}.\n\nClick the link below to set up your AR recovery system:\n${setup_url}\n\nThis link expires in 7 days.\n\nQuestions? Contact us at hello@recoverai.com`,
         bodyHtml: `
           <h2>Your Audit is Approved!</h2>
@@ -1659,15 +1659,15 @@ export const rejectAuditRequest = async (req: Request, res: Response) => {
     try {
       await resendService.sendEmail({
         to: request.email,
-        subject: 'Your CashOS audit request',
-        bodyText: `Audit Request Status\n\nHi,\n\nThank you for your interest in CashOS. After review, we determined that ${request.company_name} isn't the right fit at this time.\n\nReason: ${reason}\n\nWe're always here if you'd like to discuss further. Feel free to reach out at hello@recoverai.com.\n\nBest,\nThe CashOS team`,
+        subject: 'Your RecoverAI audit request',
+        bodyText: `Audit Request Status\n\nHi,\n\nThank you for your interest in RecoverAI. After review, we determined that ${request.company_name} isn't the right fit at this time.\n\nReason: ${reason}\n\nWe're always here if you'd like to discuss further. Feel free to reach out at hello@recoverai.com.\n\nBest,\nThe RecoverAI team`,
         bodyHtml: `
           <h2>Audit Request Status</h2>
           <p>Hi,</p>
-          <p>Thank you for your interest in CashOS. After review, we determined that <strong>${request.company_name}</strong> isn't the right fit at this time.</p>
+          <p>Thank you for your interest in RecoverAI. After review, we determined that <strong>${request.company_name}</strong> isn't the right fit at this time.</p>
           <p><strong>Reason:</strong> ${reason}</p>
           <p>We're always here if you'd like to discuss further. Feel free to <a href="mailto:hello@recoverai.com">reach out</a>.</p>
-          <p>Best,<br>The CashOS team</p>
+          <p>Best,<br>The RecoverAI team</p>
         `,
       });
     } catch (emailErr: any) {

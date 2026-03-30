@@ -294,7 +294,7 @@ class StripeService {
       logError('stripeService', method, 'Failed to update customer history (non-blocking)', err);
     }
 
-    // P1: Attribution tracking — was this payment recovered by CashOS dunning?
+    // P1: Attribution tracking — was this payment recovered by RecoverAI dunning?
     try {
       const dunningCheck = await pool.query(
         `SELECT COUNT(*) as count FROM email_logs
@@ -309,7 +309,7 @@ class StripeService {
            WHERE id = $2 AND company_id = $3`,
           [amountPaid, invoice.id, invoice.company_id]
         );
-        logInfo('stripeService', method, 'Invoice attributed to CashOS recovery', {
+        logInfo('stripeService', method, 'Invoice attributed to RecoverAI recovery', {
           invoiceId: invoice.id,
           amount: amountPaid,
         });
@@ -349,23 +349,23 @@ class StripeService {
                   Payment Received!
                 </h1>
                 <p style="color:#6b7280;text-align:center;font-size:14px;margin:0 0 24px;">
-                  CashOS just recovered another invoice for you
+                  RecoverAI just recovered another invoice for you
                 </p>
                 <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:20px;text-align:center;margin-bottom:24px;">
                   <div style="font-size:36px;font-weight:900;color:#15803d;font-variant-numeric:tabular-nums;">$${formattedAmount}</div>
                   <div style="color:#166534;font-size:14px;margin-top:4px;">paid by <strong>${customerName}</strong></div>
                 </div>
                 <p style="color:#374151;font-size:14px;line-height:1.6;margin:0 0 20px;">
-                  This payment was recovered as part of your CashOS pilot. Login to your dashboard to see full recovery stats.
+                  This payment was recovered as part of your RecoverAI pilot. Login to your dashboard to see full recovery stats.
                 </p>
                 <a href="${process.env.FRONTEND_URL}/dashboard" style="display:block;background:#2563eb;color:#fff;text-decoration:none;padding:14px 24px;border-radius:8px;text-align:center;font-weight:700;font-size:15px;">
                   View Dashboard
                 </a>
               </div>
-              <p style="color:#9ca3af;font-size:12px;text-align:center;margin-top:16px;">CashOS - Autonomous AR Recovery</p>
+              <p style="color:#9ca3af;font-size:12px;text-align:center;margin-top:16px;">RecoverAI - Autonomous AR Recovery</p>
             </div>
           `,
-          bodyText: `${customerName} just paid $${formattedAmount}!\n\nThis payment was recovered as part of your CashOS pilot.\n\nLogin: ${process.env.FRONTEND_URL}/dashboard`,
+          bodyText: `${customerName} just paid $${formattedAmount}!\n\nThis payment was recovered as part of your RecoverAI pilot.\n\nLogin: ${process.env.FRONTEND_URL}/dashboard`,
           replyTo: 'hello@recoverai.com',
         });
         logInfo('stripeService', method, 'Pilot celebration email sent', {

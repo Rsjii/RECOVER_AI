@@ -22,7 +22,7 @@ const Compliance: React.FC = () => {
   };
 
   useEffect(() => {
-    document.title = 'Compliance — CashOS';
+    document.title = 'Compliance — RecoverAI';
     void load();
   }, []);
 

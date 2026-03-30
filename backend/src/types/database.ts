@@ -99,7 +99,7 @@ export interface InvoiceRow {
   decline_code: string | null;
   last_decline_type: 'soft' | 'hard' | 'fraud' | null;
   decline_confidence: number | null;
-  // P1: Attribution tracking (was this recovered by CashOS dunning?)
+  // P1: Attribution tracking (was this recovered by RecoverAI dunning?)
   recovered_by_recoverai: boolean;
   recovered_at: string | null;
   recovered_amount: string | null;  // DECIMAL returns as string from pg

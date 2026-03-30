@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 
 const Support: React.FC = () => {
-  useEffect(() => { document.title = 'Support & Contact — CashOS'; }, []);
+  useEffect(() => { document.title = 'Support & Contact — RecoverAI'; }, []);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-[#09090b]">
@@ -32,7 +32,7 @@ const Support: React.FC = () => {
             <div>
               <h3 className="font-medium text-gray-900 dark:text-white mb-1">Mailing Address</h3>
               <p className="text-sm text-gray-700 dark:text-gray-300">
-                CashOS<br />
+                RecoverAI<br />
                 New Housing Board Colony<br />
                 Deluxe MIG 186<br />
                 Morena 476001, MP<br />

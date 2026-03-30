@@ -42,7 +42,7 @@ const InvoiceDetail: React.FC = () => {
       .then(([invRes, detailRes]) => {
         setInvoice(invRes.data || invRes);
         setDetail(detailRes.data || detailRes);
-        document.title = `Invoice — CashOS`;
+        document.title = `Invoice — RecoverAI`;
       })
       .catch(() => {
         addToast({ type: 'error', message: 'Invoice not found' });

@@ -9,7 +9,7 @@ type SelectedPlan = 'phase_0' | 'growth';
 
 const PlanSelection: React.FC = () => {
   useEffect(() => {
-    document.title = 'Choose Your Plan — CashOS';
+    document.title = 'Choose Your Plan — RecoverAI';
   }, []);
 
   const navigate = useNavigate();
@@ -54,7 +54,7 @@ const PlanSelection: React.FC = () => {
             <span className="text-white text-xl font-bold">R</span>
           </div>
           <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-3">
-            Welcome to CashOS
+            Welcome to RecoverAI
           </h1>
           <p className="text-lg text-gray-600 dark:text-gray-400">
             Choose your plan and start recovering revenue

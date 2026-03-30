@@ -7,7 +7,7 @@ const Pricing: React.FC = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    document.title = 'Pricing — CashOS';
+    document.title = 'Pricing — RecoverAI';
   }, []);
 
   return (
@@ -16,7 +16,7 @@ const Pricing: React.FC = () => {
       <header className="border-b border-gray-200 dark:border-white/[0.06]">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
-            <span className="text-lg font-bold text-gray-900 dark:text-white">CashOS</span>
+            <span className="text-lg font-bold text-gray-900 dark:text-white">RecoverAI</span>
           </Link>
           <div className="flex items-center gap-4">
             <ThemeToggle />
@@ -170,7 +170,7 @@ const Pricing: React.FC = () => {
       {/* Footer */}
       <footer className="border-t border-gray-200 dark:border-white/[0.06] bg-gray-50 dark:bg-white/[0.02] mt-20">
         <div className="max-w-7xl mx-auto px-6 py-12 text-center text-sm text-gray-500 dark:text-gray-400">
-          <p>© 2026 CashOS. All rights reserved.</p>
+          <p>© 2026 RecoverAI. All rights reserved.</p>
         </div>
       </footer>
     </div>

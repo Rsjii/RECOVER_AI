@@ -39,7 +39,7 @@ const Policy: React.FC = () => {
   };
 
   useEffect(() => {
-    document.title = 'Agent Policy — CashOS';
+    document.title = 'Agent Policy — RecoverAI';
     void load();
   }, []);
 

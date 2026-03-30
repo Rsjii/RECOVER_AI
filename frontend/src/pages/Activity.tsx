@@ -52,7 +52,7 @@ function groupByDate<T extends { sent_at?: string; paid_at?: string; created_at?
 }
 
 const Activity: React.FC = () => {
-  useEffect(() => { document.title = 'Activity — CashOS'; }, []);
+  useEffect(() => { document.title = 'Activity — RecoverAI'; }, []);
 
   const [activeTab, setActiveTab] = useState<Tab>('emails');
   const [emailLogs, setEmailLogs] = useState<any[]>([]);

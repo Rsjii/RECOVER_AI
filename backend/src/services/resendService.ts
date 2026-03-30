@@ -92,7 +92,7 @@ export class ResendService {
       const response = await resend.emails.send({
         from: config.resend.fromEmail,
         to: params.email,
-        subject: 'Your CashOS verification code',
+        subject: 'Your RecoverAI verification code',
         html: `<p>Your 6-digit verification code is: <strong>${params.code}</strong></p><p>Valid for 15 minutes.</p>`,
         text: `Your verification code is: ${params.code} (valid for 15 minutes)`,
       });

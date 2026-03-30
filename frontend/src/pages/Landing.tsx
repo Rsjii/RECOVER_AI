@@ -12,7 +12,7 @@ const Landing: React.FC = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
-    document.title = 'CashOS — Autonomous AR Recovery for B2B SaaS';
+    document.title = 'RecoverAI — Autonomous AR Recovery for B2B SaaS';
     // Auto-redirect authenticated users to dashboard
     if (isAuthenticated) {
       navigate('/dashboard', { replace: true });
@@ -48,7 +48,7 @@ const Landing: React.FC = () => {
           <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center">
             <span className="text-white text-sm font-bold">R</span>
           </div>
-          CashOS
+          RecoverAI
         </Link>
         <nav className="hidden md:flex items-center gap-6">
           <Link to="/pricing" className="text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">Pricing</Link>
@@ -221,7 +221,7 @@ const Landing: React.FC = () => {
       {/* How it works */}
       <section className="max-w-5xl mx-auto px-6 py-14">
         <h2 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white text-center mb-10">
-          How CashOS works
+          How RecoverAI works
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {[
@@ -240,7 +240,7 @@ const Landing: React.FC = () => {
             {
               step: '3',
               title: 'Agent recovers intelligently',
-              desc: 'CashOS sends personalized emails, offers payment plans, and tracks payments — with configurable automation and optional human review.',
+              desc: 'RecoverAI sends personalized emails, offers payment plans, and tracks payments — with configurable automation and optional human review.',
               color: 'bg-green-100 dark:bg-green-900/40 text-green-600',
             },
           ].map((item) => (
@@ -324,8 +324,8 @@ const Landing: React.FC = () => {
         <div className="space-y-4">
           {[
             {
-              q: 'How does CashOS send emails on my behalf?',
-              a: 'After you connect your account, CashOS uses your company name and branding in all outreach. Customers see emails from your company, not from us. You can review all sent emails in the Activity tab.',
+              q: 'How does RecoverAI send emails on my behalf?',
+              a: 'After you connect your account, RecoverAI uses your company name and branding in all outreach. Customers see emails from your company, not from us. You can review all sent emails in the Activity tab.',
             },
             {
               q: 'What if a customer disputes an invoice?',
@@ -380,7 +380,7 @@ const Landing: React.FC = () => {
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-2 text-gray-900 dark:text-white font-bold">
               <div className="w-6 h-6 rounded bg-blue-600 flex items-center justify-center text-xs text-white">R</div>
-              CashOS
+              RecoverAI
             </div>
             <div className="flex flex-wrap gap-4 text-sm justify-center">
               <Link to="/pricing" className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">Pricing</Link>
@@ -392,7 +392,7 @@ const Landing: React.FC = () => {
               <Link to="/refund-policy" className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">Refund</Link>
               <Link to="/dpa" className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">DPA</Link>
             </div>
-            <p className="text-xs text-gray-600 dark:text-gray-400">2026 CashOS. All rights reserved.</p>
+            <p className="text-xs text-gray-600 dark:text-gray-400">2026 RecoverAI. All rights reserved.</p>
           </div>
         </div>
       </footer>

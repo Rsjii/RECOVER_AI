@@ -41,7 +41,7 @@ export const config = {
   sendgrid: {
     apiKey: process.env.SENDGRID_API_KEY,
     fromEmail: process.env.SENDGRID_FROM_EMAIL || 'noreply@recoverai.com',
-    fromName: process.env.SENDGRID_FROM_NAME || 'CashOS',
+    fromName: process.env.SENDGRID_FROM_NAME || 'RecoverAI',
   },
   anthropic: {
     apiKey: process.env.ANTHROPIC_API_KEY,

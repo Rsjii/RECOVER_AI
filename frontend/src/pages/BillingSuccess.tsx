@@ -8,7 +8,7 @@ const BillingSuccess: React.FC = () => {
   const [status, setStatus] = useState<'loading' | 'active' | 'pending'>('loading');
 
   useEffect(() => {
-    document.title = 'Subscription Activated — CashOS';
+    document.title = 'Subscription Activated — RecoverAI';
     const check = async () => {
       try {
         const res = await api.get<{ data: { status: string } | null }>(API_ENDPOINTS.billing.subscription);
@@ -35,7 +35,7 @@ const BillingSuccess: React.FC = () => {
             </div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">You're all set!</h1>
             <p className="text-gray-500 dark:text-gray-400 mb-8">
-              Your subscription is active. CashOS will start recovering your overdue invoices automatically.
+              Your subscription is active. RecoverAI will start recovering your overdue invoices automatically.
             </p>
             <button
               onClick={() => navigate('/dashboard')}

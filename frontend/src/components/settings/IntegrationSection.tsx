@@ -168,7 +168,7 @@ export const IntegrationSection: React.FC<IntegrationSectionProps> = ({
               <p><strong>Option 1: OAuth (Recommended)</strong></p>
               <ol className="list-decimal list-inside space-y-1 ml-2">
                 <li>Click "Connect with Stripe OAuth" below</li>
-                <li>Authorize CashOS to access your Stripe account</li>
+                <li>Authorize RecoverAI to access your Stripe account</li>
                 <li>You'll be redirected back automatically</li>
               </ol>
               <p className="mt-3"><strong>Option 2: API Key</strong></p>

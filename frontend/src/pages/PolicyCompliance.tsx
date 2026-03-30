@@ -60,7 +60,7 @@ const PolicyCompliance: React.FC = () => {
   };
 
   useEffect(() => {
-    document.title = 'Policy & Compliance — CashOS';
+    document.title = 'Policy & Compliance — RecoverAI';
     void loadPolicy();
     void loadCompliance();
   }, []);

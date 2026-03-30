@@ -4,7 +4,7 @@ import { Button } from '../components/ui/Button';
 
 const NotFound: React.FC = () => {
   useEffect(() => {
-    document.title = '404 — CashOS';
+    document.title = '404 — RecoverAI';
   }, []);
 
   return (

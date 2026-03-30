@@ -150,4 +150,4 @@ export const PAGINATION_LIMIT = 20;
 
 export const API_TIMEOUT = 30000;
 
-export const APP_NAME = 'CashOS';
+export const APP_NAME = 'RecoverAI';

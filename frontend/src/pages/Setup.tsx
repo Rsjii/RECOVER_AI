@@ -7,7 +7,7 @@ import { api } from '../lib/api';
 import { API_ENDPOINTS } from '../lib/constants';
 
 const Setup: React.FC = () => {
-  useEffect(() => { document.title = 'Setup — CashOS'; }, []);
+  useEffect(() => { document.title = 'Setup — RecoverAI'; }, []);
 
   const [searchParams] = useSearchParams();
   const { company } = useAuth();

@@ -14,7 +14,7 @@ const STEPS = [
 ];
 
 const Onboarding: React.FC = () => {
-  useEffect(() => { document.title = 'Get Started — CashOS'; }, []);
+  useEffect(() => { document.title = 'Get Started — RecoverAI'; }, []);
   const navigate = useNavigate();
   const { addToast } = useNotification();
 
@@ -114,7 +114,7 @@ const Onboarding: React.FC = () => {
           <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center mx-auto mb-3">
             <span className="text-white font-bold">R</span>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Set up CashOS</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Set up RecoverAI</h1>
           <p className="text-sm text-gray-500 mt-1">Complete setup to start recovering invoices automatically</p>
         </div>
 
@@ -255,7 +255,7 @@ const Onboarding: React.FC = () => {
               </div>
               <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Enable the agent</h2>
               <p className="text-gray-500 dark:text-gray-400 text-sm mb-6">
-                The CashOS agent runs every 6 hours, scans all unpaid invoices, and autonomously sends the right email at the right time.
+                The RecoverAI agent runs every 6 hours, scans all unpaid invoices, and autonomously sends the right email at the right time.
               </p>
               <div className="space-y-3 mb-6">
                 {[

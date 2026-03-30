@@ -193,7 +193,7 @@ export async function generateMonthlyInvoice(params: GenerateMonthlyInvoiceParam
   const billingInvoiceId = invoiceRes.rows[0].id as string;
 
   // Create Razorpay payment link
-  const description = `CashOS Invoice ${invoiceNumber} – ${params.periodStart.toISOString().slice(0, 7)}`;
+  const description = `RecoverAI Invoice ${invoiceNumber} – ${params.periodStart.toISOString().slice(0, 7)}`;
   const linkResult = await createPaymentLink({
     companyId: params.companyId,
     billingInvoiceId,

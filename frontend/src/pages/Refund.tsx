@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 
 const Refund: React.FC = () => {
-  useEffect(() => { document.title = 'Refund & Cancellation Policy — CashOS'; }, []);
+  useEffect(() => { document.title = 'Refund & Cancellation Policy — RecoverAI'; }, []);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-[#09090b]">
@@ -11,7 +11,7 @@ const Refund: React.FC = () => {
 
         <h2 className="text-xl font-semibold text-gray-900 dark:text-white mt-8 mb-3">Pilot Program (14 Days)</h2>
         <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
-          CashOS pilots get a complimentary 14-day pilot program. During the pilot period, you have full
+          RecoverAI pilots get a complimentary 14-day pilot program. During the pilot period, you have full
           access to all features with no credit card required. If you decide to cancel during the pilot:
         </p>
         <ul className="list-disc list-inside space-y-2 text-sm text-gray-700 dark:text-gray-300 mt-3">
@@ -52,7 +52,7 @@ const Refund: React.FC = () => {
           You can cancel your subscription anytime, effective at the end of your current billing cycle:
         </p>
         <ol className="list-decimal list-inside space-y-2 text-sm text-gray-700 dark:text-gray-300">
-          <li>Log into your CashOS account</li>
+          <li>Log into your RecoverAI account</li>
           <li>Go to <span className="font-mono bg-gray-100 dark:bg-[#111113] px-1 rounded">Billing</span> → <span className="font-mono bg-gray-100 dark:bg-[#111113] px-1 rounded">Current Plan</span></li>
           <li>Click <span className="font-mono bg-gray-100 dark:bg-[#111113] px-1 rounded">Cancel Subscription</span></li>
           <li>Confirm cancellation</li>
@@ -79,7 +79,7 @@ const Refund: React.FC = () => {
 
         <h2 className="text-xl font-semibold text-gray-900 dark:text-white mt-8 mb-3">Recovery Fee Refunds</h2>
         <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
-          CashOS charges an outcome-based recovery fee (1% of successfully recovered amounts) in addition to the base subscription fee.
+          RecoverAI charges an outcome-based recovery fee (1% of successfully recovered amounts) in addition to the base subscription fee.
           Recovery fees are only charged on payments actually received and tracked by our system. Recovery fees are:
         </p>
         <ul className="list-disc list-inside space-y-2 text-sm text-gray-700 dark:text-gray-300 mt-3">
@@ -112,7 +112,7 @@ const Refund: React.FC = () => {
 
         <h2 className="text-xl font-semibold text-gray-900 dark:text-white mt-8 mb-3">Satisfaction Guarantee</h2>
         <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
-          We're confident you'll love CashOS. However, if you're not completely satisfied within your first 7 days:
+          We're confident you'll love RecoverAI. However, if you're not completely satisfied within your first 7 days:
         </p>
         <ul className="list-disc list-inside space-y-2 text-sm text-gray-700 dark:text-gray-300 mt-3">
           <li>Contact <a href="mailto:support@recoverai.com" className="text-blue-600 dark:text-blue-400 hover:underline">support@recoverai.com</a> within 7 days</li>

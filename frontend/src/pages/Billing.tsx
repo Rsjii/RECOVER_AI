@@ -11,7 +11,7 @@ type BillingTab = 'subscription' | 'billing-history';
 
 const Billing: React.FC = () => {
   useEffect(() => {
-    document.title = 'Billing — CashOS';
+    document.title = 'Billing — RecoverAI';
   }, []);
 
   const { addToast } = useNotification();
