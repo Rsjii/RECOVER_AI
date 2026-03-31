@@ -23,16 +23,6 @@ router.get('/', authMiddleware, requireRole('admin'), requestsController.listAud
  */
 router.get('/:email', authMiddleware, requireRole('admin'), requestsController.getAuditRequest);
 
-/**
- * POST /api/audit-requests/:email/approve
- * Approve audit request (ADMIN ONLY)
- */
-router.post('/:email/approve', authMiddleware, requireRole('admin'), requestsController.approveAuditRequest);
-
-/**
- * POST /api/audit-requests/:email/reject
- * Reject audit request (ADMIN ONLY)
- */
-router.post('/:email/reject', authMiddleware, requireRole('admin'), requestsController.rejectAuditRequest);
+// Approval/reject flows removed - direct signup flow instead
 
 export default router;

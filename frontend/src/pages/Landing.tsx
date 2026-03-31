@@ -55,7 +55,7 @@ const Landing: React.FC = () => {
           <Link to="/security" className="text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">Security</Link>
           <ThemeToggle />
           <Link to="/login" className="text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">Sign in</Link>
-          <Button size="sm" onClick={() => navigate('/audit-request')}>Become a Pilot</Button>
+          <Button size="sm" onClick={() => navigate('/signup')}>Become a Pilot</Button>
         </nav>
         <div className="flex md:hidden items-center gap-2">
           <ThemeToggle className="p-2 text-gray-500 dark:text-gray-400 rounded-lg hover:bg-gray-100 dark:hover:bg-white/[0.06] transition-colors" />
@@ -74,7 +74,7 @@ const Landing: React.FC = () => {
           <Link to="/pricing" onClick={() => setMobileMenuOpen(false)} className="text-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">Pricing</Link>
           <Link to="/security" onClick={() => setMobileMenuOpen(false)} className="text-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">Security</Link>
           <Link to="/login" onClick={() => setMobileMenuOpen(false)} className="text-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">Sign in</Link>
-          <Button size="sm" className="w-full" onClick={() => { setMobileMenuOpen(false); navigate('/audit-request'); }}>Become a Pilot</Button>
+          <Button size="sm" className="w-full" onClick={() => { setMobileMenuOpen(false); navigate('/signup'); }}>Become a Pilot</Button>
         </div>
       )}
 
@@ -95,7 +95,7 @@ const Landing: React.FC = () => {
           <Button
             size="lg"
             className="px-8"
-            onClick={() => navigate('/audit-request')}
+            onClick={() => navigate('/signup')}
           >
             Become a Pilot
           </Button>
@@ -311,7 +311,7 @@ const Landing: React.FC = () => {
               </div>
             ))}
           </div>
-          <Button size="lg" className="px-8" onClick={() => navigate('/audit-request')}>Become a Pilot</Button>
+          <Button size="lg" className="px-8" onClick={() => navigate('/signup')}>Become a Pilot</Button>
           <p className="mt-3 text-xs text-gray-400">2-week pilot. We'll schedule a demo within 24 hours.</p>
         </div>
       </section>
@@ -368,7 +368,7 @@ const Landing: React.FC = () => {
             Ready to recover more cash?
           </h2>
           <p className="text-blue-50 dark:text-gray-300 mb-10 text-lg">Join our pilot program. See results in 2 weeks. Convert to paid if it works.</p>
-          <Button size="lg" className="bg-white !text-black hover:bg-gray-100 dark:bg-blue-600 dark:!text-white dark:hover:bg-blue-700 font-semibold px-12 py-3 shadow-lg" onClick={() => navigate('/audit-request')}>
+          <Button size="lg" className="bg-white !text-black hover:bg-gray-100 dark:bg-blue-600 dark:!text-white dark:hover:bg-blue-700 font-semibold px-12 py-3 shadow-lg" onClick={() => navigate('/signup')}>
             Become a Pilot
           </Button>
         </div>

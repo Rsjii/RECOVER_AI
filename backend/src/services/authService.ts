@@ -239,7 +239,7 @@ class AuthService {
     }
   }
 
-  async getCurrentUser(userId: string): Promise<AuthResponse['user'] & { company: AuthResponse['company']; emailVerified: boolean }> {
+  async getCurrentUser(userId: string): Promise<AuthResponse['user'] & { company: AuthResponse['company']; emailVerified: boolean; authProvider: string; passwordHash: string }> {
     const user = await UserDB.findUserWithCompany(userId);
 
     if (!user) {
@@ -254,6 +254,8 @@ class AuthService {
       role: user.role,
       emailVerified: user.email_verified || false,
       onboardingStatus: user.onboarding_status || 'active',
+      authProvider: (user.auth_provider as any) || 'email',
+      passwordHash: user.password_hash,
       company: {
         id: user.company_id,
         name: user.company_name,

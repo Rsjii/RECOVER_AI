@@ -1,321 +1,438 @@
 import React, { useState } from 'react';
-import { Card } from '../ui/Card';
+import type { IntegrationStatus } from '../../types/settings';
 import { Button } from '../ui/Button';
-import { api } from '../../lib/api';
-import { API_ENDPOINTS } from '../../lib/constants';
 import { useNotification } from '../../hooks/useNotification';
-import { SyncResultModal } from './SyncResultModal';
-
-interface SkippedDetail {
-  stripeInvoiceId: string;
-  customerName?: string;
-  amount?: number;
-  reason: 'NO_EMAIL' | 'ZERO_AMOUNT';
-}
-
-interface SyncResult {
-  created: number;
-  updated: number;
-  skipped: number;
-  skippedDetails: SkippedDetail[];
-}
 
 interface IntegrationSectionProps {
-  stripeConnected: boolean;
-  stripeLastSyncedAt?: string | null;
-  slackConnected: boolean;
-  quickbooksConnected: boolean;
-  chargebeeConnected: boolean;
-  twilioConfigured?: boolean;
-  onRefresh: () => void;
+  integrations: IntegrationStatus[];
+  onDisconnect?: (type: string) => Promise<void>;
+  onRefetch?: () => Promise<void>;
 }
 
-function timeAgo(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 2) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
-}
+const INTEGRATION_CONFIG: Record<string, { label: string; icon: string; description: string; group: string; availableIn?: string; tier: 'STARTER' | 'GROWTH' }> = {
+  stripe: {
+    label: 'Stripe',
+    icon: '💳',
+    description: 'Pull real-time invoices and payments',
+    group: 'BILLING_SYSTEMS',
+    tier: 'STARTER',
+  },
+  csv: {
+    label: 'CSV Upload',
+    icon: '📄',
+    description: 'Manual invoice import',
+    group: 'DATA_IMPORT',
+    tier: 'STARTER',
+  },
+  slack: {
+    label: 'Slack',
+    icon: '💬',
+    description: 'Daily digest and notifications',
+    group: 'NOTIFICATIONS',
+    tier: 'STARTER',
+  },
+  quickbooks: {
+    label: 'QuickBooks',
+    icon: '📊',
+    description: 'AR aging and AP data',
+    group: 'BILLING_SYSTEMS',
+    availableIn: 'GROWTH_TIER',
+    tier: 'GROWTH',
+  },
+  xero: {
+    label: 'Xero',
+    icon: '📊',
+    description: 'Accounting data sync',
+    group: 'BILLING_SYSTEMS',
+    availableIn: 'GROWTH_TIER',
+    tier: 'GROWTH',
+  },
+  plaid: {
+    label: 'Plaid',
+    icon: '🏦',
+    description: 'Bank balance sync',
+    group: 'BANK_DATA',
+    availableIn: 'GROWTH_TIER',
+    tier: 'GROWTH',
+  },
+};
 
-export const IntegrationSection: React.FC<IntegrationSectionProps> = ({
-  stripeConnected,
-  stripeLastSyncedAt,
-  slackConnected,
-  quickbooksConnected,
-  chargebeeConnected,
-  twilioConfigured = false,
-  onRefresh,
-}) => {
+const getStatusBadge = (status: string) => {
+  switch (status) {
+    case 'connected':
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">
+          <span className="w-2 h-2 bg-green-600 dark:bg-green-400 rounded-full"></span>
+          Connected
+        </span>
+      );
+    case 'not_connected':
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-900/30 text-gray-700 dark:text-gray-400">
+          <span className="w-2 h-2 bg-gray-400 rounded-full"></span>
+          Not Connected
+        </span>
+      );
+    case 'coming_soon':
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400">
+          <span className="w-2 h-2 bg-blue-600 dark:bg-blue-400 rounded-full"></span>
+          Coming Soon
+        </span>
+      );
+    default:
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400">
+          <span className="w-2 h-2 bg-red-600 dark:bg-red-400 rounded-full"></span>
+          Error
+        </span>
+      );
+  }
+};
+
+export const IntegrationSection: React.FC<IntegrationSectionProps> = ({ integrations, onDisconnect, onRefetch }) => {
   const { addToast } = useNotification();
+  const [stripeKeyMode, setStripeKeyMode] = useState(false);
   const [stripeKey, setStripeKey] = useState('');
-  const [cbSite, setCbSite] = useState('');
-  const [cbApiKey, setCbApiKey] = useState('');
-  const [connecting, setConnecting] = useState<string | null>(null);
   const [syncing, setSyncing] = useState<string | null>(null);
-  const [syncResult, setSyncResult] = useState<SyncResult | null>(null);
-  const [expandedGuide, setExpandedGuide] = useState<string | null>(null);
 
-  const handleStripeOAuth = () => {
-    const clientId = import.meta.env.VITE_STRIPE_CLIENT_ID;
-    if (!clientId) { addToast({ type: 'error', message: 'Stripe Client ID not configured' }); return; }
-    const params = new URLSearchParams({
-      client_id: clientId,
-      response_type: 'code',
-      scope: 'read_write',
-      redirect_uri: 'http://localhost:3000/api/stripe/oauth/exchange',
-      state: 'settings',
-    });
-    window.location.href = `https://connect.stripe.com/oauth/v2/authorize?${params.toString()}`;
-  };
-
-  const handleStripeConnect = async () => {
-    if (!stripeKey.trim()) { addToast({ type: 'error', message: 'Enter your Stripe API key' }); return; }
-    setConnecting('stripe');
+  const handleManualKey = async () => {
+    if (!stripeKey.trim()) return;
     try {
-      await api.post(API_ENDPOINTS.stripe.connect, { stripe_api_key: stripeKey });
-      addToast({ type: 'success', message: 'Stripe connected!' });
-      setStripeKey('');
-      onRefresh();
-    } catch (err: any) { addToast({ type: 'error', message: err.message || 'Connection failed' }); }
-    finally { setConnecting(null); }
-  };
-
-  const handleStripeSync = async () => {
-    setSyncing('stripe');
-    try {
-      const response = await api.post<{ message: string; result: SyncResult }>(API_ENDPOINTS.stripe.sync);
-      setSyncResult(response.result);
-    } catch (err: any) { addToast({ type: 'error', message: err.message || 'Sync failed' }); }
-    finally { setSyncing(null); }
-  };
-
-  const handleQBConnect = () => {
-    // Redirect to QB OAuth flow
-    window.location.href = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'}/api/quickbooks/oauth/authorize`;
-  };
-
-  const handleQBSync = async () => {
-    setSyncing('qb');
-    try {
-      await api.post('/api/quickbooks/sync');
-      addToast({ type: 'success', message: 'Invoices synced from QuickBooks' });
-    } catch (err: any) { addToast({ type: 'error', message: err.message || 'QB sync failed' }); }
-    finally { setSyncing(null); }
-  };
-
-  const handleQBDisconnect = async () => {
-    setConnecting('qb-disconnect');
-    try {
-      await api.delete('/api/quickbooks/disconnect');
-      addToast({ type: 'success', message: 'QuickBooks disconnected' });
-      onRefresh();
-    } catch (err: any) { addToast({ type: 'error', message: err.message || 'Failed to disconnect' }); }
-    finally { setConnecting(null); }
-  };
-
-  const handleChargebeeConnect = async () => {
-    if (!cbSite.trim() || !cbApiKey.trim()) {
-      addToast({ type: 'error', message: 'Enter Chargebee site and API key' });
-      return;
+      // Call API to save manual Stripe key - use correct endpoint
+      const response = await fetch('/api/stripe/validate-key', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey: stripeKey }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setStripeKeyMode(false);
+        setStripeKey('');
+        addToast({
+          type: 'success',
+          message: 'Stripe API key saved successfully!',
+        });
+        onRefetch?.();
+      } else {
+        addToast({
+          type: 'error',
+          message: data.error || 'Failed to save API key',
+        });
+      }
+    } catch (err: any) {
+      addToast({
+        type: 'error',
+        message: 'Failed to save Stripe key',
+      });
+      console.error('Failed to save Stripe key:', err);
     }
-    setConnecting('chargebee');
-    try {
-      await api.post('/api/chargebee/connect', { site: cbSite.trim(), apiKey: cbApiKey.trim() });
-      addToast({ type: 'success', message: 'Chargebee connected!' });
-      setCbSite('');
-      setCbApiKey('');
-      onRefresh();
-    } catch (err: any) { addToast({ type: 'error', message: err.message || 'Chargebee connection failed' }); }
-    finally { setConnecting(null); }
   };
 
-  const handleChargebeeSync = async () => {
-    setSyncing('chargebee');
-    try {
-      await api.post('/api/chargebee/sync');
-      addToast({ type: 'success', message: 'Invoices synced from Chargebee' });
-    } catch (err: any) { addToast({ type: 'error', message: err.message || 'Chargebee sync failed' }); }
-    finally { setSyncing(null); }
+  const handleOAuthConnect = (url?: string) => {
+    if (url) window.location.href = url;
   };
 
-  const handleChargebeeDisconnect = async () => {
-    setConnecting('cb-disconnect');
+  const handleManualSync = async (type: string) => {
+    setSyncing(type);
     try {
-      await api.delete('/api/chargebee/disconnect');
-      addToast({ type: 'success', message: 'Chargebee disconnected' });
-      onRefresh();
-    } catch (err: any) { addToast({ type: 'error', message: err.message || 'Failed to disconnect' }); }
-    finally { setConnecting(null); }
+      const response = await fetch(`/api/${type}/sync`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        addToast({
+          type: 'success',
+          message: `${type.charAt(0).toUpperCase() + type.slice(1)} synced: ${data.result?.created || 0} new, ${data.result?.updated || 0} updated`,
+        });
+        onRefetch?.();
+      } else {
+        addToast({
+          type: 'error',
+          message: `Failed to sync ${type}`,
+        });
+      }
+    } catch (err: any) {
+      addToast({
+        type: 'error',
+        message: err.message || `Failed to sync ${type}`,
+      });
+    } finally {
+      setSyncing(null);
+    }
+  };
+
+  const groupedIntegrations = Object.entries(INTEGRATION_CONFIG).reduce(
+    (acc, [key, config]) => {
+      if (!acc[config.group]) {
+        acc[config.group] = [];
+      }
+      const integration = integrations.find((i) => i.type === key);
+      acc[config.group].push({ key, config, integration });
+      return acc;
+    },
+    {} as Record<string, Array<{ key: string; config: any; integration?: IntegrationStatus }>>
+  );
+
+  const groupLabels: Record<string, string> = {
+    BILLING_SYSTEMS: 'Billing Systems',
+    DATA_IMPORT: 'Data Import',
+    NOTIFICATIONS: 'Notifications',
+    BANK_DATA: 'Bank Data',
   };
 
   return (
-    <Card>
-      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Integrations</h3>
+    <div className="space-y-8">
+      {Object.entries(groupLabels).map(([groupKey, groupLabel]) => {
+        const items = groupedIntegrations[groupKey];
+        if (!items) return null;
 
-      {!stripeConnected && (
-        <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-          <details className="cursor-pointer" open={expandedGuide === 'stripe'} onChange={(e) => setExpandedGuide(e.currentTarget.open ? 'stripe' : null)}>
-            <summary className="font-medium text-blue-900 dark:text-blue-300 flex items-center justify-between">
-              <span>How to connect Stripe?</span>
-              <svg className="w-5 h-5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </summary>
-            <div className="mt-3 text-sm text-blue-800 dark:text-blue-200 space-y-2">
-              <p><strong>Option 1: OAuth (Recommended)</strong></p>
-              <ol className="list-decimal list-inside space-y-1 ml-2">
-                <li>Click "Connect with Stripe OAuth" below</li>
-                <li>Authorize RecoverAI to access your Stripe account</li>
-                <li>You'll be redirected back automatically</li>
-              </ol>
-              <p className="mt-3"><strong>Option 2: API Key</strong></p>
-              <ol className="list-decimal list-inside space-y-1 ml-2">
-                <li>Go to Stripe Dashboard → Developers → API keys</li>
-                <li>Copy your Secret Key (starts with sk_live_)</li>
-                <li>Paste it in the field below and click "Save Key"</li>
-              </ol>
-            </div>
-          </details>
-        </div>
-      )}
+        return (
+          <div key={groupKey}>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              {groupLabel}
+            </h3>
 
-      <div className="space-y-4">
+            <div className="space-y-4">
+              {items.map(({ key, config, integration }) => (
+                <div key={key}>
+                  {/* Main Card */}
+                  <div
+                    className="p-4 border border-gray-200 dark:border-white/[0.06] rounded-lg hover:border-gray-300 dark:hover:border-white/[0.1] transition-colors"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <span className="text-2xl">{config.icon}</span>
+                          <div>
+                            <h4 className="font-medium text-gray-900 dark:text-white">
+                              {config.label}
+                              {config.tier === 'GROWTH' && (
+                                <span className="ml-2 text-xs px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-full">Growth</span>
+                              )}
+                            </h4>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                              {config.description}
+                            </p>
+                          </div>
+                        </div>
 
-        {/* Stripe */}
-        <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-white/[0.06] rounded-lg">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-900 flex items-center justify-center">
-              <span className="text-purple-600 font-bold">S</span>
-            </div>
-            <div>
-              <p className="font-medium text-gray-900 dark:text-white">Stripe</p>
-              <p className="text-xs text-gray-500">
-                {stripeConnected
-                  ? stripeLastSyncedAt
-                    ? `Last synced ${timeAgo(stripeLastSyncedAt)}`
-                    : 'Connected — never synced'
-                  : 'Not connected'}
-              </p>
-            </div>
-          </div>
-          {stripeConnected ? (
-            <div className="flex items-center gap-2">
-              <span className="text-xs bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 px-2 py-1 rounded-full">Connected</span>
-              <Button size="sm" variant="secondary" onClick={handleStripeSync} loading={syncing === 'stripe'}>Sync Now</Button>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-2 items-end">
-              <Button size="sm" variant="primary" onClick={handleStripeOAuth}>Connect with Stripe OAuth</Button>
-              <div className="flex gap-2 items-center">
-                <span className="text-xs text-gray-400">or</span>
-                <input type="password" value={stripeKey} onChange={e => setStripeKey(e.target.value)}
-                  placeholder="sk_live_..." className="px-3 py-1.5 border border-gray-300 dark:border-white/[0.1] rounded-lg bg-white dark:bg-white/[0.06] text-sm text-gray-900 dark:text-white w-44" />
-                <Button size="sm" variant="secondary" onClick={handleStripeConnect} loading={connecting === 'stripe'}>Save Key</Button>
-              </div>
-            </div>
-          )}
-        </div>
+                        {/* Status Badge */}
+                        <div className="mt-3">
+                          {integration ? (
+                            <>
+                              {getStatusBadge(integration.status)}
+                              {integration.status === 'connected' && integration.details && (
+                                <div className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                                  {integration.details.accountName && (
+                                    <p>Account: {integration.details.accountName}</p>
+                                  )}
+                                  {integration.details.workspaceName && (
+                                    <p>Workspace: {integration.details.workspaceName}</p>
+                                  )}
+                                  {integration.details.channel && (
+                                    <p>Channel: {integration.details.channel}</p>
+                                  )}
+                                  {integration.lastSynced && (
+                                    <p>
+                                      Last synced:{' '}
+                                      {new Date(integration.lastSynced).toLocaleDateString()} at{' '}
+                                      {new Date(integration.lastSynced).toLocaleTimeString()}
+                                    </p>
+                                  )}
+                                </div>
+                              )}
+                              {integration.status === 'coming_soon' && config.availableIn && (
+                                <p className="mt-2 text-xs text-blue-600 dark:text-blue-400">
+                                  Coming in {config.availableIn}
+                                </p>
+                              )}
+                            </>
+                          ) : (
+                            getStatusBadge('not_connected')
+                          )}
+                        </div>
+                      </div>
 
-        {/* QuickBooks */}
-        <div className="p-4 bg-gray-50 dark:bg-white/[0.06] rounded-lg">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-900 flex items-center justify-center">
-                <span className="text-green-600 font-bold text-sm">QB</span>
-              </div>
-              <div>
-                <p className="font-medium text-gray-900 dark:text-white">QuickBooks</p>
-                <p className="text-xs text-gray-500">{quickbooksConnected ? 'Connected via OAuth' : 'Not connected'}</p>
-              </div>
+                      {/* Actions */}
+                      <div className="ml-4 flex flex-col gap-2 items-end">
+                        {integration && integration.status === 'connected' && (
+                          <>
+                            {/* Sync button for Stripe & QB */}
+                            {(key === 'stripe' || key === 'quickbooks') && (
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => handleManualSync(key)}
+                                disabled={syncing === key}
+                              >
+                                {syncing === key ? 'Syncing...' : '🔄 Sync Now'}
+                              </Button>
+                            )}
+                            <button
+                              onClick={() => onDisconnect?.(key)}
+                              className="px-3 py-1 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                            >
+                              Disconnect
+                            </button>
+                          </>
+                        )}
+
+                        {!integration || integration.status === 'not_connected' ? (
+                          <>
+                            {/* Stripe: Manual Key + OAuth */}
+                            {key === 'stripe' && (
+                              <div className="flex flex-col gap-2">
+                                <Button
+                                  variant="secondary"
+                                  size="sm"
+                                  onClick={() => setStripeKeyMode(!stripeKeyMode)}
+                                >
+                                  🔑 Manual Key
+                                </Button>
+                                <Button
+                                  variant="primary"
+                                  size="sm"
+                                  onClick={() => handleOAuthConnect('/api/stripe/oauth/authorize')}
+                                >
+                                  Connect
+                                </Button>
+                              </div>
+                            )}
+
+                            {/* CSV: Opens modal in Invoices */}
+                            {key === 'csv' && (
+                              <Button
+                                variant="primary"
+                                size="sm"
+                                onClick={() => window.location.href = '/invoices'}
+                              >
+                                📤 Go to Invoices
+                              </Button>
+                            )}
+
+                            {/* Slack: OAuth */}
+                            {key === 'slack' && (
+                              <Button
+                                variant="primary"
+                                size="sm"
+                                onClick={() => handleOAuthConnect('/api/slack/authorize')}
+                              >
+                                Connect
+                              </Button>
+                            )}
+
+                            {/* QuickBooks: OAuth with correct URL */}
+                            {key === 'quickbooks' && (
+                              <Button
+                                variant="primary"
+                                size="sm"
+                                onClick={() => handleOAuthConnect('/api/quickbooks/oauth/authorize')}
+                              >
+                                Connect
+                              </Button>
+                            )}
+
+                            {/* Xero & Plaid: Coming Soon */}
+                            {(key === 'xero' || key === 'plaid') && (
+                              <span className="text-xs text-blue-600 dark:text-blue-400 text-right">
+                                Coming in Growth plan
+                              </span>
+                            )}
+                          </>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Stripe Manual Key Input - appears inline under Stripe card */}
+                  {key === 'stripe' && stripeKeyMode && (
+                    <div className="mt-2 p-4 border border-blue-200 dark:border-blue-800 rounded-lg bg-blue-50 dark:bg-blue-900/10">
+                      <label className="block text-sm font-medium text-gray-900 dark:text-white mb-3">
+                        Paste your Stripe API Key
+                      </label>
+                      <div className="flex gap-2 mb-3">
+                        <input
+                          type="password"
+                          value={stripeKey}
+                          onChange={(e) => setStripeKey(e.target.value)}
+                          placeholder="sk_live_..."
+                          className="flex-1 px-3 py-2 border border-gray-300 dark:border-white/[0.08] rounded-lg bg-white dark:bg-white/[0.03] text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                        />
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          onClick={() => handleManualKey()}
+                        >
+                          Save
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => setStripeKeyMode(false)}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                      <p className="text-xs text-gray-600 dark:text-gray-400">
+                        🔒 Encrypted & secure. Get from <a href="https://dashboard.stripe.com/apikeys" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline font-medium">Stripe Dashboard</a>
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
-            {quickbooksConnected ? (
-              <div className="flex items-center gap-2">
-                <span className="text-xs bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 px-2 py-1 rounded-full">Connected</span>
-                <Button size="sm" variant="secondary" onClick={handleQBSync} loading={syncing === 'qb'}>Sync Now</Button>
-                <Button size="sm" variant="secondary" onClick={handleQBDisconnect} loading={connecting === 'qb-disconnect'}>Disconnect</Button>
-              </div>
-            ) : (
-              <Button size="sm" onClick={handleQBConnect}>Connect with QuickBooks</Button>
+
+            {/* Divider */}
+            {Object.keys(groupLabels).indexOf(groupKey) < Object.keys(groupLabels).length - 1 && (
+              <div className="mt-8 border-t border-gray-200 dark:border-white/[0.06]"></div>
             )}
           </div>
-        </div>
+        );
+      })}
 
-        {/* Chargebee */}
-        <div className="p-4 bg-gray-50 dark:bg-white/[0.06] rounded-lg">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-orange-100 dark:bg-orange-900 flex items-center justify-center">
-                <span className="text-orange-600 font-bold text-sm">CB</span>
-              </div>
+      {/* Info Box */}
+      <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+        <div className="space-y-3">
+          <p className="text-sm font-semibold text-blue-900 dark:text-blue-200">
+            🚀 STARTER Tier Integrations
+          </p>
+          <ul className="text-sm text-blue-800 dark:text-blue-300 space-y-2">
+            <li className="flex items-start gap-2">
+              <span>💳</span>
               <div>
-                <p className="font-medium text-gray-900 dark:text-white">Chargebee</p>
-                <p className="text-xs text-gray-500">{chargebeeConnected ? 'Connected' : 'Not connected'}</p>
+                <strong>Stripe</strong> – Add your API key manually or use OAuth. Both options sync invoices & payments automatically.
               </div>
-            </div>
-            {chargebeeConnected ? (
-              <div className="flex items-center gap-2">
-                <span className="text-xs bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 px-2 py-1 rounded-full">Connected</span>
-                <Button size="sm" variant="secondary" onClick={handleChargebeeSync} loading={syncing === 'chargebee'}>Sync Now</Button>
-                <Button size="sm" variant="secondary" onClick={handleChargebeeDisconnect} loading={connecting === 'cb-disconnect'}>Disconnect</Button>
+            </li>
+            <li className="flex items-start gap-2">
+              <span>📄</span>
+              <div>
+                <strong>CSV Upload</strong> – Go to Invoices tab to import invoices from CSV files. Supports monthly updates & duplicate detection.
               </div>
-            ) : (
-              <div className="flex gap-2 items-center flex-wrap mt-2">
-                <input type="text" value={cbSite} onChange={e => setCbSite(e.target.value)}
-                  placeholder="your-site" className="px-3 py-1.5 border border-gray-300 dark:border-white/[0.1] rounded-lg bg-white dark:bg-white/[0.06] text-sm text-gray-900 dark:text-white w-32" />
-                <span className="text-xs text-gray-400">.chargebee.com</span>
-                <input type="password" value={cbApiKey} onChange={e => setCbApiKey(e.target.value)}
-                  placeholder="API Key" className="px-3 py-1.5 border border-gray-300 dark:border-white/[0.1] rounded-lg bg-white dark:bg-white/[0.06] text-sm text-gray-900 dark:text-white w-40" />
-                <Button size="sm" onClick={handleChargebeeConnect} loading={connecting === 'chargebee'}>Connect</Button>
+            </li>
+            <li className="flex items-start gap-2">
+              <span>💬</span>
+              <div>
+                <strong>Slack</strong> – Get daily digests, real-time alerts, and use commands. Requires workspace authorization.
               </div>
-            )}
-          </div>
+            </li>
+            <li className="flex items-start gap-2">
+              <span>📊</span>
+              <div>
+                <strong>QuickBooks</strong> – Connect for AR aging and AP data. (Beta - test on dev)
+              </div>
+            </li>
+            <li className="flex items-start gap-2">
+              <span>🔒</span>
+              <div>
+                <strong>Xero, Plaid</strong> – Coming in Growth plan for enterprise features.
+              </div>
+            </li>
+          </ul>
         </div>
-
-        {/* Twilio */}
-        <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-white/[0.06] rounded-lg">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-red-100 dark:bg-red-900/40 flex items-center justify-center">
-              <span className="text-red-600 dark:text-red-400 font-bold text-xs">TW</span>
-            </div>
-            <div>
-              <p className="font-medium text-gray-900 dark:text-white">Twilio SMS</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                {twilioConfigured ? 'Active — SMS dunning enabled' : 'Add TWILIO_ACCOUNT_SID + TWILIO_AUTH_TOKEN + TWILIO_PHONE_NUMBER to env'}
-              </p>
-            </div>
-          </div>
-          {twilioConfigured
-            ? <span className="text-xs bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 px-2 py-1 rounded-full">Active</span>
-            : <span className="text-xs bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 px-2 py-1 rounded-full">Not Configured</span>}
-        </div>
-
-        {/* Slack */}
-        <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-white/[0.06] rounded-lg">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
-              <span className="text-blue-600 font-bold">#</span>
-            </div>
-            <div>
-              <p className="font-medium text-gray-900 dark:text-white">Slack</p>
-              <p className="text-xs text-gray-500">{slackConnected ? 'Active' : 'Configure below'}</p>
-            </div>
-          </div>
-          {slackConnected
-            ? <span className="text-xs bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 px-2 py-1 rounded-full">Active</span>
-            : <span className="text-xs text-gray-500">Set webhook below</span>}
-        </div>
-
       </div>
-
-      {syncResult && (
-        <SyncResultModal
-          result={syncResult}
-          onClose={() => { setSyncResult(null); onRefresh(); }}
-        />
-      )}
-    </Card>
+    </div>
   );
 };

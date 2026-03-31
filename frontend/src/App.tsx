@@ -1,7 +1,6 @@
 import React from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import ProtectedRoute from './components/ProtectedRoute';
-import { StageGuard } from './components/StageGuard';
 import { Layout } from './components/layout/Layout';
 import { ToastContainer } from './components/ui/Toast';
 import { useNotification } from './hooks/useNotification';
@@ -14,7 +13,6 @@ import NotFound from './pages/NotFound';
 import ForgotPassword from './pages/ForgotPassword';
 import Landing from './pages/Landing';
 import Pricing from './pages/Pricing';
-import AuditRequest from './pages/AuditRequest';
 import SecurityPage from './pages/SecurityPage';
 import Terms from './pages/Terms';
 import Privacy from './pages/Privacy';
@@ -28,11 +26,8 @@ import Unsubscribe from './pages/Unsubscribe';
 import BillingSuccess from './pages/BillingSuccess';
 import EmailQueue from './pages/EmailQueue';
 import Onboard from './pages/Onboard';
-import { Stage1 } from './pages/onboard/Stage1';
-import { Stage2 } from './pages/onboard/Stage2';
-import { Stage3 } from './pages/onboard/Stage3';
-import { Stage4 } from './pages/onboard/Stage4';
-import { Stage5 } from './pages/onboard/Stage5';
+import { Integrations } from './pages/Integrations';
+import { AuditReport } from './pages/AuditReport';
 
 // Placeholder pages (create empty files for now, fill in later phases)
 const Dashboard = React.lazy(() => import('./pages/Dashboard'));
@@ -93,7 +88,6 @@ const App: React.FC = () => {
             <Route path="/landing" element={<Landing />} />
             <Route path="/" element={<RootRedirect />} />
             <Route path="/pricing" element={<Pricing />} />
-            <Route path="/audit-request" element={<AuditRequest />} />
             <Route path="/security" element={<SecurityPage />} />
             <Route path="/terms" element={<Terms />} />
             <Route path="/terms-of-service" element={<Terms />} />
@@ -111,18 +105,29 @@ const App: React.FC = () => {
             <Route path="/unsubscribe" element={<Unsubscribe />} />
             <Route path="/onboard" element={<Onboard />} />
 
-            {/* CashOS Stages (Audit → Trial → Paid flow) - with strict stage gating */}
-            <Route path="/onboard/stage-1" element={<StageGuard stage={1}><Stage1 /></StageGuard>} />
-            <Route path="/onboard/stage-2" element={<StageGuard stage={2}><Stage2 /></StageGuard>} />
-            <Route path="/onboard/stage-3" element={<StageGuard stage={3}><Stage3 /></StageGuard>} />
-            <Route path="/onboard/stage-4" element={<StageGuard stage={4}><Stage4 /></StageGuard>} />
-            <Route path="/onboard/stage-5" element={<StageGuard stage={5}><Stage5 /></StageGuard>} />
-
             <Route
               path="/verify-email"
               element={
                 <ProtectedRoute>
                   <VerifyEmail />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Audit Flow: Integrations → Audit Report */}
+            <Route
+              path="/integrations"
+              element={
+                <ProtectedRoute requireEmailVerification>
+                  <Integrations />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/audit-report"
+              element={
+                <ProtectedRoute requireEmailVerification>
+                  <AuditReport />
                 </ProtectedRoute>
               }
             />

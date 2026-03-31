@@ -309,32 +309,63 @@ export const uploadCSVFile = async (req: Request, res: Response): Promise<void> 
       return;
     }
 
-    // Parse CSV: expected format is customer_name,customer_email,amount,currency,due_date
+    // Parse CSV with flexible column detection
     const lines = csvText.trim().split('\n');
     if (lines.length < 2) {
       sendErrorResponse(res, 400, 'CSV must contain at least a header row and one data row');
       return;
     }
 
-    const header = lines[0].toLowerCase().split(',').map(h => h.trim());
+    // Parse header and normalize column names for flexibility
+    const rawHeader = lines[0].split(',').map(h => h.trim());
+    const header = rawHeader.map(h => h.toLowerCase().replace(/[^a-z0-9]/g, ''));
+
+    // Map detected columns to required fields
+    const findColumn = (patterns: string[]): number => {
+      const idx = header.findIndex(h => patterns.some(p => h.includes(p.replace(/[^a-z0-9]/g, ''))));
+      return idx >= 0 ? idx : -1;
+    };
+
+    const nameIdx = findColumn(['name', 'customer_name', 'customername', 'customer', 'company']);
+    const emailIdx = findColumn(['email', 'customer_email', 'customeremail', 'contact', 'email_address']);
+    const amountIdx = findColumn(['amount', 'total', 'price', 'invoice_amount', 'value', 'cost', 'fee']);
+    const currencyIdx = findColumn(['currency', 'curr', 'cur', 'code', 'iso']);
+    const dueDateIdx = findColumn(['due', 'duedate', 'due_date', 'deadline', 'payment_due', 'paymentdue']);
+    const issuedDateIdx = findColumn(['issued', 'issueddate', 'issued_date', 'date', 'created', 'invoice_date', 'invoicedate']);
+
+    // Validate required columns
+    if (nameIdx < 0 && emailIdx < 0) {
+      sendErrorResponse(res, 400, 'CSV must contain either "name" or "email" column');
+      return;
+    }
+    if (amountIdx < 0) {
+      sendErrorResponse(res, 400, 'CSV must contain "amount" column');
+      return;
+    }
+
     const invoices: Array<{ customerName: string; customerEmail: string; amount: number; currency: string; dueDate: string; issuedDate?: string }> = [];
 
     for (let i = 1; i < lines.length; i++) {
       const values = lines[i].split(',').map(v => v.trim());
       if (values.every(v => !v)) continue; // Skip empty lines
 
-      const row: Record<string, string> = {};
-      header.forEach((col, idx) => {
-        row[col] = values[idx] || '';
-      });
+      const name = nameIdx >= 0 ? values[nameIdx] : '';
+      const email = emailIdx >= 0 ? values[emailIdx] : '';
+      const amount = amountIdx >= 0 ? values[amountIdx] : '0';
+      const currency = currencyIdx >= 0 ? values[currencyIdx] : 'USD';
+      const dueDate = dueDateIdx >= 0 ? values[dueDateIdx] : '';
+      const issuedDate = issuedDateIdx >= 0 ? values[issuedDateIdx] : '';
+
+      // Use email as fallback for name if name not provided
+      const displayName = name || email || 'Unknown Customer';
 
       invoices.push({
-        customerName: row['customer_name'] || row['name'] || '',
-        customerEmail: row['customer_email'] || row['email'] || '',
-        amount: parseFloat(row['amount'] || '0'),
-        currency: (row['currency'] || 'USD').toUpperCase(),
-        dueDate: row['due_date'] || new Date().toISOString().split('T')[0],
-        issuedDate: row['issued_date'],
+        customerName: displayName,
+        customerEmail: email,
+        amount: parseFloat(amount) || 0,
+        currency: (currency || 'USD').toUpperCase().substring(0, 3),
+        dueDate: dueDate || new Date().toISOString().split('T')[0],
+        issuedDate: issuedDate,
       });
     }
 
@@ -350,11 +381,38 @@ export const uploadCSVFile = async (req: Request, res: Response): Promise<void> 
 
     let created = 0;
     let skipped = 0;
+    const errors: string[] = [];
 
     for (const inv of invoices) {
       try {
-        if (!inv.customerEmail || !inv.amount || inv.amount <= 0) {
+        // Validation
+        if (!inv.customerEmail || inv.customerEmail.trim().length === 0) {
           skipped++;
+          errors.push(`Row skipped: Email is required`);
+          continue;
+        }
+
+        if (!inv.amount || inv.amount <= 0) {
+          skipped++;
+          errors.push(`Row skipped: Invalid amount (${inv.amount})`);
+          continue;
+        }
+
+        // Validate and parse dates
+        const dueDate = new Date(inv.dueDate);
+        if (isNaN(dueDate.getTime())) {
+          skipped++;
+          errors.push(`Row skipped: Invalid due date (${inv.dueDate})`);
+          continue;
+        }
+
+        const issuedDate = inv.issuedDate && inv.issuedDate.trim()
+          ? new Date(inv.issuedDate)
+          : new Date();
+
+        if (isNaN(issuedDate.getTime())) {
+          skipped++;
+          errors.push(`Row skipped: Invalid issued date (${inv.issuedDate})`);
           continue;
         }
 
@@ -369,19 +427,28 @@ export const uploadCSVFile = async (req: Request, res: Response): Promise<void> 
           customerId: customer.id,
           amount: inv.amount,
           currency: inv.currency || 'USD',
-          dueDate: new Date(inv.dueDate),
-          issuedDate: inv.issuedDate ? new Date(inv.issuedDate) : new Date(),
+          dueDate,
+          issuedDate,
           source: 'manual',
         });
 
         created++;
-      } catch {
+      } catch (err: any) {
         skipped++;
+        errors.push(`Row failed: ${err?.message || 'Unknown error'}`);
       }
     }
 
     logInfo(handler, `CSV upload complete in ${Date.now() - startTime}ms`, { companyId, created, skipped, total: invoices.length });
-    res.status(200).json({ data: { count: created, skipped, total: invoices.length } });
+    res.status(200).json({
+      data: {
+        created,
+        skipped,
+        total: invoices.length,
+        message: `Successfully imported ${created} invoice${created !== 1 ? 's' : ''}${skipped > 0 ? `, ${skipped} skipped` : ''}`,
+        errors: errors.length > 0 ? errors.slice(0, 10) : undefined, // Show first 10 errors
+      }
+    });
   } catch (error: any) {
     logError(handler, `CSV upload failed after ${Date.now() - startTime}ms`, error);
     const { statusCode, message } = parseError(error);

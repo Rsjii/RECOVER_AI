@@ -50,11 +50,15 @@ const getSidebarSections = (isAdmin: boolean): SidebarSection[] => [
         label: 'Activity',
         icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>,
       },
-      {
-        path: '/reports',
-        label: 'Reports',
-        icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6m6 0h6m-6 0V9a2 2 0 012-2h2a2 2 0 012 2v10m6 0v-4a2 2 0 00-2-2h-2a2 2 0 00-2 2v4" /></svg>,
-      },
+      ...(isAdmin
+        ? [
+            {
+              path: '/reports',
+              label: 'Reports',
+              icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6m6 0h6m-6 0V9a2 2 0 012-2h2a2 2 0 012 2v10m6 0v-4a2 2 0 00-2-2h-2a2 2 0 00-2 2v4" /></svg>,
+            },
+          ]
+        : []),
       {
         path: '/email-queue',
         label: 'Email Queue',
@@ -336,7 +340,10 @@ export const Sidebar: React.FC = () => {
       )}
 
       {/* Footer Actions */}
-      <div className="p-4 border-t border-gray-200 dark:border-white/[0.06] shrink-0 flex items-center justify-between relative">
+      <div className={cn(
+        'border-t border-gray-200 dark:border-white/[0.06] shrink-0 relative flex',
+        collapsed ? 'p-2 flex-col gap-1 items-center justify-center' : 'p-4 items-center justify-between'
+      )}>
         {/* Help Button */}
         <button
           onClick={handleHelpClick}
@@ -379,7 +386,10 @@ export const Sidebar: React.FC = () => {
 
           {/* Profile Dropdown Menu */}
           {showProfileMenu && (
-            <div className="absolute bottom-full right-0 mb-2 w-48 bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] rounded-lg shadow-lg z-50">
+            <div className={cn(
+              'absolute bottom-full mb-2 bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] rounded-lg shadow-lg z-50',
+              collapsed ? 'left-0 w-40' : 'right-0 w-48'
+            )}>
               <div className="px-4 py-3 border-b border-gray-200 dark:border-white/[0.06]">
                 <p className="text-sm font-medium text-gray-900 dark:text-white">{user?.email?.split('@')[0] || 'User'}</p>
                 <p className="text-xs text-gray-500 dark:text-gray-400">{user?.email || 'email@example.com'}</p>

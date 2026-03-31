@@ -100,10 +100,11 @@ app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }));
 app.use('/api/email/webhook/sendgrid', express.json());
 
 // CSV upload receives plain text body
-app.use('/api/invoices/csv-upload', express.text({ type: '*/*', limit: '5mb' }));
+app.use('/api/invoices/csv-upload', express.text({ type: '*/*', limit: '10mb' }));
 
-app.use(express.json({ limit: '2mb' }));
-app.use(express.urlencoded({ extended: true }));
+// Increase JSON/form limits to handle larger payloads (images, batch operations, large CSVs)
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());
 
 // Request correlation middleware

@@ -1,97 +1,199 @@
-import React, { useState } from 'react';
-import { Card } from '../ui/Card';
-import { Button } from '../ui/Button';
-import { api } from '../../lib/api';
-import { API_ENDPOINTS } from '../../lib/constants';
-import { useNotification } from '../../hooks/useNotification';
-import type { DunningStrategy } from '../../types';
+import React from 'react';
+import { cn } from '../../lib/utils';
+import type { DunningPaymentPlansFormData } from '../../types/settings';
 
 interface DunningSectionProps {
-  strategy: DunningStrategy;
-  onSaved: () => void;
+  data: DunningPaymentPlansFormData;
+  onChange: (field: string, value: any) => void;
+  onSave: () => Promise<void>;
+  isSaving: boolean;
+  isDirty: boolean;
+  errors?: Record<string, string>;
 }
 
-export const DunningSection: React.FC<DunningSectionProps> = ({ strategy, onSaved }) => {
-  const { addToast } = useNotification();
-  const [form, setForm] = useState({
-    num_emails: strategy.num_emails || 5,
-    days_between: strategy.days_between || 7,
-    approval_required: strategy.approval_required || false,
-  });
-  const [saving, setSaving] = useState(false);
-
+export const DunningSection: React.FC<DunningSectionProps> = ({
+  data,
+  onChange,
+  onSave,
+  isSaving,
+  isDirty,
+  errors = {},
+}) => {
   const handleSave = async () => {
-    setSaving(true);
-    try {
-      await api.put(API_ENDPOINTS.settings.dunning, form);
-      addToast({ type: 'success', message: 'Dunning settings saved' });
-      onSaved();
-    } catch (err: any) { addToast({ type: 'error', message: err.message || 'Failed to save' }); }
-    finally { setSaving(false); }
+    await onSave();
   };
 
   return (
-    <Card>
-      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Dunning Strategy</h3>
-      <div className="space-y-5">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Number of emails in sequence</label>
-          <div className="flex items-center gap-4">
-            <input type="range" min="1" max="10" value={form.num_emails}
-              onChange={e => setForm({ ...form, num_emails: parseInt(e.target.value) })} className="flex-1 accent-brand-600" />
-            <span className="text-lg font-bold text-gray-900 dark:text-white w-8 text-center">{form.num_emails}</span>
-          </div>
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Days between emails</label>
-          <input type="number" min="1" max="90" value={form.days_between}
-            onChange={e => setForm({ ...form, days_between: parseInt(e.target.value) || 7 })}
-            className="w-24 px-3 py-2 border border-gray-300 dark:border-white/[0.1] rounded-lg bg-white dark:bg-[#18181b] text-gray-900 dark:text-white text-sm" />
-        </div>
-        <div className="flex items-center justify-between">
-          <div>
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Require approval before sending</label>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Emails need your review before being sent</p>
-          </div>
-          <button onClick={() => setForm({ ...form, approval_required: !form.approval_required })}
-            className={`relative w-11 h-6 rounded-full transition-colors ${form.approval_required ? 'bg-brand-600' : 'bg-gray-300 dark:bg-white/[0.12]'}`}>
-            <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${form.approval_required ? 'translate-x-5' : ''}`} />
-          </button>
-        </div>
-        <Button size="sm" onClick={handleSave} loading={saving}>Save Dunning Settings</Button>
-      </div>
+    <div className="space-y-8">
+      {/* Email Sequence Section */}
+      <div>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">
+          Email Sequence Timing
+        </h3>
 
-      {/* Visual dunning pipeline */}
-      <div className="mt-6 pt-6 border-t border-gray-200 dark:border-white/[0.06]">
-        <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-4">Dunning Journey Preview</h4>
-        <div className="flex flex-col items-start gap-0">
+        <div className="space-y-6">
           {[
-            { stage: 1, name: 'Friendly Reminder', day: 1 },
-            { stage: 2, name: 'Second Follow-up', day: 1 + form.days_between },
-            { stage: 3, name: 'Urgency Notice', day: 1 + form.days_between * 2 },
-            { stage: 4, name: 'Escalation', day: 1 + form.days_between * 3 },
-            { stage: 5, name: 'Account Action', day: 1 + form.days_between * 4 },
-          ].slice(0, Math.min(form.num_emails, 5)).map((s, idx, arr) => (
-            <div key={s.stage} className="flex flex-col items-start w-full">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center text-sm font-bold flex-shrink-0">
-                  {s.stage}
-                </div>
+            { key: 'email1Day', label: 'Email 1', description: 'First reminder' },
+            { key: 'email2Day', label: 'Email 2', description: 'Follow-up' },
+            { key: 'email3Day', label: 'Email 3', description: 'Escalation' },
+            { key: 'email4Day', label: 'Email 4', description: 'Final notice' },
+            { key: 'email5Day', label: 'Email 5', description: 'Account action' },
+          ].map(({ key, label, description }) => (
+            <div key={key}>
+              <div className="flex items-center justify-between mb-2">
                 <div>
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">{s.name}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Day {s.day} overdue</p>
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{label}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{description}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                    {data[key as keyof DunningPaymentPlansFormData]} days
+                  </p>
                 </div>
               </div>
-              {idx < arr.length - 1 && (
-                <div className="flex items-center gap-3 my-1 ml-4">
-                  <div className="w-px h-6 bg-gray-300 dark:bg-white/[0.12]" />
-                  <span className="text-xs text-gray-400 dark:text-gray-500 -ml-2.5 pl-3">{form.days_between} days later</span>
+              <input
+                type="range"
+                min="1"
+                max="90"
+                value={String(data[key as keyof DunningPaymentPlansFormData])}
+                onChange={(e) => onChange(key, parseInt(e.target.value))}
+                className="w-full accent-blue-600"
+              />
+              <div className="flex justify-between text-xs text-gray-400 mt-1">
+                <span>1 day</span>
+                <span>90 days</span>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Validation Help Text */}
+        <div className="mt-6 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+          <p className="text-xs text-blue-700 dark:text-blue-400">
+            💡 Tip: Ensure Email 1 &lt; Email 2 &lt; Email 3 &lt; Email 4 &lt; Email 5 for optimal progression
+          </p>
+        </div>
+      </div>
+
+      {/* Auto-Pause Section */}
+      <div className="border-t border-gray-200 dark:border-white/[0.06] pt-8">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">
+          Automation Rules
+        </h3>
+
+        <div className="flex items-center justify-between p-4 border border-gray-200 dark:border-white/[0.06] rounded-lg">
+          <div>
+            <p className="text-sm font-medium text-gray-900 dark:text-white">
+              Auto-pause on reply
+            </p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Automatically stop dunning sequence if customer replies
+            </p>
+          </div>
+          <button
+            onClick={() => onChange('autoPauseOnReply', !data.autoPauseOnReply)}
+            type="button"
+            className={`relative w-11 h-6 rounded-full transition-colors ${
+              data.autoPauseOnReply ? 'bg-blue-600' : 'bg-gray-300 dark:bg-white/[0.12]'
+            }`}
+          >
+            <span
+              className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                data.autoPauseOnReply ? 'translate-x-5' : ''
+              }`}
+            />
+          </button>
+        </div>
+      </div>
+
+      {/* Payment Plan Splits Section */}
+      <div className="border-t border-gray-200 dark:border-white/[0.06] pt-8">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">
+          Payment Plan Splits
+        </h3>
+
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+          Configure payment split percentages based on risk tier. Format: upfront/remaining (e.g., 50/50)
+        </p>
+
+        <div className="space-y-4">
+          {[
+            {
+              key: 'lowRiskSplit',
+              label: 'Low Risk',
+              description: 'Invoices overdue &lt;15 days or high payment history',
+            },
+            {
+              key: 'medRiskSplit',
+              label: 'Medium Risk',
+              description: 'Invoices overdue 15-30 days',
+            },
+            {
+              key: 'highRiskSplit',
+              label: 'High Risk',
+              description: 'Invoices overdue &gt;30 days or payment issues',
+            },
+          ].map(({ key, label, description }) => (
+            <div key={key}>
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{label}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{description}</p>
                 </div>
+                <input
+                  type="text"
+                  value={String(data[key as keyof DunningPaymentPlansFormData])}
+                  onChange={(e) => onChange(key, e.target.value)}
+                  placeholder="50/50"
+                  maxLength={8}
+                  className={cn(
+                    'w-20 px-3 py-2 border rounded-lg text-right',
+                    'text-gray-900 dark:text-white',
+                    'bg-white dark:bg-white/[0.03]',
+                    'focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors',
+                    errors[key] ? 'border-red-500' : 'border-gray-300 dark:border-white/[0.08]'
+                  )}
+                />
+              </div>
+              {errors[key] && (
+                <p className="text-xs text-red-500">{errors[key]}</p>
               )}
             </div>
           ))}
         </div>
+
+        <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+          <p className="text-xs text-blue-700 dark:text-blue-400">
+            Example: 50/50 means customer pays 50% upfront, remaining 50% over time
+          </p>
+        </div>
       </div>
-    </Card>
+
+      {/* Action Buttons */}
+      <div className="flex justify-end gap-3 border-t border-gray-200 dark:border-white/[0.06] pt-8">
+        <button
+          className={cn(
+            'px-4 py-2 rounded-lg font-medium transition-colors',
+            'bg-gray-200 text-gray-900 dark:bg-white/[0.08] dark:text-white',
+            'hover:bg-gray-300 dark:hover:bg-white/[0.12]',
+            !isDirty && 'opacity-50 cursor-not-allowed'
+          )}
+          disabled={!isDirty || isSaving}
+        >
+          Cancel
+        </button>
+        <button
+          onClick={handleSave}
+          disabled={!isDirty || isSaving}
+          className={cn(
+            'px-4 py-2 rounded-lg font-medium transition-colors',
+            'bg-blue-600 text-white hover:bg-blue-700',
+            'disabled:opacity-50 disabled:cursor-not-allowed'
+          )}
+        >
+          {isSaving ? 'Saving...' : 'Save Changes'}
+        </button>
+      </div>
+    </div>
   );
 };

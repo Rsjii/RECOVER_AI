@@ -4,6 +4,7 @@ import { api } from '../../lib/api';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 
+type AuthStep = 'auth' | 'otp' | 'details';
 type AuthMethod = 'email' | 'google';
 
 export const Stage1: React.FC = () => {
@@ -11,55 +12,38 @@ export const Stage1: React.FC = () => {
   const token = searchParams.get('token');
   const navigate = useNavigate();
 
+  // Auth Step
+  const [authStep, setAuthStep] = useState<AuthStep>('auth');
   const [authMethod, setAuthMethod] = useState<AuthMethod>('email');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
-  // Load from SessionStorage on mount (only if same token)
-  useEffect(() => {
-    const storedToken = sessionStorage.getItem('current-token');
+  // OTP Step (inline, not separate page)
+  const [otp, setOtp] = useState('');
+  const [otpError, setOtpError] = useState('');
+  const [otpAttemptsLeft, setOtpAttemptsLeft] = useState(5);
 
-    // Different token = new invite link, clear all SessionStorage
-    if (storedToken && storedToken !== token) {
-      sessionStorage.removeItem('stage-1-data');
-      sessionStorage.removeItem('stage-2-data');
-      sessionStorage.removeItem('stage-3-data');
-      sessionStorage.removeItem('current-token');
-      return;
-    }
+  // Details Step (company + first/last name)
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [companyName, setCompanyName] = useState('');
 
-    // Store current token
-    if (token) {
-      sessionStorage.setItem('current-token', token);
-    }
-
-    // Load Stage 1 data only if token matches
-    const saved = sessionStorage.getItem('stage-1-data');
-    if (saved && storedToken === token) {
-      const { authMethod: am, email: e, password: p } = JSON.parse(saved);
-      setAuthMethod(am || 'email');
-      setEmail(e || '');
-      setPassword(p || '');
-    }
-  }, [token]);
-
-  // Save to SessionStorage on change
-  useEffect(() => {
-    sessionStorage.setItem('stage-1-data', JSON.stringify({ authMethod, email, password }));
-  }, [authMethod, email, password]);
-
+  // Global state
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [validating, setValidating] = useState(true);
   const [expiresInDays, setExpiresInDays] = useState<number | null>(null);
 
+  // Progress indicator
+  const progressSteps = ['Account', 'Details'];
+  const currentProgressStep = authStep === 'auth' ? 0 : 1;
+
+  // Validate token on mount
   useEffect(() => {
     const init = async () => {
-      // Block chrome back button from going before this stage
       window.history.replaceState(null, '', window.location.href);
 
-      // 1. Check if user already has a valid session → resume from correct stage
       try {
         const check: any = await api.get('/api/audits/check-stage');
         if (check?.stage) {
@@ -71,10 +55,9 @@ export const Stage1: React.FC = () => {
           return;
         }
       } catch {
-        // Not authenticated — proceed with token validation below
+        // Not authenticated — proceed
       }
 
-      // 2. Validate invite token
       if (!token) {
         setError('Invalid link — no token found');
         setValidating(false);
@@ -97,7 +80,8 @@ export const Stage1: React.FC = () => {
     init();
   }, [token]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // ===== AUTH STEP: Email/Password or OAuth =====
+  const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
@@ -122,23 +106,115 @@ export const Stage1: React.FC = () => {
         oauth_provider: authMethod === 'google' ? 'google' : undefined,
       });
 
-      // Google → account created, go to details
+      // Google OAuth: account created, go to details
       if (authMethod === 'google' && res?.user) {
-        navigate(`/onboard/stage-3?token=${token}`);
+        setFirstName(email.split('@')[0]);
+        setLastName('');
+        setAuthStep('details');
+        setLoading(false);
         return;
       }
 
-      // Email+PW → OTP sent
+      // Email+PW: OTP verification required (inline on same page)
       if (res?.requires_otp_verification) {
-        navigate(`/onboard/stage-2?token=${token}&email=${encodeURIComponent(email)}`);
+        setAuthStep('otp');
+        setLoading(false);
         return;
       }
 
-      navigate(`/onboard/stage-3?token=${token}`);
+      // Should not reach here, but handle it
+      setError('Unexpected response');
+      setLoading(false);
     } catch (err: any) {
       setError(err?.message || 'Failed to process');
       setLoading(false);
     }
+  };
+
+  // ===== OTP STEP: Verify OTP (inline, not separate page) =====
+  const handleOtpSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setOtpError('');
+
+    if (!otp || otp.length < 6) {
+      setOtpError('Enter the 6-digit code');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await api.post('/api/audits/stage/1/verify-otp', { email, otp, token });
+      // OTP verified, now ask for first/last name
+      setFirstName(email.split('@')[0]);
+      setLastName('');
+      setAuthStep('details');
+      setLoading(false);
+    } catch (err: any) {
+      const attempts = err?.details?.attempts_left;
+      if (attempts !== undefined) {
+        setOtpAttemptsLeft(attempts);
+        setOtpError(`Wrong code. ${attempts} attempt${attempts === 1 ? '' : 's'} remaining.`);
+      } else {
+        setOtpError(err?.message || 'Failed to verify code');
+      }
+      setLoading(false);
+    }
+  };
+
+  // ===== DETAILS STEP: First/Last + Company Name =====
+  const handleDetailsSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+
+    if (!firstName.trim()) {
+      setError('First name is required');
+      return;
+    }
+    if (!lastName.trim()) {
+      setError('Last name is required');
+      return;
+    }
+    if (!companyName.trim()) {
+      setError('Company name is required');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Update user details (first/last name) - now in stage/1/details
+      await api.post('/api/audits/stage/1/details', {
+        company_name: companyName.trim(),
+        first_name: firstName.trim(),
+        last_name: lastName.trim(),
+      });
+      navigate(`/onboard/stage-2?token=${token}`);
+    } catch (err: any) {
+      setError(err?.message || 'Failed to save');
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleOAuth = () => {
+    setAuthMethod('google');
+    setLoading(true);
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+    const redirectUri = `${window.location.origin}/auth/google/callback?token=${token}`;
+    const scope = 'openid email profile';
+    const responseType = 'code';
+    const state = Math.random().toString(36).substring(7);
+
+    sessionStorage.setItem('oauth_state', state);
+    sessionStorage.setItem('oauth_token', token || '');
+
+    const params = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      scope,
+      response_type: responseType,
+      state,
+    });
+
+    window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
   };
 
   if (validating) {
@@ -152,79 +228,97 @@ export const Stage1: React.FC = () => {
     );
   }
 
-  if (error && !email) {
-    const alreadyUsed = error.includes('already been used');
+  if (error && authStep === 'auth') {
     return (
-      <div className="min-h-screen bg-white dark:bg-slate-950 flex items-center justify-center p-4">
-        <div className="max-w-md w-full text-center">
-          <div className="text-4xl mb-4">{alreadyUsed ? '🔑' : '❌'}</div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-            {alreadyUsed ? 'Account Already Created' : 'Invalid Link'}
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400 mb-6">{error}</p>
-          {alreadyUsed && (
-            <a
-              href="/login"
-              className="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition"
-            >
-              Sign In →
-            </a>
-          )}
+      <div className="min-h-screen bg-white dark:bg-slate-950 flex items-center justify-center px-4">
+        <div className="max-w-md w-full">
+          <div className="text-center mb-8">
+            <h1 className="text-2xl font-bold text-red-600 dark:text-red-400 mb-2">Invalid Link</h1>
+            <p className="text-gray-600 dark:text-gray-400">{error}</p>
+          </div>
+          <Button
+            onClick={() => navigate('/landing')}
+            className="w-full"
+          >
+            Return to Home
+          </Button>
         </div>
       </div>
     );
   }
 
-  return (
-    <div className="min-h-screen bg-white dark:bg-slate-950">
-      <div className="container mx-auto px-4 py-12">
-        <div className="max-w-md mx-auto">
-          {/* Progress */}
-          <div className="flex items-center gap-2 mb-10">
-            <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-bold">1</div>
-            <span className="text-sm font-medium text-gray-900 dark:text-white">Account</span>
-            <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700"></div>
-            <div className="w-8 h-8 bg-gray-200 dark:bg-gray-700 text-gray-500 rounded-full flex items-center justify-center text-sm">2</div>
-            <span className="text-sm text-gray-500">Details</span>
-            <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700"></div>
-            <div className="w-8 h-8 bg-gray-200 dark:bg-gray-700 text-gray-500 rounded-full flex items-center justify-center text-sm">3</div>
-            <span className="text-sm text-gray-500">Connect</span>
-            <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700"></div>
-            <div className="w-8 h-8 bg-gray-200 dark:bg-gray-700 text-gray-500 rounded-full flex items-center justify-center text-sm">4</div>
-            <span className="text-sm text-gray-500">Analysis</span>
-          </div>
+  // ===== AUTH STEP UI =====
+  if (authStep === 'auth') {
+    return (
+      <div className="min-h-screen bg-white dark:bg-slate-950">
+        <div className="container mx-auto px-4 py-12">
+          <div className="max-w-md mx-auto">
+            {/* Progress */}
+            <div className="flex items-center gap-2 mb-10">
+              {progressSteps.map((step, i) => (
+                <React.Fragment key={step}>
+                  <div
+                    className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                      i <= currentProgressStep
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+                    }`}
+                  >
+                    {i < currentProgressStep ? '✓' : i + 1}
+                  </div>
+                  <span
+                    className={`text-sm ${
+                      i < currentProgressStep
+                        ? 'text-green-600 dark:text-green-400'
+                        : i === currentProgressStep
+                        ? 'font-medium text-gray-900 dark:text-white'
+                        : 'text-gray-500'
+                    }`}
+                  >
+                    {step}
+                  </span>
+                  {i < progressSteps.length - 1 && (
+                    <div
+                      className={`flex-1 h-px ${
+                        i < currentProgressStep
+                          ? 'bg-green-200 dark:bg-green-800'
+                          : 'bg-gray-200 dark:bg-gray-700'
+                      }`}
+                    ></div>
+                  )}
+                </React.Fragment>
+              ))}
+            </div>
 
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Create Your Account</h1>
-            {expiresInDays !== null && (
-              <p className="text-sm text-gray-500 dark:text-gray-400">Invite valid for {expiresInDays} more days</p>
-            )}
-          </div>
+            {/* Header */}
+            <div className="mb-8">
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Create Account</h1>
+              <p className="text-gray-600 dark:text-gray-400">
+                {expiresInDays ? `This link expires in ${expiresInDays} day${expiresInDays !== 1 ? 's' : ''}` : 'Sign in with your email or Google'}
+              </p>
+            </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
-              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+              <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
                 <p className="text-red-700 dark:text-red-400 text-sm">{error}</p>
               </div>
             )}
 
-            {/* Auth method tabs */}
-            <div className="flex gap-2">
+            {/* Tab Selection */}
+            <div className="flex gap-2 mb-6">
               <button
-                type="button"
-                onClick={() => setAuthMethod('email')}
-                className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition ${
+                onClick={() => { setAuthMethod('email'); setError(''); }}
+                className={`flex-1 py-2 rounded-lg font-medium transition ${
                   authMethod === 'email'
                     ? 'bg-blue-600 text-white'
                     : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
                 }`}
               >
-                Email + Password
+                Email
               </button>
               <button
-                type="button"
-                onClick={() => setAuthMethod('google')}
-                className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition ${
+                onClick={() => { setAuthMethod('google'); setError(''); }}
+                className={`flex-1 py-2 rounded-lg font-medium transition ${
                   authMethod === 'google'
                     ? 'bg-blue-600 text-white'
                     : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
@@ -234,58 +328,240 @@ export const Stage1: React.FC = () => {
               </button>
             </div>
 
-            {/* Email */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Email *
-              </label>
-              <Input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@company.com"
-                disabled={loading}
-              />
-            </div>
-
-            {/* Password (email method only) */}
-            {authMethod === 'email' && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Password (8+ characters) *
-                </label>
+            {/* Email Form */}
+            {authMethod === 'email' ? (
+              <form onSubmit={handleAuthSubmit} className="space-y-4">
+                <Input
+                  type="email"
+                  placeholder="Email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  disabled={loading}
+                />
                 <div className="relative">
                   <Input
                     type={showPassword ? 'text' : 'password'}
+                    placeholder="Password (min 8 chars)"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
                     disabled={loading}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                    className="absolute right-3 top-3 text-gray-600 dark:text-gray-400"
                   >
                     {showPassword ? '🙈' : '👁️'}
                   </button>
                 </div>
+                <Button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full"
+                >
+                  {loading ? 'Processing...' : 'Continue'}
+                </Button>
+              </form>
+            ) : (
+              <Button
+                onClick={handleGoogleOAuth}
+                disabled={loading}
+                className="w-full"
+              >
+                {loading ? 'Redirecting...' : '🔓 Sign in with Google'}
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ===== OTP STEP UI (inline, not separate page) =====
+  if (authStep === 'otp') {
+    return (
+      <div className="min-h-screen bg-white dark:bg-slate-950">
+        <div className="container mx-auto px-4 py-12">
+          <div className="max-w-md mx-auto">
+            {/* Progress */}
+            <div className="flex items-center gap-2 mb-10">
+              {progressSteps.map((step, i) => (
+                <React.Fragment key={step}>
+                  <div
+                    className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                      i <= currentProgressStep
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+                    }`}
+                  >
+                    {i < currentProgressStep ? '✓' : i + 1}
+                  </div>
+                  <span
+                    className={`text-sm ${
+                      i < currentProgressStep
+                        ? 'text-green-600 dark:text-green-400'
+                        : i === currentProgressStep
+                        ? 'font-medium text-gray-900 dark:text-white'
+                        : 'text-gray-500'
+                    }`}
+                  >
+                    {step}
+                  </span>
+                  {i < progressSteps.length - 1 && (
+                    <div
+                      className={`flex-1 h-px ${
+                        i < currentProgressStep
+                          ? 'bg-green-200 dark:bg-green-800'
+                          : 'bg-gray-200 dark:bg-gray-700'
+                      }`}
+                    ></div>
+                  )}
+                </React.Fragment>
+              ))}
+            </div>
+
+            {/* Header */}
+            <div className="mb-8">
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Verify Email</h1>
+              <p className="text-gray-600 dark:text-gray-400">
+                Check your email for a 6-digit code
+              </p>
+            </div>
+
+            {otpError && (
+              <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                <p className="text-red-700 dark:text-red-400 text-sm">{otpError}</p>
               </div>
             )}
 
-            <Button type="submit" fullWidth disabled={loading} className="mt-6">
-              {loading
-                ? (authMethod === 'email' ? 'Sending code...' : 'Creating account...')
-                : (authMethod === 'email' ? 'Continue →' : 'Sign up with Google →')}
-            </Button>
-          </form>
-
-          <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-6">
-            Already have an account?{' '}
-            <a href="/login" className="text-blue-600 hover:underline font-medium">Sign in</a>
-          </p>
+            <form onSubmit={handleOtpSubmit} className="space-y-4">
+              <Input
+                type="text"
+                placeholder="000000"
+                value={otp}
+                onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                maxLength={6}
+                disabled={loading}
+                className="text-center tracking-widest"
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
+                {otpAttemptsLeft} attempt{otpAttemptsLeft === 1 ? '' : 's'} remaining
+              </p>
+              <Button
+                type="submit"
+                disabled={loading || otp.length < 6}
+                className="w-full"
+              >
+                {loading ? 'Verifying...' : 'Verify'}
+              </Button>
+              <button
+                type="button"
+                onClick={() => setAuthStep('auth')}
+                className="w-full text-blue-600 dark:text-blue-400 text-sm hover:underline"
+              >
+                ← Back to Email
+              </button>
+            </form>
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  }
+
+  // ===== DETAILS STEP UI (First/Last + Company Name) =====
+  if (authStep === 'details') {
+    return (
+      <div className="min-h-screen bg-white dark:bg-slate-950">
+        <div className="container mx-auto px-4 py-12">
+          <div className="max-w-md mx-auto">
+            {/* Progress */}
+            <div className="flex items-center gap-2 mb-10">
+              {progressSteps.map((step, i) => (
+                <React.Fragment key={step}>
+                  <div
+                    className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                      i <= currentProgressStep
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+                    }`}
+                  >
+                    {i < currentProgressStep ? '✓' : i + 1}
+                  </div>
+                  <span
+                    className={`text-sm ${
+                      i < currentProgressStep
+                        ? 'text-green-600 dark:text-green-400'
+                        : i === currentProgressStep
+                        ? 'font-medium text-gray-900 dark:text-white'
+                        : 'text-gray-500'
+                    }`}
+                  >
+                    {step}
+                  </span>
+                  {i < progressSteps.length - 1 && (
+                    <div
+                      className={`flex-1 h-px ${
+                        i < currentProgressStep
+                          ? 'bg-green-200 dark:bg-green-800'
+                          : 'bg-gray-200 dark:bg-gray-700'
+                      }`}
+                    ></div>
+                  )}
+                </React.Fragment>
+              ))}
+            </div>
+
+            {/* Header */}
+            <div className="mb-8">
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Tell us about yourself</h1>
+              <p className="text-gray-600 dark:text-gray-400">
+                We'll use this to personalize your experience
+              </p>
+            </div>
+
+            {error && (
+              <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                <p className="text-red-700 dark:text-red-400 text-sm">{error}</p>
+              </div>
+            )}
+
+            <form onSubmit={handleDetailsSubmit} className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <Input
+                  type="text"
+                  placeholder="First Name"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  disabled={loading}
+                />
+                <Input
+                  type="text"
+                  placeholder="Last Name"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  disabled={loading}
+                />
+              </div>
+              <Input
+                type="text"
+                placeholder="Company Name"
+                value={companyName}
+                onChange={(e) => setCompanyName(e.target.value)}
+                disabled={loading}
+              />
+              <Button
+                type="submit"
+                disabled={loading}
+                className="w-full"
+              >
+                {loading ? 'Continuing...' : 'Continue to Integrations'}
+              </Button>
+            </form>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
 };

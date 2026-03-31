@@ -3,22 +3,21 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 
 interface StageGuardProps {
-  stage: 1 | 2 | 3 | 4 | 5;
+  stage: 1 | 2 | 3;
   children: React.ReactNode;
 }
 
 /**
- * StageGuard: Enforces strict stage progression
+ * StageGuard: Enforces strict stage progression (3-stage flow)
  *
  * Rules:
- * - Stage 1: Always accessible (entry point)
- * - Stage 2: Only if email entered OR account being created
- * - Stage 3: Only if account created (user exists)
- * - Stage 4: Only if company details entered + stripe_api_key_encrypted
- * - Stage 5: Only if analysis not yet generated, OR if already passed stage 5
+ * - Stage 1: Account creation + OTP + Company details (entry point, multi-step inline)
+ * - Stage 2: Integrations (Stripe connection)
+ * - Stage 3: Audit report + Start trial
  *
- * Once account is created, stages 1-2 are blocked.
- * Once Stage 5 analysis succeeds, all previous stages blocked.
+ * Once company details entered, Stage 1 is blocked.
+ * Once Stripe connected, Stage 2 is blocked.
+ * Once audit analysis generated, all previous stages blocked.
  */
 export const StageGuard: React.FC<StageGuardProps> = ({ stage, children }) => {
   const navigate = useNavigate();
@@ -34,7 +33,7 @@ export const StageGuard: React.FC<StageGuardProps> = ({ stage, children }) => {
 
     if (!canAccess) {
       // Redirect to appropriate stage based on current status
-      const targetStage = getTargetStage(user, company);
+      const targetStage = getTargetStage(company);
       navigate(`/onboard/stage-${targetStage}`, { replace: true });
     }
   }, [stage, user, company, navigate]);
@@ -54,18 +53,15 @@ function validateStageAccess(
 
   switch (stage) {
     case 1:
-      // Stage 1: Only accessible if account not yet created
-      // If user exists, they've passed stage 1
-      return !user?.id || currentStage === 'pending' || currentStage === 'create_account';
+      // Stage 1 (Account + OTP + Details): Accessible until company details completed
+      return (
+        currentStage === 'pending' ||
+        currentStage === 'create_account' ||
+        currentStage === 'details_form'
+      );
 
     case 2:
-      // Stage 2: Only if account being created (create_account stage)
-      // Can go back to Stage 1 from here to change email
-      return currentStage === 'create_account' || currentStage === 'pending';
-
-    case 3:
-      // Stage 3: Only if account created (user exists) and not yet in integrations
-      // Block if still in create_account, allow if details_form or beyond
+      // Stage 2 (Integrations): Only after company details, before audit report
       return (
         !!user?.id &&
         (currentStage === 'details_form' ||
@@ -76,8 +72,8 @@ function validateStageAccess(
           currentStage === 'paid_active')
       );
 
-    case 4:
-      // Stage 4: Only if company details entered and not yet in audit_report
+    case 3:
+      // Stage 3 (Audit Report): Only after Stripe connected
       return (
         !!user?.id &&
         (currentStage === 'integrations' ||
@@ -85,14 +81,6 @@ function validateStageAccess(
           currentStage === 'trial_active' ||
           currentStage === 'trial_offer' ||
           currentStage === 'paid_active')
-      );
-
-    case 5:
-      // Stage 5: Only if in integrations (Stripe connected) or audit_report
-      // Once in audit_report, stay there. Can't go back.
-      return (
-        !!user?.id &&
-        (currentStage === 'integrations' || currentStage === 'audit_report' || currentStage === 'trial_active' || currentStage === 'trial_offer' || currentStage === 'paid_active')
       );
 
     default:
@@ -103,26 +91,21 @@ function validateStageAccess(
 /**
  * Determine the correct stage user should be redirected to
  */
-function getTargetStage(user: any, company: any): number {
+function getTargetStage(company: any): number {
   const currentStage = company?.onboarding_stage || 'pending';
-
-  if (!user?.id) {
-    return 1; // Not authenticated, go to stage 1
-  }
 
   switch (currentStage) {
     case 'pending':
     case 'create_account':
-      return 1; // Still creating account
     case 'details_form':
-      return 3; // In company details
+      return 1; // Account + OTP + Company details
     case 'integrations':
-      return 4; // In Stripe connection
+      return 2; // Stripe connection
     case 'audit_report':
     case 'trial_active':
     case 'trial_offer':
     case 'paid_active':
-      return 5; // In or past audit report
+      return 3; // Audit report + Start trial
     default:
       return 1;
   }

@@ -6,6 +6,7 @@ import { config } from '../config/env';
 import { pool } from '../config/database';
 import * as SecurityDB from '../db/security';
 import * as UserDB from '../db/users';
+import * as CompanyDB from '../db/companies';
 import resendService from '../services/resendService';
 import { logError as baseLogError, logInfo as baseLogInfo } from '../utils/logger';
 import { sendErrorResponse, parseError } from '../utils/errorHandler';
@@ -57,13 +58,69 @@ const clearCookies = (res: Response) => {
 // ============ Handlers ============
 
 export const signup = async (req: Request, res: Response) => {
-  // Signup disabled - pilot program only
-  // Users must apply via /api/pilots/request to join
-  logInfo('signup', 'Signup disabled', { email: req.body.email });
-  return res.status(403).json({
-    code: 'SIGNUP_DISABLED',
-    error: 'Sign up is disabled. Please apply for our pilot program at /landing',
-  });
+  const handler = 'signup';
+  const startTime = Date.now();
+
+  try {
+    const { email, password, companyName, firstName, lastName, planCode = 'phase_0' } = req.body;
+
+    logInfo(handler, 'Request received', { email, companyName });
+
+    // Validation
+    if (!email || !password || !companyName) {
+      logInfo(handler, 'Validation failed — missing required fields');
+      return res.status(400).json({ error: 'Missing required fields: email, password, companyName' });
+    }
+
+    if (password.length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    }
+
+    // Call authService to create account
+    const result = await authService.signup({
+      email,
+      password,
+      companyName,
+      firstName,
+      lastName,
+      planCode,
+    });
+
+    // Update company onboarding_stage to 'integrations' to skip company details form
+    await CompanyDB.updateCompany(result.company.id, { onboarding_stage: 'integrations' });
+
+    // Create session
+    await SecurityDB.createSession({
+      userId: result.user.id,
+      companyId: result.company.id,
+      refreshToken: result.tokens.refreshToken,
+      userAgent: req.get('user-agent') || undefined,
+      ipAddress: req.ip,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    });
+
+    // Set cookies
+    setCookies(res, result.tokens.accessToken, result.tokens.refreshToken);
+
+    const elapsed = Date.now() - startTime;
+    logInfo(handler, `Completed in ${elapsed}ms`, { userId: result.user.id });
+
+    // In dev mode, include devOtpCode for testing
+    const isDev = config.nodeEnv !== 'production';
+    const devOtpCode = isDev ? '123456' : undefined;
+
+    return res.status(201).json({
+      message: 'Account created. Verify your email to continue.',
+      user: result.user,
+      company: { ...result.company, onboarding_stage: 'integrations' },
+      devOtpCode,
+    });
+  } catch (err: any) {
+    const elapsed = Date.now() - startTime;
+    logError(handler, `Failed after ${elapsed}ms`, err);
+    const { statusCode, message } = parseError(err);
+    return sendErrorResponse(res, statusCode, message);
+  }
 };
 
 export const login = async (req: Request, res: Response) => {
@@ -182,6 +239,8 @@ export const me = async (req: Request, res: Response) => {
         role: result.role,
         emailVerified: result.emailVerified,
         onboardingStatus: result.onboardingStatus,
+        authProvider: result.authProvider || 'email',
+        hasPassword: !!result.passwordHash,
       },
       company: result.company,
     });
@@ -742,6 +801,68 @@ export const onboardWithToken = async (req: Request, res: Response) => {
     });
   } catch (err: any) {
     logError(handler, 'Onboard failed', err);
+    const { statusCode, message } = parseError(err);
+    return sendErrorResponse(res, statusCode, message);
+  }
+};
+
+/**
+ * Change password for authenticated user
+ * POST /api/auth/change-password
+ * Requires: currentPassword, newPassword
+ */
+export const changePassword = async (req: Request, res: Response) => {
+  const handler = 'changePassword';
+  const startTime = Date.now();
+  try {
+    const userId = (req as any).userId;
+    const { currentPassword, newPassword } = req.body;
+
+    if (!userId) {
+      return sendErrorResponse(res, 401, 'Unauthorized');
+    }
+
+    if (!currentPassword || !newPassword) {
+      return sendErrorResponse(res, 400, 'currentPassword and newPassword are required');
+    }
+
+    if (newPassword.length < 8) {
+      return sendErrorResponse(res, 400, 'New password must be at least 8 characters');
+    }
+
+    // Fetch user
+    const user = await UserDB.findUserById(userId);
+    if (!user) {
+      return sendErrorResponse(res, 404, 'User not found');
+    }
+
+    // Check if user has password (OAuth-only users don't have a password)
+    if (!user.password_hash) {
+      logInfo(handler, 'User signed up via OAuth, no password set', { userId });
+      return sendErrorResponse(res, 403, 'Your account uses Google authentication. You can set a password first if you want to use email/password login.');
+    }
+
+    // Verify current password
+    const isPasswordValid = await bcrypt.compare(currentPassword, user.password_hash);
+    if (!isPasswordValid) {
+      logInfo(handler, 'Invalid current password', { userId });
+      return sendErrorResponse(res, 401, 'Current password is incorrect');
+    }
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // Update password in database
+    await pool.query(
+      'UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2',
+      [hashedPassword, userId]
+    );
+
+    logInfo(handler, `Password changed successfully in ${Date.now() - startTime}ms`, { userId });
+    return res.status(200).json({ message: 'Password changed successfully' });
+  } catch (err: any) {
+    const elapsed = Date.now() - startTime;
+    logError(handler, `Failed after ${elapsed}ms`, err);
     const { statusCode, message } = parseError(err);
     return sendErrorResponse(res, statusCode, message);
   }

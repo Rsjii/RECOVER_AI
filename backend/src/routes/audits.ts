@@ -79,21 +79,9 @@ router.post('/requests/verify-email', auditOtpLimiter, auditController.verifyAud
 
 /**
  * GET /api/audits/requests (Admin only)
- * List all audit requests with optional status filter
+ * List all audit requests - admin dashboard shows who ran audits
  */
 router.get('/requests', authMiddleware, requireRole('admin'), auditController.listAuditRequests);
-
-/**
- * POST /api/audits/requests/:id/approve (Admin only)
- * Admin approves request, generates token, sends email
- */
-router.post('/requests/:id/approve', authMiddleware, requireRole('admin'), auditController.approveAuditRequest);
-
-/**
- * POST /api/audits/requests/:id/reject (Admin only)
- * Admin rejects request, sends rejection email
- */
-router.post('/requests/:id/reject', authMiddleware, requireRole('admin'), auditController.rejectAuditRequest);
 
 /**
  * GET /api/audits/validate-token

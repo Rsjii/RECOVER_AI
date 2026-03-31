@@ -8,6 +8,7 @@ export interface User {
   last_login?: string;
   emailVerified?: boolean;
   onboardingStatus?: 'onboarding' | 'company_form' | 'stripe_pending' | 'active';
+  authProvider?: 'email' | 'google' | 'both';
 }
 
 export interface Company {

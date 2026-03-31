@@ -2,19 +2,66 @@ import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { api } from '../../lib/api';
 import { Button } from '../../components/ui/Button';
-import { Input } from '../../components/ui/Input';
+import { Card } from '../../components/ui/Card';
+import { Spinner } from '../../components/ui/Spinner';
+import { logError } from '../../utils/logger';
 import { useNotification } from '../../hooks/useNotification';
+
+interface Analysis {
+  source: string;
+  total_invoiced: number;
+  total_unpaid: number;
+  overdue_ar: number;
+  avg_days_late: number;
+  oldest_unpaid_days: number;
+  aging_buckets?: {
+    bucket_0_30: { count: number; amount: number; percentage: number };
+    bucket_31_60: { count: number; amount: number; percentage: number };
+    bucket_61_90: { count: number; amount: number; percentage: number };
+    bucket_90plus: { count: number; amount: number; percentage: number };
+  };
+  customer_concentration?: {
+    total_unique_customers: number;
+    customers_holding_80_percent: number;
+    concentration_ratio_percentage: number;
+    note: string;
+  };
+  high_risk_invoices?: {
+    count: number;
+    total_amount: number;
+    percentage_of_unpaid: number;
+    note: string;
+  };
+  trend?: {
+    direction: 'improving' | 'worsening' | 'stable';
+    percent_change: number;
+    months_tracked: number;
+    note: string;
+  };
+  billing_errors: {
+    duplicates: { count: number; estimated_value: number };
+    spikes: { count: number; estimated_value: number };
+    total_at_risk: number;
+  };
+  next_steps: string[];
+  plaid_unlocks: {
+    cash_balance: string;
+    cash_runway: string;
+    burn_rate: string;
+    payables: string;
+  };
+}
 
 export const Stage3: React.FC = () => {
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token') || '';
   const navigate = useNavigate();
-
   const { addToast } = useNotification();
-  const [companyName, setCompanyName] = useState('');
+
+  const [analysis, setAnalysis] = useState<Analysis | null>(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [initialLoading, setInitialLoading] = useState(true);
+  const [starting, setStarting] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
 
@@ -22,7 +69,6 @@ export const Stage3: React.FC = () => {
     setLoggingOut(true);
     try {
       await api.post('/api/auth/logout');
-      // Clear SessionStorage
       sessionStorage.removeItem('stage-1-data');
       sessionStorage.removeItem('stage-2-data');
       sessionStorage.removeItem('stage-3-data');
@@ -34,183 +80,430 @@ export const Stage3: React.FC = () => {
     }
   };
 
-  // Load from SessionStorage on mount (only if same token)
   useEffect(() => {
-    const storedToken = sessionStorage.getItem('current-token');
-
-    // Only load if same token
-    if (storedToken === token) {
-      const saved = sessionStorage.getItem('stage-3-data');
-      if (saved) {
-        const { companyName: cn } = JSON.parse(saved);
-        if (cn) setCompanyName(cn);
-      }
-    }
-  }, [token]);
-
-  // Save to SessionStorage on change
-  useEffect(() => {
-    sessionStorage.setItem('stage-3-data', JSON.stringify({ companyName }));
-  }, [companyName]);
-
-  // Load current company name from session
-  useEffect(() => {
-    const loadCompany = async () => {
-      // Block chrome back button from going before this stage
-      window.history.replaceState(null, '', window.location.href);
-
+    const fetchAnalysis = async () => {
       try {
-        const res: any = await api.get('/api/audits/check-stage');
-        if (res?.company_name) setCompanyName(res.company_name);
-        // Only redirect forward if past stage 4 (trial/dashboard)
-        // Stage 4 is allowed to navigate back here to edit company name
-        if (res?.stage === 0) {
-          navigate('/dashboard', { replace: true });
+        const res: any = await api.get('/api/audits/stage/3/analysis');
+        setAnalysis(res);
+      } catch (err: any) {
+        if (err?.status === 401) {
+          navigate(`/onboard/stage-1?token=${token}`, { replace: true });
           return;
         }
-        if (res?.stage >= 5) {
-          navigate(`/onboard/stage-5?token=${token}`, { replace: true });
-          return;
-        }
-      } catch {
-        // Cookie expired — redirect to stage 1
-        navigate(`/onboard/stage-1?token=${token}`, { replace: true });
-        return;
+        logError('Stage3', 'fetchAnalysis', err?.message || 'unknown');
+        setError(err?.message || 'Failed to generate analysis');
       }
-      setInitialLoading(false);
+      setLoading(false);
     };
 
-    loadCompany();
-  }, []);
+    fetchAnalysis();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
+    // Back button prevention logic:
+    // - DEV: Always allow back navigation (Stage 3 → Stage 2)
+    // - PROD: Allow back if analysis failed or still loading. Block only when analysis succeeds.
+    const isDev = import.meta.env.DEV;
 
-    if (!companyName.trim()) {
-      setError('Company name is required');
-      return;
+    // Only prevent back in PROD if analysis is SUCCESSFULLY generated
+    if (!isDev && analysis && !error) {
+      // Production + Analysis successful: Block back button
+      window.history.pushState({ stage3: true }, '', window.location.href);
+
+      const preventBack = () => {
+        // Any attempt to go back gets immediately blocked
+        window.history.pushState({ stage3: true }, '', window.location.href);
+      };
+
+      window.addEventListener('popstate', preventBack);
+
+      // Cleanup: Remove event listener on unmount
+      return () => window.removeEventListener('popstate', preventBack);
     }
 
-    setLoading(true);
+    // Dev mode OR (analysis failed/loading): Allow normal back navigation
+  }, [analysis, error]);
+
+
+  const handleStartTrial = async () => {
+    setStarting(true);
     try {
-      await api.post('/api/audits/stage/3/details', { company_name: companyName.trim() });
-      navigate(`/onboard/stage-4?token=${token}`);
+      await api.post('/api/audits/stage/3/start-trial');
+      sessionStorage.removeItem('stage-1-data');
+      sessionStorage.removeItem('stage-2-data');
+      sessionStorage.removeItem('stage-3-data');
+      addToast({ type: 'success', message: '✓ Trial started! Redirecting...' });
+      setTimeout(() => navigate('/dashboard', { replace: true }), 1500);
     } catch (err: any) {
-      setError(err?.message || 'Failed to save');
-      setLoading(false);
+      logError('Stage3', 'handleStartTrial', err?.message || 'unknown');
+      setError(err?.message || 'Failed to start trial');
+      setStarting(false);
     }
   };
 
-  if (initialLoading) {
+  if (loading) {
     return (
-      <div className="min-h-screen bg-white dark:bg-slate-950 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 flex items-center justify-center px-4">
+        <div className="text-center">
+          <Spinner size="lg" />
+          <p className="mt-4 text-slate-600 dark:text-slate-400">Analyzing your cash position...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !analysis) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 flex items-center justify-center px-4">
+        <Card className="max-w-md w-full bg-white dark:bg-slate-900 p-8 text-center">
+          <div className="text-6xl mb-4">⚠️</div>
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Analysis Failed</h2>
+          <p className="text-slate-600 dark:text-slate-400 mb-6">{error || 'Unable to load analysis'}</p>
+          <div className="space-y-3">
+            <Button onClick={() => window.location.reload()} className="w-full" variant="primary">
+              Try Again
+            </Button>
+            <Button onClick={() => window.history.back()} className="w-full" variant="secondary">
+              Go Back to Stripe Connection
+            </Button>
+          </div>
+        </Card>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-white dark:bg-slate-950">
-      <div className="container mx-auto px-4 py-12">
-        <div className="max-w-md mx-auto">
-          {/* Progress */}
-          <div className="flex items-center gap-2 mb-10">
-            <div className="w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center text-sm">✓</div>
-            <span className="text-sm text-gray-500">Account</span>
-            <div className="flex-1 h-px bg-green-200 dark:bg-green-800"></div>
-            <div className="w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center text-sm">✓</div>
-            <span className="text-sm text-gray-500">Verify</span>
-            <div className="flex-1 h-px bg-blue-200 dark:bg-blue-800"></div>
-            <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-bold">3</div>
-            <span className="text-sm font-medium text-gray-900 dark:text-white">Details</span>
-            <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700"></div>
-            <div className="w-8 h-8 bg-gray-200 dark:bg-gray-700 text-gray-500 rounded-full flex items-center justify-center text-sm">4</div>
-            <span className="text-sm text-gray-500">Connect</span>
+    <div className="min-h-screen bg-gradient-to-b from-white to-slate-50 dark:from-slate-950 dark:to-slate-900">
+      {/* Header */}
+      <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+          <div className="text-center">
+            <h1 className="text-3xl sm:text-4xl font-bold text-slate-900 dark:text-white mb-2">
+              Your Cash Operations Snapshot
+            </h1>
+            <p className="text-slate-600 dark:text-slate-300 text-sm sm:text-base">
+              Based on Stripe invoice data
+            </p>
           </div>
-
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Your Company</h1>
-            <p className="text-gray-600 dark:text-gray-400">Confirm or update your company name</p>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
-              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-                <p className="text-red-700 dark:text-red-400 text-sm">{error}</p>
-              </div>
-            )}
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Company Name *
-              </label>
-              <Input
-                type="text"
-                value={companyName}
-                onChange={(e) => setCompanyName(e.target.value)}
-                placeholder="e.g., Acme Corp"
-                disabled={loading}
-              />
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                This is shown to your customers in recovery emails
-              </p>
-            </div>
-
-            <div className="space-y-3 mt-6">
-              <Button type="submit" fullWidth disabled={loading || !companyName.trim()}>
-                {loading ? 'Saving...' : 'Continue →'}
-              </Button>
-            </div>
-          </form>
-
-          <p className="text-center text-xs text-gray-500 dark:text-gray-400 mt-6">
-            Your data is encrypted and secure
-          </p>
-
-          {/* Logout button */}
-          <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-800">
-            <button
-              type="button"
-              onClick={() => setShowLogoutConfirm(true)}
-              disabled={loggingOut}
-              className="w-full text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 font-medium py-2 transition"
-            >
-              ← Exit onboarding
-            </button>
-          </div>
-
-          {/* Logout confirmation modal */}
-          {showLogoutConfirm && (
-            <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center p-4 z-50">
-              <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-gray-700 p-6 max-w-sm w-full">
-                <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Exit onboarding?</h2>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
-                  Your progress will be saved. You can continue later using the same link.
-                </p>
-                <div className="flex gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setShowLogoutConfirm(false)}
-                    disabled={loggingOut}
-                    className="flex-1 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 font-medium text-sm transition disabled:opacity-50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleLogout}
-                    disabled={loggingOut}
-                    className="flex-1 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white font-medium text-sm transition disabled:opacity-50"
-                  >
-                    {loggingOut ? 'Exiting...' : 'Exit'}
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       </div>
+
+      {/* Main Content */}
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
+        {/* AR Picture Section */}
+        <div className="mb-12 sm:mb-16">
+          <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+            <span>📊</span> Your AR Picture
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Card className="bg-white dark:bg-slate-900 p-4 sm:p-6 border-l-4 border-blue-500">
+              <p className="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-400 mb-2">Total Invoiced</p>
+              <p className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">
+                ${(analysis.total_invoiced / 1000).toFixed(1)}K
+              </p>
+              <p className="text-xs text-slate-500 dark:text-slate-500 mt-2">All time</p>
+            </Card>
+
+            <Card className="bg-white dark:bg-slate-900 p-4 sm:p-6 border-l-4 border-purple-500">
+              <p className="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-400 mb-2">Currently Unpaid</p>
+              <p className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">
+                ${(analysis.total_unpaid / 1000).toFixed(1)}K
+              </p>
+              <p className="text-xs text-slate-500 dark:text-slate-500 mt-2">Outstanding</p>
+            </Card>
+
+            <Card className="bg-white dark:bg-slate-900 p-4 sm:p-6 border-l-4 border-orange-500">
+              <p className="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-400 mb-2">Overdue AR</p>
+              <p className="text-2xl sm:text-3xl font-bold text-orange-600 dark:text-orange-400">
+                ${(analysis.overdue_ar / 1000).toFixed(1)}K
+              </p>
+              <p className="text-xs text-slate-500 dark:text-slate-500 mt-2">Past due</p>
+            </Card>
+
+            <Card className="bg-white dark:bg-slate-900 p-4 sm:p-6 border-l-4 border-emerald-500">
+              <p className="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-400 mb-2">Collection Velocity</p>
+              <p className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">{analysis.avg_days_late}d</p>
+              <p className="text-xs text-slate-500 dark:text-slate-500 mt-2">Average days late</p>
+            </Card>
+          </div>
+          {analysis.oldest_unpaid_days > 0 && (
+            <p className="text-sm text-slate-600 dark:text-slate-400 mt-4 p-3 bg-slate-50 dark:bg-slate-800 rounded">
+              ⚠️ Oldest unpaid invoice: <strong>{analysis.oldest_unpaid_days} days overdue</strong>
+            </p>
+          )}
+        </div>
+
+        {/* Billing Errors Detection */}
+        {analysis.billing_errors && analysis.billing_errors.total_at_risk > 0 && (
+          <div className="mb-12 sm:mb-16">
+            <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+              <span>🚨</span> Billing Errors Detected: ${Math.round(analysis.billing_errors.total_at_risk / 1000)}K
+            </h2>
+            <Card className="bg-orange-50 dark:bg-orange-900/10 border border-orange-200 dark:border-orange-800 p-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {analysis.billing_errors.duplicates.count > 0 && (
+                  <div>
+                    <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">
+                      {analysis.billing_errors.duplicates.count}
+                    </p>
+                    <p className="text-sm text-orange-700 dark:text-orange-300 mt-1">Duplicate Invoices</p>
+                    <p className="text-sm font-semibold text-orange-600 dark:text-orange-400">
+                      ~${Math.round(analysis.billing_errors.duplicates.estimated_value / 1000)}K estimated
+                    </p>
+                  </div>
+                )}
+                {analysis.billing_errors.spikes.count > 0 && (
+                  <div>
+                    <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">
+                      {analysis.billing_errors.spikes.count}
+                    </p>
+                    <p className="text-sm text-orange-700 dark:text-orange-300 mt-1">Revenue Spikes (Anomalies)</p>
+                    <p className="text-sm font-semibold text-orange-600 dark:text-orange-400">
+                      ~${Math.round(analysis.billing_errors.spikes.estimated_value / 1000)}K estimated
+                    </p>
+                  </div>
+                )}
+              </div>
+            </Card>
+          </div>
+        )}
+
+        {/* Advanced Metrics Section */}
+        {(analysis.aging_buckets || analysis.customer_concentration || analysis.high_risk_invoices || analysis.trend) && (
+          <div className="mb-12 sm:mb-16">
+            <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+              <span>📈</span> Deeper Insights
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+              {/* Aging Buckets */}
+              {analysis.aging_buckets && (
+                <Card className="bg-white dark:bg-slate-900 p-6 border border-slate-200 dark:border-slate-800">
+                  <h3 className="font-semibold text-slate-900 dark:text-white mb-4">Invoice Aging Breakdown</h3>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-emerald-600 dark:text-emerald-400">0-30 days:</span>
+                      <span className="font-medium text-slate-900 dark:text-white">{analysis.aging_buckets.bucket_0_30.count} invoices ({analysis.aging_buckets.bucket_0_30.percentage}%)</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-yellow-600 dark:text-yellow-400">31-60 days:</span>
+                      <span className="font-medium text-slate-900 dark:text-white">{analysis.aging_buckets.bucket_31_60.count} invoices ({analysis.aging_buckets.bucket_31_60.percentage}%)</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-orange-600 dark:text-orange-400">61-90 days:</span>
+                      <span className="font-medium text-slate-900 dark:text-white">{analysis.aging_buckets.bucket_61_90.count} invoices ({analysis.aging_buckets.bucket_61_90.percentage}%)</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-red-600 dark:text-red-400">90+ days:</span>
+                      <span className="font-medium text-slate-900 dark:text-white">{analysis.aging_buckets.bucket_90plus.count} invoices ({analysis.aging_buckets.bucket_90plus.percentage}%)</span>
+                    </div>
+                  </div>
+                </Card>
+              )}
+
+              {/* Customer Concentration */}
+              {analysis.customer_concentration && (
+                <Card className="bg-white dark:bg-slate-900 p-6 border border-slate-200 dark:border-slate-800">
+                  <h3 className="font-semibold text-slate-900 dark:text-white mb-4">Risk Concentration</h3>
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-3xl font-bold text-indigo-600 dark:text-indigo-400">
+                        {analysis.customer_concentration.customers_holding_80_percent}
+                      </p>
+                      <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+                        of {analysis.customer_concentration.total_unique_customers} customers hold 80% of risk
+                      </p>
+                    </div>
+                    <p className="text-xs text-slate-700 dark:text-slate-300 bg-indigo-50 dark:bg-indigo-900/20 p-2 rounded">
+                      {analysis.customer_concentration.note}
+                    </p>
+                  </div>
+                </Card>
+              )}
+
+              {/* High-Risk Invoices */}
+              {analysis.high_risk_invoices && analysis.high_risk_invoices.count > 0 && (
+                <Card className="bg-white dark:bg-slate-900 p-6 border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/10">
+                  <h3 className="font-semibold text-slate-900 dark:text-white mb-4">Phone Call Candidates</h3>
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-3xl font-bold text-red-600 dark:text-red-400">
+                        {analysis.high_risk_invoices.count}
+                      </p>
+                      <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+                        Invoices 30+ days late AND &gt;= $50K
+                      </p>
+                    </div>
+                    <p className="text-sm font-semibold text-red-700 dark:text-red-300">
+                      ${(analysis.high_risk_invoices.total_amount / 1000).toFixed(0)}K ({analysis.high_risk_invoices.percentage_of_unpaid}% of unpaid)
+                    </p>
+                    <p className="text-xs text-slate-700 dark:text-slate-300">
+                      {analysis.high_risk_invoices.note}
+                    </p>
+                  </div>
+                </Card>
+              )}
+
+              {/* Trend Analysis */}
+              {analysis.trend && (
+                <Card className="bg-white dark:bg-slate-900 p-6 border border-slate-200 dark:border-slate-800">
+                  <h3 className="font-semibold text-slate-900 dark:text-white mb-4">AR Trend</h3>
+                  <div className="space-y-3">
+                    <div className="flex items-baseline gap-2">
+                      <p className={`text-3xl font-bold ${
+                        analysis.trend.direction === 'improving' ? 'text-emerald-600 dark:text-emerald-400' :
+                        analysis.trend.direction === 'worsening' ? 'text-red-600 dark:text-red-400' :
+                        'text-slate-600 dark:text-slate-400'
+                      }`}>
+                        {analysis.trend.percent_change > 0 ? '+' : ''}{analysis.trend.percent_change}%
+                      </p>
+                      <p className="text-xs text-slate-600 dark:text-slate-400">{analysis.trend.direction}</p>
+                    </div>
+                    <p className="text-xs text-slate-600 dark:text-slate-400">
+                      Last {analysis.trend.months_tracked} months
+                    </p>
+                    <p className="text-sm text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-800 p-2 rounded">
+                      {analysis.trend.note}
+                    </p>
+                  </div>
+                </Card>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Next Steps & What's Coming */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 mb-12 sm:mb-16">
+          {/* Next Steps */}
+          {analysis.next_steps && analysis.next_steps.length > 0 && (
+            <div>
+              <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                <span>📋</span> Next Steps
+              </h2>
+              <Card className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 p-6 sm:p-8">
+                <ul className="space-y-3">
+                  {analysis.next_steps.map((step: string, idx: number) => (
+                    <li key={idx} className="flex gap-3">
+                      <span className="text-indigo-600 dark:text-indigo-400 font-bold flex-shrink-0">
+                        {idx + 1}.
+                      </span>
+                      <span className="text-slate-700 dark:text-slate-300 text-sm sm:text-base">
+                        {step}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </Card>
+            </div>
+          )}
+
+          {/* Plaid Integration Unlock */}
+          <div>
+            <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+              <span>🔓</span> Coming Soon: Connect Your Bank
+            </h2>
+            <Card className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 p-6 sm:p-8">
+              <ul className="space-y-3">
+                <li className="flex gap-3">
+                  <span className="text-emerald-600 dark:text-emerald-400 font-bold">✓</span>
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900 dark:text-white">Real Cash Balance</p>
+                    <p className="text-xs text-slate-600 dark:text-slate-400">Your actual bank position, not estimated</p>
+                  </div>
+                </li>
+                <li className="flex gap-3">
+                  <span className="text-emerald-600 dark:text-emerald-400 font-bold">✓</span>
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900 dark:text-white">Cash Runway</p>
+                    <p className="text-xs text-slate-600 dark:text-slate-400">Days until you run out of cash</p>
+                  </div>
+                </li>
+                <li className="flex gap-3">
+                  <span className="text-emerald-600 dark:text-emerald-400 font-bold">✓</span>
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900 dark:text-white">Burn Rate</p>
+                    <p className="text-xs text-slate-600 dark:text-slate-400">Actual monthly spending trends</p>
+                  </div>
+                </li>
+                <li className="flex gap-3">
+                  <span className="text-emerald-600 dark:text-emerald-400 font-bold">✓</span>
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900 dark:text-white">Payables</p>
+                    <p className="text-xs text-slate-600 dark:text-slate-400">Bills you owe (from QuickBooks)</p>
+                  </div>
+                </li>
+              </ul>
+            </Card>
+          </div>
+        </div>
+
+        {/* CTA Section */}
+        <div className="text-center py-8 sm:py-12 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg px-4 sm:px-8 mb-12">
+          <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white mb-3">
+            Ready to Automate Cash Recovery?
+          </h2>
+          <p className="text-slate-600 dark:text-slate-300 text-sm sm:text-base mb-8 max-w-2xl mx-auto">
+            Our AI agent handles collections, payment plans, and forecasting — 24/7. No manual work needed.
+          </p>
+
+          <div className="flex flex-col sm:flex-row gap-3 justify-center mb-6">
+            <Button
+              onClick={handleStartTrial}
+              size="lg"
+              variant="primary"
+              loading={starting}
+              disabled={starting}
+              className="px-6 sm:px-8 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
+            >
+              {starting ? 'Setting up...' : '🎯 Start 14-Day Free Trial'}
+            </Button>
+          </div>
+
+          <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">
+            No credit card. Auto-login on start. Upgrade anytime if you need advanced features.
+          </p>
+        </div>
+
+        {/* Exit button */}
+        <div className="text-center pt-6 border-t border-slate-200 dark:border-slate-800">
+          <button
+            type="button"
+            onClick={() => setShowLogoutConfirm(true)}
+            disabled={starting || loggingOut}
+            className="text-sm text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200 font-medium py-2 transition"
+          >
+            ← Exit Onboarding
+          </button>
+        </div>
+      </div>
+
+      {/* Exit Confirmation Modal */}
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center p-4 z-50">
+          <Card className="bg-white dark:bg-slate-900 p-6 max-w-sm w-full">
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-2">Exit Onboarding?</h2>
+            <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">
+              Your progress will be saved. You can continue later using the same link.
+            </p>
+            <div className="flex gap-3">
+              <Button
+                onClick={() => setShowLogoutConfirm(false)}
+                disabled={loggingOut}
+                variant="outline"
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleLogout}
+                disabled={loggingOut}
+                variant="primary"
+                className="flex-1 bg-red-600 hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-800"
+              >
+                {loggingOut ? 'Exiting...' : 'Exit'}
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   );
 };

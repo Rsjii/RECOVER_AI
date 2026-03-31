@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
-import { api } from '../../lib/api';
-import { Button } from '../../components/ui/Button';
-import { useNotification } from '../../hooks/useNotification';
+import { useNavigate } from 'react-router-dom';
+import { api } from '../lib/api';
+import { Button } from '../components/ui/Button';
+import { useNotification } from '../hooks/useNotification';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
 
@@ -12,9 +12,7 @@ interface IntegrationStatus {
   company_name: string;
 }
 
-export const Stage2: React.FC = () => {
-  const [searchParams] = useSearchParams();
-  const token = searchParams.get('token') || '';
+export const Integrations: React.FC = () => {
   const navigate = useNavigate();
   const { addToast } = useNotification();
 
@@ -23,26 +21,9 @@ export const Stage2: React.FC = () => {
   const [error, setError] = useState('');
   const [connecting, setConnecting] = useState<'stripe' | 'qb' | null>(null);
   const [proceeding, setProceeding] = useState(false);
-  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-  const [loggingOut, setLoggingOut] = useState(false);
   const [stripeManualMode, setStripeManualMode] = useState(false);
   const [stripeApiKey, setStripeApiKey] = useState('');
   const [validatingKey, setValidatingKey] = useState(false);
-
-  const handleLogout = async () => {
-    setLoggingOut(true);
-    try {
-      await api.post('/api/auth/logout');
-      sessionStorage.removeItem('stage-1-data');
-      sessionStorage.removeItem('stage-2-data');
-      sessionStorage.removeItem('stage-3-data');
-      sessionStorage.removeItem('current-token');
-      navigate('/');
-    } catch (err: any) {
-      addToast({ type: 'error', message: 'Logout failed' });
-      setLoggingOut(false);
-    }
-  };
 
   useEffect(() => {
     const fetchStatus = async () => {
@@ -50,9 +31,8 @@ export const Stage2: React.FC = () => {
         const res: any = await api.get('/api/audits/stage/2');
         setStatus(res);
       } catch (err: any) {
-        // If 401, redirect back to stage 1
         if (err?.status === 401) {
-          navigate(`/onboard/stage-1?token=${token}`, { replace: true });
+          navigate(`/login`, { replace: true });
           return;
         }
         setError(err?.message || 'Failed to load integrations');
@@ -68,7 +48,6 @@ export const Stage2: React.FC = () => {
     window.location.href = `${API_BASE}/api/stripe/oauth/authorize`;
   };
 
-
   const handleNext = async () => {
     if (!status?.stripe_connected && !import.meta.env.DEV) {
       setError('Connect Stripe to continue');
@@ -77,8 +56,8 @@ export const Stage2: React.FC = () => {
 
     setProceeding(true);
     try {
-      await api.post(`/api/audits/stage/2/proceed`, { token });
-      navigate(`/onboard/stage-3?token=${token}`);
+      await api.post(`/api/audits/stage/2/proceed`);
+      navigate(`/audit-report`, { replace: true });
     } catch (err: any) {
       setError(err?.message || 'Failed to proceed');
       setProceeding(false);
@@ -212,19 +191,6 @@ export const Stage2: React.FC = () => {
             )}
           </div>
 
-          {/* QB Card (Optional) */}
-          <div className="mb-6 p-6 border border-gray-200 dark:border-gray-700 rounded-lg opacity-50">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 bg-blue-50 dark:bg-blue-900/20 rounded-lg flex items-center justify-center">
-                <span className="text-lg">📊</span>
-              </div>
-              <div>
-                <h3 className="font-semibold text-gray-900 dark:text-white">QuickBooks (Coming Soon)</h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400">We're adding QB support soon</p>
-              </div>
-            </div>
-          </div>
-
           {/* Next Button */}
           <Button
             onClick={handleNext}
@@ -233,36 +199,6 @@ export const Stage2: React.FC = () => {
           >
             {proceeding ? 'Processing...' : 'Continue to Audit Report'}
           </Button>
-
-          {/* Logout */}
-          {showLogoutConfirm ? (
-            <div className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
-              <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">Start over with a different account?</p>
-              <div className="flex gap-2">
-                <Button
-                  onClick={handleLogout}
-                  disabled={loggingOut}
-                  variant="outline"
-                  className="flex-1"
-                >
-                  {loggingOut ? 'Logging out...' : 'Yes, Logout'}
-                </Button>
-                <button
-                  onClick={() => setShowLogoutConfirm(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          ) : (
-            <button
-              onClick={() => setShowLogoutConfirm(true)}
-              className="w-full text-sm text-gray-600 dark:text-gray-400 hover:underline"
-            >
-              Start over
-            </button>
-          )}
         </div>
       </div>
     </div>
