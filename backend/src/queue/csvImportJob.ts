@@ -138,69 +138,35 @@ export async function processCsvImportJob(companyId: string, invoices: CSVImport
       newCustomers.rows.forEach((row: any) => customerMap.set(row.email, row.id));
     }
 
-    // STEP 3: OPTIMIZED batch duplicate detection using EXISTS (simple & fast)
+    // STEP 3: Check duplicates - simple loop, one query per invoice (proven to work)
     const toInsert: any[] = [];
     let duplicates = 0;
 
-    // Build list of invoices to check
-    const invoicesToCheck = normalized
-      .map(inv => ({
-        inv,
-        customerId: customerMap.get(inv.customerEmail),
-        amount: inv.amount,
-        dueDate: inv.dueDate.toISOString().split('T')[0],
-      }))
-      .filter(item => item.customerId);
-
-    // Batch duplicate detection in chunks of 50
-    const BATCH_SIZE = 50;
-    for (let batchStart = 0; batchStart < invoicesToCheck.length; batchStart += BATCH_SIZE) {
-      const batch = invoicesToCheck.slice(batchStart, Math.min(batchStart + BATCH_SIZE, invoicesToCheck.length));
-
-      // Fetch ALL duplicates for this batch in ONE query
-      const customerIds = batch.map(item => item.customerId!);
-      const amounts = batch.map(item => item.amount);
-      const dueDates = batch.map(item => item.dueDate);
-
-      try {
-        const dupeResult = await pool.query(
-          `SELECT customer_id, amount, due_date::date
-           FROM invoices
-           WHERE company_id = $1
-           AND customer_id = ANY($2)
-           AND amount = ANY($3)
-           AND due_date::date = ANY($4)`,
-          [companyId, customerIds, amounts, dueDates]
-        );
-
-        // Store as Set for O(1) lookup
-        const dupeSet = new Set(dupeResult.rows.map((r: any) => `${r.customer_id}:${r.amount}:${r.due_date}`));
-
-        // Filter batch
-        batch.forEach(({ inv, customerId }) => {
-          if (!customerId) {
-            skipped++;
-            return;
-          }
-
-          const key = `${customerId}:${inv.amount}:${inv.dueDate.toISOString().split('T')[0]}`;
-          if (dupeSet.has(key)) {
-            duplicates++;
-            return;
-          }
-
-          toInsert.push({
-            customerId,
-            amount: inv.amount,
-            currency: inv.currency,
-            dueDate: inv.dueDate,
-            issuedDate: inv.issuedDate,
-          });
-        });
-      } catch (err: any) {
-        logError(LOG_MODULE, 'processCsvImportJob', `Batch duplicate check failed at offset ${batchStart}`, err);
-        throw err;
+    for (const inv of normalized) {
+      const customerId = customerMap.get(inv.customerEmail);
+      if (!customerId) {
+        skipped++;
+        continue;
       }
+
+      // Quick duplicate check: same customer + amount + due date
+      const isDupe = await pool.query(
+        `SELECT 1 FROM invoices WHERE company_id = $1 AND customer_id = $2 AND amount = $3 AND due_date::date = $4::date LIMIT 1`,
+        [companyId, customerId, inv.amount, inv.dueDate.toISOString().split('T')[0]]
+      );
+
+      if (isDupe.rows.length > 0) {
+        duplicates++;
+        continue;
+      }
+
+      toInsert.push({
+        customerId,
+        amount: inv.amount,
+        currency: inv.currency,
+        dueDate: inv.dueDate,
+        issuedDate: inv.issuedDate,
+      });
     }
 
     // STEP 4: BULK INSERT all invoices at once (1 SQL call)
