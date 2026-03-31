@@ -55,22 +55,25 @@ export const listInvoices = async (req: Request, res: Response) => {
 
     let { data, total } = await InvoiceDB.listInvoices(companyId, { status, customerId, agingBucket, sort }, limitNum, offset);
 
-    // Fetch email_types_sent separately (batch query)
-    const invoiceIds = data.map(d => d.id);
+    // Smart fetching: only load email logs if user explicitly filters by dunningStage
+    // Otherwise, compute dunning_stage based on invoice age (fast, no DB call)
     let emailTypesByInvoiceId: Record<string, string[]> = {};
-    if (invoiceIds.length > 0) {
-      const emailLogsResult = await pool.query(
-        `SELECT DISTINCT invoice_id, email_type FROM email_logs
-         WHERE invoice_id = ANY($1) AND company_id = $2 AND status != 'failed'
-         ORDER BY invoice_id`,
-        [invoiceIds, companyId]
-      );
-      emailTypesByInvoiceId = {};
-      for (const row of emailLogsResult.rows) {
-        if (!emailTypesByInvoiceId[row.invoice_id]) {
-          emailTypesByInvoiceId[row.invoice_id] = [];
+
+    if (dunningStage !== undefined) {
+      // User filtered by dunning stage - need email logs to compute accurate stage
+      const invoiceIds = data.map(d => d.id);
+      if (invoiceIds.length > 0) {
+        const emailLogsResult = await pool.query(
+          `SELECT DISTINCT invoice_id, email_type FROM email_logs
+           WHERE invoice_id = ANY($1) AND company_id = $2 AND status != 'failed'`,
+          [invoiceIds, companyId]
+        );
+        for (const row of emailLogsResult.rows) {
+          if (!emailTypesByInvoiceId[row.invoice_id]) {
+            emailTypesByInvoiceId[row.invoice_id] = [];
+          }
+          emailTypesByInvoiceId[row.invoice_id].push(row.email_type);
         }
-        emailTypesByInvoiceId[row.invoice_id].push(row.email_type);
       }
     }
 
@@ -79,7 +82,7 @@ export const listInvoices = async (req: Request, res: Response) => {
       const daysOverdue = Math.max(0, Math.floor((Date.now() - new Date(row.due_date).getTime()) / 86400000));
       const emailTypesSent = emailTypesByInvoiceId[row.id] ?? [];
       const { dunning_stage, next_action } = computeDunningFields(emailTypesSent, daysOverdue);
-      return { ...row, dunning_stage, next_action, email_types_sent: emailTypesSent };
+      return { ...row, dunning_stage, next_action };
     });
 
     // App-layer dunningStage filter (0 = Not Started, 1-5 = Stage N)
@@ -115,16 +118,15 @@ export const exportInvoicesCSV = async (req: Request, res: Response) => {
 
     const { data } = await InvoiceDB.listInvoices(companyId, { status, customerId, agingBucket }, 9999, 0);
 
-    // Batch fetch email_types_sent
-    const invoiceIds = data.map(d => d.id);
+    // Smart fetching for export: only load email logs if dunning stage filter is active
     let emailTypesByInvoiceId: Record<string, string[]> = {};
-    if (invoiceIds.length > 0) {
+    if (dunningStage !== undefined && data.length > 0) {
+      const invoiceIds = data.map(d => d.id);
       const emailLogsResult = await pool.query(
         `SELECT DISTINCT invoice_id, email_type FROM email_logs
          WHERE invoice_id = ANY($1) AND company_id = $2 AND status != 'failed'`,
         [invoiceIds, companyId]
       );
-      emailTypesByInvoiceId = {};
       for (const row of emailLogsResult.rows) {
         if (!emailTypesByInvoiceId[row.invoice_id]) {
           emailTypesByInvoiceId[row.invoice_id] = [];
@@ -386,17 +388,25 @@ export const uploadCSVFile = async (req: Request, res: Response): Promise<void> 
     const rawHeader = lines[0].split(',').map(h => h.trim());
     const header = rawHeader.map(h => h.toLowerCase().replace(/[^a-z0-9]/g, ''));
 
-    // Intelligent column detection - splits words and matches ANY word part
+    // Intelligent column detection - exact match first, then smart matching
     const findColumn = (patterns: string[]): number => {
-      return header.findIndex(h => {
-        // Split header into word parts (e.g., "name_customer" -> ["name", "customer"])
-        const headerWords = h.split(/[_\-\s]+/).filter(w => w.length > 0);
+      // FIRST: Try exact match (case-insensitive)
+      for (const pattern of patterns) {
+        const exactIdx = header.findIndex(h => h === pattern);
+        if (exactIdx !== -1) return exactIdx;
+      }
 
-        // Check if any pattern matches ANY word in the header
+      // SECOND: Try substring match
+      for (const pattern of patterns) {
+        const substringIdx = header.findIndex(h => h.includes(pattern));
+        if (substringIdx !== -1) return substringIdx;
+      }
+
+      // THIRD: Try word-part matching (split by delimiters)
+      return header.findIndex(h => {
+        const headerWords = h.split(/[_\-\s]+/).filter(w => w.length > 0);
         return patterns.some(pattern => {
           const patternWords = pattern.split(/[_\-\s]+/).filter(w => w.length > 0);
-
-          // Match if pattern word appears in header words (or vice versa)
           return patternWords.some(pw =>
             headerWords.some(hw => hw.includes(pw) || pw.includes(hw))
           );
@@ -405,12 +415,12 @@ export const uploadCSVFile = async (req: Request, res: Response): Promise<void> 
     };
 
     // Try to find columns (but all are optional now - we'll auto-fill if missing)
-    const nameIdx = findColumn(['name', 'customer', 'company', 'business', 'org']);
-    const emailIdx = findColumn(['email', 'mail', 'contact', 'address']);
-    const amountIdx = findColumn(['amount', 'total', 'price', 'value', 'cost', 'fee', 'invoice']);
-    const currencyIdx = findColumn(['currency', 'curr', 'code', 'iso']);
-    const dueDateIdx = findColumn(['due', 'deadline', 'payment', 'paymentdue']);
-    const issuedDateIdx = findColumn(['issued', 'created', 'date', 'invoicedate']);
+    const nameIdx = findColumn(['name', 'customer', 'company', 'business', 'org', 'namecustomer']);
+    const emailIdx = findColumn(['email', 'mail', 'contact', 'address', 'emailaddress']);
+    const amountIdx = findColumn(['amount', 'total', 'price', 'value', 'cost', 'fee', 'invoice', 'totalopenamount']);
+    const currencyIdx = findColumn(['currency', 'curr', 'code', 'iso', 'invoicecurrency']);
+    const dueDateIdx = findColumn(['due', 'deadline', 'payment', 'paymentdue', 'dueindate']);
+    const issuedDateIdx = findColumn(['issued', 'created', 'date', 'invoicedate', 'postingdate', 'documentcreatedate']);
 
     logInfo(handler, 'CSV column detection', {
       headers: rawHeader,
@@ -796,3 +806,114 @@ export const getAllInvoiceIds = async (req: Request, res: Response): Promise<voi
     sendErrorResponse(res, statusCode, message);
   }
 };
+
+/**
+ * POST /api/invoices/batch-delete
+ * Delete multiple invoices in batches (async, non-blocking)
+ */
+export const batchDeleteInvoices = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'batchDeleteInvoices';
+  const companyId = (req as any).companyId;
+  const { invoiceIds } = req.body;
+
+  if (!Array.isArray(invoiceIds) || invoiceIds.length === 0) {
+    sendErrorResponse(res, 400, 'invoiceIds array is required');
+    return;
+  }
+
+  if (invoiceIds.length > 1000) {
+    sendErrorResponse(res, 400, 'Maximum 1000 invoices per batch delete');
+    return;
+  }
+
+  const { randomUUID } = await import('crypto');
+  const jobId = randomUUID();
+
+  logInfo(handler, 'Batch delete queued', { companyId, jobId, invoiceCount: invoiceIds.length });
+
+  // Fire and forget (async, non-blocking)
+  processBatchDelete(companyId, invoiceIds, jobId).catch(err => {
+    logError(handler, 'Batch delete failed', err);
+  });
+
+  res.status(202).json({
+    data: {
+      jobId,
+      status: 'processing',
+      total: invoiceIds.length,
+      message: `Deleting ${invoiceIds.length} invoices... This may take a few moments.`,
+    },
+  });
+};
+
+/**
+ * GET /api/invoices/batch-delete-status/:jobId
+ * Get status of batch delete operation
+ */
+const batchDeleteResults = new Map<string, { status: 'processing' | 'done' | 'error'; deleted: number; total: number; error?: string }>();
+
+export const getBatchDeleteStatus = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'getBatchDeleteStatus';
+  try {
+    const jobId = Array.isArray(req.params.jobId) ? req.params.jobId[0] : req.params.jobId;
+
+    const status = batchDeleteResults.get(jobId);
+    if (!status) {
+      sendErrorResponse(res, 404, 'Job not found or already completed');
+      return;
+    }
+
+    res.status(200).json({ data: status });
+  } catch (error: any) {
+    logError(handler, 'Failed to get batch delete status', error);
+    const { statusCode, message } = parseError(error);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
+
+/**
+ * Async batch delete processor
+ */
+async function processBatchDelete(companyId: string, invoiceIds: string[], jobId: string): Promise<void> {
+  const startTime = Date.now();
+  const BATCH_SIZE = 25; // Delete 25 at a time
+
+  batchDeleteResults.set(jobId, { status: 'processing', deleted: 0, total: invoiceIds.length });
+
+  try {
+    let deleted = 0;
+
+    for (let batchStart = 0; batchStart < invoiceIds.length; batchStart += BATCH_SIZE) {
+      const batchEnd = Math.min(batchStart + BATCH_SIZE, invoiceIds.length);
+      const batch = invoiceIds.slice(batchStart, batchEnd);
+
+      logInfo('batchDeleteProcessor', `Deleting batch ${Math.floor(batchStart / BATCH_SIZE) + 1}/${Math.ceil(invoiceIds.length / BATCH_SIZE)}`, { batchStart, batchEnd });
+
+      // Delete batch in parallel
+      await Promise.allSettled(
+        batch.map(id => InvoiceDB.deleteInvoice(id, companyId))
+      );
+
+      deleted += batch.length;
+
+      // Update progress
+      batchDeleteResults.set(jobId, { status: 'processing', deleted, total: invoiceIds.length });
+
+      // Small delay between batches
+      if (batchEnd < invoiceIds.length) {
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
+    }
+
+    const elapsed = Date.now() - startTime;
+    logInfo('batchDeleteProcessor', `Batch delete complete in ${elapsed}ms`, { jobId, deleted });
+
+    batchDeleteResults.set(jobId, { status: 'done', deleted, total: invoiceIds.length });
+
+    // Clean up after 5 minutes
+    setTimeout(() => batchDeleteResults.delete(jobId), 5 * 60 * 1000);
+  } catch (err: any) {
+    logError('batchDeleteProcessor', `Batch delete failed in ${Date.now() - startTime}ms`, err);
+    batchDeleteResults.set(jobId, { status: 'error', deleted: 0, total: invoiceIds.length, error: err.message });
+  }
+}

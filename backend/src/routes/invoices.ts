@@ -17,6 +17,8 @@ import {
   getCSVImportStatusHandler,
   deleteInvoice,
   getAllInvoiceIds,
+  batchDeleteInvoices,
+  getBatchDeleteStatus,
 } from '../controllers/invoiceController';
 
 const router = Router();
@@ -28,12 +30,14 @@ router.get('/', listInvoices);
 router.get('/all-ids', getAllInvoiceIds);
 router.get('/export', exportInvoicesCSV);
 router.get('/csv-import-status/:jobId', getCSVImportStatusHandler);
+router.get('/batch-delete-status/:jobId', getBatchDeleteStatus);
 router.get('/:id/detail', getInvoiceDetail);
 router.get('/:id/dunning-status', getDunningStatus);
 router.get('/:id', getInvoice);
 router.post('/manual', createManualInvoice);
 router.post('/csv-upload', uploadCSVFile);
 router.post('/upload-csv', uploadCSV);
+router.post('/batch-delete', batchDeleteInvoices);
 router.put('/:id/status', updateInvoiceStatus);
 router.post('/:id/dunning/pause', pauseInvoiceDunning);
 router.post('/:id/dunning/resume', resumeInvoiceDunning);

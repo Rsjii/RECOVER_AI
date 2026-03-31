@@ -35,13 +35,84 @@ const Invoices: React.FC = () => {
   const [syncing, setSyncing] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showCSVModal, setShowCSVModal] = useState(false);
-  const [deletingCount, setDeletingCount] = useState(0);
-  const [markingPaidCount, setMarkingPaidCount] = useState(0);
+  const [importJobId, setImportJobId] = useState<string | null>(null);
+  const [importStatus, setImportStatus] = useState<{ status: 'processing' | 'done' | 'error'; created: number; skipped: number; duplicates: number; total: number; error?: string } | null>(null);
+  const [deleteJobId, setDeleteJobId] = useState<string | null>(null);
+  const [deleteStatus, setDeleteStatus] = useState<{ status: 'processing' | 'done' | 'error'; deleted: number; total: number; error?: string } | null>(null);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search.trim().toLowerCase()), 250);
     return () => clearTimeout(t);
   }, [search]);
+
+  // Poll for import status
+  useEffect(() => {
+    if (!importJobId) return;
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const res = await api.get(`/api/invoices/csv-import-status/${importJobId}`);
+        const status = res.data;
+        setImportStatus(status);
+
+        if (status.status === 'done' || status.status === 'error') {
+          clearInterval(pollInterval);
+          if (status.status === 'done') {
+            addToast({
+              type: 'success',
+              message: `✅ Import complete: ${status.created} created${status.duplicates > 0 ? `, ${status.duplicates} duplicates skipped` : ''}`
+            });
+            fetchInvoices(1, '', '', '', '');
+          } else {
+            addToast({ type: 'error', message: `Import failed: ${status.error}` });
+          }
+          setTimeout(() => {
+            setImportJobId(null);
+            setImportStatus(null);
+            setShowCSVModal(false);
+          }, 1500);
+        }
+      } catch (err: any) {
+        console.error('Failed to poll import status:', err);
+      }
+    }, 1000);
+
+    return () => clearInterval(pollInterval);
+  }, [importJobId, addToast]);
+
+  // Poll for delete status
+  useEffect(() => {
+    if (!deleteJobId) return;
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const res = await api.get(`/api/invoices/batch-delete-status/${deleteJobId}`);
+        const status = res.data;
+        setDeleteStatus(status);
+
+        if (status.status === 'done' || status.status === 'error') {
+          clearInterval(pollInterval);
+          if (status.status === 'done') {
+            addToast({
+              type: 'success',
+              message: `✅ Deleted ${status.deleted} invoices`
+            });
+            fetchInvoices(1, '', '', '', '');
+          } else {
+            addToast({ type: 'error', message: `Delete failed: ${status.error}` });
+          }
+          setTimeout(() => {
+            setDeleteJobId(null);
+            setDeleteStatus(null);
+          }, 1500);
+        }
+      } catch (err: any) {
+        console.error('Failed to poll delete status:', err);
+      }
+    }, 1000);
+
+    return () => clearInterval(pollInterval);
+  }, [deleteJobId, addToast]);
 
   const fetchInvoices = useCallback(async (p: number, s: string, bucket: string, dunningStage: string, sort: string = '') => {
     setLoading(true);
@@ -135,23 +206,17 @@ const Invoices: React.FC = () => {
 
     const ids = [...selectedIds];
     const batchSize = 5;
-    let processed = 0;
 
     try {
-      setMarkingPaidCount(1); // Start marking
       for (let i = 0; i < ids.length; i += batchSize) {
         const batch = ids.slice(i, i + batchSize);
         await Promise.allSettled(batch.map(id => api.put(`/api/invoices/${id}/status`, { status: 'paid' })));
-        processed += batch.length;
-        setMarkingPaidCount(processed); // Update progress
       }
 
       addToast({ type: 'success', message: `${selectedIds.size} invoice(s) marked as paid` });
       setSelectedIds(new Set());
-      setMarkingPaidCount(0);
       fetchInvoices(page, status, agingBucket, dunningStageFilter, sortBy);
     } catch (err: any) {
-      setMarkingPaidCount(0);
       addToast({ type: 'error', message: err.message || 'Failed to mark as paid' });
     }
   };
@@ -161,24 +226,15 @@ const Invoices: React.FC = () => {
     if (!window.confirm(`Delete ${selectedIds.size} invoice(s)? This action cannot be undone.`)) return;
 
     const ids = [...selectedIds];
-    const batchSize = 5;
-    let processed = 0;
 
     try {
-      setDeletingCount(1); // Start deletion
-      for (let i = 0; i < ids.length; i += batchSize) {
-        const batch = ids.slice(i, i + batchSize);
-        await Promise.allSettled(batch.map(id => api.delete(`/api/invoices/${id}`)));
-        processed += batch.length;
-        setDeletingCount(processed); // Update progress
-      }
-
-      addToast({ type: 'success', message: `${selectedIds.size} invoice(s) deleted successfully` });
+      const res = await api.post('/api/invoices/batch-delete', { invoiceIds: ids });
+      const newJobId = res.data.jobId;
+      setDeleteJobId(newJobId);
+      setDeleteStatus({ status: 'processing', deleted: 0, total: ids.length });
       setSelectedIds(new Set());
-      setDeletingCount(0);
-      fetchInvoices(page, status, agingBucket, dunningStageFilter, sortBy);
+      addToast({ type: 'info', message: `Deleting ${ids.length} invoice(s)... You can access other tabs while this completes.` });
     } catch (err: any) {
-      setDeletingCount(0);
       addToast({ type: 'error', message: err.message || 'Failed to delete invoices' });
     }
   };
@@ -195,9 +251,57 @@ const Invoices: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 pb-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Invoices</h1>
+    <div className="pb-6">
+      {/* TOP BANNER - Shows when import/delete in progress, ABOVE everything else */}
+      {(importJobId || deleteJobId) && (
+        <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
+          <div className="flex items-start gap-4">
+            <div className="flex-shrink-0">
+              <div className="w-8 h-8 border-3 border-blue-200 dark:border-blue-800 border-t-blue-600 dark:border-t-blue-400 rounded-full animate-spin"></div>
+            </div>
+            <div className="flex-1 min-w-0">
+              {importJobId && importStatus && (
+                <div>
+                  <h3 className="font-semibold text-blue-900 dark:text-blue-300 text-sm">Importing {importStatus.total} invoices...</h3>
+                  <div className="mt-2 grid grid-cols-3 gap-4 text-xs">
+                    <div className="text-blue-700 dark:text-blue-300">
+                      <span className="block font-medium">{importStatus.created}</span>
+                      <span className="text-blue-600 dark:text-blue-400">Created</span>
+                    </div>
+                    <div className="text-blue-700 dark:text-blue-300">
+                      <span className="block font-medium">{importStatus.duplicates}</span>
+                      <span className="text-blue-600 dark:text-blue-400">Skipped</span>
+                    </div>
+                    <div className="text-blue-700 dark:text-blue-300">
+                      <span className="block font-medium">{Math.round((importStatus.created + importStatus.duplicates) / importStatus.total * 100)}%</span>
+                      <span className="text-blue-600 dark:text-blue-400">Progress</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {deleteJobId && deleteStatus && (
+                <div>
+                  <h3 className="font-semibold text-blue-900 dark:text-blue-300 text-sm">Deleting {deleteStatus.total} invoices...</h3>
+                  <div className="mt-2 flex items-center gap-4 text-xs">
+                    <div className="text-blue-700 dark:text-blue-300">
+                      <span className="block font-medium">{deleteStatus.deleted} / {deleteStatus.total}</span>
+                      <span className="text-blue-600 dark:text-blue-400">Deleted</span>
+                    </div>
+                    <div className="text-blue-700 dark:text-blue-300">
+                      <span className="block font-medium">{Math.round(deleteStatus.deleted / deleteStatus.total * 100)}%</span>
+                      <span className="text-blue-600 dark:text-blue-400">Progress</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Invoices</h1>
         <div className="flex items-center gap-2 flex-wrap">
           <Button variant="secondary" size="sm" onClick={handleExportCSV}>
             <svg className="w-4 h-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -225,8 +329,6 @@ const Invoices: React.FC = () => {
             onMarkPaid={handleMarkPaid}
             onDeleteSelected={handleDeleteSelected}
             onClearSelection={() => setSelectedIds(new Set())}
-            deletingCount={deletingCount}
-            markingPaidCount={markingPaidCount}
           />
         </div>
       </div>
@@ -286,7 +388,8 @@ const Invoices: React.FC = () => {
       <ManualInvoiceModal isOpen={showCreateModal} onClose={() => setShowCreateModal(false)}
         onCreated={() => fetchInvoices(1, status, agingBucket, dunningStageFilter)} />
       <CSVUploadModal isOpen={showCSVModal} onClose={() => setShowCSVModal(false)}
-        onSuccess={() => fetchInvoices(1, status, agingBucket, dunningStageFilter)} />
+        setImportJobId={setImportJobId} />
+      </div>
     </div>
   );
 };
