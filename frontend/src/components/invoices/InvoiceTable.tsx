@@ -15,6 +15,9 @@ interface InvoiceTableProps {
   onRowClick: (invoice: Invoice) => void;
   selectedIds?: Set<string>;
   onSelectionChange?: (ids: Set<string>) => void;
+  onDelete?: (invoiceId: string) => Promise<void>;
+  totalCount?: number;
+  onSelectAllPages?: () => void;
 }
 
 function dunningBadge(stage: number | undefined) {
@@ -39,18 +42,53 @@ function agingBadge(status: string, daysOverdue: number) {
 }
 
 export const InvoiceTable: React.FC<InvoiceTableProps> = ({
-  invoices, loading, pagination, onRowClick, selectedIds = new Set(), onSelectionChange,
+  invoices, loading, pagination, onRowClick, selectedIds = new Set(), onSelectionChange, onDelete, totalCount = 0, onSelectAllPages,
 }) => {
-  const allSelected = invoices.length > 0 && invoices.every(inv => selectedIds.has(inv.id));
-  const someSelected = !allSelected && invoices.some(inv => selectedIds.has(inv.id));
+  const [deleting, setDeleting] = React.useState<string | null>(null);
+  const [showSelectAllModal, setShowSelectAllModal] = React.useState(false);
+  const [isLoadingAllIds, setIsLoadingAllIds] = React.useState(false);
+
+  const handleDelete = async (e: React.MouseEvent, invoiceId: string) => {
+    e.stopPropagation();
+    if (!onDelete || !window.confirm('Delete this invoice?')) return;
+    setDeleting(invoiceId);
+    try {
+      await onDelete(invoiceId);
+    } finally {
+      setDeleting(null);
+    }
+  };
+
+  const currentPageAllSelected = invoices.length > 0 && invoices.every(inv => selectedIds.has(inv.id));
+  const someSelected = !currentPageAllSelected && invoices.some(inv => selectedIds.has(inv.id));
+  const allPagesSelected = selectedIds.size === totalCount && totalCount > 0;
 
   const toggleAll = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!onSelectionChange) return;
     const next = new Set(selectedIds);
-    if (allSelected) { invoices.forEach(inv => next.delete(inv.id)); }
-    else { invoices.forEach(inv => next.add(inv.id)); }
-    onSelectionChange(next);
+
+    if (allPagesSelected) {
+      // Deselect all
+      next.clear();
+      onSelectionChange(next);
+    } else if (currentPageAllSelected && totalCount > invoices.length && !allPagesSelected) {
+      // Show prompt to select all pages
+      setShowSelectAllModal(true);
+    } else {
+      // Select current page
+      invoices.forEach(inv => next.add(inv.id));
+      onSelectionChange(next);
+    }
+  };
+
+  const handleSelectAllPages = async () => {
+    setShowSelectAllModal(false);
+    setIsLoadingAllIds(true);
+    if (onSelectAllPages) {
+      await onSelectAllPages();
+    }
+    setIsLoadingAllIds(false);
   };
 
   const toggleOne = (e: React.MouseEvent, id: string) => {
@@ -65,7 +103,7 @@ export const InvoiceTable: React.FC<InvoiceTableProps> = ({
     <input
       type="checkbox"
       className="w-4 h-4 rounded border-gray-300 text-indigo-600 cursor-pointer"
-      checked={allSelected}
+      checked={currentPageAllSelected}
       ref={(el) => { if (el) el.indeterminate = someSelected; }}
       onChange={() => {}}
       onClick={toggleAll}
@@ -187,6 +225,23 @@ export const InvoiceTable: React.FC<InvoiceTableProps> = ({
         );
       },
     },
+    {
+      key: 'id',
+      label: 'Actions',
+      width: '40px',
+      render: (_, row) => onDelete ? (
+        <button
+          onClick={(e) => handleDelete(e, row.id)}
+          disabled={deleting === row.id}
+          className="p-1.5 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 disabled:opacity-50 transition-colors"
+          title="Delete invoice"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+        </button>
+      ) : null,
+    },
   ];
 
   const rowClassName = (inv: Invoice) => {
@@ -241,6 +296,42 @@ export const InvoiceTable: React.FC<InvoiceTableProps> = ({
 
   return (
     <>
+      {/* Select All Pages Modal */}
+      {showSelectAllModal && (
+        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-[#111113] rounded-lg shadow-xl max-w-md w-full p-6 space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0 flex items-center justify-center h-10 w-10 rounded-full bg-indigo-100 dark:bg-indigo-900/30">
+                <svg className="h-6 w-6 text-indigo-600 dark:text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Select all invoices?</h3>
+                <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                  You have {invoices.length} invoice(s) selected on this page. Select all {totalCount} invoice(s) across all pages?
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => setShowSelectAllModal(false)}
+                className="flex-1 px-4 py-2 rounded-lg border border-gray-300 dark:border-white/[0.08] text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-white/[0.03] transition-colors"
+              >
+                Keep current
+              </button>
+              <button
+                onClick={handleSelectAllPages}
+                disabled={isLoadingAllIds}
+                className="flex-1 px-4 py-2 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+              >
+                {isLoadingAllIds ? 'Loading...' : `Select all ${totalCount}`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <MobileCards />
       <div className="hidden md:block">
         <Table<Invoice>

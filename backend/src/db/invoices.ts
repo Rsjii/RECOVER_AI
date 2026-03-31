@@ -59,7 +59,7 @@ export async function createManualInvoice(input: CreateInvoiceInput): Promise<In
 
 export async function listInvoices(
   companyId: string,
-  filters: { status?: string; customerId?: string; agingBucket?: string; dunningStage?: string } = {},
+  filters: { status?: string; customerId?: string; agingBucket?: string; dunningStage?: string; sort?: string } = {},
   limit = 50,
   offset = 0
 ): Promise<{ data: InvoiceRow[]; total: number }> {
@@ -96,6 +96,17 @@ export async function listInvoices(
 
   const where = conditions.join(' AND ');
 
+  // Dynamic ORDER BY based on sort param
+  const ORDER_MAP: Record<string, string> = {
+    'amount_asc': 'i.amount ASC',
+    'amount_desc': 'i.amount DESC',
+    'due_date_asc': 'i.due_date ASC',
+    'due_date_desc': 'i.due_date DESC',
+    'days_overdue_asc': 'i.due_date ASC',
+    'days_overdue_desc': 'i.due_date DESC',
+  };
+  const orderBy = (filters.sort && ORDER_MAP[filters.sort]) || 'i.due_date ASC';
+
   const [data, count] = await Promise.all([
     pool.query(
       `SELECT i.*, c.name as customer_name, c.email as customer_email,
@@ -107,7 +118,7 @@ export async function listInvoices(
        LEFT JOIN payments p ON p.invoice_id = i.id AND p.company_id = i.company_id
        WHERE ${where}
        GROUP BY i.id, c.name, c.email
-       ORDER BY i.due_date ASC
+       ORDER BY ${orderBy}
        LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
       [...params, limit, offset]
     ),
@@ -209,4 +220,90 @@ export async function stopInvoiceDunning(id: string, companyId: string): Promise
     [id, companyId]
   );
   return result.rows[0] || null;
+}
+
+export async function deleteInvoice(id: string, companyId: string): Promise<void> {
+  // Delete related records first to handle foreign key constraints
+  // Order matters: delete child records before parent
+  await pool.query('DELETE FROM payments WHERE invoice_id = $1', [id]);
+  await pool.query('DELETE FROM email_logs WHERE invoice_id = $1', [id]);
+  await pool.query('DELETE FROM payment_plans WHERE invoice_id = $1', [id]);
+
+  // Delete the invoice itself
+  await pool.query(
+    'DELETE FROM invoices WHERE id = $1 AND company_id = $2',
+    [id, companyId]
+  );
+}
+
+export async function checkDuplicateInvoice(
+  companyId: string,
+  customerId: string,
+  amount: number,
+  dueDate: Date
+): Promise<boolean> {
+  const dueDateStr = dueDate.toISOString().split('T')[0];
+  const result = await pool.query(
+    `SELECT 1 FROM invoices
+     WHERE company_id = $1
+       AND customer_id = $2
+       AND ABS(amount - $3) < 0.01
+       AND due_date::date = $4::date
+     LIMIT 1`,
+    [companyId, customerId, amount, dueDateStr]
+  );
+  return result.rows.length > 0;
+}
+
+export async function getAllInvoiceIds(
+  companyId: string,
+  filters: { status?: string; customerId?: string; agingBucket?: string; dunningStage?: string; search?: string } = {}
+): Promise<string[]> {
+  const conditions: string[] = ['i.company_id = $1'];
+  const params: any[] = [companyId];
+  let paramIndex = 2;
+
+  if (filters.status) {
+    conditions.push(`i.status = $${paramIndex++}`);
+    params.push(filters.status);
+  }
+
+  if (filters.customerId) {
+    conditions.push(`i.customer_id = $${paramIndex++}`);
+    params.push(filters.customerId);
+  }
+
+  if (filters.search) {
+    conditions.push(`(LOWER(c.name) ILIKE $${paramIndex} OR LOWER(c.email) ILIKE $${paramIndex++})`);
+    params.push(`%${filters.search.toLowerCase()}%`);
+  }
+
+  if (filters.agingBucket) {
+    switch (filters.agingBucket) {
+      case '0-30':
+        conditions.push(`i.due_date >= NOW() - INTERVAL '30 days'`);
+        break;
+      case '31-60':
+        conditions.push(`i.due_date < NOW() - INTERVAL '30 days' AND i.due_date >= NOW() - INTERVAL '60 days'`);
+        break;
+      case '61-90':
+        conditions.push(`i.due_date < NOW() - INTERVAL '60 days' AND i.due_date >= NOW() - INTERVAL '90 days'`);
+        break;
+      case '90+':
+        conditions.push(`i.due_date < NOW() - INTERVAL '90 days'`);
+        break;
+    }
+  }
+
+  const where = conditions.join(' AND ');
+
+  const result = await pool.query(
+    `SELECT i.id FROM invoices i
+     JOIN customers c ON i.customer_id = c.id
+     WHERE ${where}
+     ORDER BY i.due_date ASC`,
+    params
+  );
+
+  return result.rows.map(row => row.id);
 }

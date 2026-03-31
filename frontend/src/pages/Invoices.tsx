@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { api } from '../lib/api';
 import { API_ENDPOINTS, PAGINATION_LIMIT } from '../lib/constants';
 import { useNotification } from '../hooks/useNotification';
-import { FilterBar } from '../components/invoices/FilterBar';
+import { FilterPanel } from '../components/invoices/FilterPanel';
 import { InvoiceTable } from '../components/invoices/InvoiceTable';
 import { InvoiceModal } from '../components/invoices/InvoiceModal';
 import { BulkActions } from '../components/invoices/BulkActions';
@@ -30,23 +30,27 @@ const Invoices: React.FC = () => {
   const [selected, setSelected] = useState<Invoice | null>(null);
   const [agingBucket, setAgingBucket] = useState('');
   const [dunningStageFilter, setDunningStageFilter] = useState('');
+  const [sortBy, setSortBy] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [syncing, setSyncing] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showCSVModal, setShowCSVModal] = useState(false);
+  const [deletingCount, setDeletingCount] = useState(0);
+  const [markingPaidCount, setMarkingPaidCount] = useState(0);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search.trim().toLowerCase()), 250);
     return () => clearTimeout(t);
   }, [search]);
 
-  const fetchInvoices = useCallback(async (p: number, s: string, bucket: string, dunningStage: string) => {
+  const fetchInvoices = useCallback(async (p: number, s: string, bucket: string, dunningStage: string, sort: string = '') => {
     setLoading(true);
     try {
       const params = new URLSearchParams({ page: String(p), limit: String(PAGINATION_LIMIT) });
       if (s) params.set('status', s);
       if (bucket) params.set('agingBucket', bucket);
       if (dunningStage) params.set('dunningStage', dunningStage);
+      if (sort) params.set('sort', sort);
       const res = await api.get<{ data: Invoice[]; total: number; page: number; totalPages: number }>(
         `${API_ENDPOINTS.invoices.list}?${params}`
       );
@@ -61,15 +65,15 @@ const Invoices: React.FC = () => {
   }, [addToast]);
 
   useEffect(() => {
-    fetchInvoices(page, status, agingBucket, dunningStageFilter);
-  }, [page, status, agingBucket, dunningStageFilter]);
+    fetchInvoices(page, status, agingBucket, dunningStageFilter, sortBy);
+  }, [page, status, agingBucket, dunningStageFilter, sortBy]);
 
   const handleSync = async () => {
     setSyncing(true);
     try {
       await api.post(API_ENDPOINTS.stripe.sync);
       addToast({ type: 'success', message: 'Invoices synced from Stripe' });
-      fetchInvoices(1, status, agingBucket, dunningStageFilter);
+      fetchInvoices(1, status, agingBucket, dunningStageFilter, sortBy);
       setPage(1);
     } catch (err: any) {
       addToast({ type: 'error', message: err.message || 'Sync failed' });
@@ -107,15 +111,86 @@ const Invoices: React.FC = () => {
     return sum;
   }, 0);
 
+  const handleSelectAllPages = async () => {
+    try {
+      const params = new URLSearchParams();
+      if (status) params.append('status', status);
+      if (agingBucket) params.append('agingBucket', agingBucket);
+      if (debouncedSearch) params.append('search', debouncedSearch);
+      if (dunningStageFilter) params.append('dunningStage', dunningStageFilter);
+
+      const queryString = params.toString();
+      const url = queryString ? `/api/invoices/all-ids?${queryString}` : '/api/invoices/all-ids';
+      const res = await api.get<{ ids: string[] }>(url);
+
+      setSelectedIds(new Set(res.ids));
+      addToast({ type: 'success', message: `Selected all ${res.ids.length} invoice(s)` });
+    } catch (err: any) {
+      addToast({ type: 'error', message: err.message || 'Failed to select all invoices' });
+    }
+  };
+
   const handleMarkPaid = async () => {
     if (selectedIds.size === 0) return;
+
+    const ids = [...selectedIds];
+    const batchSize = 5;
+    let processed = 0;
+
     try {
-      await Promise.all([...selectedIds].map(id => api.put(`/api/invoices/${id}/status`, { status: 'paid' })));
+      setMarkingPaidCount(1); // Start marking
+      for (let i = 0; i < ids.length; i += batchSize) {
+        const batch = ids.slice(i, i + batchSize);
+        await Promise.allSettled(batch.map(id => api.put(`/api/invoices/${id}/status`, { status: 'paid' })));
+        processed += batch.length;
+        setMarkingPaidCount(processed); // Update progress
+      }
+
       addToast({ type: 'success', message: `${selectedIds.size} invoice(s) marked as paid` });
       setSelectedIds(new Set());
+      setMarkingPaidCount(0);
+      fetchInvoices(page, status, agingBucket, dunningStageFilter, sortBy);
+    } catch (err: any) {
+      setMarkingPaidCount(0);
+      addToast({ type: 'error', message: err.message || 'Failed to mark as paid' });
+    }
+  };
+
+  const handleDeleteSelected = async () => {
+    if (selectedIds.size === 0) return;
+    if (!window.confirm(`Delete ${selectedIds.size} invoice(s)? This action cannot be undone.`)) return;
+
+    const ids = [...selectedIds];
+    const batchSize = 5;
+    let processed = 0;
+
+    try {
+      setDeletingCount(1); // Start deletion
+      for (let i = 0; i < ids.length; i += batchSize) {
+        const batch = ids.slice(i, i + batchSize);
+        await Promise.allSettled(batch.map(id => api.delete(`/api/invoices/${id}`)));
+        processed += batch.length;
+        setDeletingCount(processed); // Update progress
+      }
+
+      addToast({ type: 'success', message: `${selectedIds.size} invoice(s) deleted successfully` });
+      setSelectedIds(new Set());
+      setDeletingCount(0);
+      fetchInvoices(page, status, agingBucket, dunningStageFilter, sortBy);
+    } catch (err: any) {
+      setDeletingCount(0);
+      addToast({ type: 'error', message: err.message || 'Failed to delete invoices' });
+    }
+  };
+
+  const handleDeleteInvoice = async (invoiceId: string) => {
+    try {
+      await api.delete(`/api/invoices/${invoiceId}`);
+      addToast({ type: 'success', message: 'Invoice deleted successfully' });
+      setSelected(null);
       fetchInvoices(page, status, agingBucket, dunningStageFilter);
     } catch (err: any) {
-      addToast({ type: 'error', message: err.message || 'Failed to mark as paid' });
+      addToast({ type: 'error', message: err.message || 'Failed to delete invoice' });
     }
   };
 
@@ -148,21 +223,26 @@ const Invoices: React.FC = () => {
             syncing={syncing}
             selectedCount={selectedIds.size}
             onMarkPaid={handleMarkPaid}
+            onDeleteSelected={handleDeleteSelected}
             onClearSelection={() => setSelectedIds(new Set())}
+            deletingCount={deletingCount}
+            markingPaidCount={markingPaidCount}
           />
         </div>
       </div>
 
-      <FilterBar
+      <FilterPanel
         status={status}
-        onStatusChange={(s) => { setStatus(s); setPage(1); }}
+        onStatusChange={(s: string) => { setStatus(s); setPage(1); }}
         agingBucket={agingBucket}
-        onAgingBucketChange={(b) => { setAgingBucket(b); setPage(1); }}
+        onAgingBucketChange={(b: string) => { setAgingBucket(b); setPage(1); }}
         dunningStage={dunningStageFilter}
-        onDunningStageChange={(s) => { setDunningStageFilter(s); setPage(1); }}
+        onDunningStageChange={(s: string) => { setDunningStageFilter(s); setPage(1); }}
+        sortBy={sortBy}
+        onSortChange={(s: string) => { setSortBy(s); setPage(1); }}
         search={search}
         onSearchChange={setSearch}
-        onRefresh={() => fetchInvoices(page, status, agingBucket, dunningStageFilter)}
+        onRefresh={() => fetchInvoices(page, status, agingBucket, dunningStageFilter, sortBy)}
         loading={loading}
       />
 
@@ -197,6 +277,9 @@ const Invoices: React.FC = () => {
         onRowClick={setSelected}
         selectedIds={selectedIds}
         onSelectionChange={setSelectedIds}
+        onDelete={handleDeleteInvoice}
+        totalCount={total}
+        onSelectAllPages={handleSelectAllPages}
       />
       <InvoiceModal invoice={selected} isOpen={!!selected}
         onClose={() => setSelected(null)} onStatusUpdate={() => fetchInvoices(page, status, agingBucket, dunningStageFilter)} />

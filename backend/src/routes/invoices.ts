@@ -14,6 +14,9 @@ import {
   pauseInvoiceDunning,
   resumeInvoiceDunning,
   stopInvoiceDunning,
+  getCSVImportStatusHandler,
+  deleteInvoice,
+  getAllInvoiceIds,
 } from '../controllers/invoiceController';
 
 const router = Router();
@@ -22,7 +25,9 @@ router.use(authMiddleware);
 router.use(tenantScopeGuard);
 
 router.get('/', listInvoices);
+router.get('/all-ids', getAllInvoiceIds);
 router.get('/export', exportInvoicesCSV);
+router.get('/csv-import-status/:jobId', getCSVImportStatusHandler);
 router.get('/:id/detail', getInvoiceDetail);
 router.get('/:id/dunning-status', getDunningStatus);
 router.get('/:id', getInvoice);
@@ -33,5 +38,6 @@ router.put('/:id/status', updateInvoiceStatus);
 router.post('/:id/dunning/pause', pauseInvoiceDunning);
 router.post('/:id/dunning/resume', resumeInvoiceDunning);
 router.delete('/:id/dunning', stopInvoiceDunning);
+router.delete('/:id', deleteInvoice);
 
 export default router;

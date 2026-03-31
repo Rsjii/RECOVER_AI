@@ -35,10 +35,17 @@ async function startServer() {
     // 2. Register event listeners (instant triggers for immediate actions)
     registerEventListeners();
 
+    // 3. Initialize CSV import worker (processes queued imports)
+    // Worker auto-starts when getCSVImportQueue() is called from uploadCSVFile handler
+    // Import it here to ensure it's loaded and listening
+    const { csvImportWorker } = await import('./queue/csvImportJob');
+    logInfo('server', 'startServer', 'CSV import worker loaded', { concurrency: 1, worker: !!csvImportWorker });
+
     logInfo('server', 'startServer', 'Background system ready', {
-      architecture: 'Cron + Event-Driven',
+      architecture: 'Cron + Event-Driven + BullMQ Workers',
       scheduledJobs: 8,
       eventListeners: 5,
+      workers: 1,
       redisUsage: '0 polling commands (event-based only)',
       mode: config.nodeEnv,
     });

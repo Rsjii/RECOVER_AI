@@ -44,15 +44,15 @@ export const listInvoices = async (req: Request, res: Response) => {
 
   try {
     const companyId = (req as any).companyId;
-    const { status, customerId, agingBucket, dunningStage, page = '1', limit = '50' } = req.query as Record<string, string>;
+    const { status, customerId, agingBucket, dunningStage, sort, page = '1', limit = '50' } = req.query as Record<string, string>;
 
     const pageNum = Math.max(1, parseInt(page) || 1);
     const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 50));
     const offset = (pageNum - 1) * limitNum;
 
-    logInfo(handler, 'Request received', { companyId, status, customerId, agingBucket, dunningStage, page: pageNum, limit: limitNum });
+    logInfo(handler, 'Request received', { companyId, status, customerId, agingBucket, dunningStage, sort, page: pageNum, limit: limitNum });
 
-    let { data, total } = await InvoiceDB.listInvoices(companyId, { status, customerId, agingBucket }, limitNum, offset);
+    let { data, total } = await InvoiceDB.listInvoices(companyId, { status, customerId, agingBucket, sort }, limitNum, offset);
 
     // Compute dunning_stage + next_action and optionally filter by dunningStage
     const enriched = data.map(row => {
@@ -106,14 +106,18 @@ export const exportInvoicesCSV = async (req: Request, res: Response) => {
 
     const header = ['Invoice #', 'Customer', 'Email', 'Amount', 'Currency', 'Due Date', 'Days Overdue', 'Status', 'Dunning Stage', 'Risk Score', 'Next Action'].join(',');
     const rows = filtered.map(r => {
-      const daysOverdue = Math.max(0, Math.floor((Date.now() - new Date(r.due_date).getTime()) / 86400000));
+      // Handle due_date as Date or string
+      const dueDateObj = (r.due_date as any) instanceof Date ? r.due_date : new Date(r.due_date);
+      const dueDateStr = (dueDateObj as Date).toISOString().split('T')[0];
+      const daysOverdue = Math.max(0, Math.floor((Date.now() - (dueDateObj as Date).getTime()) / 86400000));
+
       return [
         r.source_id ?? r.id.slice(0, 8),
         `"${(r.customer_name ?? '').replace(/"/g, '""')}"`,
         r.customer_email ?? '',
         r.amount,
         r.currency,
-        r.due_date.slice(0, 10),
+        dueDateStr,
         daysOverdue,
         r.status,
         r.dunning_stage,
@@ -207,13 +211,16 @@ export const createManualInvoice = async (req: Request, res: Response) => {
 
   try {
     const companyId = (req as any).companyId;
-    const { customerId, amount, currency = 'USD', dueDate, issuedDate, notes } = req.body;
+    const { customerId, customerName, customerEmail, amount, currency = 'USD', dueDate, issuedDate, notes } = req.body;
 
+    // Validate required fields
     const missing = [];
-    if (!customerId) missing.push('customerId');
     if (!amount) missing.push('amount');
     if (!dueDate) missing.push('dueDate');
-    if (!issuedDate) missing.push('issuedDate');
+    // Either customerId OR (customerName + customerEmail) must be provided
+    if (!customerId && (!customerName || !customerEmail)) {
+      missing.push('customerId or (customerName + customerEmail)');
+    }
 
     if (missing.length > 0) {
       return sendErrorResponse(res, 400, `Missing required fields: ${missing.join(', ')}`);
@@ -223,17 +230,32 @@ export const createManualInvoice = async (req: Request, res: Response) => {
       return sendErrorResponse(res, 400, 'amount must be a positive number');
     }
 
-    // Verify customer belongs to this company
-    const customer = await CustomerDB.findCustomerById(customerId, companyId);
-    if (!customer) return sendErrorResponse(res, 404, 'Customer not found');
+    // Determine which customer to use
+    let finalCustomerId = customerId;
+    if (!customerId) {
+      // Find or create customer by email
+      const customer = await CustomerDB.findOrCreateCustomer({
+        companyId,
+        name: customerName.trim(),
+        email: customerEmail.trim(),
+      });
+      finalCustomerId = customer.id;
+    } else {
+      // Verify customer exists and belongs to this company
+      const customer = await CustomerDB.findCustomerById(customerId, companyId);
+      if (!customer) return sendErrorResponse(res, 404, 'Customer not found');
+    }
+
+    // Default issuedDate to today if not provided
+    const finalIssuedDate = issuedDate ? new Date(issuedDate) : new Date();
 
     const invoice = await InvoiceDB.createManualInvoice({
       companyId,
-      customerId,
+      customerId: finalCustomerId,
       amount: parseFloat(amount),
       currency: currency.toUpperCase(),
       dueDate: new Date(dueDate),
-      issuedDate: new Date(issuedDate),
+      issuedDate: finalIssuedDate,
       source: 'manual',
       notes,
     });
@@ -288,7 +310,7 @@ export const updateInvoiceStatus = async (req: Request, res: Response) => {
 
 /**
  * POST /api/invoices/csv-upload
- * Upload invoices from CSV file
+ * Queue invoices from CSV file for async processing
  */
 export const uploadCSVFile = async (req: Request, res: Response): Promise<void> => {
   const handler = 'uploadCSVFile';
@@ -296,6 +318,10 @@ export const uploadCSVFile = async (req: Request, res: Response): Promise<void> 
   const startTime = Date.now();
 
   try {
+    // Import here to avoid circular dependency
+    const { getCSVImportQueue } = await import('../queue/csvImportJob');
+    const { randomUUID } = await import('crypto');
+
     // Handle file as raw text (sent from FormData)
     let csvText = '';
     if (typeof req.body === 'string') {
@@ -309,148 +335,227 @@ export const uploadCSVFile = async (req: Request, res: Response): Promise<void> 
       return;
     }
 
-    // Parse CSV with flexible column detection
-    const lines = csvText.trim().split('\n');
-    if (lines.length < 2) {
-      sendErrorResponse(res, 400, 'CSV must contain at least a header row and one data row');
+    // Parse CSV with ULTRA-FLEXIBLE column detection (auto-infer everything)
+    const lines = csvText.trim().split('\n').filter(line => line.trim().length > 0);
+    if (lines.length < 1) {
+      sendErrorResponse(res, 400, 'CSV is empty');
       return;
     }
 
-    // Parse header and normalize column names for flexibility
+    // Parse header - normalize column names
     const rawHeader = lines[0].split(',').map(h => h.trim());
     const header = rawHeader.map(h => h.toLowerCase().replace(/[^a-z0-9]/g, ''));
 
-    // Map detected columns to required fields
+    // Intelligent column detection - splits words and matches ANY word part
     const findColumn = (patterns: string[]): number => {
-      const idx = header.findIndex(h => patterns.some(p => h.includes(p.replace(/[^a-z0-9]/g, ''))));
-      return idx >= 0 ? idx : -1;
+      return header.findIndex(h => {
+        // Split header into word parts (e.g., "name_customer" -> ["name", "customer"])
+        const headerWords = h.split(/[_\-\s]+/).filter(w => w.length > 0);
+
+        // Check if any pattern matches ANY word in the header
+        return patterns.some(pattern => {
+          const patternWords = pattern.split(/[_\-\s]+/).filter(w => w.length > 0);
+
+          // Match if pattern word appears in header words (or vice versa)
+          return patternWords.some(pw =>
+            headerWords.some(hw => hw.includes(pw) || pw.includes(hw))
+          );
+        });
+      });
     };
 
-    const nameIdx = findColumn(['name', 'customer_name', 'customername', 'customer', 'company']);
-    const emailIdx = findColumn(['email', 'customer_email', 'customeremail', 'contact', 'email_address']);
-    const amountIdx = findColumn(['amount', 'total', 'price', 'invoice_amount', 'value', 'cost', 'fee']);
-    const currencyIdx = findColumn(['currency', 'curr', 'cur', 'code', 'iso']);
-    const dueDateIdx = findColumn(['due', 'duedate', 'due_date', 'deadline', 'payment_due', 'paymentdue']);
-    const issuedDateIdx = findColumn(['issued', 'issueddate', 'issued_date', 'date', 'created', 'invoice_date', 'invoicedate']);
+    // Try to find columns (but all are optional now - we'll auto-fill if missing)
+    const nameIdx = findColumn(['name', 'customer', 'company', 'business', 'org']);
+    const emailIdx = findColumn(['email', 'mail', 'contact', 'address']);
+    const amountIdx = findColumn(['amount', 'total', 'price', 'value', 'cost', 'fee', 'invoice']);
+    const currencyIdx = findColumn(['currency', 'curr', 'code', 'iso']);
+    const dueDateIdx = findColumn(['due', 'deadline', 'payment', 'paymentdue']);
+    const issuedDateIdx = findColumn(['issued', 'created', 'date', 'invoicedate']);
 
-    // Validate required columns
-    if (nameIdx < 0 && emailIdx < 0) {
-      sendErrorResponse(res, 400, 'CSV must contain either "name" or "email" column');
-      return;
-    }
-    if (amountIdx < 0) {
-      sendErrorResponse(res, 400, 'CSV must contain "amount" column');
-      return;
-    }
+    logInfo(handler, 'CSV column detection', {
+      headers: rawHeader,
+      normalizedHeaders: header,
+      detectedColumns: { nameIdx, emailIdx, amountIdx, currencyIdx, dueDateIdx, issuedDateIdx },
+    });
 
     const invoices: Array<{ customerName: string; customerEmail: string; amount: number; currency: string; dueDate: string; issuedDate?: string }> = [];
 
+    // Process data rows (parsing only - no DB calls yet)
     for (let i = 1; i < lines.length; i++) {
       const values = lines[i].split(',').map(v => v.trim());
-      if (values.every(v => !v)) continue; // Skip empty lines
+      if (values.every(v => !v)) continue; // Skip completely empty rows
 
-      const name = nameIdx >= 0 ? values[nameIdx] : '';
-      const email = emailIdx >= 0 ? values[emailIdx] : '';
-      const amount = amountIdx >= 0 ? values[amountIdx] : '0';
+      // Extract values with fallbacks
+      let name = nameIdx >= 0 ? values[nameIdx] : '';
+      let email = emailIdx >= 0 ? values[emailIdx] : '';
+      let amount = amountIdx >= 0 ? values[amountIdx] : '';
       const currency = currencyIdx >= 0 ? values[currencyIdx] : 'USD';
-      const dueDate = dueDateIdx >= 0 ? values[dueDateIdx] : '';
-      const issuedDate = issuedDateIdx >= 0 ? values[issuedDateIdx] : '';
+      let dueDate = dueDateIdx >= 0 ? values[dueDateIdx] : '';
+      let issuedDate = issuedDateIdx >= 0 ? values[issuedDateIdx] : '';
 
-      // Use email as fallback for name if name not provided
-      const displayName = name || email || 'Unknown Customer';
+      // AUTO-INFER MISSING DATA
+      // If no amount found, try first numeric value in row
+      if (!amount || parseFloat(amount) === 0) {
+        const numValue = values.find(v => /^\d+(\.\d+)?$/.test(v));
+        amount = numValue || '';
+      }
+
+      // If no email found, try to extract from any field that looks like email
+      if (!email) {
+        const emailValue = values.find(v => v.includes('@'));
+        email = emailValue || '';
+      }
+
+      // If no name, use email prefix or generate from customer code
+      if (!name && email) {
+        name = email.split('@')[0];
+      }
+      if (!name) {
+        // Try to use unique identifier from row (customer code, doc_id, etc)
+        const uniqueId = values.find(v => v && !v.includes(' ') && v.length > 2);
+        name = uniqueId || `Customer ${i}`;
+      }
+
+      // If no email, generate one from name or use placeholder
+      if (!email) {
+        const safeName = name.replace(/[^a-z0-9]/gi, '').toLowerCase();
+        email = `${safeName}${i}@local.invalid`;
+      }
+
+      // If no due date, set to 30 days from now
+      if (!dueDate) {
+        const futureDate = new Date();
+        futureDate.setDate(futureDate.getDate() + 30);
+        dueDate = futureDate.toISOString().split('T')[0];
+      }
+
+      // If no issued date, use today
+      if (!issuedDate) {
+        issuedDate = new Date().toISOString().split('T')[0];
+      }
 
       invoices.push({
-        customerName: displayName,
+        customerName: name,
         customerEmail: email,
         amount: parseFloat(amount) || 0,
         currency: (currency || 'USD').toUpperCase().substring(0, 3),
-        dueDate: dueDate || new Date().toISOString().split('T')[0],
-        issuedDate: issuedDate,
+        dueDate,
+        issuedDate,
       });
     }
 
+    // Check limits AFTER processing (not on raw line count)
     if (invoices.length === 0) {
-      sendErrorResponse(res, 400, 'No valid invoice rows found');
+      sendErrorResponse(res, 400, 'No valid invoices could be extracted from CSV');
       return;
     }
 
     if (invoices.length > 500) {
-      sendErrorResponse(res, 400, 'Maximum 500 invoices per upload');
+      sendErrorResponse(res, 400, `Too many invoices (${invoices.length}). Maximum 500 per upload`);
       return;
     }
 
-    let created = 0;
-    let skipped = 0;
-    const errors: string[] = [];
+    // Queue the job for async processing (or process synchronously if Redis unavailable)
+    const jobId = randomUUID();
+    const queue = getCSVImportQueue();
 
-    for (const inv of invoices) {
-      try {
-        // Validation
-        if (!inv.customerEmail || inv.customerEmail.trim().length === 0) {
-          skipped++;
-          errors.push(`Row skipped: Email is required`);
-          continue;
-        }
-
-        if (!inv.amount || inv.amount <= 0) {
-          skipped++;
-          errors.push(`Row skipped: Invalid amount (${inv.amount})`);
-          continue;
-        }
-
-        // Validate and parse dates
-        const dueDate = new Date(inv.dueDate);
-        if (isNaN(dueDate.getTime())) {
-          skipped++;
-          errors.push(`Row skipped: Invalid due date (${inv.dueDate})`);
-          continue;
-        }
-
-        const issuedDate = inv.issuedDate && inv.issuedDate.trim()
-          ? new Date(inv.issuedDate)
-          : new Date();
-
-        if (isNaN(issuedDate.getTime())) {
-          skipped++;
-          errors.push(`Row skipped: Invalid issued date (${inv.issuedDate})`);
-          continue;
-        }
-
-        const customer = await CustomerDB.findOrCreateCustomer({
+    if (queue) {
+      // Redis available - queue for background processing
+      await queue.add(
+        'csv-import',
+        {
           companyId,
-          name: inv.customerName || inv.customerEmail,
-          email: inv.customerEmail,
-        });
-
-        await InvoiceDB.createManualInvoice({
-          companyId,
-          customerId: customer.id,
-          amount: inv.amount,
-          currency: inv.currency || 'USD',
-          dueDate,
-          issuedDate,
-          source: 'manual',
-        });
-
-        created++;
-      } catch (err: any) {
-        skipped++;
-        errors.push(`Row failed: ${err?.message || 'Unknown error'}`);
-      }
+          invoices,
+          jobId,
+        },
+        {
+          jobId: `csv-${jobId}`,
+          removeOnComplete: true,
+          removeOnFail: false,
+        }
+      );
+      logInfo(handler, `CSV import job queued in ${Date.now() - startTime}ms`, { companyId, jobId, invoiceCount: invoices.length });
+    } else {
+      // Redis unavailable (dev mode) - process synchronously in background
+      logInfo(handler, 'Redis unavailable, processing CSV synchronously in dev mode', { companyId, jobId, invoiceCount: invoices.length });
+      const { processCsvImportJob } = await import('../queue/csvImportJob');
+      // Process asynchronously but don't await (fire and forget)
+      processCsvImportJob(companyId, invoices, jobId).catch((err: any) => {
+        logError(handler, 'Synchronous CSV processing failed', err);
+      });
     }
 
-    logInfo(handler, `CSV upload complete in ${Date.now() - startTime}ms`, { companyId, created, skipped, total: invoices.length });
-    res.status(200).json({
+    res.status(202).json({
       data: {
-        created,
-        skipped,
+        jobId,
+        status: 'processing',
         total: invoices.length,
-        message: `Successfully imported ${created} invoice${created !== 1 ? 's' : ''}${skipped > 0 ? `, ${skipped} skipped` : ''}`,
-        errors: errors.length > 0 ? errors.slice(0, 10) : undefined, // Show first 10 errors
-      }
+        message: `Processing ${invoices.length} invoice${invoices.length !== 1 ? 's' : ''}... This may take a few moments.`,
+      },
     });
   } catch (error: any) {
     logError(handler, `CSV upload failed after ${Date.now() - startTime}ms`, error);
+    const { statusCode, message } = parseError(error);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
+
+/**
+ * GET /api/invoices/csv-import-status/:jobId
+ * Get the status of a CSV import job
+ */
+export const getCSVImportStatusHandler = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'getCSVImportStatus';
+  try {
+    const { getCSVImportStatus: getStatus } = await import('../queue/csvImportJob');
+    const jobId = Array.isArray(req.params.jobId) ? req.params.jobId[0] : req.params.jobId;
+
+    const status = getStatus(jobId);
+    if (!status) {
+      sendErrorResponse(res, 404, 'Job not found or already completed');
+      return;
+    }
+
+    res.status(200).json({ data: status });
+  } catch (error: any) {
+    logError(handler, 'Failed to get CSV import status', error);
+    const { statusCode, message } = parseError(error);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
+
+/**
+ * DELETE /api/invoices/:id
+ * Delete an invoice
+ */
+export const deleteInvoice = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'deleteInvoice';
+  const startTime = Date.now();
+
+  try {
+    const companyId = (req as any).companyId;
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+
+    // Get invoice to verify it exists and belongs to this company
+    const invoice = await InvoiceDB.findInvoiceById(id, companyId);
+    if (!invoice) {
+      sendErrorResponse(res, 404, 'Invoice not found');
+      return;
+    }
+
+    // Delete invoice and all related records
+    await InvoiceDB.deleteInvoice(id, companyId);
+
+    logInfo(handler, `Invoice deleted in ${Date.now() - startTime}ms`, { invoiceId: id, companyId });
+
+    res.status(200).json({
+      data: {
+        message: 'Invoice deleted successfully',
+        invoiceId: id,
+      },
+    });
+  } catch (error: any) {
+    logError(handler, `Failed to delete invoice after ${Date.now() - startTime}ms`, error);
     const { statusCode, message } = parseError(error);
     sendErrorResponse(res, statusCode, message);
   }
@@ -615,6 +720,37 @@ export const getDunningStatus = async (req: Request, res: Response): Promise<voi
       },
     });
   } catch (err) {
+    logError(handler, 'Failed', err);
+    const { statusCode, message } = parseError(err);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
+
+export const getAllInvoiceIds = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'getAllInvoiceIds';
+  try {
+    const companyId = (req as any).companyId;
+    const { status, customerId, agingBucket, dunningStage, search } = req.query as Record<string, string>;
+
+    logInfo(handler, 'Request received', { companyId, status, customerId, agingBucket, dunningStage, search });
+
+    let ids = await InvoiceDB.getAllInvoiceIds(companyId, { status, customerId, agingBucket, search });
+
+    // Apply app-layer dunningStage filter if provided
+    if (dunningStage !== undefined) {
+      const allInvoices = await InvoiceDB.listInvoices(companyId, { status, customerId, agingBucket }, 9999, 0);
+      const enriched = allInvoices.data.map(row => {
+        const daysOverdue = Math.max(0, Math.floor((Date.now() - new Date(row.due_date).getTime()) / 86400000));
+        const { dunning_stage } = computeDunningFields(row.email_types_sent ?? [], daysOverdue);
+        return { ...row, dunning_stage };
+      });
+      const filtered = enriched.filter(r => r.dunning_stage === parseInt(dunningStage));
+      ids = filtered.map(r => r.id);
+    }
+
+    logInfo(handler, `Found ${ids.length} invoices`);
+    res.status(200).json({ ids });
+  } catch (err: any) {
     logError(handler, 'Failed', err);
     const { statusCode, message } = parseError(err);
     sendErrorResponse(res, statusCode, message);

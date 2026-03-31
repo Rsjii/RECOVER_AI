@@ -8,19 +8,27 @@ interface BulkActionsProps {
   scheduling?: boolean;
   selectedCount?: number;
   onMarkPaid?: () => void;
+  onDeleteSelected?: () => void;
   onClearSelection?: () => void;
+  deletingCount?: number;
+  markingPaidCount?: number;
 }
 
 export const BulkActions: React.FC<BulkActionsProps> = ({
-  onSync, onScheduleEmails, syncing, scheduling, selectedCount = 0, onMarkPaid, onClearSelection,
+  onSync, onScheduleEmails, syncing, scheduling, selectedCount = 0, onMarkPaid, onDeleteSelected, onClearSelection, deletingCount = 0, markingPaidCount = 0,
 }) => {
-  if (selectedCount > 0) {
+  const isProcessing = deletingCount > 0 || markingPaidCount > 0;
+
+  if (selectedCount > 0 || isProcessing) {
     return (
       <div className="flex items-center gap-2 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-700 rounded-lg px-3 py-1.5">
-        <span className="text-sm font-medium text-indigo-700 dark:text-indigo-300">{selectedCount} selected</span>
+        <span className="text-sm font-medium text-indigo-700 dark:text-indigo-300">
+          {deletingCount > 0 ? `Deleting ${deletingCount}/${selectedCount}...` : markingPaidCount > 0 ? `Marking ${markingPaidCount}/${selectedCount}...` : `${selectedCount} selected`}
+        </span>
         <div className="w-px h-4 bg-indigo-300 dark:bg-indigo-600" />
-        <Button size="sm" variant="primary" onClick={onMarkPaid}>Mark Paid</Button>
-        <Button size="sm" variant="ghost" onClick={onClearSelection}>Clear</Button>
+        <Button size="sm" variant="primary" onClick={onMarkPaid} disabled={isProcessing} loading={markingPaidCount > 0}>Mark Paid</Button>
+        {onDeleteSelected && <Button size="sm" variant="ghost" onClick={onDeleteSelected} disabled={isProcessing} className="text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50">Delete</Button>}
+        <Button size="sm" variant="ghost" onClick={onClearSelection} disabled={isProcessing}>Clear</Button>
       </div>
     );
   }
