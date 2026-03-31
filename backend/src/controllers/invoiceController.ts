@@ -361,7 +361,6 @@ export const uploadCSVFile = async (req: Request, res: Response): Promise<void> 
 
   try {
     // Import here to avoid circular dependency
-    const { getCSVImportQueue } = await import('../queue/csvImportJob');
     const { randomUUID } = await import('crypto');
 
     // Handle file as raw text (sent from FormData)
@@ -505,44 +504,38 @@ export const uploadCSVFile = async (req: Request, res: Response): Promise<void> 
       return;
     }
 
-    // Queue the job for async processing (or process synchronously if Redis unavailable)
+    // Process synchronously - Railway has 1 pod, no separate workers available
     const jobId = randomUUID();
-    const queue = getCSVImportQueue();
+    const { processCsvImportJob, getCSVImportStatus } = await import('../queue/csvImportJob');
 
-    if (queue) {
-      // Redis available - queue for background processing
-      await queue.add(
-        'csv-import',
-        {
-          companyId,
-          invoices,
+    try {
+      // Await the processing to complete before returning
+      await processCsvImportJob(companyId, invoices, jobId);
+
+      logInfo(handler, `CSV import completed in ${Date.now() - startTime}ms`, { companyId, jobId, invoiceCount: invoices.length });
+
+      // Return final result immediately
+      const result = getCSVImportStatus(jobId);
+
+      res.status(200).json({
+        data: {
           jobId,
+          status: result?.status || 'done',
+          created: result?.created || 0,
+          duplicates: result?.duplicates || 0,
+          skipped: result?.skipped || 0,
+          total: invoices.length,
+          message: `Successfully imported ${result?.created || 0} invoices`,
         },
-        {
-          jobId: `csv-${jobId}`,
-          removeOnComplete: true,
-          removeOnFail: false,
-        }
-      );
-      logInfo(handler, `CSV import job queued in ${Date.now() - startTime}ms`, { companyId, jobId, invoiceCount: invoices.length });
-    } else {
-      // Redis unavailable (dev mode) - process synchronously in background
-      logInfo(handler, 'Redis unavailable, processing CSV synchronously in dev mode', { companyId, jobId, invoiceCount: invoices.length });
-      const { processCsvImportJob } = await import('../queue/csvImportJob');
-      // Process asynchronously but don't await (fire and forget)
-      processCsvImportJob(companyId, invoices, jobId).catch((err: any) => {
-        logError(handler, 'Synchronous CSV processing failed', err);
+      });
+    } catch (processingError: any) {
+      logError(handler, `CSV processing failed after ${Date.now() - startTime}ms`, processingError);
+      res.status(400).json({
+        error: processingError.message,
+        jobId,
+        total: invoices.length,
       });
     }
-
-    res.status(202).json({
-      data: {
-        jobId,
-        status: 'processing',
-        total: invoices.length,
-        message: `Processing ${invoices.length} invoice${invoices.length !== 1 ? 's' : ''}... This may take a few moments.`,
-      },
-    });
   } catch (error: any) {
     logError(handler, `CSV upload failed after ${Date.now() - startTime}ms`, error);
     const { statusCode, message } = parseError(error);
