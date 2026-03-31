@@ -109,15 +109,10 @@ export async function listInvoices(
 
   const [data, count] = await Promise.all([
     pool.query(
-      `SELECT i.*, c.name as customer_name, c.email as customer_email,
-         ARRAY_AGG(DISTINCT el.email_type) FILTER (WHERE el.email_type IS NOT NULL) AS email_types_sent,
-         MAX(p.paid_at) AS last_payment_date
+      `SELECT i.*, c.name as customer_name, c.email as customer_email
        FROM invoices i
        JOIN customers c ON i.customer_id = c.id
-       LEFT JOIN email_logs el ON el.invoice_id = i.id AND el.company_id = i.company_id
-       LEFT JOIN payments p ON p.invoice_id = i.id AND p.company_id = i.company_id
        WHERE ${where}
-       GROUP BY i.id, c.name, c.email
        ORDER BY ${orderBy}
        LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
       [...params, limit, offset]
@@ -223,17 +218,23 @@ export async function stopInvoiceDunning(id: string, companyId: string): Promise
 }
 
 export async function deleteInvoice(id: string, companyId: string): Promise<void> {
-  // Delete related records first to handle foreign key constraints
-  // Order matters: delete child records before parent
-  await pool.query('DELETE FROM payments WHERE invoice_id = $1', [id]);
-  await pool.query('DELETE FROM email_logs WHERE invoice_id = $1', [id]);
-  await pool.query('DELETE FROM payment_plans WHERE invoice_id = $1', [id]);
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
 
-  // Delete the invoice itself
-  await pool.query(
-    'DELETE FROM invoices WHERE id = $1 AND company_id = $2',
-    [id, companyId]
-  );
+    // Delete all related records in a single transaction
+    await client.query('DELETE FROM payments WHERE invoice_id = $1', [id]);
+    await client.query('DELETE FROM email_logs WHERE invoice_id = $1', [id]);
+    await client.query('DELETE FROM payment_plans WHERE invoice_id = $1', [id]);
+    await client.query('DELETE FROM invoices WHERE id = $1 AND company_id = $2', [id, companyId]);
+
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 export async function checkDuplicateInvoice(

@@ -7,6 +7,7 @@ import { findPaymentPlanByInvoice } from '../db/paymentPlans';
 import { logError as baseLogError, logInfo as baseLogInfo } from '../utils/logger';
 import { sendErrorResponse, parseError } from '../utils/errorHandler';
 import { DUNNING_DECISION_TREE } from '../queue/agentLoop';
+import { pool } from '../config/database';
 
 const LOG_MODULE = 'invoiceController';
 
@@ -54,11 +55,31 @@ export const listInvoices = async (req: Request, res: Response) => {
 
     let { data, total } = await InvoiceDB.listInvoices(companyId, { status, customerId, agingBucket, sort }, limitNum, offset);
 
-    // Compute dunning_stage + next_action and optionally filter by dunningStage
+    // Fetch email_types_sent separately (batch query)
+    const invoiceIds = data.map(d => d.id);
+    let emailTypesByInvoiceId: Record<string, string[]> = {};
+    if (invoiceIds.length > 0) {
+      const emailLogsResult = await pool.query(
+        `SELECT DISTINCT invoice_id, email_type FROM email_logs
+         WHERE invoice_id = ANY($1) AND company_id = $2 AND status != 'failed'
+         ORDER BY invoice_id`,
+        [invoiceIds, companyId]
+      );
+      emailTypesByInvoiceId = {};
+      for (const row of emailLogsResult.rows) {
+        if (!emailTypesByInvoiceId[row.invoice_id]) {
+          emailTypesByInvoiceId[row.invoice_id] = [];
+        }
+        emailTypesByInvoiceId[row.invoice_id].push(row.email_type);
+      }
+    }
+
+    // Compute dunning_stage + next_action
     const enriched = data.map(row => {
       const daysOverdue = Math.max(0, Math.floor((Date.now() - new Date(row.due_date).getTime()) / 86400000));
-      const { dunning_stage, next_action } = computeDunningFields(row.email_types_sent ?? [], daysOverdue);
-      return { ...row, dunning_stage, next_action };
+      const emailTypesSent = emailTypesByInvoiceId[row.id] ?? [];
+      const { dunning_stage, next_action } = computeDunningFields(emailTypesSent, daysOverdue);
+      return { ...row, dunning_stage, next_action, email_types_sent: emailTypesSent };
     });
 
     // App-layer dunningStage filter (0 = Not Started, 1-5 = Stage N)
@@ -94,9 +115,28 @@ export const exportInvoicesCSV = async (req: Request, res: Response) => {
 
     const { data } = await InvoiceDB.listInvoices(companyId, { status, customerId, agingBucket }, 9999, 0);
 
+    // Batch fetch email_types_sent
+    const invoiceIds = data.map(d => d.id);
+    let emailTypesByInvoiceId: Record<string, string[]> = {};
+    if (invoiceIds.length > 0) {
+      const emailLogsResult = await pool.query(
+        `SELECT DISTINCT invoice_id, email_type FROM email_logs
+         WHERE invoice_id = ANY($1) AND company_id = $2 AND status != 'failed'`,
+        [invoiceIds, companyId]
+      );
+      emailTypesByInvoiceId = {};
+      for (const row of emailLogsResult.rows) {
+        if (!emailTypesByInvoiceId[row.invoice_id]) {
+          emailTypesByInvoiceId[row.invoice_id] = [];
+        }
+        emailTypesByInvoiceId[row.invoice_id].push(row.email_type);
+      }
+    }
+
     const enriched = data.map(row => {
       const daysOverdue = Math.max(0, Math.floor((Date.now() - new Date(row.due_date).getTime()) / 86400000));
-      const { dunning_stage, next_action } = computeDunningFields(row.email_types_sent ?? [], daysOverdue);
+      const emailTypesSent = emailTypesByInvoiceId[row.id] ?? [];
+      const { dunning_stage, next_action } = computeDunningFields(emailTypesSent, daysOverdue);
       return { ...row, dunning_stage, next_action };
     });
 

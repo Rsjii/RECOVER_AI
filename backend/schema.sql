@@ -276,21 +276,28 @@ CREATE TABLE IF NOT EXISTS platform_daily_stats (
 -- ============================================================
 -- INDEXES (performance)
 -- ============================================================
+-- Invoice performance indexes (critical for list/filter/delete)
 CREATE INDEX IF NOT EXISTS idx_invoices_company_status   ON invoices(company_id, status);
-CREATE INDEX IF NOT EXISTS idx_invoices_company_due_date ON invoices(company_id, due_date);
+CREATE INDEX IF NOT EXISTS idx_invoices_company_due_date ON invoices(company_id, due_date DESC);
+CREATE INDEX IF NOT EXISTS idx_invoices_company_customer ON invoices(company_id, customer_id);
 CREATE INDEX IF NOT EXISTS idx_invoices_company_risk     ON invoices(company_id, risk_score DESC);
 CREATE INDEX IF NOT EXISTS idx_invoices_source_id        ON invoices(source, source_id);
+CREATE INDEX IF NOT EXISTS idx_invoices_company_status_duedate ON invoices(company_id, status, due_date DESC);
 
+-- Email logs performance indexes (for batched email_types_sent lookup)
+CREATE INDEX IF NOT EXISTS idx_email_logs_invoice        ON email_logs(invoice_id);
+CREATE INDEX IF NOT EXISTS idx_email_logs_company        ON email_logs(company_id, sent_at DESC);
+CREATE INDEX IF NOT EXISTS idx_email_logs_invoice_company ON email_logs(invoice_id, company_id, status);
+
+-- Payment indexes (for deletion foreign key checks)
+CREATE INDEX IF NOT EXISTS idx_payments_invoice          ON payments(invoice_id);
+CREATE INDEX IF NOT EXISTS idx_payments_company          ON payments(company_id, paid_at DESC);
+
+-- Customer indexes
 CREATE INDEX IF NOT EXISTS idx_customers_company         ON customers(company_id);
 CREATE INDEX IF NOT EXISTS idx_customers_email           ON customers(company_id, email);
 CREATE INDEX IF NOT EXISTS idx_customers_phone           ON customers(phone) WHERE phone IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_customers_phone_opt_in    ON customers(company_id, phone_opt_in) WHERE phone_opt_in = true;
-
-CREATE INDEX IF NOT EXISTS idx_email_logs_invoice        ON email_logs(invoice_id);
-CREATE INDEX IF NOT EXISTS idx_email_logs_company        ON email_logs(company_id, sent_at DESC);
-
-CREATE INDEX IF NOT EXISTS idx_payments_invoice          ON payments(invoice_id);
-CREATE INDEX IF NOT EXISTS idx_payments_company          ON payments(company_id, paid_at DESC);
 
 CREATE INDEX IF NOT EXISTS idx_audit_logs_company_time   ON audit_logs(company_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_user           ON audit_logs(user_id, created_at DESC);
