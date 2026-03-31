@@ -138,24 +138,63 @@ export async function processCsvImportJob(companyId: string, invoices: CSVImport
       newCustomers.rows.forEach((row: any) => customerMap.set(row.email, row.id));
     }
 
-    // STEP 3: Check duplicates & build invoice list for bulk insert
+    // STEP 3: OPTIMIZED batch duplicate detection (50 invoices per query)
     const toInsert: any[] = [];
     let duplicates = 0;
 
-    for (const inv of normalized) {
-      const customerId = customerMap.get(inv.customerEmail);
+    // Prepare invoices for deduplication check
+    const invoicesToCheck = normalized
+      .map(inv => ({
+        inv,
+        customerId: customerMap.get(inv.customerEmail),
+        amount: inv.amount,
+        dueDate: inv.dueDate.toISOString().split('T')[0],
+      }))
+      .filter(item => item.customerId);
+
+    // Batch duplicate detection (50 per query = balance between query size & roundtrips)
+    const BATCH_SIZE = 50;
+    const dupeMap = new Map<string, boolean>();
+
+    for (let batchStart = 0; batchStart < invoicesToCheck.length; batchStart += BATCH_SIZE) {
+      const batch = invoicesToCheck.slice(batchStart, Math.min(batchStart + BATCH_SIZE, invoicesToCheck.length));
+
+      // Build OR conditions: (customer_id = ? AND amount = ? AND due_date::date = ?) OR ...
+      const orConditions = batch
+        .map((_, idx) => `(customer_id = $${idx * 3 + 2} AND amount = $${idx * 3 + 3} AND due_date::date = $${idx * 3 + 4})`)
+        .join(' OR ');
+
+      const params: any[] = [companyId];
+      batch.forEach(item => {
+        params.push(item.customerId, item.amount, item.dueDate);
+      });
+
+      try {
+        const dupeResult = await pool.query(
+          `SELECT customer_id, amount, due_date::date FROM invoices WHERE company_id = $1 AND (${orConditions})`,
+          params
+        );
+
+        // Store results as Set for O(1) lookup during filtering
+        dupeResult.rows.forEach((row: any) => {
+          const key = `${row.customer_id}:${row.amount}:${row.due_date}`;
+          dupeMap.set(key, true);
+        });
+      } catch (err: any) {
+        logError(LOG_MODULE, 'processCsvImportJob', `Duplicate check batch failed at offset ${batchStart}`, err);
+        throw err;
+      }
+    }
+
+    // Filter out duplicates and build insert list
+    for (const { inv, customerId } of invoicesToCheck) {
       if (!customerId) {
         skipped++;
         continue;
       }
 
-      // Quick duplicate check per invoice
-      const isDupe = await pool.query(
-        `SELECT 1 FROM invoices WHERE company_id = $1 AND customer_id = $2 AND ABS(amount - $3) < 0.01 AND due_date::date = $4::date LIMIT 1`,
-        [companyId, customerId, inv.amount, inv.dueDate.toISOString().split('T')[0]]
-      );
-
-      if (isDupe.rows.length > 0) {
+      const dupeKey = `${customerId}:${inv.amount}:${inv.dueDate.toISOString().split('T')[0]}`;
+      if (dupeMap.has(dupeKey)) {
         duplicates++;
         continue;
       }

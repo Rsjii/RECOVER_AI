@@ -284,6 +284,10 @@ CREATE INDEX IF NOT EXISTS idx_invoices_company_risk     ON invoices(company_id,
 CREATE INDEX IF NOT EXISTS idx_invoices_source_id        ON invoices(source, source_id);
 CREATE INDEX IF NOT EXISTS idx_invoices_company_status_duedate ON invoices(company_id, status, due_date DESC);
 
+-- CSV import duplicate detection indexes (batch duplicate check)
+CREATE INDEX IF NOT EXISTS idx_invoices_company_customer_amount_date ON invoices(company_id, customer_id, amount, due_date);
+CREATE INDEX IF NOT EXISTS idx_invoices_duplicate_check ON invoices(company_id, customer_id, due_date);
+
 -- Email logs performance indexes (for batched email_types_sent lookup)
 CREATE INDEX IF NOT EXISTS idx_email_logs_invoice        ON email_logs(invoice_id);
 CREATE INDEX IF NOT EXISTS idx_email_logs_company        ON email_logs(company_id, sent_at DESC);
