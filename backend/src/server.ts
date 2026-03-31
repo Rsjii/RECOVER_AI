@@ -15,6 +15,9 @@ const PORT = config.port;
 async function startServer() {
   logInfo('server', 'startServer', 'RecoverAI backend starting');
 
+  // Check if running as worker-only process
+  const isWorkerOnly = process.argv.includes('--worker-only');
+
   try {
     await initObservability();
     await testDbConnection();
@@ -29,13 +32,17 @@ async function startServer() {
     // Reference: Netflix, Uber, Stripe use this pattern
     // ============================================================
 
-    // 1. Initialize cron scheduler (8 scheduled jobs)
-    initScheduler();
+    // 1. Initialize cron scheduler (8 scheduled jobs) - only on API pod
+    if (!isWorkerOnly) {
+      initScheduler();
+    }
 
-    // 2. Register event listeners (instant triggers for immediate actions)
-    registerEventListeners();
+    // 2. Register event listeners (instant triggers) - only on API pod
+    if (!isWorkerOnly) {
+      registerEventListeners();
+    }
 
-    // 3. Initialize CSV import worker (processes queued imports)
+    // 3. Initialize CSV import worker (always load, runs on all pods)
     // Worker auto-starts when getCSVImportQueue() is called from uploadCSVFile handler
     // Import it here to ensure it's loaded and listening
     const { csvImportWorker } = await import('./queue/csvImportJob');
@@ -43,35 +50,53 @@ async function startServer() {
 
     logInfo('server', 'startServer', 'Background system ready', {
       architecture: 'Cron + Event-Driven + BullMQ Workers',
-      scheduledJobs: 8,
-      eventListeners: 5,
+      scheduledJobs: isWorkerOnly ? 0 : 8,
+      eventListeners: isWorkerOnly ? 0 : 5,
       workers: 1,
       redisUsage: '0 polling commands (event-based only)',
       mode: config.nodeEnv,
+      processType: isWorkerOnly ? 'worker-only' : 'api-server',
     });
 
-    const server = app.listen(PORT, () => {
-      logInfo('server', 'listen', 'Server ready', {
-        port: PORT,
-        env: config.nodeEnv,
-        health: `http://localhost:${PORT}/health`,
-        agent: 'Autonomous agent loop running (every 6h)',
-        timeline: 'Recovery timeline aggregation running (daily 01:00 UTC)',
-        paymentPlans: 'Payment plan auto-charge running (daily 09:00 UTC)',
+    // Only start HTTP server if not worker-only
+    if (!isWorkerOnly) {
+      const server = app.listen(PORT, () => {
+        logInfo('server', 'listen', 'Server ready', {
+          port: PORT,
+          env: config.nodeEnv,
+          health: `http://localhost:${PORT}/health`,
+          agent: 'Autonomous agent loop running (every 6h)',
+          timeline: 'Recovery timeline aggregation running (daily 01:00 UTC)',
+          paymentPlans: 'Payment plan auto-charge running (daily 09:00 UTC)',
+        });
       });
-    });
 
-    const shutdown = async (signal: string) => {
-      logInfo('server', 'shutdown', 'Shutdown signal received', { signal });
-      stopScheduler(); // Stop all cron jobs
-      server.close(() => {
-        logInfo('server', 'shutdown', 'Server closed');
+      const shutdown = async (signal: string) => {
+        logInfo('server', 'shutdown', 'Shutdown signal received', { signal });
+        stopScheduler(); // Stop all cron jobs
+        server.close(() => {
+          logInfo('server', 'shutdown', 'Server closed');
+          process.exit(0);
+        });
+      };
+
+      process.on('SIGTERM', () => shutdown('SIGTERM'));
+      process.on('SIGINT', () => shutdown('SIGINT'));
+    } else {
+      logInfo('server', 'startServer', 'Worker-only mode: listening for BullMQ jobs', {
+        workers: 1,
+        queueName: 'csv-import',
+      });
+
+      // Worker mode: keep process alive for job processing
+      const shutdown = (signal: string) => {
+        logInfo('server', 'shutdown', 'Worker shutdown signal received', { signal });
         process.exit(0);
-      });
-    };
+      };
 
-    process.on('SIGTERM', () => shutdown('SIGTERM'));
-    process.on('SIGINT', () => shutdown('SIGINT'));
+      process.on('SIGTERM', () => shutdown('SIGTERM'));
+      process.on('SIGINT', () => shutdown('SIGINT'));
+    }
 
   } catch (err: any) {
     logError('server', 'startServer', 'Server failed to start', err);

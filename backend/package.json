@@ -7,6 +7,7 @@
     "dev:simple": "ts-node -r dotenv/config src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
+    "worker": "node dist/server.js --worker-only",
     "typecheck": "tsc --noEmit",
     "test:seed": "node -r dotenv/config test/seed.js",
     "test:platform": "node -r dotenv/config test/scripts/05-platform.test.js",
