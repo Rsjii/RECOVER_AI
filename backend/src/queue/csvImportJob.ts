@@ -172,18 +172,20 @@ export async function processCsvImportJob(companyId: string, invoices: CSVImport
     // STEP 4: BULK INSERT all invoices at once (1 SQL call)
     let created = 0;
     if (toInsert.length > 0) {
-      const vals = toInsert.map((_, i) => `($${i * 7 + 1}, $${i * 7 + 2}, $${i * 7 + 3}, $${i * 7 + 4}, $${i * 7 + 5}, $${i * 7 + 6}, $${i * 7 + 7})`).join(',');
+      // 8 columns per row: customer_id, amount, currency, due_date, issued_date, company_id, source, status
+      const vals = toInsert.map((_, i) => `($${i * 8 + 1}, $${i * 8 + 2}, $${i * 8 + 3}, $${i * 8 + 4}, $${i * 8 + 5}, $${i * 8 + 6}, $${i * 8 + 7}, $${i * 8 + 8})`).join(',');
       const params: any[] = [];
 
       toInsert.forEach(inv => {
         params.push(
-          inv.customerId,
-          inv.amount,
-          inv.currency,
-          inv.dueDate,
-          inv.issuedDate,
-          companyId,
-          'manual'
+          inv.customerId,      // $1, $9, $17...
+          inv.amount,          // $2, $10, $18...
+          inv.currency,        // $3, $11, $19...
+          inv.dueDate,         // $4, $12, $20...
+          inv.issuedDate,      // $5, $13, $21...
+          companyId,           // $6, $14, $22...
+          'manual',            // $7, $15, $23... (source)
+          'unpaid'             // $8, $16, $24... (status)
         );
       });
 
