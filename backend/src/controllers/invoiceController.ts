@@ -506,7 +506,10 @@ export const uploadCSVFile = async (req: Request, res: Response): Promise<void> 
 
     // Process synchronously - Railway has 1 pod, no separate workers available
     const jobId = randomUUID();
-    const { processCsvImportJob, getCSVImportStatus } = await import('../queue/csvImportJob');
+    const { processCsvImportJob, getCSVImportStatus, initializeWorkerOnDemand } = await import('../queue/csvImportJob');
+
+    // Lazy-start CSV worker (zero polling when idle, starts only on first CSV upload)
+    initializeWorkerOnDemand();
 
     try {
       // Await the processing to complete before returning

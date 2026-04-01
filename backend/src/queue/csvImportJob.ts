@@ -212,35 +212,52 @@ export async function processCsvImportJob(companyId: string, invoices: CSVImport
 // CSV Import Worker (only used when Redis is available)
 let csvImportWorkerInstance: Worker<CSVImportJobData> | null = null;
 
-try {
-  csvImportWorkerInstance = new Worker<CSVImportJobData>(
-    'csv-import',
-    async (job) => {
-      const { companyId, invoices, jobId } = job.data;
-      // Delegate to shared processing function
-      await processCsvImportJob(companyId, invoices, jobId);
-    },
-    {
-      connection: getRedisConnection(),
-      concurrency: 1, // Process one CSV at a time
-      // Note: BullMQ uses BZPOPMIN with 5s timeout by default for blocking
-      // This is efficient — worker sleeps until job arrives or timeout
-      // Not aggressive polling, just checking queue periodically
-    }
-  );
-} catch (err: any) {
-  logError(LOG_MODULE, 'workerInit', 'Failed to initialize CSV worker (Redis unavailable)', err);
-  csvImportWorkerInstance = null;
+// ============================================================
+// CSV Import Worker: LAZY START (Zero polling when idle)
+// ============================================================
+// Strategy: Don't create worker on startup. Create ONLY when:
+// 1. First CSV upload request → worker starts
+// 2. Job completes → worker continues listening (ready for next)
+// Result: ZERO Redis BZPOPMIN polling when queue is empty
+// ============================================================
+
+/**
+ * Lazy-create worker on first job arrival
+ * This prevents continuous BZPOPMIN polling when idle
+ */
+export function initializeWorkerOnDemand(): void {
+  if (csvImportWorkerInstance) return; // Already initialized
+  if (!redisAvailable) return; // Redis unavailable
+
+  try {
+    csvImportWorkerInstance = new Worker<CSVImportJobData>(
+      'csv-import',
+      async (job) => {
+        const { companyId, invoices, jobId } = job.data;
+        await processCsvImportJob(companyId, invoices, jobId);
+      },
+      {
+        connection: getRedisConnection(),
+        concurrency: 1, // Process one CSV at a time
+      }
+    );
+
+    csvImportWorkerInstance.on('completed', (job) => {
+      logInfo(LOG_MODULE, 'worker', 'Job completed', { jobId: job.data.jobId });
+    });
+
+    csvImportWorkerInstance.on('failed', (job, err) => {
+      logError(LOG_MODULE, 'worker', 'Job failed', err, { jobId: job?.data.jobId });
+    });
+
+    logInfo(LOG_MODULE, 'initializeWorkerOnDemand', 'CSV worker initialized (lazy)', {
+      concurrency: 1,
+      polling: 'event-driven only',
+    });
+  } catch (err: any) {
+    logError(LOG_MODULE, 'initializeWorkerOnDemand', 'Failed to init worker', err);
+    redisAvailable = false;
+  }
 }
 
 export const csvImportWorker = csvImportWorkerInstance;
-
-if (csvImportWorker) {
-  csvImportWorker.on('completed', (job) => {
-    logInfo(LOG_MODULE, 'worker', 'Job completed', { jobId: job.data.jobId });
-  });
-
-  csvImportWorker.on('failed', (job, err) => {
-    logError(LOG_MODULE, 'worker', 'Job failed', err, { jobId: job?.data.jobId });
-  });
-}
