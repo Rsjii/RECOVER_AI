@@ -1,6 +1,6 @@
 import { pool } from '../config/database';
 import { logInfo, logError, logWarn } from '../utils/logger';
-import fetch from 'node-fetch';
+import axios from 'axios';
 
 const LOG_MODULE = 'slackNotificationService';
 
@@ -64,13 +64,11 @@ export const slackNotificationService = {
         ...(threadTs && { thread_ts: threadTs }),
       };
 
-      const response = await fetch(webhookUrl, {
-        method: 'POST',
+      const response = await axios.post(webhookUrl, payload, {
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
       });
 
-      if (!response.ok) {
+      if (response.status !== 200) {
         logError(LOG_MODULE, 'postMessage', 'Slack API error', {
           status: response.status,
           statusText: response.statusText,
