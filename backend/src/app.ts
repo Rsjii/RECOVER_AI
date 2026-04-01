@@ -39,6 +39,7 @@ import pilotManagementRoutes from './routes/pilotManagement';
 import auditStagesRoutes from './routes/auditStages';
 import auditRoutes from './routes/audits';
 import pilotQueueRoutes from './routes/pilotQueue';
+import slackRoutes from './routes/slack';
 import { getRequestContext, logError, logInfo, logWarn, withRequestContext } from './utils/logger';
 import { apiLimiter, authLimiter, authSlowDown, syncLimiter, aiLimiter, webhookLimiter, emailLimiter, auditOtpLimiter, publicFormLimiter } from './middleware/rateLimiter';
 
@@ -222,6 +223,7 @@ app.use('/api/admin/pilots', pilotManagementRoutes);
 app.use('/api/audits', auditRoutes);  // Public audit requests + admin endpoints
 app.use('/api/audits', auditStagesRoutes);  // CashOS Stages 1-5 new flow
 app.use('/api/pilot-queue', pilotQueueRoutes);
+app.use('/api/slack', slackRoutes);  // Slack bot integration
 
 // Health check
 app.get('/health', (_req: Request, res: Response) => {

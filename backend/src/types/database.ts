@@ -56,6 +56,16 @@ export interface CompanyRow {
   trial_status: 'not_started' | 'active' | 'expired' | 'converted_to_paid' | null;
   trial_starts_at: string | null;
   trial_ends_at: string | null;
+  // Phase 2: Dunning strategy controls (via Slack bot)
+  dunning_tone: 'gentle' | 'standard' | 'aggressive' | null;
+  pause_dunning_until: string | null;
+  paused_customers: string[] | null;
+  aggressive_enabled: boolean | null;
+  // Slack bot configuration
+  slack_bot_token_encrypted: string | null;
+  slack_signing_secret_encrypted: string | null;
+  slack_channel_id: string | null;
+  slack_notifications_enabled: boolean | null;
 }
 
 // ============ Customers ============

@@ -21,6 +21,10 @@ CREATE TABLE IF NOT EXISTS companies (
   stripe_account_id          VARCHAR,
   stripe_last_synced_at      TIMESTAMPTZ,
   slack_webhook_url_encrypted TEXT,
+  slack_bot_token_encrypted  TEXT,           -- xoxb-... token for Slack bot API
+  slack_signing_secret_encrypted TEXT,       -- Signing secret for request verification
+  slack_channel_id           VARCHAR,        -- Primary channel for notifications
+  slack_notifications_enabled BOOLEAN DEFAULT true,
 
   quickbooks_realm_id        VARCHAR,
   quickbooks_access_token_encrypted TEXT,
@@ -46,6 +50,12 @@ CREATE TABLE IF NOT EXISTS companies (
   pilot_mode                 VARCHAR(20) DEFAULT 'auto',    -- 'shadow' | 'auto' | 'paused'
   manual_mode                BOOLEAN DEFAULT false,         -- when true, all emails queued for approval
   reply_to_email             VARCHAR(255),                  -- company email for dunning replies
+
+  -- Phase 2: Dunning strategy controls (via Slack bot)
+  dunning_tone               VARCHAR(20) DEFAULT 'standard', -- 'gentle' | 'standard' | 'aggressive'
+  pause_dunning_until        TIMESTAMPTZ,                   -- Pause all dunning until this date
+  paused_customers           TEXT[] DEFAULT '{}',           -- Array of customer IDs to skip
+  aggressive_enabled         BOOLEAN DEFAULT false,         -- Enable aggressive mode
 
   -- Pilot program & account type (Motion 1 - Onboarding)
   account_type               VARCHAR(20) DEFAULT 'paid',    -- 'pilot' or 'paid'

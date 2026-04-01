@@ -48,3 +48,14 @@ export async function updateCompany(companyId: string, updates: Record<string, a
   const result = await pool.query(query, [...values, companyId]);
   return result.rows[0];
 }
+
+/**
+ * Find company by Slack user ID (via owner relationship)
+ * TODO: When Slack user tracking is added to users table, update this query
+ */
+export async function findCompanyBySlackUserId(slackUserId: string): Promise<CompanyRow | null> {
+  // For now, return null - this will be implemented when Slack user IDs are stored
+  // Once users table has slack_user_id field, query:
+  // SELECT c.* FROM companies c JOIN users u ON c.owner_id = u.id WHERE u.slack_user_id = $1
+  return null;
+}

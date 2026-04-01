@@ -139,18 +139,46 @@ export async function processCsvImportJob(companyId: string, invoices: CSVImport
       });
     }
 
-    // Create missing customers in BULK (1 SQL call)
-    const missing = uniqueEmails.filter(e => !customerMap.has(e));
-    if (missing.length > 0) {
-      const vals = missing.map((_, i) => `($1, $${i * 2 + 2}, $${i * 2 + 3})`).join(',');
-      const params = [companyId, ...missing.flatMap(e => [e.split('@')[0], e])];
+    // Create missing customers in BULK
+    // For emails: create only if not in customerMap
+    // For names: create only if not in customerByNameMap AND no email exists for that name
+    const missingEmails = uniqueEmails.filter(e => !customerMap.has(e));
+    const missingNames = uniqueNames.filter(n => !customerByNameMap.has(n));
+
+    const newCustomersToCreate: Array<{ name: string; email: string }> = [];
+
+    // Add missing emails
+    missingEmails.forEach(email => {
+      newCustomersToCreate.push({
+        name: email.split('@')[0],
+        email: email
+      });
+    });
+
+    // Add missing names (without email)
+    missingNames.forEach(name => {
+      const hasEmailVersion = uniqueEmails.some(e => e.split('@')[0] === name);
+      if (!hasEmailVersion) {
+        newCustomersToCreate.push({
+          name: name,
+          email: '' // Empty email for name-only entries
+        });
+      }
+    });
+
+    // Bulk insert all missing customers
+    if (newCustomersToCreate.length > 0) {
+      const vals = newCustomersToCreate.map((_, i) => `($1, $${i * 2 + 2}, $${i * 2 + 3})`).join(',');
+      const params = [companyId, ...newCustomersToCreate.flatMap(c => [c.name, c.email])];
 
       const newCustomers = await pool.query(
         `INSERT INTO customers (company_id, name, email) VALUES ${vals} RETURNING id, email, name`,
         params
       );
       newCustomers.rows.forEach((row: any) => {
-        customerMap.set(row.email, row.id);
+        if (row.email) {
+          customerMap.set(row.email, row.id);
+        }
         customerByNameMap.set(row.name, row.id);
       });
     }
@@ -233,22 +261,55 @@ export async function processCsvImportJob(companyId: string, invoices: CSVImport
 
 // CSV Import Worker (only used when Redis is available)
 let csvImportWorkerInstance: Worker<CSVImportJobData> | null = null;
+let lastJobCompletedAt: number = 0;
+let workerCleanupTimer: NodeJS.Timeout | null = null;
+const WORKER_IDLE_TIMEOUT_MS = 60000; // Close worker if idle for 1 minute
 
 // ============================================================
-// CSV Import Worker: LAZY START (Zero polling when idle)
+// CSV Import Worker: LAZY START + AUTO-CLOSE (Zero idle polling)
 // ============================================================
 // Strategy: Don't create worker on startup. Create ONLY when:
 // 1. First CSV upload request → worker starts
-// 2. Job completes → worker continues listening (ready for next)
-// Result: ZERO Redis BZPOPMIN polling when queue is empty
+// 2. Job completes → set idle timeout
+// 3. If no new jobs for 60s → close worker
+// Result: ZERO Redis BZPOPMIN polling when idle
 // ============================================================
 
 /**
+ * Schedule worker cleanup after idle timeout
+ */
+function scheduleWorkerCleanup(): void {
+  // Clear existing timer
+  if (workerCleanupTimer) {
+    clearTimeout(workerCleanupTimer);
+  }
+
+  workerCleanupTimer = setTimeout(async () => {
+    if (csvImportWorkerInstance) {
+      try {
+        await csvImportWorkerInstance.close();
+        csvImportWorkerInstance = null;
+        logInfo(LOG_MODULE, 'scheduleWorkerCleanup', 'CSV worker closed after idle timeout');
+      } catch (err: any) {
+        logError(LOG_MODULE, 'scheduleWorkerCleanup', 'Failed to close worker', err);
+      }
+    }
+  }, WORKER_IDLE_TIMEOUT_MS);
+}
+
+/**
  * Lazy-create worker on first job arrival
- * This prevents continuous BZPOPMIN polling when idle
+ * Worker auto-closes after 60s of inactivity
  */
 export function initializeWorkerOnDemand(): void {
-  if (csvImportWorkerInstance) return; // Already initialized
+  if (csvImportWorkerInstance) {
+    // Worker already running, cancel cleanup timer since we're submitting a job
+    if (workerCleanupTimer) {
+      clearTimeout(workerCleanupTimer);
+      workerCleanupTimer = null;
+    }
+    return;
+  }
   if (!redisAvailable) return; // Redis unavailable
 
   try {
@@ -266,15 +327,22 @@ export function initializeWorkerOnDemand(): void {
 
     csvImportWorkerInstance.on('completed', (job) => {
       logInfo(LOG_MODULE, 'worker', 'Job completed', { jobId: job.data.jobId });
+      lastJobCompletedAt = Date.now();
+      // Schedule cleanup after idle timeout
+      scheduleWorkerCleanup();
     });
 
     csvImportWorkerInstance.on('failed', (job, err) => {
       logError(LOG_MODULE, 'worker', 'Job failed', err, { jobId: job?.data.jobId });
+      lastJobCompletedAt = Date.now();
+      // Schedule cleanup after idle timeout
+      scheduleWorkerCleanup();
     });
 
     logInfo(LOG_MODULE, 'initializeWorkerOnDemand', 'CSV worker initialized (lazy)', {
       concurrency: 1,
       polling: 'event-driven only',
+      idleTimeout: `${WORKER_IDLE_TIMEOUT_MS / 1000}s`,
     });
   } catch (err: any) {
     logError(LOG_MODULE, 'initializeWorkerOnDemand', 'Failed to init worker', err);
@@ -284,4 +352,4 @@ export function initializeWorkerOnDemand(): void {
 
 // DO NOT export csvImportWorker at module level
 // Worker only created on-demand via initializeWorkerOnDemand()
-// This prevents BZPOPMIN polling when idle
+// Worker auto-closes after idle timeout to prevent BZPOPMIN polling

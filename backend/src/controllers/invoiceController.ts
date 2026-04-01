@@ -431,7 +431,7 @@ export const uploadCSVFile = async (req: Request, res: Response): Promise<void> 
 
     // Process data rows (parsing only - no DB calls yet)
     for (let i = 1; i < lines.length; i++) {
-      const values = lines[i].split(',').map(v => v.trim());
+      const values = lines[i].split(',').map(v => v.trim().replace(/^["']|["']$/g, ''));
       if (values.every(v => !v)) continue; // Skip completely empty rows
 
       // Extract values with fallbacks
@@ -443,11 +443,13 @@ export const uploadCSVFile = async (req: Request, res: Response): Promise<void> 
       let issuedDate = issuedDateIdx >= 0 ? values[issuedDateIdx] : '';
 
       // AUTO-INFER MISSING DATA
-      // If no amount found, try first numeric value in row
-      if (!amount || parseFloat(amount) === 0) {
-        const numValue = values.find(v => /^\d+(\.\d+)?$/.test(v));
+      // If no amount found, try first numeric value in row (handle comma separators like "1,234.56")
+      if (!amount || !parseFloat(amount.replace(/,/g, ''))) {
+        const numValue = values.find(v => /^[\d,]+(\.\d+)?$/.test(v));
         amount = numValue || '';
       }
+      // Remove thousand separators for proper parsing
+      amount = amount.replace(/,/g, '');
 
       // If no email found, try to extract from any field that looks like email
       if (!email) {
@@ -483,10 +485,23 @@ export const uploadCSVFile = async (req: Request, res: Response): Promise<void> 
         issuedDate = new Date().toISOString().split('T')[0];
       }
 
+      const parsedAmount = parseFloat(amount) || 0;
+
+      // DEBUG: Log first 3 rows to see what's being parsed
+      if (i <= 3) {
+        logInfo(handler, `CSV row ${i} parsed`, {
+          rawAmount: values[amountIdx],
+          cleanedAmount: amount,
+          parsedAmount,
+          name,
+          email
+        });
+      }
+
       invoices.push({
         customerName: name,
         customerEmail: email,
-        amount: parseFloat(amount) || 0,
+        amount: parsedAmount,
         currency: (currency || 'USD').toUpperCase().substring(0, 3),
         dueDate,
         issuedDate,

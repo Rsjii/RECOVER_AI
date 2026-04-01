@@ -325,3 +325,176 @@ export const getApiCosts = async (req: Request, res: Response): Promise<void> =>
     });
   }
 };
+
+/**
+ * PUT /api/settings/dunning-tone
+ * Set dunning tone: 'gentle' | 'standard' | 'aggressive'
+ */
+export const updateDunningTone = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'updateDunningTone';
+  const companyId = (req as any).companyId;
+
+  try {
+    const { tone } = req.body;
+
+    if (!['gentle', 'standard', 'aggressive'].includes(tone)) {
+      sendErrorResponse(res, 400, 'tone must be gentle, standard, or aggressive');
+      return;
+    }
+
+    const updated = await updateCompany(companyId, { dunning_tone: tone });
+
+    logInfo(LOG_MODULE, handler, 'Dunning tone updated', { companyId, tone });
+
+    res.status(200).json({
+      data: {
+        dunning_tone: updated.dunning_tone,
+        message: `Dunning tone set to ${tone}`,
+      },
+    });
+  } catch (error) {
+    logError(LOG_MODULE, handler, 'Failed to update dunning tone', error);
+    const { statusCode, message } = parseError(error);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
+
+/**
+ * PUT /api/settings/pause-dunning
+ * Pause all dunning until date (or resume if date is null/past)
+ */
+export const updatePauseDunning = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'updatePauseDunning';
+  const companyId = (req as any).companyId;
+
+  try {
+    const { pauseUntil } = req.body;
+
+    if (pauseUntil) {
+      const pauseDate = new Date(pauseUntil);
+      if (isNaN(pauseDate.getTime())) {
+        sendErrorResponse(res, 400, 'pauseUntil must be a valid date');
+        return;
+      }
+    }
+
+    const updated = await updateCompany(companyId, {
+      pause_dunning_until: pauseUntil || null,
+    });
+
+    logInfo(LOG_MODULE, handler, 'Pause dunning updated', {
+      companyId,
+      pauseUntil: updated.pause_dunning_until,
+    });
+
+    res.status(200).json({
+      data: {
+        pause_dunning_until: updated.pause_dunning_until,
+        message: pauseUntil
+          ? `Dunning paused until ${new Date(pauseUntil).toISOString().split('T')[0]}`
+          : 'Dunning resumed',
+      },
+    });
+  } catch (error) {
+    logError(LOG_MODULE, handler, 'Failed to update pause dunning', error);
+    const { statusCode, message } = parseError(error);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
+
+/**
+ * PUT /api/settings/pause-customer
+ * Add or remove customer from pause list
+ */
+export const updatePauseCustomer = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'updatePauseCustomer';
+  const companyId = (req as any).companyId;
+
+  try {
+    const { customerId, action } = req.body; // action: 'add' | 'remove'
+
+    if (!['add', 'remove'].includes(action)) {
+      sendErrorResponse(res, 400, 'action must be add or remove');
+      return;
+    }
+
+    // Fetch current paused customers
+    const company = await findCompanyById(companyId);
+    if (!company) {
+      sendErrorResponse(res, 404, 'Company not found');
+      return;
+    }
+
+    let pausedCustomers = (company as any).paused_customers || [];
+
+    if (action === 'add' && !pausedCustomers.includes(customerId)) {
+      pausedCustomers = [...pausedCustomers, customerId];
+    } else if (action === 'remove') {
+      pausedCustomers = pausedCustomers.filter((id: string) => id !== customerId);
+    }
+
+    const updated = await updateCompany(companyId, {
+      paused_customers: pausedCustomers,
+    });
+
+    logInfo(LOG_MODULE, handler, 'Paused customer updated', {
+      companyId,
+      customerId,
+      action,
+      count: (updated as any).paused_customers?.length || 0,
+    });
+
+    res.status(200).json({
+      data: {
+        paused_customers: (updated as any).paused_customers || [],
+        message: action === 'add'
+          ? `Customer paused from dunning`
+          : `Customer resumed for dunning`,
+      },
+    });
+  } catch (error) {
+    logError(LOG_MODULE, handler, 'Failed to update pause customer', error);
+    const { statusCode, message } = parseError(error);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
+
+/**
+ * PUT /api/settings/aggressive-mode
+ * Enable or disable aggressive dunning mode
+ */
+export const updateAggressiveMode = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'updateAggressiveMode';
+  const companyId = (req as any).companyId;
+
+  try {
+    const { enabled } = req.body;
+
+    if (typeof enabled !== 'boolean') {
+      sendErrorResponse(res, 400, 'enabled must be a boolean');
+      return;
+    }
+
+    const updated = await updateCompany(companyId, {
+      aggressive_enabled: enabled,
+    });
+
+    logInfo(LOG_MODULE, handler, 'Aggressive mode updated', {
+      companyId,
+      enabled: (updated as any).aggressive_enabled,
+    });
+
+    res.status(200).json({
+      data: {
+        aggressive_enabled: (updated as any).aggressive_enabled,
+        message: enabled
+          ? 'Aggressive mode enabled (Tier 3+ for all invoices)'
+          : 'Aggressive mode disabled',
+      },
+    });
+  } catch (error) {
+    logError(LOG_MODULE, handler, 'Failed to update aggressive mode', error);
+    const { statusCode, message } = parseError(error);
+    sendErrorResponse(res, statusCode, message);
+  }
+};

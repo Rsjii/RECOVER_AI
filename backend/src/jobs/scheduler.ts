@@ -74,6 +74,28 @@ export function initScheduler() {
   });
 
   cron.schedule('0 8 * * *', async () => {
+    await executeJob('slackDailySummary', async () => {
+      // Fetch all active companies
+      const companies = await pool.query(`
+        SELECT id FROM companies WHERE subscription_status = 'active'
+      `);
+
+      for (const { id: companyId } of companies.rows) {
+        try {
+          const { slackNotificationService } = await import('../services/slackNotificationService');
+          await slackNotificationService.sendDailySummary({ companyId });
+        } catch (err) {
+          logError(LOG_MODULE, 'slackDailySummary', 'Failed to send daily summary', err, { companyId });
+        }
+      }
+
+      logInfo(LOG_MODULE, 'slackDailySummary', 'Daily summaries sent', {
+        companiesProcessed: companies.rows.length,
+      });
+    });
+  });
+
+  cron.schedule('0 9 * * *', async () => {
     await executeJob('smartARReport', async () => {
       // Fetch all companies with overdue AR
       const companies = await pool.query(`

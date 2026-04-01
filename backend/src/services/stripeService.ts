@@ -294,6 +294,21 @@ class StripeService {
       logError('stripeService', method, 'Failed to update customer history (non-blocking)', err);
     }
 
+    // Send Slack notification (non-blocking)
+    try {
+      const { slackNotificationService } = await import('./slackNotificationService');
+      const customer = await CustomerDB.findCustomerById(invoice.customer_id, invoice.company_id);
+      await slackNotificationService.notifyPaymentReceived({
+        companyId: invoice.company_id,
+        invoiceId: invoice.id,
+        amount: amountPaid,
+        customerName: customer?.name || 'Unknown',
+        customerId: invoice.customer_id,
+      });
+    } catch (err) {
+      logError('stripeService', method, 'Failed to send Slack notification (non-blocking)', err);
+    }
+
     // P1: Attribution tracking — was this payment recovered by RecoverAI dunning?
     try {
       const dunningCheck = await pool.query(

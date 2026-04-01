@@ -1,5 +1,16 @@
 # RecoverAI — Claude Instructions
 
+## 🚨 CRITICAL INTERACTION RULES (READ FIRST)
+
+### Mode Switching Rule
+**NEVER switch to plan mode, worktree mode, or any special execution mode without EXPLICIT USER PERMISSION.**
+- ❌ Do NOT use EnterPlanMode, EnterWorktree, or similar without asking first
+- ✅ Default: Assume user wants immediate action, not planning discussions
+- ✅ Always ask: "Should I switch to plan mode?" before entering special modes
+- User values speed and directness — mode switches are disruptive
+
+---
+
 ## AUTO-MEMORY RULE (MANDATORY)
 
 After EVERY code change in this project, update the relevant memory file:

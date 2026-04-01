@@ -85,11 +85,11 @@ const Landing: React.FC = () => {
           Now live — see your cash runway in 60 seconds
         </div>
         <h1 className="text-5xl md:text-7xl font-bold text-gray-900 dark:text-white max-w-5xl mx-auto leading-tight">
-          Stop Running<br />
-          <span className="bg-gradient-to-r from-brand-600 to-brand-500 bg-clip-text text-transparent">Out of Cash.</span>
+          Stop Losing<br />
+          <span className="bg-gradient-to-r from-brand-600 to-brand-500 bg-clip-text text-transparent">$100K/Year to Unpaid Invoices</span>
         </h1>
         <p className="mt-8 text-lg md:text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto leading-relaxed">
-          Real-time cash position, runway forecasting, and automated AR recovery — the daily financial command center your SaaS needs.
+          Autonomous AR recovery agent that sends personalized dunning emails, offers payment plans, and tracks payments automatically. See your cash position in real-time.
         </p>
         <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
           <Button

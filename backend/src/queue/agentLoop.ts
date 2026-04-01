@@ -53,6 +53,10 @@ async function getOverdueInvoicesForProcessing(): Promise<Array<{
   dunning_stopped: boolean;
   sms_count: number;
   company_pilot_mode: 'shadow' | 'auto' | 'paused' | null;  // P0: Pilot mode
+  dunning_tone: 'gentle' | 'standard' | 'aggressive' | null;
+  pause_dunning_until: string | null;
+  paused_customers: string[] | null;
+  aggressive_enabled: boolean;
 }>> {
   const result = await pool.query(`
     SELECT
@@ -72,6 +76,10 @@ async function getOverdueInvoicesForProcessing(): Promise<Array<{
       COALESCE(c.risk_tier, 2)::int AS risk_tier,
       co.name           AS company_name,
       COALESCE(co.pilot_mode, 'auto') AS company_pilot_mode,
+      COALESCE(co.dunning_tone, 'standard') AS dunning_tone,
+      co.pause_dunning_until,
+      co.paused_customers,
+      COALESCE(co.aggressive_enabled, false) AS aggressive_enabled,
       COUNT(DISTINCT el.id) FILTER (
         WHERE el.email_type LIKE 'dunning_%' AND el.status != 'failed'
       )::int AS dunning_emails_sent,
@@ -94,7 +102,8 @@ async function getOverdueInvoicesForProcessing(): Promise<Array<{
       AND COALESCE(c.do_not_email, false) = false
     GROUP BY i.id, i.company_id, i.customer_id, i.amount, i.due_date, i.risk_score,
              i.dunning_paused_until, i.dunning_stopped, i.sms_count,
-             c.email, c.name, c.phone, c.phone_opt_in, c.risk_tier, co.name, co.pilot_mode
+             c.email, c.name, c.phone, c.phone_opt_in, c.risk_tier, co.name, co.pilot_mode,
+             co.dunning_tone, co.pause_dunning_until, co.paused_customers, co.aggressive_enabled
     ORDER BY i.due_date ASC
   `);
 
@@ -179,12 +188,58 @@ async function runDecisionEngine(): Promise<{
         continue;
       }
 
+      // ── Phase 2: Company-level dunning controls ──
+      if (invoice.pause_dunning_until && new Date(invoice.pause_dunning_until) > new Date()) {
+        logInfo(LOG_MODULE, method, 'Company dunning paused globally — skipping', {
+          invoiceId: invoice.id,
+          pausedUntil: invoice.pause_dunning_until,
+        });
+        skipped++;
+        continue;
+      }
+
+      if (invoice.paused_customers && invoice.paused_customers.includes(invoice.customer_id)) {
+        logInfo(LOG_MODULE, method, 'Customer paused from dunning — skipping', {
+          invoiceId: invoice.id,
+          customerId: invoice.customer_id,
+        });
+        skipped++;
+        continue;
+      }
+
       const emailTypesSent = new Set<string>(invoice.email_types_sent || []);
 
       // ── Find next dunning step to send ──
       // Use tier-specific cadence (Phase 3): Tier 1=7d gaps, 2=6d, 3=5d, 4=4d
       // Fall back to default DUNNING_DECISION_TREE for unknown tiers.
-      const tier = Math.min(4, Math.max(1, invoice.risk_tier || 2)) as 1 | 2 | 3 | 4;
+      let tier = Math.min(4, Math.max(1, invoice.risk_tier || 2)) as 1 | 2 | 3 | 4;
+
+      // ── Phase 2: Apply dunning tone overrides ──
+      if (invoice.dunning_tone === 'gentle') {
+        tier = 1; // Force gentle (Tier 1) regardless of risk
+      } else if (invoice.dunning_tone === 'aggressive' || invoice.aggressive_enabled) {
+        tier = Math.max(tier, 3) as 1 | 2 | 3 | 4; // Force minimum Tier 3 (aggressive)
+      }
+
+      // ── Send high-risk alert if risk score is high ──
+      if (invoice.risk_score >= 75 && daysOverdue >= 30) {
+        try {
+          const { slackNotificationService } = await import('../services/slackNotificationService');
+          await slackNotificationService.notifyHighRisk({
+            companyId: invoice.company_id,
+            customerId: invoice.customer_id,
+            customerName: invoice.customer_name,
+            riskScore: invoice.risk_score,
+            daysOverdue,
+            invoiceId: invoice.id,
+          });
+        } catch (err) {
+          logWarn(LOG_MODULE, method, 'Failed to send high-risk notification (non-blocking)', {
+            error: String(err),
+          });
+        }
+      }
+
       const activeDunningTree = TIER_DUNNING_TREES[tier] ?? DUNNING_DECISION_TREE;
 
       let nextStep: { dayOffset: number; emailType: DunningEmailType } | null = null;

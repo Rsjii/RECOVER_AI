@@ -371,6 +371,22 @@ export function startDunningWorker(): Worker<DunningEmailJob> {
         sendgridMessageId: result.sendgridMessageId,
       });
 
+      // Send Slack notification (non-blocking)
+      try {
+        const { slackNotificationService } = await import('../services/slackNotificationService');
+        await slackNotificationService.notifyEmailSent({
+          companyId: data.companyId,
+          invoiceId: data.invoiceId,
+          emailType: data.emailType,
+          status: 'sent',
+          customerName: data.customerName,
+        });
+      } catch (err) {
+        logWarn(LOG_MODULE, 'worker', 'Failed to send Slack notification (non-blocking)', {
+          error: String(err),
+        });
+      }
+
       return {
         success: true,
         emailLogId: result.emailLogId,
