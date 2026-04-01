@@ -42,11 +42,9 @@ async function startServer() {
       registerEventListeners();
     }
 
-    // 3. Initialize CSV import worker (always load, runs on all pods)
-    // Worker auto-starts when getCSVImportQueue() is called from uploadCSVFile handler
-    // Import it here to ensure it's loaded and listening
-    const { csvImportWorker } = await import('./queue/csvImportJob');
-    logInfo('server', 'startServer', 'CSV import worker loaded', { concurrency: 1, worker: !!csvImportWorker });
+    // 3. CSV import worker is lazy-initialized on first upload
+    // Never imported at startup to prevent BZPOPMIN polling
+    logInfo('server', 'startServer', 'CSV import worker ready (lazy-init on upload)', { concurrency: 1, polling: 'zero idle' });
 
     logInfo('server', 'startServer', 'Background system ready', {
       architecture: 'Cron + Event-Driven + BullMQ Workers',

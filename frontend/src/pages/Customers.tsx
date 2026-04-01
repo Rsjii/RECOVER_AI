@@ -5,6 +5,7 @@ import { useNotification } from '../hooks/useNotification';
 import { CustomerTable } from '../components/customers/CustomerTable';
 import { CustomerModal } from '../components/customers/CustomerModal';
 import { AddCustomerModal } from '../components/customers/AddCustomerModal';
+import { ImportCustomersModal } from '../components/customers/ImportCustomersModal';
 import { Button } from '../components/ui/Button';
 import { formatCurrency } from '../lib/utils';
 import type { Customer } from '../types';
@@ -53,8 +54,10 @@ const Customers: React.FC = () => {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [riskTier, setRiskTier] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [deletingIds, setDeletingIds] = useState<Set<string> | null>(null);
+  const [selectAllPages, setSelectAllPages] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search.trim().toLowerCase()), 250);
@@ -80,6 +83,23 @@ const Customers: React.FC = () => {
     }
   }, [addToast]);
 
+  const handleSelectAllPages = async () => {
+    if (selectAllPages) {
+      setSelectedIds(new Set());
+      setSelectAllPages(false);
+      return;
+    }
+
+    try {
+      const res = await api.get<{ customerIds: string[] }>(`${API_ENDPOINTS.customers.list}/all-ids${riskTier ? `?riskTier=${riskTier}` : ''}`);
+      setSelectedIds(new Set(res.customerIds));
+      setSelectAllPages(true);
+      addToast({ type: 'success', message: `Selected ${res.customerIds.length} customers` });
+    } catch (err: any) {
+      addToast({ type: 'error', message: err.message || 'Failed to select all customers' });
+    }
+  };
+
   const handleBulkDelete = async () => {
     if (selectedIds.size === 0) return;
     if (!window.confirm(`Delete ${selectedIds.size} customer${selectedIds.size !== 1 ? 's' : ''}? This action cannot be undone.`)) return;
@@ -91,6 +111,7 @@ const Customers: React.FC = () => {
       });
       addToast({ type: 'success', message: `Deleted ${selectedIds.size} customer${selectedIds.size !== 1 ? 's' : ''}` });
       setSelectedIds(new Set());
+      setSelectAllPages(false);
       fetchCustomers(page, riskTier);
     } catch (err: any) {
       addToast({ type: 'error', message: err.message || 'Failed to delete customers' });
@@ -134,6 +155,12 @@ const Customers: React.FC = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
             Add Customer
+          </Button>
+          <Button variant="secondary" size="sm" onClick={() => setShowImportModal(true)}>
+            <svg className="w-4 h-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            Import CSV
           </Button>
           <Button variant="secondary" size="sm" onClick={() => exportCustomersCSV(filtered)}>
             <svg className="w-4 h-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -199,12 +226,19 @@ const Customers: React.FC = () => {
         onRowClick={setSelected}
         selectedIds={selectedIds}
         onSelectionChange={setSelectedIds}
+        selectAllPages={selectAllPages}
+        onSelectAllPages={handleSelectAllPages}
       />
       <CustomerModal customer={selected} isOpen={!!selected} onClose={() => setSelected(null)} />
       <AddCustomerModal
         isOpen={showAddModal}
         onClose={() => setShowAddModal(false)}
         onCustomerAdded={handleCustomerAdded}
+      />
+      <ImportCustomersModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        onSuccess={handleCustomerAdded}
       />
     </div>
   );

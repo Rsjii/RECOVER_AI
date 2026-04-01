@@ -65,7 +65,7 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({ isOpen, onCl
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/20 flex items-center justify-center z-50 p-4">
       <div className="bg-white dark:bg-gray-900 rounded-lg shadow-xl max-w-md w-full p-6">
         <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Add Customer</h2>
 

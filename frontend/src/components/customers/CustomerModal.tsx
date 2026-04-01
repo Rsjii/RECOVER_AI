@@ -24,11 +24,18 @@ export const CustomerModal: React.FC<CustomerModalProps> = ({ customer, isOpen, 
   const [phoneOptIn, setPhoneOptIn] = useState(false);
   const [savingPhone, setSavingPhone] = useState(false);
 
+  // Full profile edit mode
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [editForm, setEditForm] = useState({ name: '', email: '' });
+  const [savingEdit, setSavingEdit] = useState(false);
+
   useEffect(() => {
     if (customer && isOpen) {
       setPhone(customer.phone || '');
       setPhoneOptIn(customer.phone_opt_in ?? false);
       setEditingPhone(false);
+      setIsEditingProfile(false);
+      setEditForm({ name: customer.name, email: customer.email });
       setLoading(true);
       api.get<{ data: { customer: Customer; invoices: Invoice[]; totalInvoices: number } }>(
         API_ENDPOINTS.customers.detail(customer.id)
@@ -38,6 +45,7 @@ export const CustomerModal: React.FC<CustomerModalProps> = ({ customer, isOpen, 
           const c = res.data.customer;
           setPhone(c.phone || '');
           setPhoneOptIn(c.phone_opt_in ?? false);
+          setEditForm({ name: c.name, email: c.email });
         })
         .catch(() => {})
         .finally(() => setLoading(false));
@@ -64,39 +72,139 @@ export const CustomerModal: React.FC<CustomerModalProps> = ({ customer, isOpen, 
     }
   };
 
+  const saveProfileEdit = async () => {
+    if (!customer) return;
+    setSavingEdit(true);
+    try {
+      const payload: any = {};
+      if (editForm.email !== customer.email) {
+        payload.email = editForm.email;
+      }
+      if (editForm.name !== customer.name) {
+        // Note: backend doesn't have endpoint to update name yet, would need to add
+        addToast({ type: 'info', message: 'Name updates not yet supported' });
+        return;
+      }
+
+      if (Object.keys(payload).length === 0) {
+        addToast({ type: 'info', message: 'No changes made' });
+        setIsEditingProfile(false);
+        return;
+      }
+
+      const res = await api.put<{ data: Customer }>(
+        API_ENDPOINTS.customers.detail(customer.id),
+        payload
+      );
+      setEditForm({ name: res.data.name, email: res.data.email });
+      setIsEditingProfile(false);
+      addToast({ type: 'success', message: 'Profile updated' });
+      onUpdated?.(res.data);
+    } catch (err: any) {
+      addToast({ type: 'error', message: err.message || 'Failed to update profile' });
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
   if (!customer) return null;
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={customer.name} size="lg">
       {loading ? <div className="flex justify-center py-8"><Spinner /></div> : (
         <div className="space-y-6">
-          {/* Customer Info Grid */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="text-xs text-gray-500 dark:text-gray-400">Email</label>
-              <p className="text-sm text-gray-900 dark:text-white">{customer.email}</p>
-            </div>
-            <div>
-              <label className="text-xs text-gray-500 dark:text-gray-400">Company</label>
-              <p className="text-sm text-gray-900 dark:text-white">{customer.company_name || '—'}</p>
-            </div>
-            <div>
-              <label className="text-xs text-gray-500 dark:text-gray-400">On-Time Rate</label>
-              <p className="text-sm font-medium text-gray-900 dark:text-white">{customer.payment_history.on_time_rate}%</p>
-            </div>
-            <div>
-              <label className="text-xs text-gray-500 dark:text-gray-400">Total Invoices</label>
-              <p className="text-sm text-gray-900 dark:text-white">{customer.payment_history.total_invoices}</p>
-            </div>
-            <div>
-              <label className="text-xs text-gray-500 dark:text-gray-400">Avg Days Late</label>
-              <p className="text-sm text-gray-900 dark:text-white">{customer.payment_history.avg_days_late}d</p>
-            </div>
-            <div>
-              <label className="text-xs text-gray-500 dark:text-gray-400">Industry</label>
-              <p className="text-sm text-gray-900 dark:text-white">{customer.industry || '—'}</p>
-            </div>
+          {/* Profile Edit Button */}
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold text-gray-900 dark:text-white">Profile</h3>
+            {!isEditingProfile && (
+              <button
+                onClick={() => setIsEditingProfile(true)}
+                className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+              >
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                Edit
+              </button>
+            )}
           </div>
+
+          {/* Customer Info Grid */}
+          {isEditingProfile ? (
+            <div className="space-y-4 p-4 border border-blue-200 dark:border-blue-900/30 rounded-lg bg-blue-50 dark:bg-blue-900/10">
+              <div className="grid grid-cols-1 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Name</label>
+                  <input
+                    type="text"
+                    value={editForm.name}
+                    onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                    disabled
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-white/[0.08] rounded-lg text-sm text-gray-500 bg-gray-100 dark:bg-white/[0.02] cursor-not-allowed"
+                  />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Name updates not yet supported</p>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
+                  <input
+                    type="email"
+                    value={editForm.email}
+                    onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-white/[0.08] rounded-lg text-sm text-gray-900 dark:text-white bg-white dark:bg-white/[0.03] focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+              <div className="flex gap-2 pt-2">
+                <button
+                  onClick={saveProfileEdit}
+                  disabled={savingEdit}
+                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg disabled:opacity-50"
+                >
+                  {savingEdit ? 'Saving...' : 'Save'}
+                </button>
+                <button
+                  onClick={() => {
+                    setIsEditingProfile(false);
+                    setEditForm({ name: customer.name, email: customer.email });
+                  }}
+                  className="px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/[0.06] rounded-lg"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs text-gray-500 dark:text-gray-400">Name</label>
+                <p className="text-sm text-gray-900 dark:text-white">{customer.name}</p>
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 dark:text-gray-400">Email</label>
+                <p className="text-sm text-gray-900 dark:text-white">{customer.email}</p>
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 dark:text-gray-400">Company</label>
+                <p className="text-sm text-gray-900 dark:text-white">{customer.company_name || '—'}</p>
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 dark:text-gray-400">Industry</label>
+                <p className="text-sm text-gray-900 dark:text-white">{customer.industry || '—'}</p>
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 dark:text-gray-400">On-Time Rate</label>
+                <p className="text-sm font-medium text-gray-900 dark:text-white">{customer.payment_history.on_time_rate}%</p>
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 dark:text-gray-400">Total Invoices</label>
+                <p className="text-sm text-gray-900 dark:text-white">{customer.payment_history.total_invoices}</p>
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 dark:text-gray-400">Avg Days Late</label>
+                <p className="text-sm text-gray-900 dark:text-white">{customer.payment_history.avg_days_late}d</p>
+              </div>
+            </div>
+          )}
 
           {/* SMS / Phone Section */}
           <div className="border border-gray-200 dark:border-white/[0.06] rounded-lg p-4">

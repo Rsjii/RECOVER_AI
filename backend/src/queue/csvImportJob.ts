@@ -86,10 +86,8 @@ export async function processCsvImportJob(companyId: string, invoices: CSVImport
         continue;
       }
 
-      let email = inv.customerEmail;
-      if (!email || !email.includes('@')) {
-        email = `cust${Math.random().toString(36).substring(7)}@local.invalid`;
-      }
+      // Keep email as-is (empty or with value) - don't auto-generate
+      let email = inv.customerEmail || '';
 
       let dueDate = parseFlexibleDate(inv.dueDate);
       if (!dueDate) {
@@ -103,7 +101,7 @@ export async function processCsvImportJob(companyId: string, invoices: CSVImport
       }
 
       normalized.push({
-        customerName: inv.customerName || email,
+        customerName: inv.customerName,
         customerEmail: email,
         amount: inv.amount,
         currency: inv.currency || 'USD',
@@ -113,16 +111,32 @@ export async function processCsvImportJob(companyId: string, invoices: CSVImport
     }
 
     // STEP 2: Bulk find-or-create customers (1 SQL call)
-    const uniqueEmails = [...new Set(normalized.map(i => i.customerEmail))];
-    const customerMap = new Map<string, string>();
+    const uniqueEmails = [...new Set(normalized.map(i => i.customerEmail).filter(e => e))]; // Only non-empty emails
+    const uniqueNames = [...new Set(normalized.map(i => i.customerName).filter(n => n))]; // For matching by name
+    const customerMap = new Map<string, string>(); // email -> id map
+    const customerByNameMap = new Map<string, string>(); // name -> id map for empty email invoices
 
-    // Get existing customers
+    // Get existing customers by email
     if (uniqueEmails.length > 0) {
       const existing = await pool.query(
-        `SELECT id, email FROM customers WHERE company_id = $1 AND email = ANY($2)`,
+        `SELECT id, email, name FROM customers WHERE company_id = $1 AND email = ANY($2)`,
         [companyId, uniqueEmails]
       );
-      existing.rows.forEach((row: any) => customerMap.set(row.email, row.id));
+      existing.rows.forEach((row: any) => {
+        customerMap.set(row.email, row.id);
+        customerByNameMap.set(row.name, row.id); // Also store by name
+      });
+    }
+
+    // Get existing customers by name (for invoices with empty email)
+    if (uniqueNames.length > 0) {
+      const existing = await pool.query(
+        `SELECT id, name FROM customers WHERE company_id = $1 AND name = ANY($2)`,
+        [companyId, uniqueNames]
+      );
+      existing.rows.forEach((row: any) => {
+        customerByNameMap.set(row.name, row.id);
+      });
     }
 
     // Create missing customers in BULK (1 SQL call)
@@ -132,10 +146,13 @@ export async function processCsvImportJob(companyId: string, invoices: CSVImport
       const params = [companyId, ...missing.flatMap(e => [e.split('@')[0], e])];
 
       const newCustomers = await pool.query(
-        `INSERT INTO customers (company_id, name, email) VALUES ${vals} RETURNING id, email`,
+        `INSERT INTO customers (company_id, name, email) VALUES ${vals} RETURNING id, email, name`,
         params
       );
-      newCustomers.rows.forEach((row: any) => customerMap.set(row.email, row.id));
+      newCustomers.rows.forEach((row: any) => {
+        customerMap.set(row.email, row.id);
+        customerByNameMap.set(row.name, row.id);
+      });
     }
 
     // STEP 3: Check duplicates - simple loop, one query per invoice (proven to work)
@@ -143,7 +160,12 @@ export async function processCsvImportJob(companyId: string, invoices: CSVImport
     let duplicates = 0;
 
     for (const inv of normalized) {
-      const customerId = customerMap.get(inv.customerEmail);
+      // Get customer ID: try email first, then name
+      let customerId = inv.customerEmail ? customerMap.get(inv.customerEmail) : undefined;
+      if (!customerId) {
+        customerId = customerByNameMap.get(inv.customerName);
+      }
+
       if (!customerId) {
         skipped++;
         continue;
@@ -260,4 +282,6 @@ export function initializeWorkerOnDemand(): void {
   }
 }
 
-export const csvImportWorker = csvImportWorkerInstance;
+// DO NOT export csvImportWorker at module level
+// Worker only created on-demand via initializeWorkerOnDemand()
+// This prevents BZPOPMIN polling when idle

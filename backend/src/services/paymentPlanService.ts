@@ -57,9 +57,11 @@ export async function createPlanForInvoice(
   companyId: string,
   numInstallments: number
 ): Promise<PaymentPlan> {
-  // Fetch invoice details from database
+  // Fetch invoice details from database (with customer risk_tier)
   const invoiceResult = await pool.query(
-    `SELECT id, customer_id, amount, risk_tier FROM invoices WHERE id = $1 AND company_id = $2`,
+    `SELECT i.id, i.customer_id, i.amount, c.risk_tier FROM invoices i
+     JOIN customers c ON i.customer_id = c.id
+     WHERE i.id = $1 AND i.company_id = $2`,
     [invoiceId, companyId]
   );
 

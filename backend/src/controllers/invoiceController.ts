@@ -465,10 +465,10 @@ export const uploadCSVFile = async (req: Request, res: Response): Promise<void> 
         name = uniqueId || `Customer ${i}`;
       }
 
-      // If no email, generate one from name or use placeholder
+      // If no email, keep it empty (don't auto-generate)
+      // Empty emails are valid - just skip creating customer for those invoices
       if (!email) {
-        const safeName = name.replace(/[^a-z0-9]/gi, '').toLowerCase();
-        email = `${safeName}${i}@local.invalid`;
+        email = '';
       }
 
       // If no due date, set to 30 days from now
@@ -872,7 +872,8 @@ export const getBatchDeleteStatus = async (req: Request, res: Response): Promise
  */
 async function processBatchDelete(companyId: string, invoiceIds: string[], jobId: string): Promise<void> {
   const startTime = Date.now();
-  const BATCH_SIZE = 25; // Delete 25 at a time
+  const CONCURRENT_DELETES = 5; // Max 5 concurrent delete operations
+  const BATCH_SIZE = 200; // Process 200 IDs per cycle (5 concurrent * 40 each = managed load)
 
   batchDeleteResults.set(jobId, { status: 'processing', deleted: 0, total: invoiceIds.length });
 
@@ -883,26 +884,26 @@ async function processBatchDelete(companyId: string, invoiceIds: string[], jobId
       const batchEnd = Math.min(batchStart + BATCH_SIZE, invoiceIds.length);
       const batch = invoiceIds.slice(batchStart, batchEnd);
 
-      logInfo('batchDeleteProcessor', `Deleting batch ${Math.floor(batchStart / BATCH_SIZE) + 1}/${Math.ceil(invoiceIds.length / BATCH_SIZE)}`, { batchStart, batchEnd });
+      logInfo('batchDeleteProcessor', `Deleting batch ${Math.floor(batchStart / BATCH_SIZE) + 1}/${Math.ceil(invoiceIds.length / BATCH_SIZE)}`, { batchStart, batchEnd, batchSize: batch.length });
 
-      // Delete batch in parallel
-      await Promise.allSettled(
-        batch.map(id => InvoiceDB.deleteInvoice(id, companyId))
-      );
+      // Delete in controlled concurrency (max 5 concurrent)
+      for (let i = 0; i < batch.length; i += CONCURRENT_DELETES) {
+        const concurrentBatch = batch.slice(i, i + CONCURRENT_DELETES);
+        await Promise.allSettled(
+          concurrentBatch.map(id => InvoiceDB.deleteInvoice(id, companyId))
+        );
+        deleted += concurrentBatch.length;
+        batchDeleteResults.set(jobId, { status: 'processing', deleted, total: invoiceIds.length });
+      }
 
-      deleted += batch.length;
-
-      // Update progress
-      batchDeleteResults.set(jobId, { status: 'processing', deleted, total: invoiceIds.length });
-
-      // Small delay between batches
+      // Small delay between major batches
       if (batchEnd < invoiceIds.length) {
-        await new Promise(resolve => setTimeout(resolve, 50));
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
     }
 
     const elapsed = Date.now() - startTime;
-    logInfo('batchDeleteProcessor', `Batch delete complete in ${elapsed}ms`, { jobId, deleted });
+    logInfo('batchDeleteProcessor', `Batch delete complete in ${elapsed}ms`, { jobId, deleted, totalElapsed: elapsed });
 
     batchDeleteResults.set(jobId, { status: 'done', deleted, total: invoiceIds.length });
 

@@ -29,13 +29,34 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ invoice, isOpen, onC
   const [planForm, setPlanForm] = useState({ installments: 3 });
   const [planSubmitting, setPlanSubmitting] = useState(false);
 
+  // Edit state
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState({
+    amount: '',
+    currency: '',
+    dueDate: '',
+    issuedDate: '',
+  });
+  const [savingEdit, setSavingEdit] = useState(false);
+
   useEffect(() => {
     if (invoice && isOpen) {
       setTab('details');
       setCreatingPlan(false);
+      setIsEditing(false);
       setLoading(true);
       api.get<{ data: InvoiceDetail }>(API_ENDPOINTS.invoices.detailFull(invoice.id))
-        .then((res: any) => setDetail(res.data || res))
+        .then((res: any) => {
+          const detail = res.data || res;
+          setDetail(detail);
+          const inv = detail.invoice;
+          setEditForm({
+            amount: String(inv.amount || ''),
+            currency: inv.currency || 'USD',
+            dueDate: inv.due_date ? inv.due_date.split('T')[0] : '',
+            issuedDate: inv.issued_date ? inv.issued_date.split('T')[0] : '',
+          });
+        })
         .catch(() => addToast({ type: 'error', message: 'Failed to load invoice details' }))
         .finally(() => setLoading(false));
     }
@@ -80,6 +101,44 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ invoice, isOpen, onC
     } catch (err: any) {
       addToast({ type: 'error', message: err.message || 'Failed to create plan' });
     } finally { setPlanSubmitting(false); }
+  };
+
+  const handleSaveEdit = async () => {
+    if (!invoice || !detail) return;
+    setSavingEdit(true);
+    try {
+      const inv = detail.invoice;
+      const updatePayload: any = {};
+
+      if (inv.amount !== Number(editForm.amount)) {
+        updatePayload.amount = Number(editForm.amount);
+      }
+      if (inv.currency !== editForm.currency) {
+        updatePayload.currency = editForm.currency;
+      }
+      if (inv.due_date?.split('T')[0] !== editForm.dueDate) {
+        updatePayload.dueDate = editForm.dueDate;
+      }
+      if (inv.issued_date?.split('T')[0] !== editForm.issuedDate) {
+        updatePayload.issuedDate = editForm.issuedDate;
+      }
+
+      if (Object.keys(updatePayload).length === 0) {
+        addToast({ type: 'info', message: 'No changes made' });
+        setIsEditing(false);
+        return;
+      }
+
+      await api.put(`/api/invoices/${invoice.id}`, updatePayload);
+      addToast({ type: 'success', message: 'Invoice updated' });
+      setIsEditing(false);
+      onStatusUpdate();
+      // Reload detail
+      const res: any = await api.get(API_ENDPOINTS.invoices.detailFull(invoice.id));
+      setDetail(res.data || res);
+    } catch (err: any) {
+      addToast({ type: 'error', message: err.message || 'Failed to update invoice' });
+    } finally { setSavingEdit(false); }
   };
 
   if (!invoice) return null;
@@ -134,50 +193,118 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ invoice, isOpen, onC
           {/* Details Tab */}
           {tab === 'details' && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs text-gray-500 dark:text-gray-400">Amount</label>
-                  <p className="text-lg font-bold text-gray-900 dark:text-white">{formatCurrency(Number(invoice.amount), invoice.currency)}</p>
-                </div>
-                <div>
-                  <label className="text-xs text-gray-500 dark:text-gray-400">Risk Score</label>
-                  <Badge value={invoice.risk_score || 0} />
-                </div>
-                <div>
-                  <label className="text-xs text-gray-500 dark:text-gray-400">Due Date</label>
-                  <p className="text-sm text-gray-900 dark:text-white">{formatDate(invoice.due_date)}</p>
-                </div>
-                <div>
-                  <label className="text-xs text-gray-500 dark:text-gray-400">Status</label>
-                  <span className="inline-block px-2.5 py-1 rounded-full text-xs font-medium capitalize"
-                    style={{ backgroundColor: `${STATUS_COLORS[invoice.status] || '#6b7280'}20`, color: STATUS_COLORS[invoice.status] || '#6b7280' }}>
-                    {invoice.status}
-                  </span>
-                </div>
-                <div>
-                  <label className="text-xs text-gray-500 dark:text-gray-400">Source</label>
-                  <p className="text-sm text-gray-900 dark:text-white capitalize">{invoice.source}</p>
-                </div>
-                <div>
-                  <label className="text-xs text-gray-500 dark:text-gray-400">Issued</label>
-                  <p className="text-sm text-gray-900 dark:text-white">{formatDate(invoice.issued_date)}</p>
-                </div>
+              <div className="flex items-center justify-between pb-2 border-b border-gray-200 dark:border-white/[0.06]">
+                <h3 className="font-semibold text-gray-900 dark:text-white">Invoice Details</h3>
+                {!isEditing && (
+                  <Button size="sm" variant="secondary" onClick={() => setIsEditing(true)}>
+                    <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                    Edit
+                  </Button>
+                )}
               </div>
-              <div className="flex flex-wrap gap-2 pt-4 border-t border-gray-200 dark:border-white/[0.06]">
-                {invoice.status === 'unpaid' && (
-                  <>
+
+              {isEditing ? (
+                <div className="space-y-4 p-4 border border-blue-200 dark:border-blue-900/30 rounded-lg bg-blue-50 dark:bg-blue-900/10">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Amount</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={editForm.amount}
+                        onChange={(e) => setEditForm({ ...editForm, amount: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-white/[0.08] rounded-lg text-sm text-gray-900 dark:text-white bg-white dark:bg-white/[0.03] focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Currency</label>
+                      <select
+                        value={editForm.currency}
+                        onChange={(e) => setEditForm({ ...editForm, currency: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-white/[0.08] rounded-lg text-sm text-gray-900 dark:text-white bg-white dark:bg-white/[0.03] focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option>USD</option>
+                        <option>EUR</option>
+                        <option>GBP</option>
+                        <option>CAD</option>
+                        <option>AUD</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Due Date</label>
+                      <input
+                        type="date"
+                        value={editForm.dueDate}
+                        onChange={(e) => setEditForm({ ...editForm, dueDate: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-white/[0.08] rounded-lg text-sm text-gray-900 dark:text-white bg-white dark:bg-white/[0.03] focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Issued Date</label>
+                      <input
+                        type="date"
+                        value={editForm.issuedDate}
+                        onChange={(e) => setEditForm({ ...editForm, issuedDate: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-white/[0.08] rounded-lg text-sm text-gray-900 dark:text-white bg-white dark:bg-white/[0.03] focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2 pt-2">
+                    <Button size="sm" onClick={handleSaveEdit} loading={savingEdit}>Save Changes</Button>
+                    <Button size="sm" variant="ghost" onClick={() => setIsEditing(false)}>Cancel</Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs text-gray-500 dark:text-gray-400">Amount</label>
+                    <p className="text-lg font-bold text-gray-900 dark:text-white">{formatCurrency(Number(invoice.amount), invoice.currency)}</p>
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 dark:text-gray-400">Risk Score</label>
+                    <Badge value={invoice.risk_score || 0} />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 dark:text-gray-400">Due Date</label>
+                    <p className="text-sm text-gray-900 dark:text-white">{formatDate(invoice.due_date)}</p>
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 dark:text-gray-400">Status</label>
+                    <span className="inline-block px-2.5 py-1 rounded-full text-xs font-medium capitalize"
+                      style={{ backgroundColor: `${STATUS_COLORS[invoice.status] || '#6b7280'}20`, color: STATUS_COLORS[invoice.status] || '#6b7280' }}>
+                      {invoice.status}
+                    </span>
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 dark:text-gray-400">Source</label>
+                    <p className="text-sm text-gray-900 dark:text-white capitalize">{invoice.source}</p>
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 dark:text-gray-400">Issued</label>
+                    <p className="text-sm text-gray-900 dark:text-white">{formatDate(invoice.issued_date)}</p>
+                  </div>
+                </div>
+              )}
+
+              {!isEditing && (
+                <div className="flex flex-wrap gap-2 pt-4 border-t border-gray-200 dark:border-white/[0.06]">
+                  {invoice.status === 'unpaid' && (
+                    <>
+                      <Button size="sm" onClick={() => updateStatus('paid')} loading={updating}>Mark Paid</Button>
+                      <Button size="sm" variant="secondary" onClick={() => updateStatus('arranged')} loading={updating}>Mark Arranged</Button>
+                      <Button size="sm" variant="ghost" onClick={sendEmail}>Send Email</Button>
+                    </>
+                  )}
+                  {invoice.status === 'arranged' && (
                     <Button size="sm" onClick={() => updateStatus('paid')} loading={updating}>Mark Paid</Button>
-                    <Button size="sm" variant="secondary" onClick={() => updateStatus('arranged')} loading={updating}>Mark Arranged</Button>
-                    <Button size="sm" variant="ghost" onClick={sendEmail}>Send Email</Button>
-                  </>
-                )}
-                {invoice.status === 'arranged' && (
-                  <Button size="sm" onClick={() => updateStatus('paid')} loading={updating}>Mark Paid</Button>
-                )}
-                {invoice.status !== 'uncollectable' && invoice.status !== 'paid' && (
-                  <Button size="sm" variant="danger" onClick={() => updateStatus('uncollectable')} loading={updating}>Write Off</Button>
-                )}
-              </div>
+                  )}
+                  {invoice.status !== 'uncollectable' && invoice.status !== 'paid' && (
+                    <Button size="sm" variant="danger" onClick={() => updateStatus('uncollectable')} loading={updating}>Write Off</Button>
+                  )}
+                </div>
+              )}
             </div>
           )}
 

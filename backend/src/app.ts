@@ -99,8 +99,9 @@ app.use('/webhooks', express.raw({ type: 'application/json' }));
 app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }));
 app.use('/api/email/webhook/sendgrid', express.json());
 
-// CSV upload receives plain text body
+// CSV uploads receive plain text body
 app.use('/api/invoices/csv-upload', express.text({ type: '*/*', limit: '10mb' }));
+app.use('/api/customers/import-csv', express.text({ type: '*/*', limit: '10mb' }));
 
 // Increase JSON/form limits to handle larger payloads (images, batch operations, large CSVs)
 app.use(express.json({ limit: '10mb' }));

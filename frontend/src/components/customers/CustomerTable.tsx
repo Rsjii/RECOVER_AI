@@ -11,6 +11,8 @@ interface CustomerTableProps {
   onRowClick: (customer: Customer) => void;
   selectedIds?: Set<string>;
   onSelectionChange?: (selected: Set<string>) => void;
+  selectAllPages?: boolean;
+  onSelectAllPages?: () => void;
 }
 
 type SortKey = 'total_ar_balance' | 'max_risk_score' | 'last_payment_date' | null;
@@ -69,10 +71,11 @@ function RiskSignals({ customer }: { customer: Customer }) {
 }
 
 export const CustomerTable: React.FC<CustomerTableProps> = ({
-  customers, loading, pagination, onRowClick, selectedIds = new Set(), onSelectionChange,
+  customers, loading, pagination, onRowClick, selectedIds = new Set(), onSelectionChange, selectAllPages, onSelectAllPages,
 }) => {
   const [sortKey, setSortKey] = useState<SortKey>(null);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+  const [selectingAll, setSelectingAll] = useState(false);
 
   const handleSelectOne = (id: string) => {
     const newSelected = new Set(selectedIds);
@@ -84,10 +87,18 @@ export const CustomerTable: React.FC<CustomerTableProps> = ({
     onSelectionChange?.(newSelected);
   };
 
-  const handleSelectAll = () => {
-    if (selectedIds.size === customers.length && customers.length > 0) {
+  const handleSelectAll = async () => {
+    if (selectAllPages) {
+      // Second click: deselect all
       onSelectionChange?.(new Set());
+      onSelectAllPages?.();
+    } else if (selectedIds.size === customers.length && customers.length > 0) {
+      // First click on all current page selected: select all pages
+      setSelectingAll(true);
+      await onSelectAllPages?.();
+      setSelectingAll(false);
     } else {
+      // First click: select current page
       onSelectionChange?.(new Set(customers.map(c => c.id)));
     }
   };
@@ -161,10 +172,11 @@ export const CustomerTable: React.FC<CustomerTableProps> = ({
               <th className="px-6 py-3">
                 <input
                   type="checkbox"
-                  checked={selectedIds.size === customers.length && customers.length > 0}
+                  checked={selectAllPages || (selectedIds.size === customers.length && customers.length > 0)}
                   onChange={handleSelectAll}
-                  className="w-4 h-4 border border-gray-300 dark:border-white/[0.08] rounded bg-white dark:bg-white/[0.03] cursor-pointer"
-                  title="Select all customers on this page"
+                  disabled={selectingAll}
+                  className="w-4 h-4 border border-gray-300 dark:border-white/[0.08] rounded bg-white dark:bg-white/[0.03] cursor-pointer disabled:opacity-50"
+                  title={selectAllPages ? 'Deselect all customers (click again to deselect all pages)' : 'Select customers on this page (click twice to select all pages)'}
                 />
               </th>
               <th className="px-6 py-3 font-semibold text-gray-900 dark:text-white">Customer</th>
