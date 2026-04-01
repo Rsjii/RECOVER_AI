@@ -237,6 +237,34 @@ export async function deleteInvoice(id: string, companyId: string): Promise<void
   }
 }
 
+/**
+ * Bulk delete multiple invoices in a single transaction (FAST)
+ * Used for batch operations - deletes all related records in one go
+ */
+export async function bulkDeleteInvoices(invoiceIds: string[], companyId: string): Promise<number> {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // Delete all related records for these invoices
+    await client.query('DELETE FROM payments WHERE invoice_id = ANY($1)', [invoiceIds]);
+    await client.query('DELETE FROM email_logs WHERE invoice_id = ANY($1)', [invoiceIds]);
+    await client.query('DELETE FROM payment_plans WHERE invoice_id = ANY($1)', [invoiceIds]);
+    const result = await client.query(
+      'DELETE FROM invoices WHERE id = ANY($1) AND company_id = $2',
+      [invoiceIds, companyId]
+    );
+
+    await client.query('COMMIT');
+    return result.rowCount || 0;
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
 export async function checkDuplicateInvoice(
   companyId: string,
   customerId: string,

@@ -872,8 +872,7 @@ export const getBatchDeleteStatus = async (req: Request, res: Response): Promise
  */
 async function processBatchDelete(companyId: string, invoiceIds: string[], jobId: string): Promise<void> {
   const startTime = Date.now();
-  const CONCURRENT_DELETES = 5; // Max 5 concurrent delete operations
-  const BATCH_SIZE = 200; // Process 200 IDs per cycle (5 concurrent * 40 each = managed load)
+  const BATCH_SIZE = 100; // Delete 100 invoices per batch (single SQL call per batch)
 
   batchDeleteResults.set(jobId, { status: 'processing', deleted: 0, total: invoiceIds.length });
 
@@ -884,21 +883,16 @@ async function processBatchDelete(companyId: string, invoiceIds: string[], jobId
       const batchEnd = Math.min(batchStart + BATCH_SIZE, invoiceIds.length);
       const batch = invoiceIds.slice(batchStart, batchEnd);
 
-      logInfo('batchDeleteProcessor', `Deleting batch ${Math.floor(batchStart / BATCH_SIZE) + 1}/${Math.ceil(invoiceIds.length / BATCH_SIZE)}`, { batchStart, batchEnd, batchSize: batch.length });
+      logInfo('batchDeleteProcessor', `Deleting batch ${Math.floor(batchStart / BATCH_SIZE) + 1}/${Math.ceil(invoiceIds.length / BATCH_SIZE)}`, { batchSize: batch.length });
 
-      // Delete in controlled concurrency (max 5 concurrent)
-      for (let i = 0; i < batch.length; i += CONCURRENT_DELETES) {
-        const concurrentBatch = batch.slice(i, i + CONCURRENT_DELETES);
-        await Promise.allSettled(
-          concurrentBatch.map(id => InvoiceDB.deleteInvoice(id, companyId))
-        );
-        deleted += concurrentBatch.length;
-        batchDeleteResults.set(jobId, { status: 'processing', deleted, total: invoiceIds.length });
-      }
+      // Bulk delete in single transaction
+      const deletedCount = await InvoiceDB.bulkDeleteInvoices(batch, companyId);
+      deleted += deletedCount;
+      batchDeleteResults.set(jobId, { status: 'processing', deleted, total: invoiceIds.length });
 
-      // Small delay between major batches
+      // Tiny delay between batches to avoid locking issues
       if (batchEnd < invoiceIds.length) {
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(resolve, 10));
       }
     }
 
