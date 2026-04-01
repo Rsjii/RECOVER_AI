@@ -9,6 +9,7 @@
 
 import cron from 'node-cron';
 import { logInfo, logError } from '../utils/logger';
+import { runDecisionEngineNow } from '../queue/agentLoop';
 
 const LOG_MODULE = 'scheduler';
 const activeJobs = new Map<string, boolean>();
@@ -48,7 +49,13 @@ export function initScheduler() {
 
   cron.schedule('0 */6 * * *', async () => {
     await executeJob('agentLoop', async () => {
-      logInfo(LOG_MODULE, 'agentLoop', 'Would score all invoices here');
+      const result = await runDecisionEngineNow();
+      logInfo(LOG_MODULE, 'agentLoop', 'Decision engine complete', {
+        totalInvoices: result.total,
+        emailsQueued: result.emailsQueued,
+        planOffersQueued: result.planOffersQueued,
+        skipped: result.skipped,
+      });
     });
   });
 
