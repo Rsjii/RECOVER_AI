@@ -10,6 +10,8 @@
 import cron from 'node-cron';
 import { logInfo, logError } from '../utils/logger';
 import { runDecisionEngineNow } from '../queue/agentLoop';
+import { fetchSmartARData, sendSmartARReport } from '../services/slackService';
+import { pool } from '../config/database'; // Used in smartARReport job
 
 const LOG_MODULE = 'scheduler';
 const activeJobs = new Map<string, boolean>();
@@ -68,6 +70,30 @@ export function initScheduler() {
   cron.schedule('0 2 * * *', async () => {
     await executeJob('segmentation', async () => {
       logInfo(LOG_MODULE, 'segmentation', 'Would update customer tiers here');
+    });
+  });
+
+  cron.schedule('0 8 * * *', async () => {
+    await executeJob('smartARReport', async () => {
+      // Fetch all companies with overdue AR
+      const companies = await pool.query(`
+        SELECT DISTINCT co.id
+        FROM invoices i
+        JOIN companies co ON i.company_id = co.id
+        WHERE i.status NOT IN ('paid', 'uncollectable')
+          AND i.due_date < NOW()
+      `);
+
+      for (const { id: companyId } of companies.rows) {
+        const arData = await fetchSmartARData(companyId);
+        if (arData && arData.customers.length > 0) {
+          await sendSmartARReport(arData);
+        }
+      }
+
+      logInfo(LOG_MODULE, 'smartARReport', 'Smart AR reports sent', {
+        companiesProcessed: companies.rows.length,
+      });
     });
   });
 

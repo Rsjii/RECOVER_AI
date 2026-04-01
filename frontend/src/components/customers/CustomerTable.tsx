@@ -9,6 +9,8 @@ interface CustomerTableProps {
   loading: boolean;
   pagination?: { page: number; pages: number; total: number; onPageChange: (p: number) => void };
   onRowClick: (customer: Customer) => void;
+  selectedIds?: Set<string>;
+  onSelectionChange?: (selected: Set<string>) => void;
 }
 
 type SortKey = 'total_ar_balance' | 'max_risk_score' | 'last_payment_date' | null;
@@ -67,10 +69,28 @@ function RiskSignals({ customer }: { customer: Customer }) {
 }
 
 export const CustomerTable: React.FC<CustomerTableProps> = ({
-  customers, loading, pagination, onRowClick,
+  customers, loading, pagination, onRowClick, selectedIds = new Set(), onSelectionChange,
 }) => {
   const [sortKey, setSortKey] = useState<SortKey>(null);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+
+  const handleSelectOne = (id: string) => {
+    const newSelected = new Set(selectedIds);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    onSelectionChange?.(newSelected);
+  };
+
+  const handleSelectAll = () => {
+    if (selectedIds.size === customers.length && customers.length > 0) {
+      onSelectionChange?.(new Set());
+    } else {
+      onSelectionChange?.(new Set(customers.map(c => c.id)));
+    }
+  };
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -138,6 +158,15 @@ export const CustomerTable: React.FC<CustomerTableProps> = ({
         <table className="w-full text-sm text-left text-gray-700 dark:text-gray-300">
           <thead className="bg-gray-50 dark:bg-white/[0.03] border-b border-gray-200 dark:border-white/[0.08]">
             <tr>
+              <th className="px-6 py-3">
+                <input
+                  type="checkbox"
+                  checked={selectedIds.size === customers.length && customers.length > 0}
+                  onChange={handleSelectAll}
+                  className="w-4 h-4 border border-gray-300 dark:border-white/[0.08] rounded bg-white dark:bg-white/[0.03] cursor-pointer"
+                  title="Select all customers on this page"
+                />
+              </th>
               <th className="px-6 py-3 font-semibold text-gray-900 dark:text-white">Customer</th>
               <th className="px-6 py-3 font-semibold text-gray-900 dark:text-white">Company</th>
               <th className="px-6 py-3 font-semibold text-gray-900 dark:text-white cursor-pointer select-none hover:text-indigo-600 dark:hover:text-indigo-400"
@@ -160,15 +189,24 @@ export const CustomerTable: React.FC<CustomerTableProps> = ({
           <tbody>
             {sorted.map(c => {
               const ar = Number(c.total_ar_balance ?? 0);
+              const isSelected = selectedIds.has(c.id);
               return (
-                <tr key={c.id} onClick={() => onRowClick(c)}
-                  className="group border-b border-gray-200 dark:border-white/[0.06] hover:bg-gray-50 dark:hover:bg-white/[0.06] cursor-pointer transition-colors">
+                <tr key={c.id}
+                  className={`group border-b border-gray-200 dark:border-white/[0.06] transition-colors ${isSelected ? 'bg-indigo-50 dark:bg-indigo-900/20' : 'hover:bg-gray-50 dark:hover:bg-white/[0.06]'}`}>
                   <td className="px-6 py-4">
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => handleSelectOne(c.id)}
+                      className="w-4 h-4 border border-gray-300 dark:border-white/[0.08] rounded bg-white dark:bg-white/[0.03] cursor-pointer"
+                    />
+                  </td>
+                  <td className="px-6 py-4 cursor-pointer" onClick={() => onRowClick(c)}>
                     <div className="font-medium text-gray-900 dark:text-white">{c.name}</div>
                     <div className="text-xs text-gray-500 dark:text-gray-400">{c.email}</div>
                   </td>
-                  <td className="px-6 py-4 text-gray-600 dark:text-gray-300">{c.company_name || '—'}</td>
-                  <td className="px-6 py-4">
+                  <td className="px-6 py-4 text-gray-600 dark:text-gray-300 cursor-pointer" onClick={() => onRowClick(c)}>{c.company_name || '—'}</td>
+                  <td className="px-6 py-4 cursor-pointer" onClick={() => onRowClick(c)}>
                     <div className="flex items-center gap-1.5">
                       <div className={`w-2 h-2 rounded-full ${getRiskColor(c.max_risk_score)}`} />
                       <span className="text-xs font-medium">{getRiskLabel(c.max_risk_score)}</span>
@@ -177,8 +215,8 @@ export const CustomerTable: React.FC<CustomerTableProps> = ({
                       )}
                     </div>
                   </td>
-                  <td className="px-6 py-4"><RiskSignals customer={c} /></td>
-                  <td className="px-6 py-4">
+                  <td className="px-6 py-4 cursor-pointer" onClick={() => onRowClick(c)}><RiskSignals customer={c} /></td>
+                  <td className="px-6 py-4 cursor-pointer" onClick={() => onRowClick(c)}>
                     <div className="flex items-center gap-2">
                       <div className="w-16 h-2 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
                         <div className={`h-full rounded-full ${c.payment_history.on_time_rate >= 80 ? 'bg-green-500' : c.payment_history.on_time_rate >= 50 ? 'bg-yellow-500' : 'bg-red-500'}`}
@@ -187,12 +225,12 @@ export const CustomerTable: React.FC<CustomerTableProps> = ({
                       <span className="text-sm">{c.payment_history.on_time_rate}%</span>
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-right">
+                  <td className="px-6 py-4 text-right cursor-pointer" onClick={() => onRowClick(c)}>
                     <span className={`font-semibold ${ar > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
                       {formatCurrency(ar)}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-gray-500 dark:text-gray-400 text-xs">
+                  <td className="px-6 py-4 text-gray-500 dark:text-gray-400 text-xs cursor-pointer" onClick={() => onRowClick(c)}>
                     {relativeDate(c.last_payment_date)}
                   </td>
                   <td className="px-6 py-4">

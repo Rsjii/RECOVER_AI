@@ -7,6 +7,58 @@ import { sendErrorResponse, parseError } from '../utils/errorHandler';
 
 const LOG_MODULE = 'customerController';
 
+/**
+ * POST /api/customers
+ * Create a new customer
+ */
+export const createCustomer = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'createCustomer';
+  const companyId = (req as any).companyId;
+  const startTime = Date.now();
+
+  try {
+    const { name, email, phone, phone_opt_in } = req.body as {
+      name?: string;
+      email?: string;
+      phone?: string;
+      phone_opt_in?: boolean;
+    };
+
+    // Validate required fields
+    const errors = [];
+    if (!name || typeof name !== 'string' || name.trim().length === 0) errors.push('name');
+    if (!email || typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.push('email (valid email required)');
+
+    if (errors.length > 0) {
+      sendErrorResponse(res, 400, `Missing or invalid: ${errors.join(', ')}`);
+      return;
+    }
+
+    // Create customer (name and email are guaranteed to exist after validation)
+    const customer = await CustomerDB.findOrCreateCustomer({
+      companyId,
+      name: (name as string).trim(),
+      email: (email as string).trim().toLowerCase(),
+    });
+
+    // Update phone if provided
+    if (phone) {
+      await CustomerDB.updateCustomerPhone(customer.id, companyId, phone.trim(), phone_opt_in ?? false);
+    }
+
+    logInfo(LOG_MODULE, handler, `Customer created in ${Date.now() - startTime}ms`, { customerId: customer.id });
+
+    res.status(201).json({
+      data: customer,
+      message: 'Customer created successfully',
+    });
+  } catch (error: any) {
+    logError(LOG_MODULE, handler, `Failed after ${Date.now() - startTime}ms`, error);
+    const { statusCode, message } = parseError(error);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
+
 export const listCustomers = async (req: Request, res: Response): Promise<void> => {
   const handler = 'listCustomers';
   const companyId = (req as any).companyId;
@@ -114,6 +166,57 @@ export const updateCustomer = async (req: Request, res: Response): Promise<void>
     });
   } catch (error: any) {
     logError(LOG_MODULE, handler, 'Failed to update customer', error);
+    const { statusCode, message } = parseError(error);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
+
+/**
+ * POST /api/customers/bulk-delete
+ * Delete multiple customers by ID
+ * Body: { customerIds: string[] }
+ */
+export const batchDeleteCustomers = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'batchDeleteCustomers';
+  const companyId = (req as any).companyId;
+  const startTime = Date.now();
+
+  try {
+    const { customerIds } = req.body as { customerIds?: string[] };
+
+    if (!Array.isArray(customerIds) || customerIds.length === 0) {
+      sendErrorResponse(res, 400, 'customerIds array is required and must not be empty');
+      return;
+    }
+
+    if (customerIds.length > 500) {
+      sendErrorResponse(res, 400, 'Maximum 500 customers per delete operation');
+      return;
+    }
+
+    // Delete customers in one query
+    const result = await pool.query(
+      `DELETE FROM customers WHERE company_id = $1 AND id = ANY($2)`,
+      [companyId, customerIds]
+    );
+
+    const deleted = result.rowCount || 0;
+
+    logInfo(LOG_MODULE, handler, `Batch delete completed in ${Date.now() - startTime}ms`, {
+      companyId,
+      requested: customerIds.length,
+      deleted,
+    });
+
+    res.status(200).json({
+      data: {
+        deleted,
+        requested: customerIds.length,
+        message: `Successfully deleted ${deleted} customer${deleted !== 1 ? 's' : ''}`,
+      },
+    });
+  } catch (error: any) {
+    logError(LOG_MODULE, handler, `Batch delete failed after ${Date.now() - startTime}ms`, error);
     const { statusCode, message } = parseError(error);
     sendErrorResponse(res, statusCode, message);
   }

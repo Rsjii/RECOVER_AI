@@ -223,6 +223,9 @@ try {
     {
       connection: getRedisConnection(),
       concurrency: 1, // Process one CSV at a time
+      // Note: BullMQ uses BZPOPMIN with 5s timeout by default for blocking
+      // This is efficient — worker sleeps until job arrives or timeout
+      // Not aggressive polling, just checking queue periodically
     }
   );
 } catch (err: any) {

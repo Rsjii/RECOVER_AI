@@ -4,6 +4,7 @@ import { API_ENDPOINTS, PAGINATION_LIMIT } from '../lib/constants';
 import { useNotification } from '../hooks/useNotification';
 import { CustomerTable } from '../components/customers/CustomerTable';
 import { CustomerModal } from '../components/customers/CustomerModal';
+import { AddCustomerModal } from '../components/customers/AddCustomerModal';
 import { Button } from '../components/ui/Button';
 import { formatCurrency } from '../lib/utils';
 import type { Customer } from '../types';
@@ -51,6 +52,9 @@ const Customers: React.FC = () => {
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [riskTier, setRiskTier] = useState('');
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [deletingIds, setDeletingIds] = useState<Set<string> | null>(null);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search.trim().toLowerCase()), 250);
@@ -68,12 +72,36 @@ const Customers: React.FC = () => {
       setCustomers(res.data);
       setTotal(res.total);
       setTotalPages(res.totalPages);
+      setSelectedIds(new Set()); // Clear selection on fetch
     } catch (err: any) {
       addToast({ type: 'error', message: err.message || 'Failed to load customers' });
     } finally {
       setLoading(false);
     }
   }, [addToast]);
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    if (!window.confirm(`Delete ${selectedIds.size} customer${selectedIds.size !== 1 ? 's' : ''}? This action cannot be undone.`)) return;
+
+    setDeletingIds(selectedIds);
+    try {
+      await api.post(`${API_ENDPOINTS.customers.list}/bulk-delete`, {
+        customerIds: Array.from(selectedIds),
+      });
+      addToast({ type: 'success', message: `Deleted ${selectedIds.size} customer${selectedIds.size !== 1 ? 's' : ''}` });
+      setSelectedIds(new Set());
+      fetchCustomers(page, riskTier);
+    } catch (err: any) {
+      addToast({ type: 'error', message: err.message || 'Failed to delete customers' });
+    } finally {
+      setDeletingIds(null);
+    }
+  };
+
+  const handleCustomerAdded = () => {
+    fetchCustomers(page, riskTier);
+  };
 
   useEffect(() => { fetchCustomers(page, riskTier); }, [page, riskTier]);
 
@@ -90,7 +118,23 @@ const Customers: React.FC = () => {
     <div className="space-y-6 pb-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Customers</h1>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {selectedIds.size > 0 && (
+            <Button
+              variant="danger"
+              size="sm"
+              onClick={handleBulkDelete}
+              disabled={deletingIds !== null}
+            >
+              {deletingIds ? 'Deleting...' : `Delete ${selectedIds.size}`}
+            </Button>
+          )}
+          <Button variant="primary" size="sm" onClick={() => setShowAddModal(true)}>
+            <svg className="w-4 h-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Add Customer
+          </Button>
           <Button variant="secondary" size="sm" onClick={() => exportCustomersCSV(filtered)}>
             <svg className="w-4 h-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -153,8 +197,15 @@ const Customers: React.FC = () => {
         loading={loading}
         pagination={{ page, pages: totalPages, total, onPageChange: setPage }}
         onRowClick={setSelected}
+        selectedIds={selectedIds}
+        onSelectionChange={setSelectedIds}
       />
       <CustomerModal customer={selected} isOpen={!!selected} onClose={() => setSelected(null)} />
+      <AddCustomerModal
+        isOpen={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        onCustomerAdded={handleCustomerAdded}
+      />
     </div>
   );
 };
