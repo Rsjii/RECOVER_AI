@@ -24,16 +24,18 @@ interface KPIBannerProps {
   plansSummary?: any;
   workingCapital?: WorkingCapitalFreed | null;
   dsoReduction?: DSOReduction | null;
+  hoursSaved?: { hoursSaved: number; emailsSent: number; paymentPlansOffered: number; period: string } | null;
   loading?: boolean;
 }
 
-export const KPIBanner: React.FC<KPIBannerProps> = ({ data, aging, workingCapital, dsoReduction, loading = false }) => {
+export const KPIBanner: React.FC<KPIBannerProps> = ({ data, aging, workingCapital, dsoReduction, hoursSaved, loading = false }) => {
   const [selectedMetric, setSelectedMetric] = useState<string | null>(null);
 
   const dsoReductionDays = dsoReduction?.reductionDays ?? 0;
   const wcTotal = workingCapital?.total ?? 0;
   const wcPrev = workingCapital?.previousTotal;
   const wcDelta = wcPrev != null ? wcTotal - wcPrev : null;
+  const hoursSavedValue = hoursSaved?.hoursSaved ?? 0;
 
   const metrics: Array<{
     id: string; label: string; value: number;
@@ -97,13 +99,21 @@ export const KPIBanner: React.FC<KPIBannerProps> = ({ data, aging, workingCapita
       description: dsoReduction?.trend ?? 'vs. prior 30d',
       color: dsoReductionDays > 0 ? 'text-emerald-500' : dsoReductionDays < 0 ? 'text-rose-500' : 'text-amber-500',
     },
+    {
+      id: 'hours-saved',
+      label: 'Hours Saved',
+      value: hoursSavedValue,
+      format: (v: number) => `${v}h`,
+      description: `${hoursSaved?.emailsSent ?? 0} emails, ${hoursSaved?.paymentPlansOffered ?? 0} plans`,
+      color: 'text-indigo-500',
+    },
   ];
 
   if (loading) {
     return (
       <div className="bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] rounded-xl p-5 animate-pulse">
-        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
-          {Array.from({ length: 6 }).map((_, i) => (
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-7 gap-4">
+          {Array.from({ length: 7 }).map((_, i) => (
             <div key={i} className="h-24 bg-gray-100 dark:bg-white/[0.04] rounded-lg" />
           ))}
         </div>
@@ -115,7 +125,7 @@ export const KPIBanner: React.FC<KPIBannerProps> = ({ data, aging, workingCapita
     <>
       <div className="bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] rounded-xl p-3 md:p-4 lg:p-5">
         <h3 className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider mb-4">Executive Summary</h3>
-        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2 md:gap-3 lg:gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-7 gap-2 md:gap-3 lg:gap-4">
           {metrics.map((metric) => (
             <button
               key={metric.id}

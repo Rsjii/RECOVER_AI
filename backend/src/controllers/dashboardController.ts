@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { getRecoveryStats, getInvoicePipeline, getCustomerRiskList, getDashboardKpi, getAgingAnalysis, getEmailAnalytics, getRiskDrivers, getPaymentPlansSummary, getWorkingCapitalFreed, getDSOReduction } from '../db/dashboard';
+import { getRecoveryStats, getInvoicePipeline, getCustomerRiskList, getDashboardKpi, getAgingAnalysis, getEmailAnalytics, getRiskDrivers, getPaymentPlansSummary, getWorkingCapitalFreed, getDSOReduction, getHoursSaved } from '../db/dashboard';
 import { listPaymentsByCompany } from '../db/payments';
 import { pool } from '../config/database';
 import { logError, logInfo } from '../utils/logger';
@@ -409,6 +409,24 @@ export const getDSOReductionHandler = async (req: Request, res: Response): Promi
     res.status(200).json({ data });
   } catch (error) {
     logError(LOG_MODULE, handler, 'Failed to get DSO reduction', error);
+    const { statusCode, message } = parseError(error);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
+
+/**
+ * GET /api/dashboard/hours-saved
+ * Hours saved from automation (email + payment plan effort).
+ */
+export const getHoursSavedHandler = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'getHoursSavedHandler';
+  const companyId = (req as any).companyId;
+  try {
+    const data = await getHoursSaved(companyId);
+    logInfo(LOG_MODULE, handler, 'Hours saved fetched', { companyId, hoursSaved: data.hoursSaved });
+    res.status(200).json({ data });
+  } catch (error) {
+    logError(LOG_MODULE, handler, 'Failed to get hours saved', error);
     const { statusCode, message } = parseError(error);
     sendErrorResponse(res, statusCode, message);
   }

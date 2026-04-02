@@ -361,6 +361,9 @@ export function initializeWorkerOnDemand(): void {
       polling: 'event-driven only',
       idleTimeout: `${WORKER_IDLE_TIMEOUT_MS / 1000}s`,
     });
+
+    // Schedule cleanup after job completes
+    scheduleWorkerCleanup();
   } catch (err: any) {
     logError(LOG_MODULE, 'initializeWorkerOnDemand', 'Failed to init worker', err);
     redisAvailable = false;

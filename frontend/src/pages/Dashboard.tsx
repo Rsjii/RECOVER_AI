@@ -150,6 +150,7 @@ interface DashCache {
   timeline: any[];
   workingCapital: WorkingCapitalFreed | null;
   dsoReduction: DSOReduction | null;
+  hoursSaved: { hoursSaved: number; emailsSent: number; paymentPlansOffered: number; period: string } | null;
   billingAnomalies: BillingAnomaly[];
   cashForecast: EnhancedCashForecast | null;
   ts: number;
@@ -185,6 +186,7 @@ const Dashboard: React.FC = () => {
   const [plansSummary, setPlansSummary] = useState<PaymentPlansSummaryData | null>(null);
   const [workingCapital, setWorkingCapital] = useState<WorkingCapitalFreed | null>(null);
   const [dsoReduction, setDsoReduction] = useState<DSOReduction | null>(null);
+  const [hoursSaved, setHoursSaved] = useState<{ hoursSaved: number; emailsSent: number; paymentPlansOffered: number; period: string } | null>(null);
   const [billingAnomalies, setBillingAnomalies] = useState<BillingAnomaly[]>([]);
   const [cashForecast, setCashForecast] = useState<EnhancedCashForecast | null>(null);
   // Pilot controls
@@ -238,6 +240,7 @@ const Dashboard: React.FC = () => {
       setPlansSummary(dashCache.plansSummary);
       setWorkingCapital(dashCache.workingCapital);
       setDsoReduction(dashCache.dsoReduction);
+      setHoursSaved(dashCache.hoursSaved);
       setBillingAnomalies(dashCache.billingAnomalies);
       setCashForecast(dashCache.cashForecast);
       setLoading(false);
@@ -265,7 +268,7 @@ const Dashboard: React.FC = () => {
         // NORMAL DASHBOARD MODE
         const [statsRes, pipelineRes, riskRes, atRiskRes, cashRes, runwayRes, leakageRes,
                kpiRes, agingRes, emailAnalyticsRes, riskDriversRes, plansSummaryRes,
-               workingCapitalRes, dsoReductionRes, billingAnomaliesRes, cashForecastRes] = await Promise.all([
+               workingCapitalRes, dsoReductionRes, hoursSavedRes, billingAnomaliesRes, cashForecastRes] = await Promise.all([
           api.get<{ data: DashboardStats }>(API_ENDPOINTS.dashboard.stats),
           api.get<{ data: InvoicePipeline }>(API_ENDPOINTS.dashboard.pipeline),
           api.get<{ data: CustomerRisk[]; total: number }>(API_ENDPOINTS.dashboard.riskList + '?limit=10'),
@@ -280,6 +283,7 @@ const Dashboard: React.FC = () => {
           api.get<{ data: PaymentPlansSummaryData }>('/api/dashboard/payment-plans-summary').catch(() => ({ data: null as PaymentPlansSummaryData | null })),
           api.get<{ data: WorkingCapitalFreed }>('/api/dashboard/working-capital-freed').catch(() => ({ data: null as WorkingCapitalFreed | null })),
           api.get<{ data: DSOReduction }>('/api/dashboard/dso-reduction').catch(() => ({ data: null as DSOReduction | null })),
+          api.get<{ data: { hoursSaved: number; emailsSent: number; paymentPlansOffered: number; period: string } }>('/api/dashboard/hours-saved').catch(() => ({ data: null })),
           api.get<{ data: BillingAnomaly[] }>('/api/billing-optimization').catch(() => ({ data: [] as BillingAnomaly[] })),
           api.get<{ data: EnhancedCashForecast }>('/api/dashboard/cash-forecast').catch(() => ({ data: null as EnhancedCashForecast | null })),
         ]);
@@ -297,6 +301,7 @@ const Dashboard: React.FC = () => {
         const plansSummaryData = plansSummaryRes.data;
         const workingCapitalData = workingCapitalRes.data;
         const dsoReductionData = dsoReductionRes.data;
+        const hoursSavedData = hoursSavedRes.data;
         const billingAnomaliesData = billingAnomaliesRes.data || [];
         const cashForecastData = cashForecastRes.data;
 
@@ -317,6 +322,7 @@ const Dashboard: React.FC = () => {
         setPlansSummary(plansSummaryData);
         setWorkingCapital(workingCapitalData);
         setDsoReduction(dsoReductionData);
+        setHoursSaved(hoursSavedData);
         setBillingAnomalies(billingAnomaliesData);
         setCashForecast(cashForecastData);
 
@@ -326,6 +332,7 @@ const Dashboard: React.FC = () => {
           kpi: kpiData, aging: agingData, emailAnalytics: emailAnalyticsData,
           riskDrivers: riskDriversData, plansSummary: plansSummaryData, timeline: [],
           workingCapital: workingCapitalData, dsoReduction: dsoReductionData,
+          hoursSaved: hoursSavedData,
           billingAnomalies: billingAnomaliesData, cashForecast: cashForecastData,
           ts: Date.now(),
         };
@@ -742,6 +749,7 @@ const Dashboard: React.FC = () => {
         plansSummary={plansSummary}
         workingCapital={workingCapital}
         dsoReduction={dsoReduction}
+        hoursSaved={hoursSaved}
         loading={loading}
       />
 
