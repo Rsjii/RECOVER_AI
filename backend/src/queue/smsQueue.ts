@@ -180,9 +180,12 @@ export function startSMSWorker(): void {
     {
       connection: getRedisConnection(),
       concurrency: 2,
-      stalledInterval: 600_000,
-      drainDelay: 60,
-    }
+      // Event-driven only: BZPOPMIN blocking, never poll
+      tryBlockedFetch: true,        // Use BZPOPMIN (blocking) — blocks until job arrives
+      maxStalCount: 2,              // Switch to blocking mode immediately
+      stalledInterval: 600_000,     // Check for stalled jobs every 10 min
+      drainDelay: 300,              // Wait 5 minutes before giving up on blocking
+    } as any
   );
 
   smsWorker.on('completed', async (job) => {
