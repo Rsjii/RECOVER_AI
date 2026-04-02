@@ -207,6 +207,7 @@ export async function scheduleDunningEmails(
 
 // ============================================================
 // Add a single email job immediately (manual trigger)
+// LAZY START: Worker only created when first job arrives
 // ============================================================
 export async function queueEmailNow(job: DunningEmailJob): Promise<string> {
   // Block demo account from queuing jobs
@@ -228,6 +229,11 @@ export async function queueEmailNow(job: DunningEmailJob): Promise<string> {
     return 'queue-unavailable';
   }
 
+  // Lazy-start worker on first job
+  if (!dunningWorker) {
+    startDunningWorker();
+  }
+
   const bullJob = await queue.add(job.emailType, job, {
     delay: 0,
     jobId: `${job.invoiceId}-${job.emailType}-${Date.now()}`,
@@ -244,13 +250,45 @@ export async function queueEmailNow(job: DunningEmailJob): Promise<string> {
 
 // ============================================================
 // Worker (consumer side — processes jobs)
+// LAZY START: Worker only created when first email job arrives
+// AUTO-CLOSE: Worker stops after 2 minutes of idle time (no new jobs)
+// Result: ZERO Redis polling when idle, instant activation on new job
 // ============================================================
 let dunningWorker: Worker<DunningEmailJob> | null = null;
+let lastJobCompletedAt: number = Date.now();
+let workerCleanupTimer: NodeJS.Timeout | null = null;
+const WORKER_IDLE_TIMEOUT_MS = 120000; // Close worker if idle for 2 minutes
+
+function scheduleDunningWorkerCleanup(): void {
+  // Clear existing timer
+  if (workerCleanupTimer) {
+    clearTimeout(workerCleanupTimer);
+  }
+
+  workerCleanupTimer = setTimeout(async () => {
+    if (dunningWorker) {
+      try {
+        await dunningWorker.close();
+        dunningWorker = null;
+        logInfo(LOG_MODULE, 'scheduleDunningWorkerCleanup', 'Dunning worker closed after idle timeout');
+      } catch (err: any) {
+        logError(LOG_MODULE, 'scheduleDunningWorkerCleanup', 'Failed to close dunning worker', err);
+      }
+    }
+  }, WORKER_IDLE_TIMEOUT_MS);
+}
 
 export function startDunningWorker(): Worker<DunningEmailJob> {
-  if (dunningWorker) return dunningWorker;
+  if (dunningWorker) {
+    // Worker already running, cancel cleanup timer since we're submitting a job
+    if (workerCleanupTimer) {
+      clearTimeout(workerCleanupTimer);
+      workerCleanupTimer = null;
+    }
+    return dunningWorker;
+  }
 
-  logInfo(LOG_MODULE, 'startDunningWorker', 'Starting dunning email worker');
+  logInfo(LOG_MODULE, 'startDunningWorker', 'Starting dunning email worker (lazy-init)');
 
   dunningWorker = new Worker<DunningEmailJob>(
     QUEUE_NAME,
@@ -405,20 +443,26 @@ export function startDunningWorker(): Worker<DunningEmailJob> {
     } as any)
   );
 
-  dunningWorker.on('completed', (job, result) => {
+  dunningWorker.on('completed', async (job, result) => {
     logInfo(LOG_MODULE, 'worker', 'Job completed', {
       jobId: job.id,
       invoiceId: job.data.invoiceId,
       result,
     });
+    lastJobCompletedAt = Date.now();
+    // Schedule cleanup after idle timeout
+    scheduleDunningWorkerCleanup();
   });
 
-  dunningWorker.on('failed', (job, err) => {
+  dunningWorker.on('failed', async (job, err) => {
     logError(LOG_MODULE, 'worker', 'Job failed', err, {
       jobId: job?.id,
       invoiceId: job?.data.invoiceId,
       attempt: job?.attemptsMade,
     });
+    lastJobCompletedAt = Date.now();
+    // Schedule cleanup after idle timeout
+    scheduleDunningWorkerCleanup();
   });
 
   dunningWorker.on('stalled', (jobId) => {
@@ -429,7 +473,11 @@ export function startDunningWorker(): Worker<DunningEmailJob> {
     logWarn(LOG_MODULE, 'worker', 'Worker connection issue', { error: err.message });
   });
 
-  logInfo(LOG_MODULE, 'startDunningWorker', 'Worker started', { concurrency: 1 });
+  logInfo(LOG_MODULE, 'startDunningWorker', 'Worker started (lazy)', {
+    concurrency: 1,
+    idleTimeout: `${WORKER_IDLE_TIMEOUT_MS / 1000}s`,
+    polling: 'event-driven only when jobs arrive',
+  });
   return dunningWorker;
 }
 

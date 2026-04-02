@@ -326,18 +326,34 @@ export function initializeWorkerOnDemand(): void {
       }
     );
 
-    csvImportWorkerInstance.on('completed', (job) => {
+    csvImportWorkerInstance.on('completed', async (job) => {
       logInfo(LOG_MODULE, 'worker', 'Job completed', { jobId: job.data.jobId });
       lastJobCompletedAt = Date.now();
-      // Schedule cleanup after idle timeout
-      scheduleWorkerCleanup();
+      // Close worker immediately after job completes to stop polling
+      try {
+        if (csvImportWorkerInstance) {
+          await csvImportWorkerInstance.close();
+          csvImportWorkerInstance = null;
+          logInfo(LOG_MODULE, 'worker', 'CSV worker closed immediately after job completion');
+        }
+      } catch (err: any) {
+        logError(LOG_MODULE, 'worker', 'Failed to close worker after completion', err);
+      }
     });
 
-    csvImportWorkerInstance.on('failed', (job, err) => {
+    csvImportWorkerInstance.on('failed', async (job, err) => {
       logError(LOG_MODULE, 'worker', 'Job failed', err, { jobId: job?.data.jobId });
       lastJobCompletedAt = Date.now();
-      // Schedule cleanup after idle timeout
-      scheduleWorkerCleanup();
+      // Close worker immediately after job fails to stop polling
+      try {
+        if (csvImportWorkerInstance) {
+          await csvImportWorkerInstance.close();
+          csvImportWorkerInstance = null;
+          logInfo(LOG_MODULE, 'worker', 'CSV worker closed immediately after job failure');
+        }
+      } catch (err: any) {
+        logError(LOG_MODULE, 'worker', 'Failed to close worker after failure', err);
+      }
     });
 
     logInfo(LOG_MODULE, 'initializeWorkerOnDemand', 'CSV worker initialized (lazy)', {

@@ -42,7 +42,11 @@ async function startServer() {
       registerEventListeners();
     }
 
-    // 3. CSV import worker is lazy-initialized on first upload
+    // 3. Dunning email worker is lazy-initialized on first email queue
+    // Never started at startup to prevent BZPOPMIN polling when idle
+    logInfo('server', 'startServer', 'Dunning worker ready (lazy-init on first email)', { concurrency: 1, polling: 'zero idle' });
+
+    // 4. CSV import worker is lazy-initialized on first upload
     // Never imported at startup to prevent BZPOPMIN polling
     logInfo('server', 'startServer', 'CSV import worker ready (lazy-init on upload)', { concurrency: 1, polling: 'zero idle' });
 
