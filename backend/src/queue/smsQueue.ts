@@ -10,6 +10,7 @@ import { logError, logInfo, logWarn } from '../utils/logger';
 const LOG_MODULE = 'smsQueue';
 const QUEUE_NAME = 'sms-messages';
 const WORKER_IDLE_TIMEOUT_MS = 60000; // Close worker if idle for 1 minute
+const SMS_FEATURE_ENABLED = false; // PAUSED: Will enable in Phase 2
 
 let smsWorkerCleanupTimer: NodeJS.Timeout | null = null;
 
@@ -47,6 +48,10 @@ export interface SMSJob {
 let smsQueue: Queue<SMSJob> | null = null;
 
 export function getSMSQueue(): Queue<SMSJob> | null {
+  if (!SMS_FEATURE_ENABLED) {
+    return null;
+  }
+
   if (!smsQueue) {
     // OPTIMIZATION: Check if Redis is available before creating queue
     if (!isRedisConnected()) {
@@ -71,6 +76,13 @@ export function getSMSQueue(): Queue<SMSJob> | null {
 }
 
 export async function queueSMSNow(job: SMSJob): Promise<void> {
+  if (!SMS_FEATURE_ENABLED) {
+    logInfo(LOG_MODULE, 'queueSMSNow', 'SMS feature paused (Phase 2) - skipping SMS queue', {
+      invoiceId: job.invoiceId,
+    });
+    return;
+  }
+
   const queue = getSMSQueue();
 
   // OPTIMIZATION: If Redis not available, skip queuing
@@ -98,6 +110,12 @@ export async function queueSMSNow(job: SMSJob): Promise<void> {
 let smsWorker: Worker<SMSJob> | null = null;
 
 export function startSMSWorker(): void {
+  // Feature paused
+  if (!SMS_FEATURE_ENABLED) {
+    logInfo(LOG_MODULE, 'startSMSWorker', 'SMS feature paused - worker not started');
+    return;
+  }
+
   if (smsWorker) {
     // Worker already running, cancel cleanup timer since we're submitting a job
     if (smsWorkerCleanupTimer) {

@@ -15,6 +15,34 @@ router.use(authMiddleware);
 router.use(checkTrialStatus);
 router.use(demoBlocker);
 
+// ============================================================
+// Rate Limiters (prevent infinite loops from frontend polling)
+// IMPORTANT: Only record timestamp on SUCCESS, not on request start
+// ============================================================
+const agentTriggerTimestamps = new Map<string, number>();
+const agentPreviewTimestamps = new Map<string, number>();
+const emailTriggerTimestamps = new Map<string, number>();
+
+/**
+ * Check if request is rate limited (WITHOUT recording it yet)
+ * Only call recordRateLimit() AFTER the operation succeeds
+ */
+function checkRateLimit(limiter: Map<string, number>, key: string, windowMs: number): { allowed: boolean; secondsUntilNext?: number } {
+  const now = Date.now();
+  const lastTime = limiter.get(key);
+  if (lastTime && now - lastTime < windowMs) {
+    return { allowed: false, secondsUntilNext: Math.ceil((windowMs - (now - lastTime)) / 1000) };
+  }
+  return { allowed: true };
+}
+
+/**
+ * Record successful request (call AFTER operation succeeds)
+ */
+function recordRateLimit(limiter: Map<string, number>, key: string): void {
+  limiter.set(key, Date.now());
+}
+
 router.get('/stats', getStats);
 router.get('/pipeline', getPipeline);
 router.get('/risk-list', getRiskList);
@@ -44,31 +72,28 @@ router.get('/trial-analysis', getTrialAnalysis);
  * POST /api/dashboard/agent/trigger
  * Manually trigger an agent run and return a real-time summary.
  * Only available on paid plans (blocks if trial)
+ * Rate limited: max 1 trigger per company per 60 seconds
  */
-// Rate limiter for agent trigger
-const agentTriggerTimestamps = new Map<string, number>();
-
 router.post('/agent/trigger', requireActiveSubscription, requireNotTrial, async (req, res) => {
   try {
     const companyId = (req as any).companyId;
-    const now = Date.now();
-    const lastTrigger = agentTriggerTimestamps.get(companyId);
+    const rateLimitCheck = checkRateLimit(agentTriggerTimestamps, companyId, 60000);
 
-    // Rate limit: max 1 trigger per 60 seconds per company
-    if (lastTrigger && now - lastTrigger < 60000) {
-      const secondsUntilNext = Math.ceil((60000 - (now - lastTrigger)) / 1000);
+    if (!rateLimitCheck.allowed) {
       return res.status(429).json({
-        error: `Agent already triggered recently. Please wait ${secondsUntilNext} seconds.`,
-        retryAfter: secondsUntilNext,
+        error: `Agent already triggered recently. Please wait ${rateLimitCheck.secondsUntilNext} seconds.`,
+        retryAfter: rateLimitCheck.secondsUntilNext,
       });
     }
-
-    agentTriggerTimestamps.set(companyId, now);
 
     logInfo('dashboardRoute', 'agentTrigger', 'Manual agent run starting', {
       companyId,
     });
     const result = await runDecisionEngineNow();
+
+    // Record rate limit ONLY on success
+    recordRateLimit(agentTriggerTimestamps, companyId);
+
     res.json({
       message: 'Agent run complete',
       emailsQueued: result.emailsQueued,
@@ -77,6 +102,8 @@ router.post('/agent/trigger', requireActiveSubscription, requireNotTrial, async 
       skipped: result.skipped,
     });
   } catch (err) {
+    // DO NOT record rate limit on failure — allow retry immediately
+    logError('dashboardRoute', 'agentTrigger', 'Agent trigger failed', err);
     res.status(500).json({ error: 'Failed to trigger agent run' });
   }
 });
@@ -85,12 +112,26 @@ router.post('/agent/trigger', requireActiveSubscription, requireNotTrial, async 
  * POST /api/dashboard/agent/preview
  * Dry-run: shows what the agent WOULD do — no emails sent.
  * Used for trial mode "pending approval" UI on Dashboard.
+ * Rate limited: max 1 preview per company per 30 seconds
  */
 router.post('/agent/preview', async (req, res) => {
   try {
     const companyId = (req as any).companyId as string;
+    const rateLimitCheck = checkRateLimit(agentPreviewTimestamps, companyId, 30000);
+
+    if (!rateLimitCheck.allowed) {
+      return res.status(429).json({
+        error: `Preview already requested recently. Please wait ${rateLimitCheck.secondsUntilNext} seconds.`,
+        retryAfter: rateLimitCheck.secondsUntilNext,
+      });
+    }
+
     logInfo('dashboardRoute', 'agentPreview', 'Dry-run preview requested', { companyId });
     const result = await runDecisionEngineDryRun(companyId);
+
+    // Record rate limit ONLY on success
+    recordRateLimit(agentPreviewTimestamps, companyId);
+
     res.json({
       message: 'Agent preview complete — no emails sent',
       emailsWouldQueue: result.emailsWouldQueue,
@@ -101,6 +142,8 @@ router.post('/agent/preview', async (req, res) => {
       previews: result.previews,
     });
   } catch (err) {
+    // DO NOT record rate limit on failure — allow retry immediately
+    logError('dashboardRoute', 'agentPreview', 'Agent preview failed', err);
     res.status(500).json({ error: 'Failed to run agent preview' });
   }
 });
@@ -110,6 +153,7 @@ router.post('/agent/preview', async (req, res) => {
  * Send a single email for a specific invoice (called by dashboard individual Send button).
  * Accepts invoiceId and optional emailOverride.
  * Only available on paid plans (blocks if trial)
+ * Rate limited: max 5 emails per company per minute (per invoice)
  */
 router.post('/agent/trigger-single', requireActiveSubscription, requireNotTrial, async (req, res) => {
   try {
@@ -119,6 +163,17 @@ router.post('/agent/trigger-single', requireActiveSubscription, requireNotTrial,
     if (!invoiceId) {
       res.status(400).json({ error: 'invoiceId is required' });
       return;
+    }
+
+    // Rate limit: max 5 emails per company per minute
+    const emailRateLimitKey = `${companyId}:${invoiceId}`;
+    const rateLimitCheck = checkRateLimit(emailTriggerTimestamps, emailRateLimitKey, 12000); // 12s between emails per invoice
+
+    if (!rateLimitCheck.allowed) {
+      return res.status(429).json({
+        error: `Email already sent recently for this invoice. Please wait ${rateLimitCheck.secondsUntilNext} seconds.`,
+        retryAfter: rateLimitCheck.secondsUntilNext,
+      });
     }
 
     // Verify invoice belongs to this company
@@ -158,6 +213,9 @@ router.post('/agent/trigger-single', requireActiveSubscription, requireNotTrial,
       riskScore: invoice.risk_score || undefined,
     });
 
+    // Record rate limit ONLY on success (after email is actually queued)
+    recordRateLimit(emailTriggerTimestamps, emailRateLimitKey);
+
     logInfo('dashboardRoute', 'triggerSingle', 'Individual email queued', {
       invoiceId,
       recipientEmail,
@@ -171,6 +229,7 @@ router.post('/agent/trigger-single', requireActiveSubscription, requireNotTrial,
       jobId,
     });
   } catch (err) {
+    // DO NOT record rate limit on failure — allow retry immediately
     logError('dashboardRoute', 'triggerSingle', 'Failed to queue individual email', err);
     res.status(500).json({ error: 'Failed to queue email' });
   }

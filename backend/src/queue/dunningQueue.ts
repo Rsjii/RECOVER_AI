@@ -452,11 +452,30 @@ export function startDunningWorker(): Worker<DunningEmailJob> {
   });
 
   dunningWorker.on('failed', async (job, err) => {
+    const attemptsRemaining = (job?.opts?.attempts || 1) - (job?.attemptsMade || 0);
+
     logError(LOG_MODULE, 'worker', 'Job failed', err, {
       jobId: job?.id,
       invoiceId: job?.data.invoiceId,
-      attempt: job?.attemptsMade,
+      attemptMade: job?.attemptsMade,
+      attemptsRemaining,
     });
+
+    // If this was the LAST attempt, log critical alert
+    if (attemptsRemaining === 0) {
+      logError(LOG_MODULE, 'worker', '🚨 EMAIL PERMANENTLY FAILED (all retries exhausted)', {
+        jobId: job?.id,
+        invoiceId: job?.data.invoiceId,
+        email: job?.data.recipientEmail,
+        emailType: job?.data.emailType,
+        reason: err?.message,
+        action: 'Job will be deleted from queue. Customer notification sent to admin.',
+      });
+
+      // TODO: Send alert to admin/slack that this email failed permanently
+      // For now, just log it so ops can see in logs
+    }
+
     // Schedule cleanup after idle timeout
     scheduleDunningWorkerCleanup();
   });

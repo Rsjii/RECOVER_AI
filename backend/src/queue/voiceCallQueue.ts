@@ -7,6 +7,7 @@ import { pool } from '../config/database';
 
 const MODULE = 'voiceCallQueue';
 const WORKER_IDLE_TIMEOUT_MS = 60000; // Close worker if idle for 1 minute
+const VOICE_FEATURE_ENABLED = false; // PAUSED: Will enable in Phase 2
 
 let voiceCallWorker: any = null;
 let voiceWorkerCleanupTimer: NodeJS.Timeout | null = null;
@@ -54,6 +55,10 @@ function getRedisConnection() {
 let voiceCallQueue: Queue | null = null;
 
 export function getVoiceCallQueue(): Queue | null {
+  if (!VOICE_FEATURE_ENABLED) {
+    return null;
+  }
+
   if (!voiceCallQueue) {
     const redisUrl = config.redisUrl;
     if (!redisUrl) {
@@ -86,6 +91,11 @@ export function getVoiceCallQueue(): Queue | null {
  * Add a voice call to the queue
  */
 export async function queueVoiceCall(req: VoiceCallRequest): Promise<string> {
+  if (!VOICE_FEATURE_ENABLED) {
+    logInfo(MODULE, 'queueVoiceCall', 'Voice call feature paused (Phase 2) - skipping voice call', { invoiceId: req.invoiceId });
+    return 'feature-paused';
+  }
+
   try {
     const queue = getVoiceCallQueue();
     if (!queue) {
@@ -122,6 +132,12 @@ export async function queueVoiceCall(req: VoiceCallRequest): Promise<string> {
  * Start the voice call worker (lazy-init)
  */
 export async function startVoiceCallWorker(): Promise<void> {
+  // Feature paused
+  if (!VOICE_FEATURE_ENABLED) {
+    logInfo(MODULE, 'startVoiceCallWorker', 'Voice call feature paused - worker not started');
+    return;
+  }
+
   // Already running
   if (voiceCallWorker) {
     if (voiceWorkerCleanupTimer) {
