@@ -6,6 +6,7 @@ import { ProfileSection } from '../components/settings/ProfileSection';
 import { IntegrationSection } from '../components/settings/IntegrationSection';
 import { EmailSettingsSection } from '../components/settings/EmailSettingsSection';
 import { DunningSection } from '../components/settings/DunningSection';
+import { AutomationSection } from '../components/settings/AutomationSection';
 import { AccountSection } from '../components/settings/AccountSection';
 import type { SettingsTab } from '../components/settings/SettingsLayout';
 import { api } from '../lib/api';
@@ -177,6 +178,11 @@ const Settings: React.FC = () => {
           isSaving={isSaving}
           isDirty={isDirty}
         />
+      )}
+
+      {/* Automation Tab - Email Queue, Workflows, Advanced */}
+      {activeTab === 'automation' && (
+        <AutomationSection />
       )}
 
       {/* Account Tab - Password Reset, Security, Account Management, Sessions */}

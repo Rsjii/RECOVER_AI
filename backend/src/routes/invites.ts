@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { authMiddleware } from '../middleware/auth';
 import { requireRole } from '../middleware/rbac';
+import { demoBlocker } from '../middleware/demoBlocker';
 import {
   generateInviteToken,
   getInviteInfo,
@@ -17,10 +18,10 @@ const router = Router();
 // POST /api/invites/generate - Admin only: Generate personalized invite token
 // Only accepts: email (optional), company_name (required)
 // Does NOT accept: revenue, employees, or research_data
-router.post('/generate', authMiddleware, requireRole('admin'), generateInviteToken);
+router.post('/generate', authMiddleware, demoBlocker, requireRole('admin'), generateInviteToken);
 
 // GET /api/invites/list - Admin only: List all invite tokens created by this admin
-router.get('/list', authMiddleware, requireRole('admin'), listInvites);
+router.get('/list', authMiddleware, demoBlocker, requireRole('admin'), listInvites);
 
 /**
  * Public endpoints (no auth required, for frontend)

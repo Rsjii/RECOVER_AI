@@ -2,6 +2,7 @@ import express from 'express';
 import * as requestsController from '../controllers/requestsController';
 import { authMiddleware } from '../middleware/auth';
 import { requireRole } from '../middleware/rbac';
+import { demoBlocker } from '../middleware/demoBlocker';
 
 const router = express.Router();
 
@@ -15,13 +16,13 @@ router.post('/', requestsController.submitAuditRequest);
  * GET /api/audit-requests
  * List audit requests (ADMIN ONLY)
  */
-router.get('/', authMiddleware, requireRole('admin'), requestsController.listAuditRequests);
+router.get('/', authMiddleware, demoBlocker, requireRole('admin'), requestsController.listAuditRequests);
 
 /**
  * GET /api/audit-requests/:email
  * Get single audit request (ADMIN ONLY)
  */
-router.get('/:email', authMiddleware, requireRole('admin'), requestsController.getAuditRequest);
+router.get('/:email', authMiddleware, demoBlocker, requireRole('admin'), requestsController.getAuditRequest);
 
 // Approval/reject flows removed - direct signup flow instead
 

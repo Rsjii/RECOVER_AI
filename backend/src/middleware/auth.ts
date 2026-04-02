@@ -26,6 +26,7 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction) 
     (req as any).userId = decoded.userId;
     (req as any).companyId = decoded.companyId;
     (req as any).email = decoded.email;
+    (req as any).isDemo = decoded.is_demo || false;  // Extract demo flag from JWT
 
     next();
   } catch (err: any) {

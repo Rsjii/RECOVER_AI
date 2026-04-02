@@ -3,6 +3,7 @@ export interface JWTPayload {
   userId: string;
   companyId: string;
   email: string;
+  is_demo?: boolean;  // true = demo account (read-only, all mutations blocked)
 }
 
 // ============ Auth Requests ============

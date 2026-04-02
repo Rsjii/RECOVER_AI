@@ -339,8 +339,19 @@ export const demoLogin = async (req: Request, res: Response): Promise<void> => {
     const companyId = authResult.company.id;
     logInfo(LOG_MODULE, handler, 'Demo company resolved', { companyId });
 
-    // ---- 1b. Mark demo user as email-verified (skip OTP requirement) ----
-    await pool.query(`UPDATE users SET email_verified = true, otp_code = NULL, otp_expires = NULL WHERE id = $1`, [authResult.user.id]);
+    // ---- 1b. Mark demo user as email-verified + demo mode (skip OTP requirement) ----
+    await pool.query(`UPDATE users SET email_verified = true, is_demo = true, otp_code = NULL, otp_expires = NULL WHERE id = $1`, [authResult.user.id]);
+
+    // ---- 1c. Regenerate tokens with is_demo flag ----
+    // The initial signup tokens don't include is_demo, so we need to regenerate them now
+    const { accessToken: newAccessToken, refreshToken: newRefreshToken } = authService.createAuthTokens(
+      authResult.user.id,
+      authResult.company.id,
+      authResult.user.email,
+      true // isDemo = true
+    );
+    authResult.tokens.accessToken = newAccessToken;
+    authResult.tokens.refreshToken = newRefreshToken;
 
     // ---- 2. Check if demo data already exists ----
     const existingCount = await pool.query(
@@ -586,7 +597,7 @@ export const demoLogin = async (req: Request, res: Response): Promise<void> => {
 
     res.status(200).json({
       message: 'Demo account ready',
-      user: { ...authResult.user, emailVerified: true },
+      user: { ...authResult.user, emailVerified: true, is_demo: true },
       company: authResult.company,
       isDemo: true,
     });

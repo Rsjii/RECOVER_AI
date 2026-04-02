@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Header } from './Header';
 import { Sidebar } from './Sidebar';
-import { DemoBanner } from '../DemoBanner';
+import { DemoBanner } from '../ui/DemoBanner';
 
 interface LayoutProps {
   children: React.ReactNode;

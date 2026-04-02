@@ -86,6 +86,7 @@ CREATE TABLE IF NOT EXISTS users (
   first_name    VARCHAR NOT NULL,
   last_name     VARCHAR NOT NULL,
   role          VARCHAR(20) DEFAULT 'member',     -- owner | member | viewer
+  is_demo       BOOLEAN DEFAULT false,             -- true = demo account (read-only, all mutations blocked)
   is_active     BOOLEAN DEFAULT true,
   last_login    TIMESTAMPTZ,
   reset_token   VARCHAR(255),

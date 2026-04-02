@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { connectStripe, syncInvoices, stripeWebhook, stripeOAuthAuthorize, stripeOAuthCallback, stripeOAuthExchange, getSyncHistory } from '../controllers/stripeController';
 import { listInvoices, getInvoice } from '../controllers/invoiceController';
 import { authMiddleware } from '../middleware/auth';
+import { demoBlocker } from '../middleware/demoBlocker';
 import { validate } from '../middleware/validate';
 import { connectStripeSchema } from '../types/schemas';
 import * as CompanyDB from '../db/companies';
@@ -13,17 +14,17 @@ const router = Router();
 router.post('/webhook', stripeWebhook);
 
 // OAuth routes
-router.get('/oauth/authorize', authMiddleware, stripeOAuthAuthorize);
+router.get('/oauth/authorize', authMiddleware, demoBlocker, stripeOAuthAuthorize);
 router.get('/oauth/callback', stripeOAuthCallback);
-router.post('/oauth/exchange', authMiddleware, stripeOAuthExchange);
+router.post('/oauth/exchange', authMiddleware, demoBlocker, stripeOAuthExchange);
 
 // Protected routes
-router.post('/connect', authMiddleware, validate(connectStripeSchema), connectStripe);
-router.post('/sync', authMiddleware, syncInvoices);
-router.get('/sync/history', authMiddleware, getSyncHistory);
+router.post('/connect', authMiddleware, demoBlocker, validate(connectStripeSchema), connectStripe);
+router.post('/sync', authMiddleware, demoBlocker, syncInvoices);
+router.get('/sync/history', authMiddleware, demoBlocker, getSyncHistory);
 
 // Validate API key (for manual paste)
-router.post('/validate-key', authMiddleware, async (req, res) => {
+router.post('/validate-key', authMiddleware, demoBlocker, async (req, res) => {
   const { apiKey } = req.body;
   const companyId = (req as any).companyId;
 
@@ -48,7 +49,7 @@ router.post('/validate-key', authMiddleware, async (req, res) => {
 });
 
 // Invoice endpoints
-router.get('/invoices', authMiddleware, listInvoices);
-router.get('/invoices/:id', authMiddleware, getInvoice);
+router.get('/invoices', authMiddleware, demoBlocker, listInvoices);
+router.get('/invoices/:id', authMiddleware, demoBlocker, getInvoice);
 
 export default router;

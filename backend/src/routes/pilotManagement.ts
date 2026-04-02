@@ -8,11 +8,13 @@ import {
   getPilot,
 } from '../controllers/pilotManagementController';
 import { authMiddleware } from '../middleware/auth';
+import { demoBlocker } from '../middleware/demoBlocker';
 
 const router = Router();
 
 // All routes require authentication
 router.use(authMiddleware);
+router.use(demoBlocker);
 
 // List all pilots with optional status filter
 router.get('/list', listPilots);

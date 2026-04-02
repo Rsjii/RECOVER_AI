@@ -1,6 +1,7 @@
 import express from 'express';
 import { publicFormLimiter } from '../middleware/rateLimiter';
 import { authMiddleware } from '../middleware/auth';
+import { demoBlocker } from '../middleware/demoBlocker';
 import * as c from '../controllers/auditStagesController';
 
 const router = express.Router();
@@ -26,30 +27,30 @@ router.post('/stage/1/verify-otp', publicFormLimiter, c.verifyStage1OTP);
  * Stage 1: Auth + Company Details (3-step form)
  * Step 3: Update company + first/last name details
  */
-router.post('/stage/1/details', authMiddleware, c.updateStage3Details);
+router.post('/stage/1/details', authMiddleware, demoBlocker, c.updateStage3Details);
 
 // ─── AUTHENTICATED (httpOnly cookie required after Stage 1) ─────────────────
 
 /** Resume helper: returns which frontend stage number to redirect to */
-router.get('/check-stage', authMiddleware, c.checkOnboardingStage);
+router.get('/check-stage', authMiddleware, demoBlocker, c.checkOnboardingStage);
 
 /** Stage 2: Get integration status (Stripe + QB) */
-router.get('/stage/2', authMiddleware, c.getStage4Status);
+router.get('/stage/2', authMiddleware, demoBlocker, c.getStage4Status);
 
 /** Stage 2: Proceed to Stage 3 (requires Stripe connected) */
-router.post('/stage/2/proceed', authMiddleware, c.proceedFromStage4);
+router.post('/stage/2/proceed', authMiddleware, demoBlocker, c.proceedFromStage4);
 
 /** Stage 3: Generate cash position analysis */
-router.get('/stage/3/analysis', authMiddleware, c.generateAuditAnalysis);
+router.get('/stage/3/analysis', authMiddleware, demoBlocker, c.generateAuditAnalysis);
 
 /** Stage 3: Start 14-day free trial */
-router.post('/stage/3/start-trial', authMiddleware, c.startTrial);
+router.post('/stage/3/start-trial', authMiddleware, demoBlocker, c.startTrial);
 
 // ─── BACKWARDS COMPATIBILITY (old route names still work for existing clients) ─
-router.post('/stage/3/details', authMiddleware, c.updateStage3Details);
-router.get('/stage/4', authMiddleware, c.getStage4Status);
-router.post('/stage/4/next', authMiddleware, c.proceedFromStage4);
-router.get('/stage/5/analysis', authMiddleware, c.generateAuditAnalysis);
-router.post('/stage/5/start-trial', authMiddleware, c.startTrial);
+router.post('/stage/3/details', authMiddleware, demoBlocker, c.updateStage3Details);
+router.get('/stage/4', authMiddleware, demoBlocker, c.getStage4Status);
+router.post('/stage/4/next', authMiddleware, demoBlocker, c.proceedFromStage4);
+router.get('/stage/5/analysis', authMiddleware, demoBlocker, c.generateAuditAnalysis);
+router.post('/stage/5/start-trial', authMiddleware, demoBlocker, c.startTrial);
 
 export default router;

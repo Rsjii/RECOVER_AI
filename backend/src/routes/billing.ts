@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { authMiddleware } from '../middleware/auth';
 import { requireRole } from '../middleware/rbac';
 import { tenantScopeGuard } from '../middleware/tenantScope';
+import { demoBlocker } from '../middleware/demoBlocker';
 import {
   createMonthlyBillingInvoice,
   getCurrentSubscription,
@@ -28,6 +29,7 @@ router.get('/plans', listPlans);
 
 router.use(authMiddleware);
 router.use(tenantScopeGuard);
+router.use(demoBlocker);
 router.get('/subscription', getCurrentSubscription);
 router.put('/subscription', requireRole('admin'), updateSubscription);
 router.get('/invoices', listBillingInvoices);

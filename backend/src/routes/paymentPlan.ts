@@ -7,14 +7,15 @@ import {
   completePlan
 } from '../controllers/paymentPlanController';
 import { authMiddleware } from '../middleware/auth';
+import { demoBlocker } from '../middleware/demoBlocker';
 
 const router = Router();
 
 // Authenticated endpoints
-router.get('/stats', authMiddleware, getPaymentPlansStats);
-router.get('/recent', authMiddleware, getRecentPlans);
-router.get('/:planId', authMiddleware, getPlanDetails);
-router.patch('/:planId/complete', authMiddleware, completePlan);
+router.get('/stats', authMiddleware, demoBlocker, getPaymentPlansStats);
+router.get('/recent', authMiddleware, demoBlocker, getRecentPlans);
+router.get('/:planId', authMiddleware, demoBlocker, getPlanDetails);
+router.patch('/:planId/complete', authMiddleware, demoBlocker, completePlan);
 
 // Public endpoint for plan acceptance (no auth needed - token-based)
 router.post('/:planId/accept', acceptPlan);

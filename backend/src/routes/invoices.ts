@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { authMiddleware } from '../middleware/auth';
 import { tenantScopeGuard } from '../middleware/tenantScope';
+import { demoBlocker } from '../middleware/demoBlocker';
 import {
   listInvoices,
   exportInvoicesCSV,
@@ -25,6 +26,7 @@ const router = Router();
 
 router.use(authMiddleware);
 router.use(tenantScopeGuard);
+router.use(demoBlocker);  // Block mutations for demo users (after auth is set)
 
 router.get('/', listInvoices);
 router.get('/all-ids', getAllInvoiceIds);

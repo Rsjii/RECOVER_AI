@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { authMiddleware } from '../middleware/auth';
 import { requireRole } from '../middleware/rbac';
 import { tenantScopeGuard } from '../middleware/tenantScope';
+import { demoBlocker } from '../middleware/demoBlocker';
 import {
   acceptInvitation,
   inviteMember,
@@ -17,6 +18,7 @@ router.get('/invitation/validate', validateInvitation);
 
 router.use(authMiddleware);
 router.use(tenantScopeGuard);
+router.use(demoBlocker);
 router.get('/members', listTeamMembers);
 router.post('/invite', requireRole('admin'), inviteMember);
 router.put('/members/:userId/role', requireRole('admin'), updateMemberRole);

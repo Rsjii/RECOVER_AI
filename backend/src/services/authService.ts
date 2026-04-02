@@ -148,8 +148,8 @@ class AuthService {
       throw new Error('Invalid email or password');
     }
 
-    // Generate tokens
-    const { accessToken, refreshToken } = this.generateTokens(user.id, user.company_id, user.email);
+    // Generate tokens (include is_demo flag if applicable)
+    const { accessToken, refreshToken } = this.generateTokens(user.id, user.company_id, user.email, user.is_demo);
 
     // Update last login
     await UserDB.updateLastLogin(user.id);
@@ -269,19 +269,24 @@ class AuthService {
     };
   }
 
-  private generateTokens(userId: string, companyId: string, email: string) {
+  private generateTokens(userId: string, companyId: string, email: string, isDemo?: boolean) {
     if (!config.jwtSecret || !config.refreshTokenSecret) {
       throw new Error('JWT secrets not configured');
     }
 
+    const payload: JWTPayload = { userId, companyId, email };
+    if (isDemo) {
+      payload.is_demo = true;
+    }
+
     const accessToken = jwt.sign(
-      { userId, companyId, email } as JWTPayload,
+      payload,
       config.jwtSecret,
       { expiresIn: '1h' }  // Changed from 7d to 1h for security
     );
 
     const refreshToken = jwt.sign(
-      { userId, companyId, email } as JWTPayload,
+      payload,
       config.refreshTokenSecret,
       { expiresIn: '7d' }  // Changed from 30d to 7d for security
     );
@@ -463,8 +468,8 @@ async googleLogin(code: string): Promise<AuthResponse> {
   /**
    * Public method to generate auth tokens (for use in onboarding)
    */
-  public createAuthTokens(userId: string, companyId: string, email: string) {
-    return this.generateTokens(userId, companyId, email);
+  public createAuthTokens(userId: string, companyId: string, email: string, isDemo?: boolean) {
+    return this.generateTokens(userId, companyId, email, isDemo);
   }
 }
 

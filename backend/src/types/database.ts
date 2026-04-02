@@ -7,6 +7,7 @@ export interface UserRow {
   first_name: string;
   last_name: string;
   role: string;
+  is_demo: boolean;                // true = demo account (read-only, all mutations blocked)
   is_active: boolean;
   last_login: string | null;
   created_at: string;

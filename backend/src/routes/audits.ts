@@ -3,6 +3,7 @@ import * as auditController from '../controllers/auditController';
 import { auditOtpLimiter, publicFormLimiter } from '../middleware/rateLimiter';
 import { authMiddleware } from '../middleware/auth';
 import { requireRole } from '../middleware/rbac';
+import { demoBlocker } from '../middleware/demoBlocker';
 
 const router = express.Router();
 
@@ -81,7 +82,7 @@ router.post('/requests/verify-email', auditOtpLimiter, auditController.verifyAud
  * GET /api/audits/requests (Admin only)
  * List all audit requests - admin dashboard shows who ran audits
  */
-router.get('/requests', authMiddleware, requireRole('admin'), auditController.listAuditRequests);
+router.get('/requests', authMiddleware, demoBlocker, requireRole('admin'), auditController.listAuditRequests);
 
 /**
  * GET /api/audits/validate-token
@@ -93,7 +94,7 @@ router.get('/validate-token', auditController.validateInviteToken);
  * GET /api/audits/check-stage
  * Check current onboarding stage for user
  */
-router.get('/check-stage', authMiddleware, auditController.checkOnboardingStage);
+router.get('/check-stage', authMiddleware, demoBlocker, auditController.checkOnboardingStage);
 
 /**
  * ─────────────────────────────────────────────────────────────

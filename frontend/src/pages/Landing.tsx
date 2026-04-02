@@ -55,7 +55,7 @@ const Landing: React.FC = () => {
           <Link to="/security" className="text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">Security</Link>
           <ThemeToggle />
           <Link to="/login" className="text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">Sign in</Link>
-          <Button size="sm" onClick={() => navigate('/signup')}>Become a Pilot</Button>
+          <Button size="sm" onClick={() => navigate('/signup')}>Start Free Trial</Button>
         </nav>
         <div className="flex md:hidden items-center gap-2">
           <ThemeToggle className="p-2 text-gray-500 dark:text-gray-400 rounded-lg hover:bg-gray-100 dark:hover:bg-white/[0.06] transition-colors" />
@@ -74,7 +74,7 @@ const Landing: React.FC = () => {
           <Link to="/pricing" onClick={() => setMobileMenuOpen(false)} className="text-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">Pricing</Link>
           <Link to="/security" onClick={() => setMobileMenuOpen(false)} className="text-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">Security</Link>
           <Link to="/login" onClick={() => setMobileMenuOpen(false)} className="text-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">Sign in</Link>
-          <Button size="sm" className="w-full" onClick={() => { setMobileMenuOpen(false); navigate('/signup'); }}>Become a Pilot</Button>
+          <Button size="sm" className="w-full" onClick={() => { setMobileMenuOpen(false); navigate('/signup'); }}>Start Free Trial</Button>
         </div>
       )}
 
@@ -97,7 +97,7 @@ const Landing: React.FC = () => {
             className="px-8"
             onClick={() => navigate('/signup')}
           >
-            Become a Pilot
+            Start Free Trial
           </Button>
           <Button
             size="lg"
@@ -109,7 +109,7 @@ const Landing: React.FC = () => {
             {demoLoading ? 'Loading demo...' : 'Try live demo'}
           </Button>
         </div>
-        <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">14 days free pilot • See results fast</p>
+        <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">14 days free • No credit card required</p>
         <p className="mt-6 text-xs text-gray-400 dark:text-gray-500 max-w-md mx-auto">
           We only access your read-only invoice and payment data to analyze and automate recovery.
           We never move, hold, or process payments. You remain in control of all automation settings.
@@ -284,25 +284,24 @@ const Landing: React.FC = () => {
         </div>
       </section>
 
-{/* Early Access */}
+{/* Founding Customer CTA */}
       <section className="bg-gray-50 dark:bg-white/[0.02] py-14">
         <div className="max-w-5xl mx-auto px-6 text-center">
           <div className="inline-flex items-center gap-2 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-xs font-medium px-3 py-1.5 rounded-full mb-6">
             <span className="w-2 h-2 rounded-full bg-green-500" />
-            Now onboarding founding customers
+            First 5 customers get founding pricing
           </div>
           <h2 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mb-4">
-            Join as a founding customer
+            Join our founding team
           </h2>
           <p className="text-gray-500 dark:text-gray-400 mb-10 max-w-xl mx-auto">
-            We're onboarding a limited number of B2B SaaS companies. First customers get
-            locked-in pricing, personal onboarding, and direct access to the founding team.
+            Be one of our first customers. Get lifetime $99/month pricing, personal onboarding, and direct access to the founding team.
           </p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             {[
-              { icon: '🔒', title: 'Locked-in pricing', desc: 'Early customers keep their rate forever as prices increase.' },
-              { icon: '🤝', title: 'Founder onboarding', desc: 'I personally set up your first month. Not a support ticket queue.' },
-              { icon: '🗺️', title: 'Shape the roadmap', desc: 'Direct line to the product team. Your use case gets priority.' },
+              { icon: '🔒', title: '$99/month forever', desc: 'Lock in founding pricing. Regular pricing starts at $299/month after.' },
+              { icon: '🤝', title: 'Personal onboarding', desc: 'I set up your account and show you how to recover your first invoice.' },
+              { icon: '🗺️', title: 'Shape the product', desc: 'Your feedback directly influences what we build next.' },
             ].map((item) => (
               <div key={item.title} className="bg-white dark:bg-[#111113] rounded-2xl border border-gray-200 dark:border-white/[0.06] p-6 text-left">
                 <div className="text-2xl mb-3">{item.icon}</div>
@@ -311,8 +310,8 @@ const Landing: React.FC = () => {
               </div>
             ))}
           </div>
-          <Button size="lg" className="px-8" onClick={() => navigate('/signup')}>Become a Pilot</Button>
-          <p className="mt-3 text-xs text-gray-400">2-week pilot. We'll schedule a demo within 24 hours.</p>
+          <Button size="lg" className="px-8" onClick={() => navigate('/signup')}>Start 14-Day Free Trial</Button>
+          <p className="mt-3 text-xs text-gray-400">No credit card required. Full access for 14 days.</p>
         </div>
       </section>
 
@@ -365,11 +364,11 @@ const Landing: React.FC = () => {
       <section className="bg-gradient-to-r from-blue-600 to-blue-800 dark:from-gray-900 dark:to-gray-950 dark:border-t dark:border-white/[0.06] py-16">
         <div className="max-w-3xl mx-auto px-6 text-center">
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
-            Ready to recover more cash?
+            Stop losing money to unpaid invoices.
           </h2>
-          <p className="text-blue-50 dark:text-gray-300 mb-10 text-lg">Join our pilot program. See results in 2 weeks. Convert to paid if it works.</p>
+          <p className="text-blue-50 dark:text-gray-300 mb-10 text-lg">Get your first AR recovery result in 14 days. No credit card required.</p>
           <Button size="lg" className="bg-white !text-black hover:bg-gray-100 dark:bg-blue-600 dark:!text-white dark:hover:bg-blue-700 font-semibold px-12 py-3 shadow-lg" onClick={() => navigate('/signup')}>
-            Become a Pilot
+            Start Free Trial
           </Button>
         </div>
       </section>

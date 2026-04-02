@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { authMiddleware } from '../middleware/auth';
 import { requireRole } from '../middleware/rbac';
 import { tenantScopeGuard } from '../middleware/tenantScope';
+import { demoBlocker } from '../middleware/demoBlocker';
 import {
   decideApprovalQueueItem,
   getPolicySettings,
@@ -14,6 +15,7 @@ const router = Router();
 
 router.use(authMiddleware);
 router.use(tenantScopeGuard);
+router.use(demoBlocker);
 router.get('/', getPolicySettings);
 router.put('/', requireRole('admin'), updatePolicySettings);
 router.post('/simulate', requireRole('admin'), simulatePolicyDecision);

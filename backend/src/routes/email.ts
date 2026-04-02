@@ -12,6 +12,7 @@ import {
 import { authMiddleware } from '../middleware/auth';
 import { requireActiveSubscription } from '../middleware/subscriptionGate';
 import { checkTrialStatus, requireNotTrial } from '../middleware/trialGating';
+import { demoBlocker } from '../middleware/demoBlocker';
 
 const router = Router();
 
@@ -23,6 +24,7 @@ router.get('/track/click', trackEmailClick);
 // All other routes require auth
 router.use(authMiddleware);
 router.use(checkTrialStatus);
+router.use(demoBlocker);
 
 // Schedule dunning emails for an invoice
 router.post('/schedule', requireActiveSubscription, requireNotTrial, scheduleInvoiceEmails);
@@ -37,6 +39,6 @@ router.get('/logs', getEmailLogs);
 router.get('/queue/stats', getQueueStats);
 
 // Preview email content
-router.get('/preview', authMiddleware, previewEmail);
+router.get('/preview', authMiddleware, demoBlocker, previewEmail);
 
 export default router;

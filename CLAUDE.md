@@ -93,31 +93,34 @@ Shown in KPIBanner card 5. Powers the $2,499 + 1% pricing story for CFOs.
 
 ---
 
-## Build Status (as of 2026-04-01)
+## Build Status (as of 2026-04-02)
 
-✅ **PRODUCTION READY** — All 7 autonomous engines live + 10/10 Redis optimization
+✅ **LAUNCH READY** — All 7 engines live + Slack bot + user controls + landing page refresh
 
-### Latest Changes (2026-04-01):
-1. **Agent loop wired** — agentLoop.ts connected to scheduler (every 6h)
-2. **Smart AR Report added** — Daily Slack intelligence with AI customer targeting
-3. **CSV worker optimized** — Lazy initialization (zero idle Redis)
-4. **Redis audit complete** — All workers properly optimized (0 idle commands/day)
+### Latest Changes (2026-04-02):
+1. **Slack bot integration** — Conversational AI via Claude, routes for events/commands/interactions
+2. **Notifications system** — Non-blocking alerts for payments, dunning, high-risk, daily summaries
+3. **User controls** — Pause/resume dunning, tone override, aggressive mode toggle
+4. **Landing page refresh** — New headline: "Stop Losing $100K/Year to Unpaid Invoices"
+5. **Founding member offering** — First 5 customers: $99/month lifetime locked pricing
+6. **Dashboard simplification** — Activity + Email Queue hidden for STARTER tier (admin-only)
 
 ### Current Status:
 - Frontend: ✅ Builds clean (0 errors)
 - Backend: ✅ Builds clean (0 errors)
 - Autonomous agents: ✅ All 7 live (detection → scoring → decision → email → send → tracking → forecast)
-- Database: ✅ 15 tables, proper indexes (600x faster)
+- Slack integration: ✅ Bot + notifications live (conversational AI + non-blocking alerts)
+- User controls: ✅ Pause, tone, aggressive mode (all wired into agent loop)
+- Database: ✅ 15 tables + new control columns (proper indexes, 600x faster)
 - Redis: ✅ 10/10 optimized (zero idle polling)
-- Slack: ✅ Smart AR with AI targeting
+- Landing page: ✅ New positioning + founding member messaging
 - Cron jobs: ✅ 8 scheduled (all database-only, zero Redis)
 
-### Critical Bugs (FIXED as of 2026-04-01):
-1. ✅ Agent loop was placeholder → Now running every 6h
-2. ✅ SMS/Voice workers polling idle → Now zero idle polling (not created on startup)
-3. ✅ CSV worker polling → Now lazy initialized
-
-Full history: `C:\Users\rsji1\.claude\projects\c--dev-AGENTIC-AR\memory\COMPLETE_REDIS_AUDIT.md`
+### Ready for:
+✅ First customer acquisition
+✅ 14-day free trial launches
+✅ Founding member $99/month tier (5 slots max)
+✅ Regular pricing $299/month (after founding slots filled)
 
 ## Do NOT do
 

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { authMiddleware } from '../middleware/auth';
 import { requireRole } from '../middleware/rbac';
 import { tenantScopeGuard } from '../middleware/tenantScope';
+import { demoBlocker } from '../middleware/demoBlocker';
 import {
   getSettings,
   updateDunningSettings,
@@ -20,6 +21,7 @@ const router = Router();
 
 router.use(authMiddleware);
 router.use(tenantScopeGuard);
+router.use(demoBlocker);  // Block mutations for demo users (after auth is set)
 
 router.get('/', getSettings);
 router.get('/costs', getApiCosts);

@@ -2,11 +2,13 @@ import { Router } from 'express';
 import { createPilotCompany, createPilotUser, setupPilotPassword } from '../controllers/adminPilotController';
 import { authMiddleware } from '../middleware/auth';
 import { requireRole } from '../middleware/rbac';
+import { demoBlocker } from '../middleware/demoBlocker';
 
 const router = Router();
 
 // All admin routes require authentication
 router.use(authMiddleware);
+router.use(demoBlocker);
 
 // Create a pilot company (admin only)
 router.post('/pilot-company', requireRole('admin'), createPilotCompany);

@@ -42,6 +42,7 @@ import pilotQueueRoutes from './routes/pilotQueue';
 import slackRoutes from './routes/slack';
 import { getRequestContext, logError, logInfo, logWarn, withRequestContext } from './utils/logger';
 import { apiLimiter, authLimiter, authSlowDown, syncLimiter, aiLimiter, webhookLimiter, emailLimiter, auditOtpLimiter, publicFormLimiter } from './middleware/rateLimiter';
+import { demoBlocker } from './middleware/demoBlocker';
 
 const app = express();
 
@@ -189,6 +190,9 @@ app.use('/api/payment-plans/accept', publicFormLimiter);
 app.use('/api/', apiLimiter);
 
 // Routes
+// NOTE: demoBlocker is NOT registered globally here because authMiddleware is registered
+// inside each route file. Instead, demoBlocker is added to each route file AFTER authMiddleware
+// to ensure proper execution order.
 app.use('/api/auth', authRoutes);
 app.use('/api/invites', inviteRoutes);
 app.use('/api/stripe', stripeRoutes);
