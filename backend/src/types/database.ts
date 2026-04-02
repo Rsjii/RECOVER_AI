@@ -74,7 +74,7 @@ export interface CustomerRow {
   id: string;
   company_id: string;
   name: string;
-  email: string;
+  email: string | null;  // NULL allowed for customers without email
   company_name: string | null;
   phone: string | null;
   payment_history: any;

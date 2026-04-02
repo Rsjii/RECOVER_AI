@@ -59,7 +59,7 @@ interface MetricsData {
   redisHistory: { date: string; commands: number; bandwidth_bytes: number }[];
 }
 
-type Tab = 'overview' | 'emails' | 'costs' | 'queue' | 'invoices' | 'users' | 'audits';
+type Tab = 'overview' | 'emails' | 'costs' | 'queue' | 'invoices' | 'users' | 'audits' | 'activity' | 'billing' | 'integrations' | 'security' | 'performance';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -123,13 +123,18 @@ const Admin: React.FC = () => {
   if (!metrics) return null;
 
   const tabs: { id: Tab; label: string }[] = [
-    { id: 'overview',  label: 'Overview' },
-    { id: 'emails',    label: 'Emails' },
-    { id: 'costs',     label: 'AI Costs' },
-    { id: 'queue',     label: 'Queue' },
-    { id: 'audits',    label: '🔗 Audits' },
-    { id: 'users',     label: '👥 Users' },
-    { id: 'invoices',  label: '💳 Invoices' },
+    { id: 'overview',      label: 'Overview' },
+    { id: 'emails',        label: 'Emails' },
+    { id: 'costs',         label: 'AI Costs' },
+    { id: 'queue',         label: 'Queue' },
+    { id: 'audits',        label: '🔗 Audits' },
+    { id: 'users',         label: '👥 Users' },
+    { id: 'invoices',      label: '💳 Invoices' },
+    { id: 'activity',      label: '📋 Activity Logs' },
+    { id: 'billing',       label: '🏦 Billing' },
+    { id: 'integrations',  label: '🔌 Integrations' },
+    { id: 'security',      label: '🔐 Security' },
+    { id: 'performance',   label: '⚡ Performance' },
   ];
 
   return (
@@ -193,6 +198,31 @@ const Admin: React.FC = () => {
       {/* ── Tab: Invoices ─────────────────────────────────────────────────────── */}
       {activeTab === 'invoices' && (
         <InvoicesTab />
+      )}
+
+      {/* ── Tab: Activity Logs ────────────────────────────────────────────────── */}
+      {activeTab === 'activity' && (
+        <ActivityLogsTab />
+      )}
+
+      {/* ── Tab: Billing ──────────────────────────────────────────────────────── */}
+      {activeTab === 'billing' && (
+        <BillingTab />
+      )}
+
+      {/* ── Tab: Integrations ─────────────────────────────────────────────────── */}
+      {activeTab === 'integrations' && (
+        <IntegrationsTab />
+      )}
+
+      {/* ── Tab: Security ─────────────────────────────────────────────────────── */}
+      {activeTab === 'security' && (
+        <SecurityTab />
+      )}
+
+      {/* ── Tab: Performance ──────────────────────────────────────────────────── */}
+      {activeTab === 'performance' && (
+        <PerformanceTab />
       )}
 
     </div>
@@ -1016,6 +1046,381 @@ const InvoicesTab: React.FC = () => {
                           Open link ↗
                         </a>
                       ) : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+    </div>
+  );
+};
+
+// ─── Activity Logs Tab (A-Z: User actions, tracing) ────────────────────
+
+const ActivityLogsTab: React.FC = () => {
+  const [logs, setLogs] = React.useState<any[]>([]);
+  const [loading, setLoading] = React.useState(false);
+
+  React.useEffect(() => {
+    const fetchLogs = async () => {
+      setLoading(true);
+      try {
+        const response = await api.get('/api/admin/activity-logs?limit=100');
+        setLogs(response.data || []);
+      } catch (err) {
+        console.error('Failed to fetch activity logs', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchLogs();
+  }, []);
+
+  return (
+    <Card>
+      <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">User Activity & Audit Trail</h3>
+      {loading ? (
+        <Spinner size="sm" text="Loading activity logs..." />
+      ) : logs.length === 0 ? (
+        <p className="text-sm text-gray-400">No activity recorded yet.</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 dark:bg-white/[0.04]">
+              <tr>
+                <th className="px-4 py-2 text-left font-medium text-xs">User</th>
+                <th className="px-4 py-2 text-left font-medium text-xs">Action</th>
+                <th className="px-4 py-2 text-left font-medium text-xs">Resource</th>
+                <th className="px-4 py-2 text-left font-medium text-xs">IP Address</th>
+                <th className="px-4 py-2 text-left font-medium text-xs">Timestamp</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100 dark:divide-white/[0.06]">
+              {logs.map((log: any, i: number) => (
+                <tr key={i}>
+                  <td className="px-4 py-2">{log.user_email}</td>
+                  <td className="px-4 py-2 font-medium">{log.action}</td>
+                  <td className="px-4 py-2 text-xs font-mono">{log.resource_type}#{log.resource_id}</td>
+                  <td className="px-4 py-2 text-xs text-gray-500">{log.ip_address}</td>
+                  <td className="px-4 py-2 text-xs text-gray-500">{new Date(log.created_at).toLocaleString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Card>
+  );
+};
+
+// ─── Billing Tab (A-Z: Plans, invoices, payment history) ────────────────
+
+const BillingTab: React.FC = () => {
+  const [billingData, setBillingData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchBilling = async () => {
+      try {
+        const response = await api.get('/api/admin/billing');
+        setBillingData(response.data.data);
+      } catch (err) {
+        console.error('Failed to fetch billing data', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchBilling();
+  }, []);
+
+  if (loading) return <Spinner />;
+
+  const overview = billingData?.overview || {};
+  const recentInvoices = billingData?.recentInvoices || [];
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">Subscription & Billing</h3>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard label="Total Revenue" value={`$${Math.round(overview.totalRevenue || 0).toLocaleString()}`} />
+          <StatCard label="Active Subscriptions" value={String(overview.activeSubscriptions || 0)} color="text-green-600" />
+          <StatCard label="MRR" value={`$${Math.round(overview.mrrTotal || 0).toLocaleString()}`} />
+          <StatCard label="Churn Rate" value={`${(overview.churnRate || 0).toFixed(1)}%`} />
+        </div>
+      </Card>
+      <Card>
+        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Recent Invoices</h3>
+        {recentInvoices.length > 0 ? (
+          <div className="space-y-2">
+            {recentInvoices.map((inv: any) => (
+              <div key={inv.id} className="flex items-center justify-between p-2 border border-gray-200 dark:border-white/[0.06] rounded">
+                <div>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">{inv.company_name}</p>
+                  <p className="text-xs text-gray-500">{new Date(inv.created_at).toLocaleDateString()}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-semibold text-gray-900 dark:text-white">${(inv.amount || 0).toFixed(2)}</p>
+                  <span className={`text-xs px-2 py-1 rounded ${inv.status === 'paid' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-yellow-100 text-yellow-700'}`}>
+                    {inv.status}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-gray-400">No recent invoices</p>
+        )}
+      </Card>
+    </div>
+  );
+};
+
+// ─── Integrations Tab (A-Z: Stripe, Slack, API keys) ────────────────────
+
+const IntegrationsTab: React.FC = () => {
+  const [integrations, setIntegrations] = useState<any[]>([]);
+  const [webhookStats, setWebhookStats] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchIntegrations = async () => {
+      try {
+        const response = await api.get('/api/admin/integrations');
+        setIntegrations(response.data.data.integrations || []);
+        setWebhookStats(response.data.data.webhookStats || {});
+      } catch (err) {
+        console.error('Failed to fetch integrations', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchIntegrations();
+  }, []);
+
+  if (loading) return <Spinner />;
+
+  const getStatusBadge = (status: string) => {
+    const colors: Record<string, string> = {
+      'connected': 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+      'disconnected': 'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400',
+      'error': 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+    };
+    return colors[status] || colors.disconnected;
+  };
+
+  const getStatusLabel = (status: string) => {
+    const labels: Record<string, string> = {
+      'connected': 'Connected',
+      'disconnected': 'Disconnected',
+      'error': 'Error',
+    };
+    return labels[status] || status;
+  };
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">Connected Integrations</h3>
+        <div className="space-y-3">
+          {integrations.map((int) => (
+            <div key={int.name} className="border border-gray-200 dark:border-white/[0.06] rounded p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium text-gray-900 dark:text-white capitalize">{int.name}</p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {int.lastSyncTime ? `Last synced: ${new Date(int.lastSyncTime).toLocaleString()}` : 'Never synced'}
+                  </p>
+                  {int.errorMessage && <p className="text-xs text-red-500 mt-1">{int.errorMessage}</p>}
+                </div>
+                <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusBadge(int.status)}`}>
+                  {getStatusLabel(int.status)}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
+      <Card>
+        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">Webhook Delivery</h3>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard label="Total Deliveries" value={String(webhookStats.totalDeliveries || 0)} />
+          <StatCard label="Successful" value={String(webhookStats.successfulDeliveries || 0)} color="text-green-600" />
+          <StatCard label="Failed" value={String(webhookStats.failedDeliveries || 0)} color={webhookStats.failedDeliveries > 0 ? 'text-red-600' : ''} />
+          <StatCard label="Avg Time" value={`${Math.round(webhookStats.avgDeliveryTime || 0)}ms`} />
+        </div>
+      </Card>
+    </div>
+  );
+};
+
+// ─── Security Tab (A-Z: Failed logins, IP blocking, 2FA) ────────────────
+
+const SecurityTab: React.FC = () => {
+  const [security, setSecurity] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchSecurity = async () => {
+      try {
+        const response = await api.get('/api/admin/security');
+        setSecurity(response.data.data);
+      } catch (err) {
+        console.error('Failed to fetch security data', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchSecurity();
+  }, []);
+
+  if (loading) return <Spinner />;
+
+  const overview = security?.overview || {};
+  const failedLogins = security?.failedLogins || [];
+  const blockedIps = security?.blockedIps || [];
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">Security Overview</h3>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard label="Failed Logins (24h)" value={String(overview.failedLogins24h || 0)} color={overview.failedLogins24h > 0 ? 'text-orange-600' : ''} />
+          <StatCard label="Blocked IPs" value={String(overview.blockedIps || 0)} color={overview.blockedIps > 0 ? 'text-red-600' : ''} />
+          <StatCard label="2FA Enabled" value={`${overview.twoFactorEnabledPercent || 0}%`} color="text-green-600" />
+          <StatCard label="Active Sessions" value={String(overview.activeSessions || 0)} />
+        </div>
+      </Card>
+      {failedLogins.length > 0 && (
+        <Card>
+          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Recent Failed Logins</h3>
+          <div className="space-y-2">
+            {failedLogins.map((login: any, idx: number) => (
+              <div key={idx} className="flex items-center justify-between p-2 border border-gray-200 dark:border-white/[0.06] rounded text-xs">
+                <span className="text-gray-900 dark:text-white">{login.userEmail}</span>
+                <span className="text-gray-500">{login.ipAddress}</span>
+                <span className="text-gray-400">{new Date(login.timestamp).toLocaleTimeString()}</span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+      {blockedIps.length > 0 && (
+        <Card>
+          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Blocked IPs</h3>
+          <div className="space-y-2">
+            {blockedIps.map((ip: any, idx: number) => (
+              <div key={idx} className="flex items-center justify-between p-2 border border-gray-200 dark:border-white/[0.06] rounded text-xs">
+                <span className="text-gray-900 dark:text-white font-mono">{ip.ipAddress}</span>
+                <span className="text-gray-500">{ip.failureCount} failures</span>
+                <span className={`px-2 py-1 rounded ${ip.blocked ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 'bg-yellow-100 text-yellow-700'}`}>
+                  {ip.blocked ? 'Blocked' : 'Monitored'}
+                </span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+    </div>
+  );
+};
+
+// ─── Performance Tab (A-Z: API latency, queue depth, errors) ────────────
+
+const PerformanceTab: React.FC = () => {
+  const [performance, setPerformance] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchPerformance = async () => {
+      try {
+        const response = await api.get('/api/admin/performance');
+        setPerformance(response.data.data);
+      } catch (err) {
+        console.error('Failed to fetch performance data', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchPerformance();
+  }, []);
+
+  if (loading) return <Spinner />;
+
+  const metrics = performance?.metrics || {};
+  const latencyTrends = performance?.latencyTrends || [];
+  const endpoints = performance?.endpoints || [];
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">System Performance</h3>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard label="Avg API Latency" value={`${metrics.avgLatency || 0}ms`} />
+          <StatCard label="Error Rate" value={`${metrics.errorRate || 0}%`} color={metrics.errorRate > 1 ? 'text-red-600' : ''} />
+          <StatCard label="P99 Latency" value={`${metrics.p99Latency || 0}ms`} />
+          <StatCard label="Uptime" value={`${metrics.uptime || 99.9}%`} color="text-green-600" />
+        </div>
+      </Card>
+      {latencyTrends.length > 0 && (
+        <Card>
+          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">Latency Trend (24h)</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={latencyTrends}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              <XAxis
+                dataKey="timestamp"
+                tickFormatter={(val) => new Date(val).getHours() + ':00'}
+                stroke="#9ca3af"
+              />
+              <YAxis stroke="#9ca3af" />
+              <Tooltip
+                formatter={(value) => `${Math.round(Number(value))}ms`}
+                labelFormatter={(label) => new Date(label).toLocaleTimeString()}
+              />
+              <Legend />
+              <Line
+                type="monotone"
+                dataKey="avgLatency"
+                stroke="#3b82f6"
+                name="Avg Latency (ms)"
+                strokeWidth={2}
+              />
+              <Line
+                type="monotone"
+                dataKey="p99Latency"
+                stroke="#f59e0b"
+                name="P99 Latency (ms)"
+                strokeWidth={2}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </Card>
+      )}
+      {endpoints.length > 0 && (
+        <Card>
+          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Endpoint Performance</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="border-b border-gray-200 dark:border-white/[0.06]">
+                <tr>
+                  <th className="text-left py-2 px-2 font-semibold text-gray-700 dark:text-gray-300">Endpoint</th>
+                  <th className="text-right py-2 px-2 font-semibold text-gray-700 dark:text-gray-300">Calls</th>
+                  <th className="text-right py-2 px-2 font-semibold text-gray-700 dark:text-gray-300">Avg Latency</th>
+                  <th className="text-right py-2 px-2 font-semibold text-gray-700 dark:text-gray-300">Error Rate</th>
+                </tr>
+              </thead>
+              <tbody>
+                {endpoints.map((ep: any, idx: number) => (
+                  <tr key={idx} className="border-b border-gray-200 dark:border-white/[0.06]">
+                    <td className="py-2 px-2 text-gray-900 dark:text-gray-300">{ep.method} {ep.path}</td>
+                    <td className="text-right py-2 px-2 text-gray-600 dark:text-gray-400">{ep.count || 0}</td>
+                    <td className="text-right py-2 px-2 text-gray-600 dark:text-gray-400">{ep.avgLatency || 0}ms</td>
+                    <td className={`text-right py-2 px-2 ${ep.errorRate > 1 ? 'text-red-600' : 'text-gray-600 dark:text-gray-400'}`}>
+                      {ep.errorRate || 0}%
                     </td>
                   </tr>
                 ))}

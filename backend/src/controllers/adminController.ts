@@ -12,6 +12,11 @@ import {
   getRedisCommandsHistory,
   getAllEmailLogsAdmin,
 } from '../db/adminStats';
+import { getActivityLogs, getActivitySummary } from '../db/eventLogs';
+import { getBillingOverview, getRecentInvoices, getBillingByCompany } from '../db/adminBilling';
+import { getIntegrationStatus, getCompanyIntegrations, getWebhookDeliveryStats } from '../db/adminIntegrations';
+import { getSecurityOverview, getFailedLoginAttempts, getBlockedIPs, getSuspiciousActivity } from '../db/adminSecurity';
+import { getPerformanceMetrics, getLatencyTrends, getEndpointPerformance } from '../db/adminPerformance';
 import { getDunningQueue } from '../queue/dunningQueue';
 import { config } from '../config/env';
 import { logError, logInfo } from '../utils/logger';
@@ -252,6 +257,206 @@ export const getUsers = async (req: Request, res: Response): Promise<void> => {
     res.json({
       data: users,
       stats: statsResult.rows[0] || { total: 0, active: 0, pilots: 0, paid: 0 },
+    });
+  } catch (err) {
+    logError(LOG_MODULE, handler, 'Failed', err);
+    const { statusCode, message } = parseError(err);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
+
+/**
+ * GET /api/admin/activity-logs
+ * Admin endpoint: Get activity logs with filtering
+ */
+export const getActivityLogsHandler = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'getActivityLogsHandler';
+  try {
+    const userEmail = ((req as any).email || '').toLowerCase();
+    const isAdminEmail = config.admin.emails.includes(userEmail);
+
+    if (!isAdminEmail) {
+      res.status(403).json({ error: 'Admin access restricted' });
+      return;
+    }
+
+    const limit = Math.min(parseInt(req.query.limit as string) || 50, 500);
+    const offset = parseInt(req.query.offset as string) || 0;
+    const action = (req.query.action as string) || undefined;
+    const resourceType = (req.query.resourceType as string) || undefined;
+    const userId = (req.query.userId as string) || undefined;
+
+    const { logs, total } = await getActivityLogs((req as any).companyId || '', {
+      limit,
+      offset,
+      action,
+      resourceType,
+      userId,
+    });
+
+    logInfo(LOG_MODULE, handler, 'Activity logs retrieved', {
+      limit,
+      offset,
+      total,
+    });
+
+    res.json({ data: logs, pagination: { limit, offset, total } });
+  } catch (err) {
+    logError(LOG_MODULE, handler, 'Failed', err);
+    const { statusCode, message } = parseError(err);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
+
+/**
+ * GET /api/admin/billing
+ * Admin endpoint: Get billing overview
+ */
+export const getBillingHandler = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'getBillingHandler';
+  try {
+    const userEmail = ((req as any).email || '').toLowerCase();
+    const isAdminEmail = config.admin.emails.includes(userEmail);
+
+    if (!isAdminEmail) {
+      res.status(403).json({ error: 'Admin access restricted' });
+      return;
+    }
+
+    const [overview, recentInvoices] = await Promise.all([
+      getBillingOverview(),
+      getRecentInvoices(10),
+    ]);
+
+    logInfo(LOG_MODULE, handler, 'Billing data retrieved', {
+      totalRevenue: overview.totalRevenue,
+      activeSubscriptions: overview.activeSubscriptions,
+    });
+
+    res.json({
+      data: {
+        overview,
+        recentInvoices,
+      },
+    });
+  } catch (err) {
+    logError(LOG_MODULE, handler, 'Failed', err);
+    const { statusCode, message } = parseError(err);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
+
+/**
+ * GET /api/admin/integrations
+ * Admin endpoint: Get integration status
+ */
+export const getIntegrationsHandler = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'getIntegrationsHandler';
+  try {
+    const userEmail = ((req as any).email || '').toLowerCase();
+    const isAdminEmail = config.admin.emails.includes(userEmail);
+
+    if (!isAdminEmail) {
+      res.status(403).json({ error: 'Admin access restricted' });
+      return;
+    }
+
+    const [integrations, webhookStats] = await Promise.all([
+      getIntegrationStatus(),
+      getWebhookDeliveryStats(),
+    ]);
+
+    logInfo(LOG_MODULE, handler, 'Integration status retrieved', {
+      integrationCount: integrations.length,
+    });
+
+    res.json({
+      data: {
+        integrations,
+        webhookStats,
+      },
+    });
+  } catch (err) {
+    logError(LOG_MODULE, handler, 'Failed', err);
+    const { statusCode, message } = parseError(err);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
+
+/**
+ * GET /api/admin/security
+ * Admin endpoint: Get security overview
+ */
+export const getSecurityHandler = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'getSecurityHandler';
+  try {
+    const userEmail = ((req as any).email || '').toLowerCase();
+    const isAdminEmail = config.admin.emails.includes(userEmail);
+
+    if (!isAdminEmail) {
+      res.status(403).json({ error: 'Admin access restricted' });
+      return;
+    }
+
+    const [overview, failedLogins, blockedIps, suspiciousActivity] = await Promise.all([
+      getSecurityOverview(),
+      getFailedLoginAttempts(10),
+      getBlockedIPs(),
+      getSuspiciousActivity(10),
+    ]);
+
+    logInfo(LOG_MODULE, handler, 'Security data retrieved', {
+      failedLogins24h: overview.failedLogins24h,
+      blockedIps: overview.blockedIps,
+    });
+
+    res.json({
+      data: {
+        overview,
+        failedLogins,
+        blockedIps,
+        suspiciousActivity,
+      },
+    });
+  } catch (err) {
+    logError(LOG_MODULE, handler, 'Failed', err);
+    const { statusCode, message } = parseError(err);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
+
+/**
+ * GET /api/admin/performance
+ * Admin endpoint: Get performance metrics
+ */
+export const getPerformanceHandler = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'getPerformanceHandler';
+  try {
+    const userEmail = ((req as any).email || '').toLowerCase();
+    const isAdminEmail = config.admin.emails.includes(userEmail);
+
+    if (!isAdminEmail) {
+      res.status(403).json({ error: 'Admin access restricted' });
+      return;
+    }
+
+    const [metrics, latencyTrends, endpoints] = await Promise.all([
+      getPerformanceMetrics(),
+      getLatencyTrends(24),
+      getEndpointPerformance(),
+    ]);
+
+    logInfo(LOG_MODULE, handler, 'Performance metrics retrieved', {
+      avgLatency: metrics.avgLatency,
+      errorRate: metrics.errorRate,
+    });
+
+    res.json({
+      data: {
+        metrics,
+        latencyTrends,
+        endpoints,
+      },
     });
   } catch (err) {
     logError(LOG_MODULE, handler, 'Failed', err);

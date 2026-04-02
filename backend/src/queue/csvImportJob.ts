@@ -145,7 +145,7 @@ export async function processCsvImportJob(companyId: string, invoices: CSVImport
     const missingEmails = uniqueEmails.filter(e => !customerMap.has(e));
     const missingNames = uniqueNames.filter(n => !customerByNameMap.has(n));
 
-    const newCustomersToCreate: Array<{ name: string; email: string }> = [];
+    const newCustomersToCreate: Array<{ name: string; email: string | null }> = [];
 
     // Add missing emails
     missingEmails.forEach(email => {
@@ -156,12 +156,13 @@ export async function processCsvImportJob(companyId: string, invoices: CSVImport
     });
 
     // Add missing names (without email)
+    // Store as NULL for customers without email - PostgreSQL allows multiple NULLs in UNIQUE constraint
     missingNames.forEach(name => {
       const hasEmailVersion = uniqueEmails.some(e => e.split('@')[0] === name);
       if (!hasEmailVersion) {
         newCustomersToCreate.push({
           name: name,
-          email: '' // Empty email for name-only entries
+          email: null
         });
       }
     });

@@ -3,6 +3,7 @@ import { config } from '../config/env';
 import { DunningEmailJob } from '../types/email';
 import { createEmailLog } from '../db/emailLogs';
 import { findCompanyById } from '../db/companies';  // P0: Get reply-to email
+import { pool } from '../config/database';
 import { logError, logInfo } from '../utils/logger';
 import aiService from './aiService';
 import resendService from './resendService';
@@ -132,6 +133,23 @@ class EmailService {
           body: generated.bodyText,
           sendgridMessageId: sendResult.messageId,
         });
+
+        // 6. Send notification to CLIENT (company) about what emails were sent to their customers
+        try {
+          await this.sendClientNotification({
+            companyId: job.companyId,
+            customerName: job.customerName,
+            recipientEmail: job.recipientEmail,
+            invoiceAmount: job.invoiceAmount,
+            daysOverdue: job.daysOverdue,
+            emailType: job.emailType,
+            subject: generated.subject,
+            messageId: sendResult.messageId || 'unknown',
+          });
+        } catch (notifError) {
+          logError(LOG_MODULE, method, 'Failed to send client notification (non-blocking)', notifError);
+          // Don't fail the whole operation for this
+        }
       } catch (dbLogError) {
         logError(LOG_MODULE, method, 'Email sent but DB log failed (invoice may have been deleted)', dbLogError, {
           invoiceId: job.invoiceId,
@@ -153,6 +171,78 @@ class EmailService {
         success: false,
         error: error instanceof Error ? error.message : String(error),
       };
+    }
+  }
+
+  /**
+   * Send notification to CLIENT (company account holder)
+   * About emails sent to their customers
+   */
+  private async sendClientNotification(data: {
+    companyId: string;
+    customerName: string;
+    recipientEmail: string;
+    invoiceAmount: number;
+    daysOverdue: number;
+    emailType: string;
+    subject: string;
+    messageId: string;
+  }): Promise<void> {
+    const method = 'sendClientNotification';
+
+    try {
+      // Get company contact email
+      const companyResult = await pool.query(
+        'SELECT company_email FROM companies WHERE id = $1',
+        [data.companyId]
+      );
+
+      if (!companyResult.rows[0]?.company_email) {
+        logInfo(LOG_MODULE, method, 'Company email not configured, skipping client notification');
+        return;
+      }
+
+      const clientEmail = companyResult.rows[0].company_email;
+
+      const emailBody = `
+Email Sent to Your Customer
+===========================
+
+We just sent a dunning email to one of your customers:
+
+Customer: ${data.customerName}
+Customer Email: ${data.recipientEmail}
+Invoice Amount: $${(data.invoiceAmount / 100).toFixed(2)}
+Days Overdue: ${data.daysOverdue}
+Email Type: ${data.emailType.replace(/_/g, ' ').toUpperCase()}
+
+Email Subject: "${data.subject}"
+
+---
+Check the Admin Dashboard → Activity → Emails tab to:
+✓ See full email content
+✓ Preview what was sent
+✓ Edit or resend emails
+✓ Track open rates and responses
+
+Message ID: ${data.messageId}
+      `.trim();
+
+      await resendService.sendEmail({
+        to: clientEmail,
+        subject: `[RecoverAI] Email sent to ${data.customerName}`,
+        bodyText: emailBody,
+        bodyHtml: emailBody.split('\n').join('<br>'),
+        companyId: data.companyId,
+      });
+
+      logInfo(LOG_MODULE, method, 'Client notification sent', {
+        customerEmail: data.recipientEmail,
+        clientEmail,
+      });
+    } catch (error) {
+      logError(LOG_MODULE, method, 'Failed to send client notification', error);
+      // Non-blocking, so just log and continue
     }
   }
 }

@@ -122,7 +122,7 @@ CREATE TABLE IF NOT EXISTS customers (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   company_id      UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
   name            VARCHAR NOT NULL,
-  email           VARCHAR NOT NULL,
+  email           VARCHAR,  -- NULL allowed for customers without email (optional contact info)
   company_name    VARCHAR,
   phone           VARCHAR,
   phone_opt_in    BOOLEAN DEFAULT false,
@@ -136,7 +136,7 @@ CREATE TABLE IF NOT EXISTS customers (
   risk_tier_updated_at TIMESTAMPTZ,
   created_at      TIMESTAMPTZ DEFAULT NOW(),
   updated_at      TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(company_id, email)
+  UNIQUE(company_id, email)  -- NULL values don't violate unique constraint in PostgreSQL
 );
 
 -- ============================================================
@@ -1125,5 +1125,79 @@ BEGIN
   ALTER TABLE invite_tokens ADD CONSTRAINT fk_invite_tokens_audit_request FOREIGN KEY (audit_request_id) REFERENCES audit_requests(id) ON DELETE SET NULL;
 EXCEPTION WHEN duplicate_object THEN
   NULL;  -- Constraint already exists, skip
+END $$;
+
+-- ============================================================
+-- EVENT LOGS (Audit trail - tracks all user actions)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS event_logs (
+  id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id            UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  user_id               UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  user_email            VARCHAR NOT NULL,
+  action                VARCHAR(100) NOT NULL,        -- CREATE, UPDATE, DELETE, LOGIN, etc
+  resource_type         VARCHAR(100) NOT NULL,        -- invoice, customer, email, user, etc
+  resource_id           VARCHAR(500) NOT NULL,        -- UUID or name of resource modified
+  details               JSONB DEFAULT '{}',           -- Additional context
+  ip_address            INET,                         -- IP address of requester
+  user_agent            TEXT,                         -- Browser/client info
+  created_at            TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_event_logs_company ON event_logs(company_id);
+CREATE INDEX IF NOT EXISTS idx_event_logs_user ON event_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_event_logs_action ON event_logs(action);
+CREATE INDEX IF NOT EXISTS idx_event_logs_resource ON event_logs(resource_type, resource_id);
+CREATE INDEX IF NOT EXISTS idx_event_logs_created ON event_logs(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_event_logs_company_created ON event_logs(company_id, created_at DESC);
+
+-- ============================================================
+-- SECURITY EVENTS (Failed logins, suspicious activity, etc)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS security_events (
+  id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id               UUID REFERENCES users(id) ON DELETE SET NULL,
+  user_email            VARCHAR NOT NULL,
+  event_type            VARCHAR(100) NOT NULL,        -- LOGIN_FAILED, UNAUTHORIZED_ACCESS, etc
+  description           TEXT,
+  ip_address            INET,
+  severity              VARCHAR(20) DEFAULT 'low',    -- low, medium, high, critical
+  created_at            TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_security_events_severity ON security_events(severity);
+CREATE INDEX IF NOT EXISTS idx_security_events_created ON security_events(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_security_events_ip ON security_events(ip_address);
+
+-- ============================================================
+-- WEBHOOK DELIVERIES (Track integration webhook status)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS webhook_deliveries (
+  id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  provider              VARCHAR(100) NOT NULL,        -- stripe, slack, etc
+  event_type            VARCHAR(100),
+  status                VARCHAR(50) DEFAULT 'pending', -- pending, delivered, failed
+  payload               JSONB,
+  response              JSONB,
+  error_message         TEXT,
+  retry_count           INT DEFAULT 0,
+  created_at            TIMESTAMPTZ DEFAULT NOW(),
+  completed_at          TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_provider ON webhook_deliveries(provider);
+CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_status ON webhook_deliveries(status);
+CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_created ON webhook_deliveries(created_at DESC);
+
+-- ============================================================
+-- SCHEMA ALTERATIONS (for existing databases)
+-- ============================================================
+
+-- Add two_factor_enabled column to users if not exists
+DO $$
+BEGIN
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS two_factor_enabled BOOLEAN DEFAULT false;
+EXCEPTION WHEN others THEN
+  NULL;  -- Column already exists or error, skip
 END $$;
 

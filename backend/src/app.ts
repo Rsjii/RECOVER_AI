@@ -40,9 +40,11 @@ import auditStagesRoutes from './routes/auditStages';
 import auditRoutes from './routes/audits';
 import pilotQueueRoutes from './routes/pilotQueue';
 import slackRoutes from './routes/slack';
+import emailDashboardRoutes from './routes/emailDashboard';
 import { getRequestContext, logError, logInfo, logWarn, withRequestContext } from './utils/logger';
 import { apiLimiter, authLimiter, authSlowDown, syncLimiter, aiLimiter, webhookLimiter, emailLimiter, auditOtpLimiter, publicFormLimiter } from './middleware/rateLimiter';
 import { demoBlocker } from './middleware/demoBlocker';
+import { auditLogger } from './middleware/auditLogger';
 
 const app = express();
 
@@ -84,7 +86,13 @@ app.use(cors({
       return callback(null, false);
     }
 
+    // Check exact match
     if (allowedOrigins.includes(origin)) {
+      return callback(null, origin);
+    }
+
+    // Allow all Vercel preview URLs (*.vercel.app)
+    if (origin.endsWith('.vercel.app')) {
       return callback(null, origin);
     }
 
@@ -189,6 +197,9 @@ app.use('/api/payment-plans/accept', publicFormLimiter);
 // Global API limiter (applies to all remaining /api/ routes)
 app.use('/api/', apiLimiter);
 
+// Audit logger (logs all user actions after successful responses)
+app.use('/api/', auditLogger);
+
 // Routes
 // NOTE: demoBlocker is NOT registered globally here because authMiddleware is registered
 // inside each route file. Instead, demoBlocker is added to each route file AFTER authMiddleware
@@ -228,6 +239,7 @@ app.use('/api/audits', auditRoutes);  // Public audit requests + admin endpoints
 app.use('/api/audits', auditStagesRoutes);  // CashOS Stages 1-5 new flow
 app.use('/api/pilot-queue', pilotQueueRoutes);
 app.use('/api/slack', slackRoutes);  // Slack bot integration
+app.use('/api/admin/email-dashboard', emailDashboardRoutes);  // Email dashboard for admins
 
 // Health check
 app.get('/health', (_req: Request, res: Response) => {
