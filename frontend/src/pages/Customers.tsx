@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { api } from '../lib/api';
 import { API_ENDPOINTS, PAGINATION_LIMIT } from '../lib/constants';
 import { useNotification } from '../hooks/useNotification';
+import { ConfirmationModal } from '../components/ui/ConfirmationModal';
 import { CustomerTable } from '../components/customers/CustomerTable';
 import { CustomerModal } from '../components/customers/CustomerModal';
 import { AddCustomerModal } from '../components/customers/AddCustomerModal';
@@ -58,6 +59,7 @@ const Customers: React.FC = () => {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [deletingIds, setDeletingIds] = useState<Set<string> | null>(null);
   const [selectAllPages, setSelectAllPages] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search.trim().toLowerCase()), 250);
@@ -102,8 +104,10 @@ const Customers: React.FC = () => {
 
   const handleBulkDelete = async () => {
     if (selectedIds.size === 0) return;
-    if (!window.confirm(`Delete ${selectedIds.size} customer${selectedIds.size !== 1 ? 's' : ''}? This action cannot be undone.`)) return;
+    setShowDeleteConfirm(true);
+  };
 
+  const confirmDelete = async () => {
     setDeletingIds(selectedIds);
     try {
       await api.post(`${API_ENDPOINTS.customers.list}/bulk-delete`, {
@@ -136,8 +140,21 @@ const Customers: React.FC = () => {
   const atRiskCount = filtered.filter(c => (c.max_risk_score ?? 0) > 60).length;
 
   return (
-    <div className="space-y-6 pb-6">
-      <div className="flex items-center justify-between flex-wrap gap-3">
+    <>
+      <ConfirmationModal
+        isOpen={showDeleteConfirm}
+        title={`Delete ${selectedIds.size} customer${selectedIds.size !== 1 ? 's' : ''}?`}
+        message="This action cannot be undone. The selected customers and their data will be permanently deleted."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        isDangerous={true}
+        isLoading={deletingIds !== null}
+        onConfirm={confirmDelete}
+        onCancel={() => setShowDeleteConfirm(false)}
+      />
+
+      <div className="space-y-6 pb-6">
+        <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Customers</h1>
         <div className="flex items-center gap-2 flex-wrap">
           {selectedIds.size > 0 && (
@@ -240,7 +257,8 @@ const Customers: React.FC = () => {
         onClose={() => setShowImportModal(false)}
         onSuccess={handleCustomerAdded}
       />
-    </div>
+      </div>
+    </>
   );
 };
 

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { SettingsLayout } from '../components/settings/SettingsLayout';
 import { useSettings } from '../components/settings/useSettings';
 import { useNotification } from '../hooks/useNotification';
@@ -13,6 +14,7 @@ import { api } from '../lib/api';
 import { useAuth } from '../hooks/useAuth';
 
 const Settings: React.FC = () => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
   const { addToast } = useNotification();
   const { user } = useAuth();
@@ -27,6 +29,14 @@ const Settings: React.FC = () => {
     save,
     refetchIntegrations,
   } = useSettings();
+
+  // Redirect demo users away from Settings
+  useEffect(() => {
+    if (localStorage.getItem('isDemo') === 'true') {
+      addToast({ type: 'info', message: 'Demo mode — Settings not available' });
+      navigate('/dashboard', { replace: true });
+    }
+  }, [navigate, addToast]);
 
   useEffect(() => {
     document.title = 'Settings — RecoverAI';

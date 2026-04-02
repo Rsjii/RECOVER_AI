@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { API_ENDPOINTS } from '../lib/constants';
 import { Button } from '../components/ui/Button';
@@ -10,11 +11,21 @@ import { formatDate } from '../lib/utils';
 type BillingTab = 'subscription' | 'billing-history';
 
 const Billing: React.FC = () => {
+  const navigate = useNavigate();
+  const { addToast } = useNotification();
+
+  // Redirect demo users away from Billing
+  useEffect(() => {
+    if (localStorage.getItem('isDemo') === 'true') {
+      addToast({ type: 'info', message: 'Demo mode — Billing not available' });
+      navigate('/dashboard', { replace: true });
+    }
+  }, [navigate, addToast]);
+
   useEffect(() => {
     document.title = 'Billing — RecoverAI';
   }, []);
 
-  const { addToast } = useNotification();
   const [activeTab, setActiveTab] = useState<BillingTab>('subscription');
   const [subscription, setSubscription] = useState<any>(null);
   const [company, setCompany] = useState<any>(null);

@@ -23,6 +23,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ invoice, isOpen, onC
   const [loading, setLoading] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [tab, setTab] = useState<'details' | 'payments' | 'emails' | 'plan'>('details');
+  const isDemo = typeof window !== 'undefined' && localStorage.getItem('isDemo') === 'true';
 
   // Plan creation state
   const [creatingPlan, setCreatingPlan] = useState(false);
@@ -292,16 +293,16 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ invoice, isOpen, onC
                 <div className="flex flex-wrap gap-2 pt-4 border-t border-gray-200 dark:border-white/[0.06]">
                   {invoice.status === 'unpaid' && (
                     <>
-                      <Button size="sm" onClick={() => updateStatus('paid')} loading={updating}>Mark Paid</Button>
-                      <Button size="sm" variant="secondary" onClick={() => updateStatus('arranged')} loading={updating}>Mark Arranged</Button>
+                      <Button size="sm" onClick={() => updateStatus('paid')} disabled={isDemo} loading={updating}>Mark Paid</Button>
+                      <Button size="sm" variant="secondary" onClick={() => updateStatus('arranged')} disabled={isDemo} loading={updating}>Mark Arranged</Button>
                       <Button size="sm" variant="ghost" onClick={sendEmail}>Send Email</Button>
                     </>
                   )}
                   {invoice.status === 'arranged' && (
-                    <Button size="sm" onClick={() => updateStatus('paid')} loading={updating}>Mark Paid</Button>
+                    <Button size="sm" onClick={() => updateStatus('paid')} disabled={isDemo} loading={updating}>Mark Paid</Button>
                   )}
                   {invoice.status !== 'uncollectable' && invoice.status !== 'paid' && (
-                    <Button size="sm" variant="danger" onClick={() => updateStatus('uncollectable')} loading={updating}>Write Off</Button>
+                    <Button size="sm" variant="danger" onClick={() => updateStatus('uncollectable')} disabled={isDemo} loading={updating}>Write Off</Button>
                   )}
                 </div>
               )}

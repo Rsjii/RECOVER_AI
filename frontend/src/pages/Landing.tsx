@@ -3,11 +3,13 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 import { ThemeToggle } from '../components/ui/ThemeToggle';
 import { useAuth } from '../hooks/useAuth';
+import { useNotification } from '../hooks/useNotification';
 import { api } from '../lib/api';
 
 const Landing: React.FC = () => {
   const navigate = useNavigate();
   const { isAuthenticated, setAuthState } = useAuth();
+  const { addToast } = useNotification();
   const [demoLoading, setDemoLoading] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -31,7 +33,10 @@ const Landing: React.FC = () => {
       navigate('/dashboard', { replace: true });
     } catch (err: any) {
       setDemoLoading(false);
-      alert('Failed to start demo. Please try again.');
+      addToast({
+        type: 'error',
+        message: 'Failed to start demo. Please try again.',
+      });
     }
   };
 

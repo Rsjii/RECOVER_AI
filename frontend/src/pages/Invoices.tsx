@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { api } from '../lib/api';
 import { API_ENDPOINTS, PAGINATION_LIMIT } from '../lib/constants';
 import { useNotification } from '../hooks/useNotification';
+import { ConfirmationModal } from '../components/ui/ConfirmationModal';
 import { FilterPanel } from '../components/invoices/FilterPanel';
 import { InvoiceTable } from '../components/invoices/InvoiceTable';
 import { InvoiceModal } from '../components/invoices/InvoiceModal';
@@ -39,6 +40,7 @@ const Invoices: React.FC = () => {
   const [importStatus, setImportStatus] = useState<{ status: 'processing' | 'done' | 'error'; created: number; skipped: number; duplicates: number; total: number; error?: string } | null>(null);
   const [deleteJobId, setDeleteJobId] = useState<string | null>(null);
   const [deleteStatus, setDeleteStatus] = useState<{ status: 'processing' | 'done' | 'error'; deleted: number; total: number; error?: string } | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search.trim().toLowerCase()), 250);
@@ -223,8 +225,10 @@ const Invoices: React.FC = () => {
 
   const handleDeleteSelected = async () => {
     if (selectedIds.size === 0) return;
-    if (!window.confirm(`Delete ${selectedIds.size} invoice(s)? This action cannot be undone.`)) return;
+    setShowDeleteConfirm(true);
+  };
 
+  const confirmDelete = async () => {
     const ids = [...selectedIds];
 
     try {
@@ -251,8 +255,20 @@ const Invoices: React.FC = () => {
   };
 
   return (
-    <div className="pb-6">
-      {/* TOP BANNER - Shows when import/delete in progress, ABOVE everything else */}
+    <>
+      <ConfirmationModal
+        isOpen={showDeleteConfirm}
+        title={`Delete ${selectedIds.size} invoice(s)?`}
+        message="This action cannot be undone. The selected invoices will be permanently deleted."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        isDangerous={true}
+        onConfirm={confirmDelete}
+        onCancel={() => setShowDeleteConfirm(false)}
+      />
+
+      <div className="pb-6">
+        {/* TOP BANNER - Shows when import/delete in progress, ABOVE everything else */}
       {(importJobId || deleteJobId) && (
         <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
           <div className="flex items-start gap-4">
@@ -390,7 +406,8 @@ const Invoices: React.FC = () => {
       <CSVUploadModal isOpen={showCSVModal} onClose={() => setShowCSVModal(false)}
         setImportJobId={setImportJobId} />
       </div>
-    </div>
+      </div>
+    </>
   );
 };
 

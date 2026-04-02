@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { cn } from '../../lib/utils';
+import { ConfirmationModal } from '../ui/ConfirmationModal';
 
 export type SettingsTab = 'profile' | 'integrations' | 'email' | 'dunning' | 'automation' | 'account';
 
@@ -20,6 +21,9 @@ export const SettingsLayout: React.FC<SettingsLayoutProps> = ({
   isSaving,
   children,
 }) => {
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
+  const [pendingTab, setPendingTab] = useState<SettingsTab | null>(null);
+
   const TABS: Array<{ id: SettingsTab; label: string; icon: React.ReactNode }> = [
     {
       id: 'profile',
@@ -114,15 +118,39 @@ export const SettingsLayout: React.FC<SettingsLayoutProps> = ({
   ];
 
   const handleTabChange = (tab: SettingsTab) => {
-    if (isDirty && !window.confirm('You have unsaved changes. Discard them?')) {
+    if (isDirty) {
+      setPendingTab(tab);
+      setShowDiscardConfirm(true);
       return;
     }
     onTabChange(tab);
   };
 
+  const confirmDiscard = () => {
+    if (pendingTab) {
+      onTabChange(pendingTab);
+      setPendingTab(null);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-[#09090b]">
-      <div className="max-w-4xl mx-auto px-4 py-8">
+    <>
+      <ConfirmationModal
+        isOpen={showDiscardConfirm}
+        title="Discard changes?"
+        message="You have unsaved changes. Are you sure you want to discard them?"
+        confirmLabel="Discard"
+        cancelLabel="Keep editing"
+        isDangerous={true}
+        onConfirm={confirmDiscard}
+        onCancel={() => {
+          setShowDiscardConfirm(false);
+          setPendingTab(null);
+        }}
+      />
+
+      <div className="min-h-screen bg-gray-50 dark:bg-[#09090b]">
+        <div className="max-w-4xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Settings</h1>
@@ -188,7 +216,8 @@ export const SettingsLayout: React.FC<SettingsLayoutProps> = ({
             </div>
           </div>
         )}
+        </div>
       </div>
-    </div>
+    </>
   );
 };

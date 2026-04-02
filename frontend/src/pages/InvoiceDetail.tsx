@@ -4,6 +4,7 @@ import { api } from '../lib/api';
 import { API_ENDPOINTS, STATUS_COLORS } from '../lib/constants';
 import { formatCurrency, formatDate } from '../lib/utils';
 import { useNotification } from '../hooks/useNotification';
+import { ConfirmationModal } from '../components/ui/ConfirmationModal';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
@@ -15,6 +16,7 @@ const InvoiceDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { addToast } = useNotification();
+  const isDemo = typeof window !== 'undefined' && localStorage.getItem('isDemo') === 'true';
 
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [detail, setDetail] = useState<InvoiceDetailType | null>(null);
@@ -31,6 +33,8 @@ const InvoiceDetail: React.FC = () => {
   const [editingEmail, setEditingEmail] = useState(false);
   const [emailInput, setEmailInput] = useState('');
   const [updatingEmail, setUpdatingEmail] = useState(false);
+  const [showStopDunningConfirm, setShowStopDunningConfirm] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -127,7 +131,12 @@ const InvoiceDetail: React.FC = () => {
   };
 
   const handleStop = async () => {
-    if (!invoice || !window.confirm('Stop all future dunning emails for this invoice? This cannot be undone.')) return;
+    if (!invoice) return;
+    setShowStopDunningConfirm(true);
+  };
+
+  const confirmStopDunning = async () => {
+    if (!invoice) return;
     setDunningLoading(true);
     try {
       await api.delete(`/api/invoices/${invoice.id}/dunning`);
@@ -139,7 +148,12 @@ const InvoiceDetail: React.FC = () => {
   };
 
   const handleDelete = async () => {
-    if (!invoice || !window.confirm('Delete this invoice? This action cannot be undone.')) return;
+    if (!invoice) return;
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!invoice) return;
     setUpdating(true);
     try {
       await api.delete(`/api/invoices/${invoice.id}`);
@@ -190,8 +204,33 @@ const InvoiceDetail: React.FC = () => {
   ];
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
+    <>
+      <ConfirmationModal
+        isOpen={showStopDunningConfirm}
+        title="Stop dunning?"
+        message="Stop all future dunning emails for this invoice? This action cannot be undone."
+        confirmLabel="Stop"
+        cancelLabel="Cancel"
+        isDangerous={true}
+        isLoading={dunningLoading}
+        onConfirm={confirmStopDunning}
+        onCancel={() => setShowStopDunningConfirm(false)}
+      />
+
+      <ConfirmationModal
+        isOpen={showDeleteConfirm}
+        title="Delete invoice?"
+        message="This action cannot be undone. The invoice will be permanently deleted."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        isDangerous={true}
+        isLoading={updating}
+        onConfirm={confirmDelete}
+        onCancel={() => setShowDeleteConfirm(false)}
+      />
+
+      <div className="space-y-6">
+        {/* Header */}
       <div className="flex items-center gap-4">
         <button
           onClick={() => navigate('/invoices')}
@@ -325,16 +364,16 @@ const InvoiceDetail: React.FC = () => {
             <div className="flex flex-wrap gap-2 pt-4 border-t border-gray-200 dark:border-white/[0.06]">
               {invoice.status === 'unpaid' && (
                 <>
-                  <Button size="sm" onClick={() => updateStatus('paid')} loading={updating}>Mark Paid</Button>
-                  <Button size="sm" variant="secondary" onClick={() => updateStatus('arranged')} loading={updating}>Mark Arranged</Button>
+                  <Button size="sm" onClick={() => updateStatus('paid')} disabled={isDemo} loading={updating}>Mark Paid</Button>
+                  <Button size="sm" variant="secondary" onClick={() => updateStatus('arranged')} disabled={isDemo} loading={updating}>Mark Arranged</Button>
                   <Button size="sm" variant="ghost" onClick={sendEmail}>Send Dunning Email</Button>
                 </>
               )}
               {invoice.status === 'arranged' && (
-                <Button size="sm" onClick={() => updateStatus('paid')} loading={updating}>Mark Paid</Button>
+                <Button size="sm" onClick={() => updateStatus('paid')} disabled={isDemo} loading={updating}>Mark Paid</Button>
               )}
               {invoice.status !== 'uncollectable' && invoice.status !== 'paid' && (
-                <Button size="sm" variant="danger" onClick={() => updateStatus('uncollectable')} loading={updating}>Write Off</Button>
+                <Button size="sm" variant="danger" onClick={() => updateStatus('uncollectable')} disabled={isDemo} loading={updating}>Write Off</Button>
               )}
             </div>
           </div>
@@ -576,7 +615,8 @@ const InvoiceDetail: React.FC = () => {
           </div>
         )}
       </Card>
-    </div>
+      </div>
+    </>
   );
 };
 

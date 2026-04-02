@@ -1,6 +1,7 @@
 import React from 'react';
 import { Table } from '../ui/Table';
 import { Badge } from '../ui/Badge';
+import { ConfirmationModal } from '../ui/ConfirmationModal';
 import { formatCurrency, formatDate, calculateDaysOverdue } from '../../lib/utils';
 import { STATUS_COLORS, AGING_COLORS } from '../../lib/constants';
 import type { Invoice, TableColumn } from '../../types';
@@ -47,15 +48,24 @@ export const InvoiceTable: React.FC<InvoiceTableProps> = ({
   const [deleting, setDeleting] = React.useState<string | null>(null);
   const [showSelectAllModal, setShowSelectAllModal] = React.useState(false);
   const [isLoadingAllIds, setIsLoadingAllIds] = React.useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = React.useState<string | null>(null);
 
   const handleDelete = async (e: React.MouseEvent, invoiceId: string) => {
     e.stopPropagation();
-    if (!onDelete || !window.confirm('Delete this invoice?')) return;
-    setDeleting(invoiceId);
+    if (!onDelete) return;
+    setPendingDeleteId(invoiceId);
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!pendingDeleteId || !onDelete) return;
     try {
-      await onDelete(invoiceId);
+      setDeleting(pendingDeleteId);
+      await onDelete(pendingDeleteId);
     } finally {
       setDeleting(null);
+      setPendingDeleteId(null);
     }
   };
 
@@ -331,6 +341,22 @@ export const InvoiceTable: React.FC<InvoiceTableProps> = ({
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showDeleteConfirm}
+        title="Delete invoice"
+        message="This action cannot be undone. The invoice will be permanently deleted."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        isDangerous={true}
+        isLoading={deleting === pendingDeleteId}
+        onConfirm={confirmDelete}
+        onCancel={() => {
+          setShowDeleteConfirm(false);
+          setPendingDeleteId(null);
+        }}
+      />
 
       <MobileCards />
       <div className="hidden md:block">

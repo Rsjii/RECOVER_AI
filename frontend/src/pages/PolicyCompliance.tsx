@@ -3,6 +3,7 @@ import { api } from '../lib/api';
 import { API_ENDPOINTS } from '../lib/constants';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
+import { ConfirmationModal } from '../components/ui/ConfirmationModal';
 import type { AgentPolicy, ComplianceRequest } from '../types';
 
 const defaultPolicy: AgentPolicy = {
@@ -30,6 +31,7 @@ const PolicyCompliance: React.FC = () => {
   const [exportPayload, setExportPayload] = useState<string>('');
   const [loadingCompliance, setLoadingCompliance] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // Load policy
   const loadPolicy = async () => {
@@ -113,8 +115,10 @@ const PolicyCompliance: React.FC = () => {
   };
 
   const requestDelete = async () => {
-    const ok = window.confirm('This will permanently delete company data. Continue?');
-    if (!ok) return;
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = async () => {
     setBusy(true);
     try {
       await api.post(API_ENDPOINTS.compliance.delete, { confirm: true });
@@ -125,8 +129,21 @@ const PolicyCompliance: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Policy & Compliance</h1>
+    <>
+      <ConfirmationModal
+        isOpen={showDeleteConfirm}
+        title="Delete company data?"
+        message="This will permanently delete all company data. This action cannot be undone."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        isDangerous={true}
+        isLoading={busy}
+        onConfirm={confirmDelete}
+        onCancel={() => setShowDeleteConfirm(false)}
+      />
+
+      <div className="space-y-6">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Policy & Compliance</h1>
 
       {/* Tab navigation */}
       <div className="flex gap-4 border-b border-gray-200 dark:border-white/[0.06]">
@@ -335,7 +352,8 @@ const PolicyCompliance: React.FC = () => {
           </Card>
         </div>
       )}
-    </div>
+      </div>
+    </>
   );
 };
 

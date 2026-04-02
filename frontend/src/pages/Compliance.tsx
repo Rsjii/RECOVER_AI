@@ -3,6 +3,7 @@ import { api } from '../lib/api';
 import { API_ENDPOINTS } from '../lib/constants';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
+import { ConfirmationModal } from '../components/ui/ConfirmationModal';
 import type { ComplianceRequest } from '../types';
 
 const Compliance: React.FC = () => {
@@ -10,6 +11,7 @@ const Compliance: React.FC = () => {
   const [exportPayload, setExportPayload] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -38,8 +40,10 @@ const Compliance: React.FC = () => {
   };
 
   const requestDelete = async () => {
-    const ok = window.confirm('This will permanently delete company data. Continue?');
-    if (!ok) return;
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = async () => {
     setBusy(true);
     try {
       await api.post(API_ENDPOINTS.compliance.delete, { confirm: true });
@@ -50,8 +54,21 @@ const Compliance: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Compliance Center</h1>
+    <>
+      <ConfirmationModal
+        isOpen={showDeleteConfirm}
+        title="Delete company data?"
+        message="This will permanently delete all company data. This action cannot be undone."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        isDangerous={true}
+        isLoading={busy}
+        onConfirm={confirmDelete}
+        onCancel={() => setShowDeleteConfirm(false)}
+      />
+
+      <div className="space-y-6">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Compliance Center</h1>
 
       <Card>
         <h2 className="font-semibold text-gray-900 dark:text-white mb-3">Data Rights</h2>
@@ -82,7 +99,8 @@ const Compliance: React.FC = () => {
           </div>
         )}
       </Card>
-    </div>
+      </div>
+    </>
   );
 };
 

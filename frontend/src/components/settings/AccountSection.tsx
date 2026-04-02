@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Button } from '../ui/Button';
+import { ConfirmationModal } from '../ui/ConfirmationModal';
 import { useNotification } from '../../hooks/useNotification';
 import { api } from '../../lib/api';
 import { cn } from '../../lib/utils';
@@ -22,6 +23,7 @@ export const AccountSection: React.FC<AccountSectionProps> = ({
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [isResettingPassword, setIsResettingPassword] = useState(false);
   const [revoking, setRevoking] = useState<string | null>(null);
+  const [showRevokeAllConfirm, setShowRevokeAllConfirm] = useState(false);
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
     newPassword: '',
@@ -61,10 +63,10 @@ export const AccountSection: React.FC<AccountSectionProps> = ({
   };
 
   const handleRevokeAllSessions = async () => {
-    if (!window.confirm('This will sign you out of all devices. Continue?')) {
-      return;
-    }
+    setShowRevokeAllConfirm(true);
+  };
 
+  const confirmRevokeAll = async () => {
     setRevoking('all');
     try {
       await api.post('/api/auth/sessions/revoke-all');
@@ -130,7 +132,19 @@ export const AccountSection: React.FC<AccountSectionProps> = ({
   };
 
   return (
-    <div className="space-y-8">
+    <>
+      <ConfirmationModal
+        isOpen={showRevokeAllConfirm}
+        title="Sign out everywhere?"
+        message="This will sign you out of all devices. Your current session will remain active."
+        confirmLabel="Sign out all"
+        cancelLabel="Cancel"
+        isDangerous={true}
+        onConfirm={confirmRevokeAll}
+        onCancel={() => setShowRevokeAllConfirm(false)}
+      />
+
+      <div className="space-y-8">
       {/* Email Section */}
       <div className="border border-gray-200 dark:border-white/[0.06] rounded-lg p-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Email Address</h3>
@@ -362,6 +376,7 @@ export const AccountSection: React.FC<AccountSectionProps> = ({
           Delete Account (Coming Soon)
         </Button>
       </div>
-    </div>
+      </div>
+    </>
   );
 };
