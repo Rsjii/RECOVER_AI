@@ -4,6 +4,7 @@ import { isRedisConnected } from '../config/redis';
 import { DunningEmailJob, DunningEmailType } from '../types/email';
 import emailService from '../services/emailService';
 import { countEmailsSentForInvoice } from '../db/emailLogs';
+import { pool } from '../config/database';
 import { logError, logInfo, logWarn } from '../utils/logger';
 import { findInvoiceById } from '../db/invoices';
 import { findCompanyById } from '../db/companies';  // P0: pilot_mode check
@@ -12,6 +13,38 @@ import { createPlanForInvoice } from '../services/paymentPlanService';
 
 const LOG_MODULE = 'dunningQueue';
 const QUEUE_NAME = 'dunning-emails';
+
+/**
+ * Record skipped email in email_logs so agent doesn't keep retrying.
+ * Non-blocking operation — errors are logged but don't throw.
+ */
+async function recordSkippedEmail(
+  invoiceId: string,
+  companyId: string,
+  emailType: DunningEmailType,
+  recipientEmail: string,
+  reason: string
+): Promise<void> {
+  try {
+    await pool.query(
+      `INSERT INTO email_logs (invoice_id, company_id, email_type, recipient_email, subject, body, status)
+       VALUES ($1, $2, $3, $4, $5, $6, 'skipped')`,
+      [
+        invoiceId,
+        companyId,
+        emailType,
+        recipientEmail,
+        `[SKIPPED] ${emailType}`,
+        `Skipped: ${reason}`,
+      ]
+    );
+  } catch (err) {
+    logWarn(LOG_MODULE, 'recordSkippedEmail', 'Failed to record skipped email (non-critical)', {
+      invoiceId,
+      reason: String(err),
+    });
+  }
+}
 
 // ============================================================
 // Queue connection config (Upstash Redis)
@@ -308,6 +341,7 @@ export function startDunningWorker(): Worker<DunningEmailJob> {
           jobId: job.id,
           invoiceId: data.invoiceId,
         });
+        await recordSkippedEmail(data.invoiceId, data.companyId, data.emailType, data.recipientEmail, 'Invoice already paid');
         return { skipped: true, reason: 'Invoice already paid' };
       }
 
@@ -317,6 +351,7 @@ export function startDunningWorker(): Worker<DunningEmailJob> {
           jobId: job.id,
           invoiceId: data.invoiceId,
         });
+        await recordSkippedEmail(data.invoiceId, data.companyId, data.emailType, data.recipientEmail, 'Dunning stopped');
         return { skipped: true, reason: 'Dunning stopped' };
       }
 
@@ -330,6 +365,7 @@ export function startDunningWorker(): Worker<DunningEmailJob> {
           invoiceId: data.invoiceId,
           companyId: data.companyId,
         });
+        await recordSkippedEmail(data.invoiceId, data.companyId, data.emailType, data.recipientEmail, 'Pilot paused');
         return { skipped: true, reason: 'Pilot paused' };
       }
 
@@ -343,6 +379,7 @@ export function startDunningWorker(): Worker<DunningEmailJob> {
         } catch (err) {
           logError(LOG_MODULE, 'worker', 'Failed to insert shadow email (non-critical)', err);
         }
+        await recordSkippedEmail(data.invoiceId, data.companyId, data.emailType, data.recipientEmail, 'Shadow mode — stored for review');
         return { skipped: true, reason: 'Shadow mode — stored for review' };
       }
       // pilotMode === 'auto' (or null) — fall through to normal send
@@ -359,6 +396,7 @@ export function startDunningWorker(): Worker<DunningEmailJob> {
         } catch (err) {
           logError(LOG_MODULE, 'worker', 'Failed to insert queued email for approval (non-critical)', err);
         }
+        await recordSkippedEmail(data.invoiceId, data.companyId, data.emailType, data.recipientEmail, 'Manual mode — stored for approval');
         return { skipped: true, reason: 'Manual mode — stored for approval' };
       }
 
@@ -373,6 +411,7 @@ export function startDunningWorker(): Worker<DunningEmailJob> {
         } catch (_err) {
           // Plan likely already exists — safe to ignore
         }
+        await recordSkippedEmail(data.invoiceId, data.companyId, data.emailType, data.recipientEmail, 'Hard decline — payment plan created');
         return { skipped: true, reason: 'Hard decline — payment plan created' };
       }
 
@@ -384,6 +423,7 @@ export function startDunningWorker(): Worker<DunningEmailJob> {
           invoiceId: data.invoiceId,
           emailsSent,
         });
+        await recordSkippedEmail(data.invoiceId, data.companyId, data.emailType, data.recipientEmail, 'Max emails reached');
         return { skipped: true, reason: 'Max emails reached' };
       }
 
