@@ -255,9 +255,8 @@ export async function queueEmailNow(job: DunningEmailJob): Promise<string> {
 // Result: ZERO Redis polling when idle, instant activation on new job
 // ============================================================
 let dunningWorker: Worker<DunningEmailJob> | null = null;
-let lastJobCompletedAt: number = Date.now();
 let workerCleanupTimer: NodeJS.Timeout | null = null;
-const WORKER_IDLE_TIMEOUT_MS = 120000; // Close worker if idle for 2 minutes
+const WORKER_IDLE_TIMEOUT_MS = 60000; // Close worker if idle for 1 minute
 
 function scheduleDunningWorkerCleanup(): void {
   // Clear existing timer
@@ -449,7 +448,6 @@ export function startDunningWorker(): Worker<DunningEmailJob> {
       invoiceId: job.data.invoiceId,
       result,
     });
-    lastJobCompletedAt = Date.now();
     // Schedule cleanup after idle timeout
     scheduleDunningWorkerCleanup();
   });
@@ -460,7 +458,6 @@ export function startDunningWorker(): Worker<DunningEmailJob> {
       invoiceId: job?.data.invoiceId,
       attempt: job?.attemptsMade,
     });
-    lastJobCompletedAt = Date.now();
     // Schedule cleanup after idle timeout
     scheduleDunningWorkerCleanup();
   });

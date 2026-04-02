@@ -6,6 +6,28 @@ import { initiateVoiceCall, VoiceCallRequest } from '../services/twilioService';
 import { pool } from '../config/database';
 
 const MODULE = 'voiceCallQueue';
+const WORKER_IDLE_TIMEOUT_MS = 60000; // Close worker if idle for 1 minute
+
+let voiceCallWorker: any = null;
+let voiceWorkerCleanupTimer: NodeJS.Timeout | null = null;
+
+function scheduleVoiceWorkerCleanup(): void {
+  if (voiceWorkerCleanupTimer) {
+    clearTimeout(voiceWorkerCleanupTimer);
+  }
+
+  voiceWorkerCleanupTimer = setTimeout(async () => {
+    if (voiceCallWorker) {
+      try {
+        await voiceCallWorker.close();
+        voiceCallWorker = null;
+        logInfo(MODULE, 'scheduleVoiceWorkerCleanup', 'Voice worker closed after idle timeout');
+      } catch (err: any) {
+        logError(MODULE, 'scheduleVoiceWorkerCleanup', 'Failed to close voice worker', err);
+      }
+    }
+  }, WORKER_IDLE_TIMEOUT_MS);
+}
 
 // ============================================================
 // Queue connection config
@@ -71,6 +93,11 @@ export async function queueVoiceCall(req: VoiceCallRequest): Promise<string> {
       return 'queue-unavailable';
     }
 
+    // Lazy-start worker on first job
+    if (!voiceCallWorker) {
+      await startVoiceCallWorker();
+    }
+
     const job = await queue.add('initiate-call', req, {
       jobId: `voice-${req.invoiceId}`,
       delay: 0, // Immediate
@@ -92,16 +119,27 @@ export async function queueVoiceCall(req: VoiceCallRequest): Promise<string> {
 }
 
 /**
- * Start the voice call worker
+ * Start the voice call worker (lazy-init)
  */
 export async function startVoiceCallWorker(): Promise<void> {
+  // Already running
+  if (voiceCallWorker) {
+    if (voiceWorkerCleanupTimer) {
+      clearTimeout(voiceWorkerCleanupTimer);
+      voiceWorkerCleanupTimer = null;
+    }
+    return;
+  }
+
   // OPTIMIZATION: Check if Redis is available before starting worker
   if (!isRedisConnected()) {
     logError(MODULE, 'startVoiceCallWorker', 'Redis not connected - worker disabled');
     return;
   }
 
-  const worker = new Worker(
+  logInfo(MODULE, 'startVoiceCallWorker', 'Starting voice call worker (lazy-init)');
+
+  voiceCallWorker = new Worker(
     'voice-calls',
     async (job) => {
       const req: VoiceCallRequest = job.data;
@@ -166,22 +204,27 @@ export async function startVoiceCallWorker(): Promise<void> {
   );
 
   // Event listeners
-  worker.on('completed', (job) => {
+  voiceCallWorker.on('completed', async (job: any) => {
     logInfo(MODULE, 'Worker', 'Voice call job completed', {
       jobId: job.id,
       invoiceId: job.data.invoiceId,
     });
+    scheduleVoiceWorkerCleanup();
   });
 
-  worker.on('failed', (job, error) => {
+  voiceCallWorker.on('failed', async (job: any, error: any) => {
     logError(MODULE, 'Worker', 'Voice call job failed permanently', {
       jobId: job?.id,
       error: error.message,
       invoiceId: job?.data?.invoiceId,
     });
+    scheduleVoiceWorkerCleanup();
   });
 
-  logInfo(MODULE, 'startVoiceCallWorker', 'Voice call worker started');
+  logInfo(MODULE, 'startVoiceCallWorker', 'Voice call worker started (lazy)', {
+    concurrency: 5,
+    idleTimeout: `${WORKER_IDLE_TIMEOUT_MS / 1000}s`,
+  });
 }
 
 /**

@@ -16,6 +16,27 @@ const LOG_MODULE = 'retryQueue';
 const QUEUE_NAME = 'payment-retries';
 const MAX_ATTEMPTS = 5;
 const DEMO_COMPANY_ID = '639eb868-e760-4587-8853-58bc380663db';
+const WORKER_IDLE_TIMEOUT_MS = 60000; // Close worker if idle for 1 minute
+
+let retryWorkerCleanupTimer: NodeJS.Timeout | null = null;
+
+function scheduleRetryWorkerCleanup(): void {
+  if (retryWorkerCleanupTimer) {
+    clearTimeout(retryWorkerCleanupTimer);
+  }
+
+  retryWorkerCleanupTimer = setTimeout(async () => {
+    if (retryWorker) {
+      try {
+        await retryWorker.close();
+        retryWorker = null;
+        logInfo(LOG_MODULE, 'scheduleRetryWorkerCleanup', 'Retry worker closed after idle timeout');
+      } catch (err: any) {
+        logError(LOG_MODULE, 'scheduleRetryWorkerCleanup', 'Failed to close retry worker', err);
+      }
+    }
+  }, WORKER_IDLE_TIMEOUT_MS);
+}
 
 export interface RetryJob {
   invoiceId: string;
@@ -73,6 +94,11 @@ export async function addRetryJob(
     return undefined;
   }
 
+  // Lazy-start worker on first job
+  if (!retryWorker) {
+    startRetryWorker();
+  }
+
   const jobId = `retry-${data.invoiceId}-attempt-${data.attempt}-${Date.now()}`;
   const job = await queue.add('retry', data, {
     delay: options.delay ?? 0,
@@ -112,9 +138,16 @@ async function recordRetryAttempt(
 }
 
 export function startRetryWorker(): Worker<RetryJob> {
-  if (retryWorker) return retryWorker;
+  if (retryWorker) {
+    // Worker already running, cancel cleanup timer since we're submitting a job
+    if (retryWorkerCleanupTimer) {
+      clearTimeout(retryWorkerCleanupTimer);
+      retryWorkerCleanupTimer = null;
+    }
+    return retryWorker;
+  }
 
-  logInfo(LOG_MODULE, 'startRetryWorker', 'Starting payment retry worker');
+  logInfo(LOG_MODULE, 'startRetryWorker', 'Starting payment retry worker (lazy-init)');
 
   retryWorker = new Worker<RetryJob>(
     QUEUE_NAME,
@@ -249,19 +282,26 @@ export function startRetryWorker(): Worker<RetryJob> {
     } as any)
   );
 
-  retryWorker.on('completed', (job, result) => {
+  retryWorker.on('completed', async (job, result) => {
     logInfo(LOG_MODULE, 'worker', 'Job completed', { jobId: job.id, result });
+    // Schedule cleanup after idle timeout
+    scheduleRetryWorkerCleanup();
   });
 
-  retryWorker.on('failed', (job, err) => {
+  retryWorker.on('failed', async (job, err) => {
     logError(LOG_MODULE, 'worker', 'Job failed', err, { jobId: job?.id, invoiceId: job?.data.invoiceId });
+    // Schedule cleanup after idle timeout
+    scheduleRetryWorkerCleanup();
   });
 
   retryWorker.on('error', (err: Error) => {
     logWarn(LOG_MODULE, 'worker', 'Worker connection issue', { error: err.message });
   });
 
-  logInfo(LOG_MODULE, 'startRetryWorker', 'Worker started');
+  logInfo(LOG_MODULE, 'startRetryWorker', 'Worker started (lazy)', {
+    concurrency: 2,
+    idleTimeout: `${WORKER_IDLE_TIMEOUT_MS / 1000}s`,
+  });
   return retryWorker;
 }
 

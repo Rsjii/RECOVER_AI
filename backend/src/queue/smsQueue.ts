@@ -9,6 +9,27 @@ import { logError, logInfo, logWarn } from '../utils/logger';
 
 const LOG_MODULE = 'smsQueue';
 const QUEUE_NAME = 'sms-messages';
+const WORKER_IDLE_TIMEOUT_MS = 60000; // Close worker if idle for 1 minute
+
+let smsWorkerCleanupTimer: NodeJS.Timeout | null = null;
+
+function scheduleSMSWorkerCleanup(): void {
+  if (smsWorkerCleanupTimer) {
+    clearTimeout(smsWorkerCleanupTimer);
+  }
+
+  smsWorkerCleanupTimer = setTimeout(async () => {
+    if (smsWorker) {
+      try {
+        await smsWorker.close();
+        smsWorker = null;
+        logInfo(LOG_MODULE, 'scheduleSMSWorkerCleanup', 'SMS worker closed after idle timeout');
+      } catch (err: any) {
+        logError(LOG_MODULE, 'scheduleSMSWorkerCleanup', 'Failed to close SMS worker', err);
+      }
+    }
+  }, WORKER_IDLE_TIMEOUT_MS);
+}
 
 export interface SMSJob {
   companyId: string;
@@ -60,6 +81,11 @@ export async function queueSMSNow(job: SMSJob): Promise<void> {
     return;
   }
 
+  // Lazy-start worker on first job
+  if (!smsWorker) {
+    startSMSWorker();
+  }
+
   await queue.add('send-sms', job, { jobId: `sms-${job.invoiceId}-${Date.now()}` });
   logInfo(LOG_MODULE, 'queueSMSNow', 'SMS queued', {
     invoiceId: job.invoiceId,
@@ -72,7 +98,16 @@ export async function queueSMSNow(job: SMSJob): Promise<void> {
 let smsWorker: Worker<SMSJob> | null = null;
 
 export function startSMSWorker(): void {
-  if (smsWorker) return;
+  if (smsWorker) {
+    // Worker already running, cancel cleanup timer since we're submitting a job
+    if (smsWorkerCleanupTimer) {
+      clearTimeout(smsWorkerCleanupTimer);
+      smsWorkerCleanupTimer = null;
+    }
+    return;
+  }
+
+  logInfo(LOG_MODULE, 'startSMSWorker', 'Starting SMS worker (lazy-init)');
 
   smsWorker = new Worker<SMSJob>(
     QUEUE_NAME,
@@ -150,11 +185,20 @@ export function startSMSWorker(): void {
     }
   );
 
-  smsWorker.on('failed', (job, err) => {
-    logError(LOG_MODULE, 'worker', 'SMS job failed', err, { jobId: job?.id });
+  smsWorker.on('completed', async (job) => {
+    logInfo(LOG_MODULE, 'worker', 'SMS job completed', { jobId: job.id });
+    scheduleSMSWorkerCleanup();
   });
 
-  logInfo(LOG_MODULE, 'startSMSWorker', 'SMS worker started');
+  smsWorker.on('failed', async (job, err) => {
+    logError(LOG_MODULE, 'worker', 'SMS job failed', err, { jobId: job?.id });
+    scheduleSMSWorkerCleanup();
+  });
+
+  logInfo(LOG_MODULE, 'startSMSWorker', 'SMS worker started (lazy)', {
+    concurrency: 3,
+    idleTimeout: `${WORKER_IDLE_TIMEOUT_MS / 1000}s`,
+  });
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
