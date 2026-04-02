@@ -45,10 +45,28 @@ router.get('/trial-analysis', getTrialAnalysis);
  * Manually trigger an agent run and return a real-time summary.
  * Only available on paid plans (blocks if trial)
  */
+// Rate limiter for agent trigger
+const agentTriggerTimestamps = new Map<string, number>();
+
 router.post('/agent/trigger', requireActiveSubscription, requireNotTrial, async (req, res) => {
   try {
+    const companyId = (req as any).companyId;
+    const now = Date.now();
+    const lastTrigger = agentTriggerTimestamps.get(companyId);
+
+    // Rate limit: max 1 trigger per 60 seconds per company
+    if (lastTrigger && now - lastTrigger < 60000) {
+      const secondsUntilNext = Math.ceil((60000 - (now - lastTrigger)) / 1000);
+      return res.status(429).json({
+        error: `Agent already triggered recently. Please wait ${secondsUntilNext} seconds.`,
+        retryAfter: secondsUntilNext,
+      });
+    }
+
+    agentTriggerTimestamps.set(companyId, now);
+
     logInfo('dashboardRoute', 'agentTrigger', 'Manual agent run starting', {
-      companyId: (req as any).companyId,
+      companyId,
     });
     const result = await runDecisionEngineNow();
     res.json({
