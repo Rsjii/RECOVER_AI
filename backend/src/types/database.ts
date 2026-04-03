@@ -67,6 +67,8 @@ export interface CompanyRow {
   slack_signing_secret_encrypted: string | null;
   slack_channel_id: string | null;
   slack_notifications_enabled: boolean | null;
+  // Dunning email customization
+  dunning_sender_name: string | null;
 }
 
 // ============ Customers ============

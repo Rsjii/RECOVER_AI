@@ -436,9 +436,9 @@ export const demoLogin = async (req: Request, res: Response): Promise<void> => {
       const dueDate = d(daysDue);
       const srcId = `demo-${src}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
       const r = await client.query(
-        `INSERT INTO invoices (company_id, customer_id, amount, currency, due_date, issued_date, status, risk_score, source, source_id, created_at)
-         VALUES ($1,$2,$3,'USD',$4,$5,$6,$7,$8,$9,$10) RETURNING id`,
-        [companyId, custId, amount, dueDate, issuedDate, status, risk, src, srcId, issuedDate]
+        `INSERT INTO invoices (company_id, customer_id, amount, currency, due_date, issued_date, status, source, source_id, created_at)
+         VALUES ($1,$2,$3,'USD',$4,$5,$6,$7,$8,$9) RETURNING id`,
+        [companyId, custId, amount, dueDate, issuedDate, status, src, srcId, issuedDate]
       );
       invRows.push({ id: r.rows[0].id, custIdx: ci, amount, status, daysAgoDue: daysDue });
     }

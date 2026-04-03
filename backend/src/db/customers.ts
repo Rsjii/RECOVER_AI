@@ -54,7 +54,7 @@ export async function listCustomers(
 
   const baseQuery = `
     SELECT c.*,
-      MAX(i.risk_score) AS max_risk_score,
+      c.customer_risk_score,
       MAX(i.last_decline_type) AS last_decline_type,
       COALESCE(SUM(CASE WHEN i.status NOT IN ('paid','uncollectable') THEN i.amount ELSE 0 END), 0) AS total_ar_balance,
       MAX(p.paid_at) AS last_payment_date

@@ -479,7 +479,7 @@ export const generateAuditAnalysis = async (req: Request, res: Response) => {
 
     const invoicesResult = await pool.query(
       `SELECT id, source_id, amount, currency, customer_id, status,
-              created_at, due_date, issued_date, notes, risk_score
+              created_at, due_date, issued_date, notes
        FROM invoices
        WHERE company_id = $1
        ORDER BY created_at DESC`,

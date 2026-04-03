@@ -82,6 +82,7 @@ CREATE TABLE IF NOT EXISTS companies (
   onboarding_stage           VARCHAR(50) DEFAULT 'pending', -- 'pending' | 'details_form' | 'create_account' | 'integrations' | 'audit_report' | 'trial_offer' | 'trial_active' | 'paid_active'
   subscription_tier          VARCHAR(20) DEFAULT 'free',    -- 'free' | 'startup' | 'growth' | 'enterprise'
   subscription_status        VARCHAR(20) DEFAULT 'trial',   -- 'trial' | 'active' | 'paused' | 'cancelled'
+  dunning_sender_name        VARCHAR(255),                  -- e.g., "Acme Corp Finance Team" (who the dunning emails come from)
 
   created_at                 TIMESTAMPTZ DEFAULT NOW(),
   updated_at                 TIMESTAMPTZ DEFAULT NOW()

@@ -43,7 +43,7 @@ async function getOverdueInvoicesForProcessing(): Promise<Array<{
   customer_phone: string | null;
   customer_phone_opt_in: boolean;
   company_name: string;
-  risk_score: number;
+  customer_risk_score: number;
   risk_tier: number;
   dunning_emails_sent: number;
   email_types_sent: string[];
@@ -65,7 +65,7 @@ async function getOverdueInvoicesForProcessing(): Promise<Array<{
       i.customer_id,
       i.amount::float AS amount,
       i.due_date,
-      i.risk_score,
+      c.customer_risk_score,
       i.dunning_paused_until,
       COALESCE(i.dunning_stopped, false) AS dunning_stopped,
       COALESCE(i.sms_count, 0)::int AS sms_count,
@@ -100,7 +100,7 @@ async function getOverdueInvoicesForProcessing(): Promise<Array<{
       AND c.email IS NOT NULL
       AND c.email != ''
       AND COALESCE(c.do_not_email, false) = false
-    GROUP BY i.id, i.company_id, i.customer_id, i.amount, i.due_date, i.risk_score,
+    GROUP BY i.id, i.company_id, i.customer_id, i.amount, i.due_date, c.customer_risk_score,
              i.dunning_paused_until, i.dunning_stopped, i.sms_count,
              c.email, c.name, c.phone, c.phone_opt_in, c.risk_tier, co.name, co.pilot_mode,
              co.dunning_tone, co.pause_dunning_until, co.paused_customers, co.aggressive_enabled
@@ -227,14 +227,14 @@ async function runDecisionEngine(): Promise<{
       }
 
       // ── Send high-risk alert if risk score is high ──
-      if (invoice.risk_score >= 75 && daysOverdue >= 30) {
+      if (invoice.customer_risk_score >= 75 && daysOverdue >= 30) {
         try {
           const { slackNotificationService } = await import('../services/slackNotificationService');
           await slackNotificationService.notifyHighRisk({
             companyId: invoice.company_id,
             customerId: invoice.customer_id,
             customerName: invoice.customer_name,
-            riskScore: invoice.risk_score,
+            riskScore: invoice.customer_risk_score,
             daysOverdue,
             invoiceId: invoice.id,
           });
@@ -267,7 +267,7 @@ async function runDecisionEngine(): Promise<{
           daysOverdue,
           emailType: nextStep.emailType,
           attemptNumber: invoice.dunning_emails_sent + 1,
-          riskScore: invoice.risk_score || undefined,
+          riskScore: invoice.customer_risk_score || undefined,
           pilotMode: invoice.company_pilot_mode as any,  // Pass config to avoid DB lookup
         });
         emailsQueued++;
@@ -322,7 +322,7 @@ async function runDecisionEngine(): Promise<{
           daysOverdue,
           emailType: 'payment_plan_offer',
           attemptNumber: 1,
-          riskScore: invoice.risk_score || undefined,
+          riskScore: invoice.customer_risk_score || undefined,
           pilotMode: invoice.company_pilot_mode as any,  // Pass config to avoid DB lookup
         });
         planOffersQueued++;
@@ -553,7 +553,7 @@ export async function runDecisionEngineDryRun(companyId?: string): Promise<{
         amount: invoice.amount,
         daysOverdue,
         emailType: nextStep.emailType,
-        riskScore: invoice.risk_score || 0,
+        riskScore: invoice.customer_risk_score || 0,
       });
     } else {
       skipped++;
@@ -573,7 +573,7 @@ export async function runDecisionEngineDryRun(companyId?: string): Promise<{
         amount: invoice.amount,
         daysOverdue,
         emailType: 'payment_plan_offer',
-        riskScore: invoice.risk_score || 0,
+        riskScore: invoice.customer_risk_score || 0,
       });
     }
   }

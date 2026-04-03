@@ -15,6 +15,7 @@ import {
   updatePauseDunning,
   updatePauseCustomer,
   updateAggressiveMode,
+  updateDunningSenderName,
 } from '../controllers/settingsController';
 import {
   getSMTPStatusHandler,
@@ -42,6 +43,7 @@ router.put('/dunning-tone', requireRole('admin'), updateDunningTone);
 router.put('/pause-dunning', requireRole('admin'), updatePauseDunning);
 router.put('/pause-customer', requireRole('admin'), updatePauseCustomer);
 router.put('/aggressive-mode', requireRole('admin'), updateAggressiveMode);
+router.put('/dunning-sender-name', requireRole('admin'), updateDunningSenderName);
 
 // SMTP Configuration (Option A: client's own email server)
 router.get('/smtp/status', getSMTPStatusHandler);

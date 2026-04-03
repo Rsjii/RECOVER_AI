@@ -391,6 +391,22 @@ Do not include any text outside the JSON.`;
             ? 'firm'
             : 'friendly';
 
+      // Fetch company to get dunning sender name
+      let senderName = 'Collections Team';
+      if (companyId) {
+        try {
+          const companyResult = await pool.query(
+            'SELECT dunning_sender_name FROM companies WHERE id = $1',
+            [companyId]
+          );
+          if (companyResult.rows[0]?.dunning_sender_name) {
+            senderName = companyResult.rows[0].dunning_sender_name;
+          }
+        } catch (err) {
+          logWarn(method, 'Failed to fetch dunning sender name, using default', { companyId });
+        }
+      }
+
       const prompt = `You are an expert dunning email writer for collections. Generate a professional, personalized dunning email.
 
 Context:
@@ -402,6 +418,7 @@ Context:
 - Risk Score: ${input.riskScore || 'N/A'}
 - Previous Reminders: ${input.previousReminders || 0}
 - Payment Link: ${input.paymentLink || 'N/A'}
+- Email Signature: Best regards,\n${senderName}
 
 Tone: ${tone}
 ${tone === 'urgent' ? 'The customer is significantly late. Be firm but professional.' : tone === 'firm' ? 'The customer is moderately late. Be direct but courteous.' : 'This is an early reminder. Be friendly and helpful.'}

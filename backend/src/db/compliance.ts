@@ -40,7 +40,7 @@ export async function exportCompanyData(companyId: string): Promise<Record<strin
     pool.query('SELECT id, name, email, timezone, preferred_currency, created_at FROM companies WHERE id = $1', [companyId]),
     pool.query('SELECT id, email, first_name, last_name, role, is_active, created_at FROM users WHERE company_id = $1', [companyId]),
     pool.query('SELECT id, name, email, company_name, industry, created_at FROM customers WHERE company_id = $1', [companyId]),
-    pool.query('SELECT id, customer_id, amount, currency, due_date, status, risk_score, source, created_at FROM invoices WHERE company_id = $1', [companyId]),
+    pool.query('SELECT id, customer_id, amount, currency, due_date, status, source, created_at FROM invoices WHERE company_id = $1', [companyId]),
     pool.query('SELECT id, invoice_id, amount, currency, payment_method, paid_at, status, created_at FROM payments WHERE company_id = $1', [companyId]),
     pool.query('SELECT id, invoice_id, email_type, recipient_email, status, sent_at FROM email_logs WHERE company_id = $1', [companyId]),
     pool.query('SELECT id, user_id, action, resource_type, resource_id, created_at FROM audit_logs WHERE company_id = $1', [companyId]),

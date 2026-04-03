@@ -380,7 +380,7 @@ export async function fetchSmartARData(companyId: string): Promise<SmartARData |
         COALESCE(EXTRACT(DAY FROM NOW() - MIN(i.due_date)) FILTER (WHERE i.status NOT IN ('paid', 'uncollectable')), 0)::int AS days_oldest_overdue,
         MAX(el.created_at) FILTER (WHERE el.email_type LIKE 'dunning_%') AS last_email_sent,
         MAX(p.created_at) AS last_payment_date,
-        COALESCE(AVG(i.risk_score), 50)::int AS avg_risk_score
+        c.customer_risk_score::int AS avg_risk_score
       FROM customers c
       LEFT JOIN invoices i ON c.id = i.customer_id
       LEFT JOIN email_logs el ON i.id = el.invoice_id
@@ -388,7 +388,7 @@ export async function fetchSmartARData(companyId: string): Promise<SmartARData |
       WHERE c.company_id = $1
         AND i.status NOT IN ('paid', 'uncollectable')
         AND i.due_date < NOW()
-      GROUP BY c.id, c.name, c.email
+      GROUP BY c.id, c.name, c.email, c.customer_risk_score
       ORDER BY total_outstanding DESC
       LIMIT 50
     `, [companyId]);
