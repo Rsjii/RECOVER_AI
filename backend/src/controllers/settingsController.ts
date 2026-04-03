@@ -500,6 +500,33 @@ export const updateAggressiveMode = async (req: Request, res: Response): Promise
 };
 
 /**
+ * GET /api/settings/dunning-sender-name
+ * Fetch the dunning sender name
+ */
+export const getDunningSenderName = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'getDunningSenderName';
+  const companyId = (req as any).companyId;
+
+  try {
+    const company = await findCompanyById(companyId);
+    if (!company) {
+      sendErrorResponse(res, 404, 'Company not found');
+      return;
+    }
+
+    res.status(200).json({
+      data: {
+        senderName: (company as any).dunning_sender_name || '',
+      },
+    });
+  } catch (error) {
+    logError(LOG_MODULE, handler, 'Failed to get dunning sender name', error);
+    const { statusCode, message } = parseError(error);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
+
+/**
  * PUT /api/settings/dunning-sender-name
  * Set the name that appears in dunning emails (e.g., "Acme Corp Finance Team")
  */

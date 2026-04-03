@@ -34,6 +34,7 @@ interface SMTPConfig {
   password: string;
   fromEmail: string;
   fromName: string;
+  dunningSenderName?: string;
 }
 
 const TONE_OPTIONS = [
@@ -80,11 +81,26 @@ export const EmailSettingsSection: React.FC<EmailSettingsSectionProps> = ({
     password: '',
     fromEmail: '',
     fromName: '',
+    dunningSenderName: '',
   });
 
   useEffect(() => {
     fetchSMTPStatus();
+    fetchDunningSenderName();
   }, []);
+
+  async function fetchDunningSenderName() {
+    try {
+      const response = await api.get('/api/settings/dunning-sender-name');
+      if (response?.data?.senderName) {
+        setSMTPConfig(prev => ({ ...prev, dunningSenderName: response.data.senderName }));
+      }
+    } catch (err: any) {
+      if (err.status !== 401) {
+        console.error('Failed to fetch dunning sender name:', err);
+      }
+    }
+  }
 
   async function fetchSMTPStatus() {
     try {
@@ -120,6 +136,16 @@ export const EmailSettingsSection: React.FC<EmailSettingsSectionProps> = ({
     try {
       setIsTesting(true);
       await api.post('/api/settings/smtp/configure', smtpConfig);
+
+      // Save dunning sender name if provided
+      if (smtpConfig.dunningSenderName?.trim()) {
+        try {
+          await api.put('/api/settings/dunning-sender-name', { senderName: smtpConfig.dunningSenderName });
+        } catch (err) {
+          console.error('Failed to save dunning sender name:', err);
+        }
+      }
+
       addToast({ type: 'success', message: 'SMTP config saved. Testing connection...' });
     } catch (err: any) {
       addToast({ type: 'error', message: err.response?.data?.error || 'Failed to save configuration' });
@@ -423,6 +449,22 @@ export const EmailSettingsSection: React.FC<EmailSettingsSectionProps> = ({
                     Display name (e.g., "Billing Team")
                   </p>
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-900 dark:text-white mb-2">
+                  Dunning Sender Name <span className="text-gray-500 text-xs font-normal">(Optional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={smtpConfig.dunningSenderName || ''}
+                  onChange={(e) => setSMTPConfig({ ...smtpConfig, dunningSenderName: e.target.value })}
+                  placeholder="e.g., Acme Corp Finance Team"
+                  className="w-full px-4 py-2.5 border border-gray-300 dark:border-white/[0.08] rounded-lg bg-white dark:bg-white/[0.03] text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5">
+                  Who dunning emails come from (appears in email signature). If blank, uses "From Name" above.
+                </p>
               </div>
 
               <div className="p-3 bg-blue-50 dark:bg-blue-900/15 border border-blue-200 dark:border-blue-900/30 rounded">

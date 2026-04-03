@@ -225,7 +225,42 @@ export const getInvoiceDetail = async (req: Request, res: Response) => {
       findPaymentPlanByInvoice(id, companyId),
     ]);
 
-    logInfo(handler, `Completed in ${Date.now() - startTime}ms`, { invoiceId: id });
+    // Calculate dunning status with correct email type suggestion
+    const emailTypesSent = emailLogs
+      .filter(log => log.email_type?.startsWith('dunning_'))
+      .map(log => log.email_type)
+      .filter((type, i, arr) => arr.indexOf(type) === i); // unique
+
+    const daysOverdue = Math.max(0, Math.floor((Date.now() - new Date(invoice.due_date).getTime()) / (24 * 60 * 60 * 1000)));
+
+    // Find next email type to send based on DUNNING_DECISION_TREE
+    let nextEmailType: string | null = null;
+    let nextScheduledDate: string | null = null;
+
+    if (!invoice.dunning_stopped) {
+      for (const step of DUNNING_DECISION_TREE) {
+        if (daysOverdue >= step.dayOffset && !emailTypesSent.includes(step.emailType)) {
+          nextEmailType = step.emailType;
+          // If we haven't reached the threshold yet, calculate scheduled date
+          if (daysOverdue < step.dayOffset) {
+            const daysUntil = step.dayOffset - daysOverdue;
+            nextScheduledDate = new Date(Date.now() + daysUntil * 24 * 60 * 60 * 1000).toISOString();
+          }
+          break;
+        }
+      }
+    }
+
+    const dunningStatus = {
+      nextEmailType,
+      nextScheduledDate,
+      isPaused: !!invoice.dunning_paused_until && new Date(invoice.dunning_paused_until) > new Date(),
+      pausedUntil: invoice.dunning_paused_until || null,
+      isStopped: invoice.dunning_stopped || false,
+      history: emailLogs,
+    };
+
+    logInfo(handler, `Completed in ${Date.now() - startTime}ms`, { invoiceId: id, nextEmailType });
 
     return res.status(200).json({
       data: {
@@ -233,6 +268,7 @@ export const getInvoiceDetail = async (req: Request, res: Response) => {
         payments,
         emailLogs,
         paymentPlan: paymentPlan || null,
+        dunningStatus,
       },
     });
   } catch (err: any) {

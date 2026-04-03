@@ -11,11 +11,21 @@ const EMAIL_TYPES = [
   { value: 'dunning_5', label: 'Email 5 — Escalation (Day 60)' },
 ];
 
+interface EmailLog {
+  id: string;
+  email_type: string;
+  subject: string;
+  body: string;
+  sent_at: string;
+  status: string;
+}
+
 interface EmailPreviewModalProps {
   invoiceId: string;
   emailType?: string;
   riskScore?: number;
   daysOverdue?: number;
+  emailLogs?: EmailLog[];
   onClose: () => void;
   onApprove?: () => void;
 }
@@ -43,6 +53,7 @@ export const EmailPreviewModal: React.FC<EmailPreviewModalProps> = ({
   emailType: initialType,
   riskScore,
   daysOverdue = 0,
+  emailLogs = [],
   onClose,
   onApprove,
 }) => {
@@ -52,7 +63,7 @@ export const EmailPreviewModal: React.FC<EmailPreviewModalProps> = ({
   const [selectedType, setSelectedType] = useState(defaultType);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
-  const [preview, setPreview] = useState<{ subject: string; body: string; tone: string } | null>(null);
+  const [preview, setPreview] = useState<{ subject: string; body: string; tone: string; source?: string; sentAt?: string } | null>(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -63,12 +74,35 @@ export const EmailPreviewModal: React.FC<EmailPreviewModalProps> = ({
       setLoading(true);
       setError('');
       setPreview(null);
+
+      // Check if an actual email was already sent for this type
+      const actualEmail = emailLogs.find(log => log.email_type === selectedType);
+      if (actualEmail) {
+        if (!cancelled) {
+          setPreview({
+            subject: actualEmail.subject,
+            body: actualEmail.body,
+            tone: actualEmail.email_type.replace('dunning_', ''),
+            source: 'actual-sent',
+            sentAt: actualEmail.sent_at,
+          });
+          setLoading(false);
+        }
+        return;
+      }
+
+      // Otherwise generate a preview
       try {
         const res = await api.get<{ data: any }>(
           API_ENDPOINTS.email.preview(invoiceId, selectedType),
           { signal: controller.signal }
         );
-        if (!cancelled) setPreview(res.data);
+        if (!cancelled) {
+          setPreview({
+            ...res.data,
+            source: 'generated-preview',
+          });
+        }
       } catch (err: any) {
         if (!cancelled && err?.code !== 'ERR_CANCELED') {
           setError(err.message || 'Failed to generate preview');
@@ -79,7 +113,7 @@ export const EmailPreviewModal: React.FC<EmailPreviewModalProps> = ({
     };
     load();
     return () => { cancelled = true; controller.abort(); };
-  }, [invoiceId, selectedType]);
+  }, [invoiceId, selectedType, emailLogs]);
 
   const handleApprove = async () => {
     if (!onApprove) return;
@@ -100,7 +134,13 @@ export const EmailPreviewModal: React.FC<EmailPreviewModalProps> = ({
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Email Preview</h2>
-              <p className="text-sm text-gray-500 mt-0.5">AI-generated email — select the stage to preview</p>
+              <p className="text-sm text-gray-500 mt-0.5">
+                {preview?.source === 'actual-sent' ? (
+                  <span className="text-blue-600 dark:text-blue-400">✓ Actual email sent on {new Date(preview.sentAt || '').toLocaleDateString()}</span>
+                ) : (
+                  <span>AI-generated preview — select the stage to preview</span>
+                )}
+              </p>
             </div>
             <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

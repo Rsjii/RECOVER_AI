@@ -22,6 +22,7 @@ const CustomerDetail: React.FC = () => {
   const [emailInput, setEmailInput] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [pausingDunning, setPausingDunning] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -81,6 +82,25 @@ const CustomerDetail: React.FC = () => {
     }
   };
 
+  const handlePauseDunning = async (days: number | null) => {
+    if (!id) return;
+    setPausingDunning(true);
+    try {
+      await api.put(`/api/settings/pause-customer`, { customerId: id, action: days === null ? 'remove' : 'add' });
+      // Refresh customer data
+      const res = await api.get<{ data: CustomerDetailType }>(API_ENDPOINTS.customers.detail(id));
+      setDetail(res.data || res);
+      addToast({
+        type: 'success',
+        message: days === null ? 'Dunning resumed for this customer' : `Dunning paused for ${days} days`
+      });
+    } catch (err: any) {
+      addToast({ type: 'error', message: err.message || 'Failed to update dunning status' });
+    } finally {
+      setPausingDunning(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center py-20"><Spinner size="lg" text="Loading customer..." /></div>
@@ -91,9 +111,7 @@ const CustomerDetail: React.FC = () => {
 
   const customer = detail.customer;
   const stats = detail.stats;
-  const unpaidInvoices = detail.invoices.filter(inv => inv.status === 'unpaid');
   const paidInvoices = detail.invoices.filter(inv => inv.status === 'paid');
-  const totalUnpaid = unpaidInvoices.reduce((sum, inv) => sum + inv.amount, 0);
 
   const tabs = [
     { id: 'overview' as const, label: 'Overview' },
@@ -143,6 +161,19 @@ const CustomerDetail: React.FC = () => {
           </button>
         </div>
 
+        {/* High-Risk Alert */}
+        {stats.riskScore >= 80 && (
+          <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg flex items-start gap-3">
+            <div className="flex-shrink-0 text-2xl">🚨</div>
+            <div className="flex-1">
+              <h3 className="font-semibold text-red-900 dark:text-red-300">High-Risk Customer</h3>
+              <p className="text-sm text-red-800 dark:text-red-400 mt-1">
+                This customer has a payment risk score of {stats.riskScore}/100. Consider escalating dunning or reviewing payment history.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* KPI Row */}
         <div className="grid grid-cols-4 gap-4">
           <Card>
@@ -151,7 +182,7 @@ const CustomerDetail: React.FC = () => {
           </Card>
           <Card>
             <p className="text-xs text-gray-500 dark:text-gray-400">Unpaid AR</p>
-            <p className="text-2xl font-bold text-red-600 dark:text-red-400 mt-1">{formatCurrency(totalUnpaid, 'USD')}</p>
+            <p className="text-2xl font-bold text-red-600 dark:text-red-400 mt-1">{formatCurrency(stats.unpaidAR, 'USD')}</p>
           </Card>
           <Card>
             <p className="text-xs text-gray-500 dark:text-gray-400">On-Time Rate</p>
@@ -166,6 +197,40 @@ const CustomerDetail: React.FC = () => {
             }`}>{stats.riskScore}/100</p>
           </Card>
         </div>
+
+        {/* Dunning Controls */}
+        <Card>
+          <h3 className="font-semibold text-gray-900 dark:text-white mb-4">Dunning Controls</h3>
+          <div className="flex flex-wrap gap-3">
+            <button
+              onClick={() => handlePauseDunning(7)}
+              disabled={pausingDunning}
+              className="px-4 py-2 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900/50 rounded-lg font-medium text-sm disabled:opacity-50"
+            >
+              ⏸️ Pause 7 days
+            </button>
+            <button
+              onClick={() => handlePauseDunning(30)}
+              disabled={pausingDunning}
+              className="px-4 py-2 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900/50 rounded-lg font-medium text-sm disabled:opacity-50"
+            >
+              ⏸️ Pause 30 days
+            </button>
+            <button
+              onClick={() => handlePauseDunning(null)}
+              disabled={pausingDunning}
+              className="px-4 py-2 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-900/50 rounded-lg font-medium text-sm disabled:opacity-50"
+            >
+              ▶️ Resume dunning
+            </button>
+            <button
+              onClick={() => navigate(`/invoices?customerId=${id}`)}
+              className="px-4 py-2 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900/50 rounded-lg font-medium text-sm"
+            >
+              📧 View invoices
+            </button>
+          </div>
+        </Card>
 
         {/* Tabs */}
         <Card>

@@ -45,8 +45,17 @@ const InvoiceDetail: React.FC = () => {
       api.get<any>(API_ENDPOINTS.invoices.detailFull(id)),
     ])
       .then(([invRes, detailRes]) => {
+        const detail = detailRes.data || detailRes;
         setInvoice(invRes.data || invRes);
-        setDetail(detailRes.data || detailRes);
+        setDetail(detail);
+        // Use dunning status from backend instead of calculating locally
+        if (detail.dunningStatus) {
+          setDunningStatus(detail.dunningStatus);
+          // Set the next suggested email type from backend
+          if (detail.dunningStatus.nextEmailType) {
+            setSelectedEmailType(detail.dunningStatus.nextEmailType);
+          }
+        }
         document.title = `Invoice — RecoverAI`;
       })
       .catch(() => {
@@ -288,6 +297,36 @@ const InvoiceDetail: React.FC = () => {
         </button>
       </div>
 
+      {/* High-Risk Warning */}
+      {invoice && invoice.days_overdue && invoice.days_overdue > 90 && (
+        <Card className="border-l-4 border-red-600 bg-red-50 dark:bg-red-950/20">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="text-2xl">🚨</div>
+              <div>
+                <p className="font-semibold text-red-900 dark:text-red-300">Critical: {invoice.days_overdue} Days Overdue</p>
+                <p className="text-sm text-red-700 dark:text-red-400 mt-0.5">This invoice requires immediate action. Consider escalating to collections.</p>
+              </div>
+            </div>
+            <button className="px-3 py-1 bg-red-600 text-white rounded font-medium text-sm hover:bg-red-700 transition-colors">
+              📞 Escalate
+            </button>
+          </div>
+        </Card>
+      )}
+
+      {invoice && invoice.days_overdue && invoice.days_overdue > 60 && invoice.days_overdue <= 90 && (
+        <Card className="border-l-4 border-orange-600 bg-orange-50 dark:bg-orange-950/20">
+          <div className="flex items-center gap-3">
+            <div className="text-2xl">⚠️</div>
+            <div>
+              <p className="font-semibold text-orange-900 dark:text-orange-300">{invoice.days_overdue} Days Overdue - High Risk</p>
+              <p className="text-sm text-orange-700 dark:text-orange-400 mt-0.5">Send final notice and offer payment plan.</p>
+            </div>
+          </div>
+        </Card>
+      )}
+
       {/* KPI row */}
       <div className="grid grid-cols-2 gap-4">
         <Card>
@@ -483,11 +522,12 @@ const InvoiceDetail: React.FC = () => {
                 </div>
               )
             }
-            {showEmailPreview && invoice && (
+            {showEmailPreview && invoice && detail && (
               <EmailPreviewModal
                 invoiceId={invoice.id}
                 emailType={selectedEmailType}
                 daysOverdue={invoice.days_overdue || 0}
+                emailLogs={detail.emailLogs}
                 onClose={() => setShowEmailPreview(false)}
                 onApprove={() => sendEmail(selectedEmailType)}
               />

@@ -157,10 +157,19 @@ export const getCustomer = async (req: Request, res: Response): Promise<void> =>
       ),
     ]);
 
+    // Calculate stats from actual fetched data (not from customer.payment_history which may be null)
+    const unpaidInvoices = invoiceResult.data.filter(inv => inv.status === 'unpaid');
+    const totalUnpaidAR = unpaidInvoices.reduce((sum, inv) => sum + parseFloat(inv.amount), 0);
+
+    // Calculate on-time payment rate from payment history
+    const onTimeRate = customer.payment_history?.on_time_rate || 0;
+    const avgDaysLate = customer.payment_history?.avg_days_late || 0;
+
     const stats = {
-      totalInvoices: (customer.payment_history?.total_invoices || 0),
-      onTimeRate: (customer.payment_history?.on_time_rate || 0),
-      avgDaysLate: (customer.payment_history?.avg_days_late || 0),
+      totalInvoices: invoiceResult.data.length,
+      unpaidAR: totalUnpaidAR,
+      onTimeRate: Math.round(onTimeRate),
+      avgDaysLate: Math.round(avgDaysLate),
       riskScore: customer.customer_risk_score || 0,
     };
 

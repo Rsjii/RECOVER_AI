@@ -135,6 +135,7 @@ export interface InvoiceDetail {
   payments: Payment[];
   emailLogs: EmailLog[];
   paymentPlan: PaymentPlan | null;
+  dunningStatus?: DunningStatus;
 }
 
 // ── Customer detail composite response ──────────────────────────────────
@@ -146,6 +147,7 @@ export interface CustomerDetail {
   paymentPlans: PaymentPlan[];
   stats: {
     totalInvoices: number;
+    unpaidAR: number;
     onTimeRate: number;
     avgDaysLate: number;
     riskScore: number;

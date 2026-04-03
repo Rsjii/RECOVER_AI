@@ -41,6 +41,19 @@ function agingBadge(status: string, daysOverdue: number) {
   return { label: AGING_COLORS.overdue_30plus.label, cls: `${AGING_COLORS.overdue_30plus.bg} ${AGING_COLORS.overdue_30plus.text}` };
 }
 
+function riskBadge(daysOverdue: number) {
+  if (daysOverdue >= 90) {
+    return { label: 'Critical', icon: '🔴', cls: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300' };
+  }
+  if (daysOverdue >= 60) {
+    return { label: 'High', icon: '🟠', cls: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300' };
+  }
+  if (daysOverdue >= 30) {
+    return { label: 'Medium', icon: '🟡', cls: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300' };
+  }
+  return { label: 'Low', icon: '🟢', cls: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' };
+}
+
 export const InvoiceTable: React.FC<InvoiceTableProps> = ({
   invoices, loading, pagination, onRowClick, selectedIds = new Set(), onSelectionChange, onDelete, totalCount = 0, onSelectAllPages,
 }) => {
@@ -187,6 +200,17 @@ export const InvoiceTable: React.FC<InvoiceTableProps> = ({
       },
     },
     {
+      key: 'days_overdue',
+      label: 'Risk',
+      render: (_, row) => {
+        const days = calculateDaysOverdue(row.due_date);
+        const { label, icon, cls } = riskBadge(days);
+        return (
+          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${cls}`}>{icon} {label}</span>
+        );
+      },
+    },
+    {
       key: 'dunning_stage',
       label: 'Dunning',
       render: (_, row) => {
@@ -231,19 +255,41 @@ export const InvoiceTable: React.FC<InvoiceTableProps> = ({
     {
       key: 'id',
       label: 'Actions',
-      width: '40px',
-      render: (_, row) => onDelete ? (
-        <button
-          onClick={(e) => handleDelete(e, row.id)}
-          disabled={deleting === row.id}
-          className="p-1.5 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 disabled:opacity-50 transition-colors"
-          title="Delete invoice"
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-          </svg>
-        </button>
-      ) : null,
+      width: '100px',
+      render: (_, row) => {
+        const days = calculateDaysOverdue(row.due_date);
+        const isOverdue = days > 0 && row.status !== 'paid';
+        return (
+          <div className="flex gap-1 items-center">
+            {isOverdue && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRowClick(row);
+                }}
+                className="p-1.5 rounded hover:bg-blue-50 dark:hover:bg-blue-900/20 text-blue-600 dark:text-blue-400 transition-colors"
+                title="View and send email"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+              </button>
+            )}
+            {onDelete && (
+              <button
+                onClick={(e) => handleDelete(e, row.id)}
+                disabled={deleting === row.id}
+                className="p-1.5 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 disabled:opacity-50 transition-colors"
+                title="Delete invoice"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </button>
+            )}
+          </div>
+        );
+      },
     },
   ];
 
