@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { logInfo, logError } from '../utils/logger';
-import { getSMTPStatus, saveSMTPConfig, testSMTPConnection, disableSMTP } from '../services/smtpService';
+import { getSMTPStatus, getFullSMTPConfig, saveSMTPConfig, testSMTPConnection, disableSMTP } from '../services/smtpService';
 
 const MODULE = 'smtpController';
 
@@ -129,6 +129,35 @@ export async function testSmtpHandler(req: Request, res: Response): Promise<void
       success: false,
       error: 'SMTP test failed: ' + (err instanceof Error ? err.message : String(err)),
     });
+  }
+}
+
+/**
+ * GET /api/settings/smtp/config
+ * Get full SMTP configuration (including decrypted username)
+ * Used when user wants to modify existing settings
+ */
+export async function getSMTPConfigHandler(req: Request, res: Response): Promise<void> {
+  const method = 'getSMTPConfigHandler';
+  const companyId = (req as any).companyId;
+
+  if (!companyId) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
+
+  try {
+    const config = await getFullSMTPConfig(companyId);
+    if (!config) {
+      res.status(404).json({ error: 'SMTP not configured' });
+      return;
+    }
+
+    logInfo(MODULE, method, 'SMTP config retrieved', { companyId });
+    res.json(config);
+  } catch (err) {
+    logError(MODULE, method, 'Failed to get SMTP config', err);
+    res.status(500).json({ error: 'Failed to retrieve SMTP config' });
   }
 }
 

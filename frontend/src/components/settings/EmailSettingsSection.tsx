@@ -109,14 +109,30 @@ export const EmailSettingsSection: React.FC<EmailSettingsSectionProps> = ({
       setSMTPStatus(response);
       setUseOwnDomain(response.verified || false);
       if (response.configured) {
-        setSMTPConfig({
-          host: response.host || '',
-          port: 587,
-          username: '',
-          password: '',
-          fromEmail: response.fromEmail || '',
-          fromName: response.fromName || '',
-        });
+        // Fetch full config (including username) separately if configured
+        try {
+          const fullConfig = await api.get('/api/settings/smtp/config');
+          setSMTPConfig({
+            host: fullConfig.host || response.host || '',
+            port: fullConfig.port || 587,
+            username: fullConfig.username || '',
+            password: '', // Never pre-fill password for security
+            fromEmail: fullConfig.fromEmail || response.fromEmail || '',
+            fromName: fullConfig.fromName || response.fromName || '',
+            dunningSenderName: fullConfig.dunningSenderName || '',
+          });
+        } catch (err) {
+          // Fallback: use status response
+          console.warn('Could not fetch full SMTP config, using status fallback');
+          setSMTPConfig({
+            host: response.host || '',
+            port: 587,
+            username: '', // Will be blank if config endpoint fails
+            password: '',
+            fromEmail: response.fromEmail || '',
+            fromName: response.fromName || '',
+          });
+        }
       }
     } catch (err: any) {
       if (err.status !== 401) {
@@ -287,17 +303,7 @@ export const EmailSettingsSection: React.FC<EmailSettingsSectionProps> = ({
                   </div>
                   <button
                     onClick={() => {
-                      // Load saved config into form before opening modal
-                      if (smtpStatus?.host) {
-                        setSMTPConfig({
-                          host: smtpStatus.host || '',
-                          port: 587,
-                          username: '',
-                          password: '',
-                          fromEmail: smtpStatus.fromEmail || '',
-                          fromName: smtpStatus.fromName || '',
-                        });
-                      }
+                      // Re-fetch config to get current username before opening modal
                       setShowSMTPModal(true);
                     }}
                     className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
@@ -343,7 +349,19 @@ export const EmailSettingsSection: React.FC<EmailSettingsSectionProps> = ({
             </div>
 
             {/* Modal Body */}
-            <div className="p-6 space-y-4">
+            <div className="p-6 space-y-6">
+              {/* Important Warning - Point C: TOP POSITION */}
+              <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg p-4">
+                <p className="text-sm text-amber-900 dark:text-amber-200 leading-relaxed">
+                  <strong>⚠️ Important:</strong> If you don't set up SMTP here, RecoverAI will send dunning emails from <code className="bg-white/50 dark:bg-white/10 px-2 py-1 rounded text-xs font-mono">noreply@recoverai.com</code>
+                </p>
+                <p className="text-xs text-amber-800 dark:text-amber-300 mt-2">
+                  → Customers trust emails from YOUR domain more. Setup takes 2 minutes.
+                </p>
+              </div>
+
+              {/* Form Fields */}
+              <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-900 dark:text-white mb-2">
@@ -471,6 +489,51 @@ export const EmailSettingsSection: React.FC<EmailSettingsSectionProps> = ({
                 <p className="text-xs text-blue-700 dark:text-blue-400">
                   <strong>📖 Quick Help:</strong> Gmail users must create an App Password (not regular password). Go to myaccount.google.com → Security → App passwords
                 </p>
+              </div>
+              </div>
+
+              {/* Email Sample Preview - Point B: BOTTOM, AFTER FIELDS */}
+              <div className="border-t border-gray-200 dark:border-white/[0.06] pt-6 mt-6">
+                <div className="bg-white dark:bg-white/[0.03] border border-gray-300 dark:border-white/[0.1] rounded-lg p-5 shadow-sm">
+                  <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">
+                    📧 Your dunning emails will look like this:
+                  </p>
+
+                  {/* Email Mockup */}
+                  <div className="bg-gray-50 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-700 p-4 space-y-3 text-sm">
+                    <div className="border-b border-gray-300 dark:border-gray-700 pb-3">
+                      <div className="text-xs text-gray-600 dark:text-gray-400 space-y-1">
+                        <div className="flex justify-between">
+                          <span className="font-medium">From:</span>
+                          <span className="text-right">
+                            {smtpConfig.fromName ? `${smtpConfig.fromName} <${smtpConfig.fromEmail || 'billing@yourcompany.com'}>` : smtpConfig.fromEmail || 'billing@yourcompany.com'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="font-medium">To:</span>
+                          <span className="text-right">customer@example.com</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="font-medium">Subject:</span>
+                          <span className="text-right">Payment reminder: Invoice #INV-2026-001</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Email Body Sample */}
+                    <div className="text-gray-700 dark:text-gray-300 text-xs leading-relaxed">
+                      <p>Hi there,</p>
+                      <p className="mt-2">We noticed invoice #INV-2026-001 ($5,000) is now 15 days overdue. Could you prioritize this payment?</p>
+                      <p className="mt-2">→ <span className="text-blue-600 dark:text-blue-400 underline">Pay now</span></p>
+                      <p className="mt-3">Best regards,</p>
+                      <p className="font-medium">{smtpConfig.dunningSenderName || smtpConfig.fromName || 'Billing Team'}</p>
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-green-700 dark:text-green-400 mt-3 font-medium">
+                    ✅ Email comes from: <span className="font-mono">{smtpConfig.fromEmail || 'your configured email'}</span>
+                  </p>
+                </div>
               </div>
             </div>
 

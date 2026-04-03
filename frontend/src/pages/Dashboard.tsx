@@ -14,7 +14,7 @@ import type { CashLeakageData } from '../components/dashboard/CashLeakageWidget'
 import { EmailPreviewModal } from '../components/invoices/EmailPreviewModal';
 import DashboardDetailTabs from '../components/dashboard/DashboardDetailTabs';
 import { KPIBanner } from '../components/dashboard/KPIBanner';
-import { BusinessImpactGrid } from '../components/dashboard/BusinessImpactGrid';
+import { DunningFunnelSection } from '../components/dashboard/DunningFunnelSection';
 import { RecoveryFunnelInteractive } from '../components/dashboard/RecoveryFunnelInteractive';
 import { CashFlowSection } from '../components/dashboard/CashFlowSection';
 import { RiskDriversSection } from '../components/dashboard/RiskDriversSection';
@@ -25,16 +25,21 @@ import { TrialCountdown } from '../components/TrialCountdown';
 import type { DashboardStats, InvoicePipeline, CustomerRisk } from '../types';
 import type { WorkingCapitalFreed, DSOReduction, BillingAnomaly, EnhancedCashForecast } from '../types/invoice';
 
+interface AtRiskInvoice {
+  invoiceId: string;
+  amount: number;
+  daysUntilDue: number;
+  currency: string;
+}
+
 interface AtRiskCustomer {
   customerId: string;
   name: string;
   email: string;
   score: number;
   signals: { type: string; description: string }[];
-  invoiceId: string | null;
-  invoiceAmount: number | null;
-  daysUntilDue: number | null;
-  currency: string;
+  invoices: AtRiskInvoice[];
+  totalAmount: number;
 }
 
 interface CashPosition {
@@ -757,23 +762,52 @@ const Dashboard: React.FC = () => {
       {/* TIER 2: PRIMARY BUSINESS DRIVERS — Recovery funnel + impact grid */}
       {/* ════════════════════════════════════════════════════════════════ */}
 
-      {/* Recovery Funnel */}
-      <RecoveryFunnelInteractive
-        invoicesAtRisk={kpi?.atRiskCustomerCount ?? 0}
-        emailsSent={emailAnalytics?.sent ?? 0}
-        emailsOpened={emailAnalytics?.opened ?? 0}
-        emailsClicked={emailAnalytics?.clicked ?? 0}
-        invoicesPaid={stats ? Math.round((stats.totalRecovered / Math.max(stats.totalOwed + stats.totalRecovered, 1)) * (kpi?.atRiskCustomerCount ?? 0)) : 0}
-        loading={loading}
-      />
+      {/* Recovery Funnel - Now with CollapsibleSection */}
+      {(() => {
+        const invoicesAtRisk = kpi?.atRiskCustomerCount ?? 0;
+        const emailsSent = emailAnalytics?.sent ?? 0;
+        const recovered = stats ? Math.round((stats.totalRecovered / Math.max(stats.totalOwed + stats.totalRecovered, 1)) * invoicesAtRisk) : 0;
+        const recoveryRate = invoicesAtRisk > 0 ? Math.round((recovered / invoicesAtRisk) * 100) : 0;
 
-      {/* Collections + Campaign + Payment Plans */}
-      <BusinessImpactGrid
-        aging={aging}
-        emailAnalytics={emailAnalytics}
-        plansSummary={plansSummary}
-        loading={loading}
-      />
+        return (
+          <div className="bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] rounded-xl overflow-hidden">
+            <div className="px-4 py-3 md:px-5 md:py-4 border-b border-gray-200 dark:border-white/[0.06]">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-sm font-semibold text-gray-900 dark:text-white">Recovery Funnel</h2>
+                  <p className="text-xs text-gray-500 dark:text-zinc-500 mt-0.5">{invoicesAtRisk.toLocaleString()} at-risk → {recovered.toLocaleString()} recovered ({recoveryRate}%)</p>
+                </div>
+              </div>
+            </div>
+            <div className="p-4 md:p-5">
+              <RecoveryFunnelInteractive
+                invoicesAtRisk={invoicesAtRisk}
+                emailsSent={emailsSent}
+                emailsOpened={emailAnalytics?.opened ?? 0}
+                emailsClicked={emailAnalytics?.clicked ?? 0}
+                invoicesPaid={recovered}
+                loading={loading}
+              />
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Integrated Dunning Funnel - A/R Aging + Campaign + Payment Plans */}
+      {aging && (
+        <DunningFunnelSection
+          totalAr={aging.totalAr}
+          agingBuckets={aging.buckets}
+          emailsSent={emailAnalytics?.sent ?? 0}
+          emailsDelivered={emailAnalytics?.sent ?? 0}
+          plansOffered={plansSummary?.totalOffered ?? 0}
+          plansAccepted={plansSummary?.completedPlans ?? 0}
+          paymentsReceived={stats?.totalRecovered ? Math.round(stats.totalRecovered) : 0}
+          paymentAmount={stats?.totalRecovered ?? 0}
+          recentPlans={plansSummary?.recentPlans ?? []}
+          loading={loading}
+        />
+      )}
 
       {/* ════════════════════════════════════════════════════════════════ */}
       {/* TIER 3: SUPPORTING METRICS — Collapsible sections */}
@@ -810,14 +844,7 @@ const Dashboard: React.FC = () => {
 
       {/* At-Risk Customers with Quick Actions */}
       <AtRiskCustomersSection
-        customers={atRisk.map(c => ({
-          customerId: c.customerId,
-          customerName: c.name,
-          score: c.score,
-          signals: c.signals.map(s => s.description),
-          invoiceAmount: c.invoiceAmount || 0,
-          daysUntilDue: c.daysUntilDue || 0,
-        }))}
+        customers={atRisk}
         loading={loading}
       />
 

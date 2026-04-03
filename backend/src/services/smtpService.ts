@@ -326,6 +326,52 @@ export async function getSMTPStatus(companyId: string): Promise<{
 }
 
 /**
+ * Get full SMTP config (including decrypted username)
+ * Used when user wants to modify existing SMTP settings
+ */
+export async function getFullSMTPConfig(companyId: string): Promise<{
+  host?: string;
+  port?: number;
+  username?: string;
+  password?: string;
+  fromEmail?: string;
+  fromName?: string;
+  dunningSenderName?: string;
+} | null> {
+  try {
+    const result = await pool.query(
+      `SELECT
+         smtp_host, smtp_port, smtp_username_encrypted, smtp_password_encrypted,
+         smtp_from_email, smtp_from_name, smtp_enabled
+       FROM companies
+       WHERE id = $1`,
+      [companyId]
+    );
+
+    if (result.rows.length === 0 || !result.rows[0].smtp_enabled) {
+      return null;
+    }
+
+    const row = result.rows[0];
+
+    // Decrypt credentials
+    const username = decryptValue(row.smtp_username_encrypted, companyId);
+
+    return {
+      host: row.smtp_host,
+      port: row.smtp_port || 587,
+      username,
+      password: '', // NEVER return password - user must re-enter
+      fromEmail: row.smtp_from_email,
+      fromName: row.smtp_from_name,
+    };
+  } catch (err) {
+    logError(MODULE, 'getFullSMTPConfig', 'Failed to fetch full SMTP config', err);
+    return null;
+  }
+}
+
+/**
  * Disable SMTP (revert to Resend fallback)
  */
 export async function disableSMTP(companyId: string): Promise<void> {

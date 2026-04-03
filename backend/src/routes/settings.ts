@@ -20,6 +20,7 @@ import {
 } from '../controllers/settingsController';
 import {
   getSMTPStatusHandler,
+  getSMTPConfigHandler,
   configureSmtpHandler,
   testSmtpHandler,
   disableSmtpHandler,
@@ -49,6 +50,7 @@ router.put('/dunning-sender-name', requireRole('admin'), updateDunningSenderName
 
 // SMTP Configuration (Option A: client's own email server)
 router.get('/smtp/status', getSMTPStatusHandler);
+router.get('/smtp/config', requireRole('admin'), getSMTPConfigHandler);
 router.post('/smtp/configure', requireRole('admin'), configureSmtpHandler);
 router.post('/smtp/test', requireRole('admin'), testSmtpHandler);
 router.post('/smtp/disable', requireRole('admin'), disableSmtpHandler);

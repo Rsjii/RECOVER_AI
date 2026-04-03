@@ -10,16 +10,21 @@ export interface RiskSignal {
   weight: number;
 }
 
+export interface AtRiskInvoice {
+  invoiceId: string;
+  amount: number;
+  daysUntilDue: number;
+  currency: string;
+}
+
 export interface AtRiskCustomer {
   customerId: string;
   name: string;
   email: string;
   score: number;           // 0-100
   signals: RiskSignal[];
-  invoiceId: string | null;
-  invoiceAmount: number | null;
-  daysUntilDue: number | null;
-  currency: string;
+  invoices: AtRiskInvoice[];
+  totalAmount: number;     // sum of all open invoices
 }
 
 /**
@@ -182,6 +187,7 @@ export function calculateCustomerTier(riskScore: number, daysOverdue: number): 1
 
 /**
  * Get all at-risk customers for a company (score >= 40).
+ * Groups by customer and returns all invoices per customer.
  * Returns sorted by score descending.
  */
 export async function getAtRiskCustomers(companyId: string): Promise<AtRiskCustomer[]> {
@@ -210,33 +216,60 @@ export async function getAtRiskCustomers(companyId: string): Promise<AtRiskCusto
          AND i.status = 'unpaid'
          AND i.dunning_stopped = FALSE
          AND c.do_not_email = FALSE
-       ORDER BY i.due_date ASC`,
+       ORDER BY c.id, i.due_date ASC`,
       [companyId]
     );
 
-    // ✅ Score all customers in PARALLEL (not sequential)
-    const scored = await Promise.all(
-      customersResult.rows.map(async (row) => {
-        const { score, signals } = await scoreCustomerRisk(companyId, row.customer_id);
-        return { row, score, signals };
+    // ✅ Group invoices by customer_id
+    const customerMap = new Map<string, {
+      id: string;
+      name: string;
+      email: string;
+      invoices: AtRiskInvoice[];
+    }>();
+
+    for (const row of customersResult.rows) {
+      const customerId = row.customer_id;
+      if (!customerMap.has(customerId)) {
+        customerMap.set(customerId, {
+          id: customerId,
+          name: row.name,
+          email: row.email,
+          invoices: [],
+        });
+      }
+      const customer = customerMap.get(customerId)!;
+      customer.invoices.push({
+        invoiceId: row.invoice_id,
+        amount: parseFloat(row.invoice_amount),
+        daysUntilDue: row.days_until_due,
+        currency: row.currency || 'USD',
+      });
+    }
+
+    // ✅ Score all unique customers in PARALLEL
+    const scoredCustomers = await Promise.all(
+      Array.from(customerMap.values()).map(async (customer) => {
+        const { score, signals } = await scoreCustomerRisk(companyId, customer.id);
+        const totalAmount = customer.invoices.reduce((sum, inv) => sum + inv.amount, 0);
+        return { customer, score, signals, totalAmount };
       })
     );
 
-    const atRiskList: AtRiskCustomer[] = scored
+    // ✅ Filter for at-risk (score >= 40) and build result
+    const atRiskList: AtRiskCustomer[] = scoredCustomers
       .filter(({ score }) => score >= 40)
-      .map(({ row, score, signals }) => ({
-        customerId: row.customer_id,
-        name: row.name,
-        email: row.email,
+      .map(({ customer, score, signals, totalAmount }) => ({
+        customerId: customer.id,
+        name: customer.name,
+        email: customer.email,
         score,
         signals,
-        invoiceId: row.invoice_id,
-        invoiceAmount: parseFloat(row.invoice_amount),
-        daysUntilDue: row.days_until_due,
-        currency: row.currency || 'USD',
+        invoices: customer.invoices,
+        totalAmount,
       }));
 
-    logInfo(MODULE, 'getAtRiskCustomers', `Found ${atRiskList.length} at-risk customers`, { companyId });
+    logInfo(MODULE, 'getAtRiskCustomers', `Found ${atRiskList.length} at-risk customers with ${customersResult.rows.length} total invoices`, { companyId });
 
     const sorted = atRiskList.sort((a, b) => b.score - a.score);
 

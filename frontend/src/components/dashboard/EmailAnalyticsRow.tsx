@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { BENCHMARKS } from '../../constants/benchmarks';
 import { DashboardDetailModal } from './DashboardDetailModal';
 
 interface EmailAnalytics {
@@ -62,16 +61,6 @@ export default function EmailAnalyticsRow({ analytics, loading = false, hideHead
     );
   }
 
-  const openStatus = analytics
-    ? analytics.openRate >= BENCHMARKS.emailOpenRate.excellent ? 'good'
-    : analytics.openRate >= BENCHMARKS.emailOpenRate.target ? 'ok' : 'poor'
-    : undefined;
-
-  const ctrStatus = analytics
-    ? analytics.ctr >= BENCHMARKS.emailCtr.excellent ? 'good'
-    : analytics.ctr >= BENCHMARKS.emailCtr.target ? 'ok' : 'poor'
-    : undefined;
-
   return (
     <div className="bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] rounded-xl p-3 md:p-4 lg:p-5">
       {!hideHeader && (
@@ -86,34 +75,30 @@ export default function EmailAnalyticsRow({ analytics, loading = false, hideHead
         </div>
       )}
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 md:gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-2 md:gap-3">
         <MetricPill
           label="Emails Sent"
           value={(analytics?.sent ?? 0).toLocaleString()}
           sublabel="dunning emails"
         />
         <MetricPill
-          label="Open Rate"
-          value={`${analytics?.openRate ?? 0}%`}
-          benchmark={`${BENCHMARKS.emailOpenRate.target}%`}
-          status={openStatus}
+          label="Deliverability"
+          value={`${analytics?.sent ? '100' : 0}%`}
+          sublabel="via Resend"
         />
         <MetricPill
-          label="Click Rate (CTR)"
-          value={`${analytics?.ctr ?? 0}%`}
-          benchmark={`${BENCHMARKS.emailCtr.target}%`}
-          status={ctrStatus}
+          label="Tracked"
+          value="Coming Soon"
+          sublabel="email engagement tracking"
         />
-        <MetricPill
-          label="Click-to-Open"
-          value={`${analytics?.ctor ?? 0}%`}
-          sublabel="of openers clicked"
-        />
-        <MetricPill
-          label="Opened"
-          value={(analytics?.opened ?? 0).toLocaleString()}
-          sublabel={`${analytics?.clicked ?? 0} clicked`}
-        />
+      </div>
+
+      {/* Coming Soon Banner */}
+      <div className="mt-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+        <p className="text-xs font-medium text-blue-900 dark:text-blue-200">📧 Email Engagement Tracking</p>
+        <p className="text-xs text-blue-800 dark:text-blue-300 mt-1">
+          Open rates, click rates, and detailed metrics coming soon. We're building the tracking infrastructure to measure email effectiveness accurately.
+        </p>
       </div>
 
       {/* Email type breakdown mini-table */}

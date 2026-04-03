@@ -1,13 +1,26 @@
 import React, { useState } from 'react';
 import { CollapsibleSection } from './CollapsibleSection';
 
+interface RiskSignal {
+  type: string;
+  description: string;
+}
+
+interface AtRiskInvoice {
+  invoiceId: string;
+  amount: number;
+  daysUntilDue: number;
+  currency: string;
+}
+
 interface AtRiskCustomer {
   customerId: string;
-  customerName: string;
+  name: string;
+  email: string;
   score: number;
-  signals: string[];
-  invoiceAmount: number;
-  daysUntilDue: number;
+  signals: RiskSignal[];
+  invoices: AtRiskInvoice[];
+  totalAmount: number;
 }
 
 interface AtRiskCustomersSectionProps {
@@ -21,18 +34,23 @@ const riskBadgeColor = (score: number) => {
   return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400';
 };
 
-const signalBadge = (signal: string) => {
+const signalBadge = (signalType: string) => {
   const icons: Record<string, string> = {
-    'failed_payment': '💳',
-    'expiring_card': '🔄',
+    'payment_failure_history': '💳',
+    'card_expiring': '⏰',
     'inactivity': '😴',
     'hard_decline': '❌',
+    'amount_spike': '📈',
+    'invoice_aging': '⏳',
+    'multiple_hard_declines': '❌❌',
   };
-  const icon = icons[signal] || '📌';
-  return `${icon} ${signal.replace(/_/g, ' ')}`;
+  const icon = icons[signalType] || '📌';
+  const label = signalType.replace(/_/g, ' ').toLowerCase();
+  return `${icon} ${label}`;
 };
 
 export const AtRiskCustomersSection: React.FC<AtRiskCustomersSectionProps> = ({ customers }) => {
+  const [expandedCustomer, setExpandedCustomer] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
   const displayed = showAll ? customers : customers.slice(0, 5);
 
@@ -40,7 +58,7 @@ export const AtRiskCustomersSection: React.FC<AtRiskCustomersSectionProps> = ({ 
     return null;
   }
 
-  const totalAtRisk = customers.reduce((sum, c) => sum + c.invoiceAmount, 0);
+  const totalAtRisk = customers.reduce((sum, c) => sum + c.totalAmount, 0);
 
   return (
     <CollapsibleSection
@@ -53,46 +71,101 @@ export const AtRiskCustomersSection: React.FC<AtRiskCustomersSectionProps> = ({ 
       }
     >
       <div className="space-y-3">
-        {displayed.map((customer) => (
-          <div
-            key={customer.customerId}
-            className="bg-gray-50 dark:bg-white/[0.02] border border-gray-200 dark:border-white/[0.05] rounded-lg p-4 hover:bg-gray-100 dark:hover:bg-white/[0.04] transition-colors"
-          >
-            <div className="flex items-start justify-between mb-3">
-              <div>
-                <h4 className="font-semibold text-gray-900 dark:text-white text-sm">{customer.customerName}</h4>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  ${customer.invoiceAmount.toLocaleString()} · {customer.daysUntilDue}d overdue
-                </p>
-              </div>
-              <span className={`px-2 py-1 rounded text-xs font-semibold ${riskBadgeColor(customer.score)}`}>
-                Risk: {customer.score}
-              </span>
-            </div>
+        {displayed.map((customer) => {
+          const isExpanded = expandedCustomer === customer.customerId;
+          const oldestInvoice = customer.invoices.reduce((max, inv) =>
+            inv.daysUntilDue < max.daysUntilDue ? inv : max
+          );
 
-            {customer.signals.length > 0 && (
-              <div className="flex flex-wrap gap-2 mb-3">
-                {customer.signals.map((signal) => (
-                  <span key={signal} className="text-xs bg-gray-100 dark:bg-white/[0.06] text-gray-700 dark:text-gray-300 px-2 py-1 rounded">
-                    {signalBadge(signal)}
-                  </span>
-                ))}
-              </div>
-            )}
+          return (
+            <div
+              key={customer.customerId}
+              className="bg-gray-50 dark:bg-white/[0.02] border border-gray-200 dark:border-white/[0.05] rounded-lg overflow-hidden"
+            >
+              {/* Header - clickable */}
+              <button
+                onClick={() => setExpandedCustomer(isExpanded ? null : customer.customerId)}
+                className="w-full p-4 hover:bg-gray-100 dark:hover:bg-white/[0.04] transition-colors text-left"
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <h4 className="font-semibold text-gray-900 dark:text-white text-sm">{customer.name}</h4>
+                      <span className={`px-2 py-0.5 rounded text-xs font-semibold ${riskBadgeColor(customer.score)}`}>
+                        Risk: {customer.score}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      ${customer.totalAmount.toLocaleString()} total ({customer.invoices.length} invoice{customer.invoices.length !== 1 ? 's' : ''}) · {Math.abs(oldestInvoice.daysUntilDue)}d overdue
+                    </p>
+                  </div>
+                  <div className="text-gray-400 dark:text-gray-500 ml-2">
+                    {isExpanded ? '▼' : '▶'}
+                  </div>
+                </div>
 
-            <div className="flex gap-2">
-              <button className="text-xs px-3 py-1.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors">
-                Send Email
+                {/* Signals preview */}
+                {customer.signals.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {customer.signals.slice(0, 3).map((signal) => (
+                      <span key={signal.type} className="text-xs bg-gray-100 dark:bg-white/[0.06] text-gray-700 dark:text-gray-300 px-2 py-0.5 rounded">
+                        {signalBadge(signal.type)}
+                      </span>
+                    ))}
+                    {customer.signals.length > 3 && (
+                      <span className="text-xs text-gray-600 dark:text-gray-400">+{customer.signals.length - 3}</span>
+                    )}
+                  </div>
+                )}
               </button>
-              <button className="text-xs px-3 py-1.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 rounded hover:bg-purple-200 dark:hover:bg-purple-900/50 transition-colors">
-                Offer Plan
-              </button>
-              <button className="text-xs px-3 py-1.5 bg-gray-200 dark:bg-white/[0.08] text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-white/[0.12] transition-colors">
-                Profile →
-              </button>
+
+              {/* Expanded details */}
+              {isExpanded && (
+                <div className="border-t border-gray-200 dark:border-white/[0.05] px-4 py-3 bg-white dark:bg-white/[0.01] space-y-3">
+                  {/* All signals */}
+                  {customer.signals.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">Risk Signals:</p>
+                      <div className="flex flex-wrap gap-2">
+                        {customer.signals.map((signal) => (
+                          <div key={signal.type} className="text-xs bg-gray-100 dark:bg-white/[0.06] text-gray-700 dark:text-gray-300 px-2 py-1 rounded">
+                            <div>{signalBadge(signal.type)}</div>
+                            <div className="text-gray-600 dark:text-gray-400 text-xs mt-0.5">{signal.description}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Invoice list */}
+                  <div>
+                    <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">Invoices ({customer.invoices.length}):</p>
+                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                      {customer.invoices.map((invoice) => (
+                        <div key={invoice.invoiceId} className="text-xs bg-gray-50 dark:bg-white/[0.02] rounded p-2 flex justify-between items-center">
+                          <div>
+                            <p className="font-mono text-gray-600 dark:text-gray-400">{invoice.invoiceId}</p>
+                            <p className="text-gray-500 dark:text-gray-500">{Math.abs(invoice.daysUntilDue)} days overdue</p>
+                          </div>
+                          <p className="font-semibold text-gray-900 dark:text-white">
+                            {invoice.currency} {invoice.amount.toLocaleString()}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Action button */}
+                  <div className="pt-2 border-t border-gray-200 dark:border-white/[0.05]">
+                    <button className="w-full text-xs px-3 py-2 bg-blue-600 dark:bg-blue-700 text-white rounded hover:bg-blue-700 dark:hover:bg-blue-800 transition-colors font-medium">
+                      View & Manage Customer →
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
-        ))}
+          );
+        })}
 
         {customers.length > 5 && !showAll && (
           <button
