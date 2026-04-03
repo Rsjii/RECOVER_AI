@@ -215,7 +215,7 @@ class EmailService {
     try {
       // Get company contact email
       const companyResult = await pool.query(
-        'SELECT company_email FROM companies WHERE id = $1',
+        'SELECT reply_to_email FROM companies WHERE id = $1',
         [data.companyId]
       );
 

@@ -260,7 +260,20 @@ export const EmailSettingsSection: React.FC<EmailSettingsSectionProps> = ({
                     <p><strong>Server:</strong> {smtpStatus.host}</p>
                   </div>
                   <button
-                    onClick={() => setShowSMTPModal(true)}
+                    onClick={() => {
+                      // Load saved config into form before opening modal
+                      if (smtpStatus?.host) {
+                        setSMTPConfig({
+                          host: smtpStatus.host || '',
+                          port: 587,
+                          username: '',
+                          password: '',
+                          fromEmail: smtpStatus.fromEmail || '',
+                          fromName: smtpStatus.fromName || '',
+                        });
+                      }
+                      setShowSMTPModal(true);
+                    }}
                     className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
                   >
                     Modify Settings

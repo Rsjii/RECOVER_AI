@@ -207,10 +207,10 @@ export async function testSMTPConnection(
       html: '<p>Your SMTP configuration is working correctly.</p>',
     });
 
-    // Mark as verified in DB
+    // Mark as verified AND enabled in DB
     await pool.query(
       `UPDATE companies
-       SET smtp_verified = true, smtp_last_verified_at = NOW(), smtp_error_message = NULL
+       SET smtp_verified = true, smtp_enabled = true, smtp_last_verified_at = NOW(), smtp_error_message = NULL
        WHERE id = $1`,
       [companyId]
     );
