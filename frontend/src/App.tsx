@@ -34,6 +34,7 @@ const Dashboard = React.lazy(() => import('./pages/Dashboard'));
 const Invoices = React.lazy(() => import('./pages/Invoices'));
 const InvoiceDetail = React.lazy(() => import('./pages/InvoiceDetail'));
 const Customers = React.lazy(() => import('./pages/Customers'));
+const CustomerDetail = React.lazy(() => import('./pages/CustomerDetail'));
 const Settings = React.lazy(() => import('./pages/Settings'));
 const Reports = React.lazy(() => import('./pages/Reports'));
 const Activity = React.lazy(() => import('./pages/Activity'));
@@ -179,6 +180,16 @@ const App: React.FC = () => {
                 <ProtectedRoute requireEmailVerification>
                   <Layout>
                     <Customers />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/customers/:id"
+              element={
+                <ProtectedRoute requireEmailVerification>
+                  <Layout>
+                    <CustomerDetail />
                   </Layout>
                 </ProtectedRoute>
               }

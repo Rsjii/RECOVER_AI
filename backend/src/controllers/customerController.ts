@@ -135,15 +135,28 @@ export const getCustomer = async (req: Request, res: Response): Promise<void> =>
       return;
     }
 
-    // Get their invoices
-    const { data: invoices, total: totalInvoices } = await InvoiceDB.listInvoices(
-      companyId,
-      { customerId: id as string },
-      100,
-      0
-    );
+    // Get their invoices + payment plans + email logs in parallel
+    const [invoiceResult, emailLogsResult, paymentPlansResult] = await Promise.all([
+      InvoiceDB.listInvoices(companyId, { customerId: id as string }, 100, 0),
+      pool.query(
+        `SELECT el.*, i.due_date, i.amount, i.currency
+         FROM email_logs el
+         JOIN invoices i ON el.invoice_id = i.id
+         WHERE el.company_id = $1 AND i.customer_id = $2
+         ORDER BY el.sent_at DESC
+         LIMIT 100`,
+        [companyId, id]
+      ),
+      pool.query(
+        `SELECT pp.*, i.amount, i.currency, i.status as invoice_status
+         FROM payment_plans pp
+         JOIN invoices i ON pp.invoice_id = i.id
+         WHERE pp.company_id = $1 AND i.customer_id = $2
+         ORDER BY pp.created_at DESC`,
+        [companyId, id]
+      ),
+    ]);
 
-    // Use stored payment_history + risk_score from database (already calculated daily)
     const stats = {
       totalInvoices: (customer.payment_history?.total_invoices || 0),
       onTimeRate: (customer.payment_history?.on_time_rate || 0),
@@ -151,12 +164,19 @@ export const getCustomer = async (req: Request, res: Response): Promise<void> =>
       riskScore: customer.customer_risk_score || 0,
     };
 
-    logInfo(LOG_MODULE, handler, 'Customer fetched', { customerId: id, stats });
+    logInfo(LOG_MODULE, handler, 'Customer detail fetched', {
+      customerId: id,
+      invoices: invoiceResult.data.length,
+      emailLogs: emailLogsResult.rows.length,
+      paymentPlans: paymentPlansResult.rows.length,
+    });
 
     res.status(200).json({
       data: {
         customer,
-        invoices,
+        invoices: invoiceResult.data,
+        emailLogs: emailLogsResult.rows,
+        paymentPlans: paymentPlansResult.rows,
         stats,
       },
     });

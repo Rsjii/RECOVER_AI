@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Modal } from '../ui/Modal';
 import { Spinner } from '../ui/Spinner';
-import { Badge } from '../ui/Badge';
 import { api } from '../../lib/api';
 import { API_ENDPOINTS, STATUS_COLORS } from '../../lib/constants';
 import { formatCurrency, formatDate } from '../../lib/utils';
@@ -26,6 +26,7 @@ interface CustomerStats {
 }
 
 export const CustomerModal: React.FC<CustomerModalProps> = ({ customer, isOpen, onClose, onUpdated }) => {
+  const navigate = useNavigate();
   const { addToast } = useNotification();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [stats, setStats] = useState<CustomerStats>({
@@ -130,7 +131,26 @@ export const CustomerModal: React.FC<CustomerModalProps> = ({ customer, isOpen, 
   if (!customer) return null;
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={customer.name} size="lg">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={customer.name}
+      size="lg"
+      headerAction={
+        <button
+          onClick={() => {
+            navigate(`/customers/${customer.id}`);
+            onClose();
+          }}
+          className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+          </svg>
+          View Full
+        </button>
+      }
+    >
       {loading ? <div className="flex justify-center py-8"><Spinner /></div> : (
         <div className="space-y-6">
           {/* Profile Edit Button */}
@@ -317,13 +337,10 @@ export const CustomerModal: React.FC<CustomerModalProps> = ({ customer, isOpen, 
                       </span>
                       <span className="text-xs text-gray-500 ml-2">Due {formatDate(inv.due_date)}</span>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <Badge value={inv.risk_score || 0} />
-                      <span className="px-2 py-0.5 rounded-full text-xs font-medium capitalize"
-                        style={{ backgroundColor: `${STATUS_COLORS[inv.status] || '#6b7280'}20`, color: STATUS_COLORS[inv.status] || '#6b7280' }}>
-                        {inv.status}
-                      </span>
-                    </div>
+                    <span className="px-2 py-0.5 rounded-full text-xs font-medium capitalize"
+                      style={{ backgroundColor: `${STATUS_COLORS[inv.status] || '#6b7280'}20`, color: STATUS_COLORS[inv.status] || '#6b7280' }}>
+                      {inv.status}
+                    </span>
                   </div>
                 ))}
               </div>

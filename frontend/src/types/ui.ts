@@ -35,6 +35,7 @@ export interface ModalProps {
   children: ReactNode;
   size?: 'sm' | 'md' | 'lg' | 'xl';
   footer?: ReactNode;
+  headerAction?: ReactNode;
 }
 
 export interface ToastProps {

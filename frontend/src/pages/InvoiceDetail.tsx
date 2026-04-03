@@ -7,7 +7,6 @@ import { useNotification } from '../hooks/useNotification';
 import { ConfirmationModal } from '../components/ui/ConfirmationModal';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { Badge } from '../components/ui/Badge';
 import { Spinner } from '../components/ui/Spinner';
 import { EmailPreviewModal } from '../components/invoices/EmailPreviewModal';
 import type { Invoice, InvoiceDetail as InvoiceDetailType, InvoiceStatus, DunningStatus } from '../types';
@@ -290,7 +289,7 @@ const InvoiceDetail: React.FC = () => {
       </div>
 
       {/* KPI row */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 gap-4">
         <Card>
           <p className="text-xs text-gray-500 dark:text-gray-400">Invoice Amount</p>
           <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
@@ -302,10 +301,6 @@ const InvoiceDetail: React.FC = () => {
           <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
             {formatDate(invoice.due_date)}
           </p>
-        </Card>
-        <Card>
-          <p className="text-xs text-gray-500 dark:text-gray-400">Risk Score</p>
-          <div className="mt-1"><Badge value={invoice.risk_score || 0} /></div>
         </Card>
       </div>
 

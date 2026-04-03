@@ -1,6 +1,5 @@
 import React from 'react';
 import { Table } from '../ui/Table';
-import { Badge } from '../ui/Badge';
 import { ConfirmationModal } from '../ui/ConfirmationModal';
 import { formatCurrency, formatDate, calculateDaysOverdue } from '../../lib/utils';
 import { STATUS_COLORS, AGING_COLORS } from '../../lib/constants';
@@ -207,12 +206,6 @@ export const InvoiceTable: React.FC<InvoiceTableProps> = ({
       ),
     },
     {
-      key: 'risk_score',
-      label: 'Risk',
-      sortable: true,
-      render: (val) => <Badge value={Number(val) || 0} variant="compact" />,
-    },
-    {
       key: 'status',
       label: 'Status',
       render: (val, row) => {
@@ -256,10 +249,7 @@ export const InvoiceTable: React.FC<InvoiceTableProps> = ({
 
   const rowClassName = (inv: Invoice) => {
     const stage = inv.dunning_stage ?? 0;
-    const score = Number(inv.risk_score) || 0;
     if (stage >= 4) return 'bg-rose-50/50 dark:bg-rose-900/10 border-l-2 border-l-rose-500';
-    if (score > 60) return 'border-l-2 border-l-rose-500';
-    if (score > 30) return 'border-l-2 border-l-amber-500';
     return '';
   };
 

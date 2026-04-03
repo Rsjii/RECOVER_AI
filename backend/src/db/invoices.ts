@@ -1,6 +1,6 @@
 import { pool } from '../config/database';
 import { InvoiceRow } from '../types/database';
-import { scoreCustomerRisk } from '../services/riskScoringService';
+import { updateCustomerPaymentHistory } from './customers';
 
 export interface CreateInvoiceInput {
   companyId: string;
@@ -33,23 +33,20 @@ export async function upsertInvoice(input: CreateInvoiceInput): Promise<{ row: I
     }
   }
 
-  // Calculate risk score for this customer at creation time
-  let riskScore = 0;
-  try {
-    const { score } = await scoreCustomerRisk(companyId, customerId);
-    riskScore = score;
-  } catch (err) {
-    // If risk scoring fails, default to 0 (non-blocking)
-    riskScore = 0;
-  }
-
   const result = await pool.query(
     `INSERT INTO invoices
-       (company_id, customer_id, amount, currency, due_date, issued_date, source, source_id, status, risk_score)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'unpaid', $9)
+       (company_id, customer_id, amount, currency, due_date, issued_date, source, source_id, status)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'unpaid')
      RETURNING *`,
-    [companyId, customerId, amount, currency, dueDate, issuedDate, source, sourceId || null, riskScore]
+    [companyId, customerId, amount, currency, dueDate, issuedDate, source, sourceId || null]
   );
+
+  // Update customer payment history (event-driven, not daily job)
+  try {
+    await updateCustomerPaymentHistory(customerId);
+  } catch (err) {
+    // Non-blocking
+  }
 
   return { row: result.rows[0], isNew: true };
 }
@@ -57,23 +54,20 @@ export async function upsertInvoice(input: CreateInvoiceInput): Promise<{ row: I
 export async function createManualInvoice(input: CreateInvoiceInput): Promise<InvoiceRow> {
   const { companyId, customerId, amount, currency, dueDate, issuedDate, notes } = input;
 
-  // Calculate risk score for this customer at creation time
-  let riskScore = 0;
-  try {
-    const { score } = await scoreCustomerRisk(companyId, customerId);
-    riskScore = score;
-  } catch (err) {
-    // If risk scoring fails, default to 0 (non-blocking)
-    riskScore = 0;
-  }
-
   const result = await pool.query(
     `INSERT INTO invoices
-       (company_id, customer_id, amount, currency, due_date, issued_date, source, source_id, status, notes, risk_score)
-     VALUES ($1, $2, $3, $4, $5, $6, 'manual', NULL, 'unpaid', $7, $8)
+       (company_id, customer_id, amount, currency, due_date, issued_date, source, source_id, status, notes)
+     VALUES ($1, $2, $3, $4, $5, $6, 'manual', NULL, 'unpaid', $7)
      RETURNING *`,
-    [companyId, customerId, amount, currency, dueDate, issuedDate, notes || null, riskScore]
+    [companyId, customerId, amount, currency, dueDate, issuedDate, notes || null]
   );
+
+  // Update customer payment history (event-driven)
+  try {
+    await updateCustomerPaymentHistory(customerId);
+  } catch (err) {
+    // Non-blocking
+  }
 
   return result.rows[0];
 }

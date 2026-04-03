@@ -5,7 +5,7 @@ import { cn } from '../../lib/utils';
 // Update ModalProps in types/ui.ts to allow 'xl'
 // size?: 'sm' | 'md' | 'lg' | 'xl';
 
-export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, size = 'md', footer }) => {
+export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, size = 'md', footer, headerAction }) => {
   useEffect(() => {
     if (isOpen) document.body.style.overflow = 'hidden';
     return () => { document.body.style.overflow = 'unset'; };
@@ -34,11 +34,14 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, 
       )}>
         <div className="sticky top-0 bg-white dark:bg-[#1c1c1f] flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-white/[0.08] z-10">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{title}</h2>
-          <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-white/[0.06] transition-colors">
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+          <div className="flex items-center gap-2">
+            {headerAction && <div>{headerAction}</div>}
+            <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-white/[0.06] transition-colors">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
         </div>
         <div className="p-6">{children}</div>
         {footer && (

@@ -35,7 +35,6 @@ export interface Invoice {
   due_date: string;
   issued_date: string;
   status: InvoiceStatus;
-  risk_score: number;
   source: 'stripe' | 'quickbooks' | 'chargebee' | 'manual';
   source_id?: string;
   created_at: string;
@@ -136,6 +135,21 @@ export interface InvoiceDetail {
   payments: Payment[];
   emailLogs: EmailLog[];
   paymentPlan: PaymentPlan | null;
+}
+
+// ── Customer detail composite response ──────────────────────────────────
+
+export interface CustomerDetail {
+  customer: Customer;
+  invoices: Invoice[];
+  emailLogs: EmailLog[];
+  paymentPlans: PaymentPlan[];
+  stats: {
+    totalInvoices: number;
+    onTimeRate: number;
+    avgDaysLate: number;
+    riskScore: number;
+  };
 }
 
 // ── Settings types (match backend settingsController) ────────────────────

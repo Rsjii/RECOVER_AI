@@ -167,7 +167,6 @@ CREATE TABLE IF NOT EXISTS invoices (
   due_date    TIMESTAMPTZ NOT NULL,
   issued_date TIMESTAMPTZ NOT NULL,
   status      VARCHAR(20) DEFAULT 'unpaid',   -- unpaid | paid | arranged | disputed | uncollectable
-  risk_score  INT DEFAULT 0,                  -- 0-100 (higher = more urgent)
   source      VARCHAR(20) NOT NULL,           -- stripe | quickbooks | chargebee | manual
   source_id   VARCHAR(100),                   -- external invoice ID
   notes                TEXT,

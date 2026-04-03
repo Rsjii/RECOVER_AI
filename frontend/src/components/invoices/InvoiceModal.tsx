@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Modal } from '../ui/Modal';
-import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import { Spinner } from '../ui/Spinner';
 import { api } from '../../lib/api';
@@ -262,10 +261,6 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ invoice, isOpen, onC
                   <div>
                     <label className="text-xs text-gray-500 dark:text-gray-400">Amount</label>
                     <p className="text-lg font-bold text-gray-900 dark:text-white">{formatCurrency(Number(invoice.amount), invoice.currency)}</p>
-                  </div>
-                  <div>
-                    <label className="text-xs text-gray-500 dark:text-gray-400">Risk Score</label>
-                    <Badge value={invoice.risk_score || 0} />
                   </div>
                   <div>
                     <label className="text-xs text-gray-500 dark:text-gray-400">Due Date</label>
