@@ -100,7 +100,6 @@ export interface InvoiceRow {
   due_date: string;
   issued_date: string;
   status: 'unpaid' | 'paid' | 'arranged' | 'disputed' | 'uncollectable';
-  risk_score: number;
   source: string;
   source_id: string | null;
   notes: string | null;

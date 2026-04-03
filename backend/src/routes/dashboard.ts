@@ -9,6 +9,7 @@ import { findInvoiceById } from '../db/invoices';
 import { findCompanyById } from '../db/companies';
 import { queueEmailNow } from '../queue/dunningQueue';
 import { logInfo, logError } from '../utils/logger';
+import { pool } from '../config/database';
 
 const router = Router();
 
@@ -199,8 +200,13 @@ router.post('/agent/trigger-single', requireActiveSubscription, requireNotTrial,
     // Calculate days overdue
     const daysOverdue = Math.max(0, Math.floor((Date.now() - new Date(invoice.due_date).getTime()) / (24 * 60 * 60 * 1000)));
 
-    // Get company config to pass to worker (avoid DB lookup in worker)
+    // Get company config and customer risk score
     const company = await findCompanyById(companyId);
+    const customerRes = await pool.query(
+      'SELECT customer_risk_score FROM customers WHERE id = $1',
+      [invoice.customer_id]
+    );
+    const customerRiskScore = customerRes.rows[0]?.customer_risk_score || undefined;
 
     // Queue the email
     const jobId = await queueEmailNow({
@@ -214,7 +220,7 @@ router.post('/agent/trigger-single', requireActiveSubscription, requireNotTrial,
       daysOverdue,
       emailType: 'dunning_1', // Always send first-stage email for manual triggers
       attemptNumber: 1,
-      riskScore: invoice.risk_score || undefined,
+      riskScore: customerRiskScore,
       pilotMode: (company?.pilot_mode || 'auto') as any,
       manualMode: company?.manual_mode || false,
     });

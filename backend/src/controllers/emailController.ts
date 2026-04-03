@@ -350,6 +350,14 @@ export const previewEmail = async (req: Request, res: Response): Promise<void> =
     );
     const companyName = companyRes.rows[0]?.name || 'Your Company';
 
+    // Fetch customer risk score for AI email generation
+    const { pool } = await import('../config/database');
+    const customerRes = await pool.query(
+      'SELECT customer_risk_score FROM customers WHERE id = $1',
+      [invoice.customer_id]
+    );
+    const customerRiskScore = customerRes.rows[0]?.customer_risk_score || 50;
+
     // Use AI service to generate preview (same as agent would generate)
     const aiService = (await import('../services/aiService')).default;
     const daysOverdue = Math.max(0, Math.floor((Date.now() - new Date(invoice.due_date).getTime()) / (1000 * 60 * 60 * 24)));
@@ -362,7 +370,7 @@ export const previewEmail = async (req: Request, res: Response): Promise<void> =
       invoiceAmount: parseFloat(invoice.amount),
       dueDate: invoice.due_date,
       daysOverdue,
-      riskScore: invoice.risk_score || 50,
+      riskScore: customerRiskScore,
     });
 
     const preview = {

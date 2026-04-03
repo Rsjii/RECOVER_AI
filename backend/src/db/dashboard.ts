@@ -196,14 +196,14 @@ export async function getCustomerRiskList(
        c.email as customer_email,
        COUNT(i.id) as unpaid_invoices,
        COALESCE(SUM(i.amount), 0) as total_owed,
-       MAX(i.risk_score) as max_risk_score,
+       c.customer_risk_score as max_risk_score,
        COALESCE(MAX(EXTRACT(EPOCH FROM (NOW() - i.due_date)) / 86400), 0) as oldest_due_days
      FROM customers c
      JOIN invoices i ON i.customer_id = c.id
      WHERE c.company_id = $1
        AND i.status NOT IN ('paid', 'uncollectable')
        AND i.company_id = $1
-     GROUP BY c.id, c.name, c.email
+     GROUP BY c.id, c.name, c.email, c.customer_risk_score
      ORDER BY max_risk_score DESC, total_owed DESC
      LIMIT $2`,
     [companyId, limit]
@@ -238,9 +238,11 @@ export async function getDashboardKpi(companyId: string): Promise<DashboardKpi> 
     `SELECT
        COALESCE(SUM(CASE WHEN status = 'paid' AND due_date < NOW() THEN amount ELSE 0 END), 0) AS paid_overdue,
        COALESCE(SUM(CASE WHEN status != 'paid' AND due_date < NOW() THEN amount ELSE 0 END), 0) AS still_unpaid,
-       COALESCE(SUM(CASE WHEN status NOT IN ('paid','uncollectable') AND risk_score >= 40 THEN amount ELSE 0 END), 0) AS at_risk_amount,
+       COALESCE(SUM(CASE WHEN status NOT IN ('paid','uncollectable') AND i.customer_id IN (
+         SELECT id FROM customers WHERE customer_risk_score >= 40
+       ) THEN i.amount ELSE 0 END), 0) AS at_risk_amount,
        COALESCE(SUM(amount), 0) AS total_amount
-     FROM invoices WHERE company_id = $1`,
+     FROM invoices i WHERE i.company_id = $1`,
     [companyId]
   );
   const row = arResult.rows[0];
@@ -273,11 +275,12 @@ export async function getDashboardKpi(companyId: string): Promise<DashboardKpi> 
     ? parseFloat(((churnedCustomers / totalCustomers) * 100).toFixed(1))
     : 0;
 
-  // At-risk customer count (risk_score >= 40, unpaid)
+  // At-risk customer count (customer_risk_score >= 40, unpaid invoices)
   const atRiskResult = await pool.query(
-    `SELECT COUNT(DISTINCT customer_id) AS at_risk_count
-     FROM invoices
-     WHERE company_id = $1 AND status NOT IN ('paid','uncollectable') AND risk_score >= 40`,
+    `SELECT COUNT(DISTINCT i.customer_id) AS at_risk_count
+     FROM invoices i
+     JOIN customers c ON i.customer_id = c.id
+     WHERE i.company_id = $1 AND i.status NOT IN ('paid','uncollectable') AND c.customer_risk_score >= 40`,
     [companyId]
   );
   const atRiskCustomerCount = parseInt(atRiskResult.rows[0]?.at_risk_count || '0');

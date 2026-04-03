@@ -186,16 +186,6 @@ export async function updateInvoiceStatus(id: string, companyId: string, status:
   return result.rows[0];
 }
 
-export async function updateInvoiceRiskScore(id: string, companyId: string, riskScore: number): Promise<void> {
-  await pool.query(
-    `UPDATE invoices
-     SET risk_score = $1, updated_at = NOW()
-     WHERE id = $2
-       AND company_id = $3`,
-    [riskScore, id, companyId]
-  );
-}
-
 export async function pauseInvoiceDunning(id: string, companyId: string, days: number): Promise<InvoiceRow | null> {
   const result = await pool.query(
     `UPDATE invoices

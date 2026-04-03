@@ -306,7 +306,6 @@ CREATE TABLE IF NOT EXISTS platform_daily_stats (
 CREATE INDEX IF NOT EXISTS idx_invoices_company_status   ON invoices(company_id, status);
 CREATE INDEX IF NOT EXISTS idx_invoices_company_due_date ON invoices(company_id, due_date DESC);
 CREATE INDEX IF NOT EXISTS idx_invoices_company_customer ON invoices(company_id, customer_id);
-CREATE INDEX IF NOT EXISTS idx_invoices_company_risk     ON invoices(company_id, risk_score DESC);
 CREATE INDEX IF NOT EXISTS idx_invoices_source_id        ON invoices(source, source_id);
 CREATE INDEX IF NOT EXISTS idx_invoices_company_status_duedate ON invoices(company_id, status, due_date DESC);
 
@@ -497,7 +496,6 @@ CREATE TABLE IF NOT EXISTS policy_approvals (
   invoice_id UUID REFERENCES invoices(id) ON DELETE SET NULL,
   requested_by_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
   status VARCHAR(30) NOT NULL DEFAULT 'pending', -- pending | approved | rejected
-  risk_score INT NOT NULL DEFAULT 0,
   days_overdue INT NOT NULL DEFAULT 0,
   reason TEXT,
   decision_note TEXT,
@@ -1000,7 +998,6 @@ CREATE TABLE IF NOT EXISTS pilot_queued_emails (
   days_overdue    INT NOT NULL,
   email_type      VARCHAR(50) NOT NULL,
   attempt_number  INT DEFAULT 1,
-  risk_score      INT,
   queued_at       TIMESTAMPTZ DEFAULT NOW(),
   due_date        TIMESTAMPTZ,                   -- original invoice due date (not days_overdue which drifts)
   approved_at     TIMESTAMPTZ,

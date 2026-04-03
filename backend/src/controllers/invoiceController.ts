@@ -146,7 +146,7 @@ export const exportInvoicesCSV = async (req: Request, res: Response) => {
       ? enriched.filter(r => r.dunning_stage === parseInt(dunningStage))
       : enriched;
 
-    const header = ['Invoice #', 'Customer', 'Email', 'Amount', 'Currency', 'Due Date', 'Days Overdue', 'Status', 'Dunning Stage', 'Risk Score', 'Next Action'].join(',');
+    const header = ['Invoice #', 'Customer', 'Email', 'Amount', 'Currency', 'Due Date', 'Days Overdue', 'Status', 'Dunning Stage', 'Next Action'].join(',');
     const rows = filtered.map(r => {
       // Handle due_date as Date or string
       const dueDateObj = (r.due_date as any) instanceof Date ? r.due_date : new Date(r.due_date);
@@ -163,7 +163,6 @@ export const exportInvoicesCSV = async (req: Request, res: Response) => {
         daysOverdue,
         r.status,
         r.dunning_stage,
-        r.risk_score ?? 0,
         `"${r.next_action.replace(/"/g, '""')}"`,
       ].join(',');
     });
