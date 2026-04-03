@@ -35,12 +35,50 @@ export const AccountSection: React.FC<AccountSectionProps> = ({
     return `${date.toLocaleDateString()} at ${date.toLocaleTimeString()}`;
   };
 
-  const getDeviceInfo = (userAgent: string): { type: string; icon: string } => {
-    if (userAgent.includes('Chrome')) return { type: 'Chrome', icon: '🌐' };
-    if (userAgent.includes('Firefox')) return { type: 'Firefox', icon: '🦊' };
-    if (userAgent.includes('Safari')) return { type: 'Safari', icon: '🧭' };
-    if (userAgent.includes('Mobile') || userAgent.includes('iPhone')) return { type: 'Mobile', icon: '📱' };
-    return { type: 'Unknown', icon: '💻' };
+  const getDeviceInfo = (userAgent: string): { browser: string; device: string; icon: string } => {
+    let browser = 'Unknown Browser';
+    let device = 'Unknown Device';
+    let icon = '💻';
+
+    // Detect Browser
+    if (userAgent.includes('Chrome') && !userAgent.includes('Chromium')) {
+      browser = 'Chrome';
+      icon = '🌐';
+    } else if (userAgent.includes('Firefox')) {
+      browser = 'Firefox';
+      icon = '🦊';
+    } else if (userAgent.includes('Safari') && !userAgent.includes('Chrome')) {
+      browser = 'Safari';
+      icon = '🧭';
+    } else if (userAgent.includes('Edge')) {
+      browser = 'Microsoft Edge';
+      icon = '⚔️';
+    } else if (userAgent.includes('Opera') || userAgent.includes('OPR')) {
+      browser = 'Opera';
+      icon = '🎭';
+    }
+
+    // Detect Device
+    if (userAgent.includes('iPhone')) {
+      device = 'iPhone';
+      icon = '📱';
+    } else if (userAgent.includes('iPad')) {
+      device = 'iPad';
+      icon = '📱';
+    } else if (userAgent.includes('Android')) {
+      device = 'Android Phone';
+      icon = '📱';
+    } else if (userAgent.includes('Windows')) {
+      device = 'Windows';
+    } else if (userAgent.includes('Macintosh') || userAgent.includes('Mac OS')) {
+      device = 'Mac';
+      icon = '🍎';
+    } else if (userAgent.includes('Linux')) {
+      device = 'Linux';
+      icon = '🐧';
+    }
+
+    return { browser, device, icon };
   };
 
   const handleRevokeSession = async (sessionId: string) => {
@@ -280,40 +318,79 @@ export const AccountSection: React.FC<AccountSectionProps> = ({
 
           <div className="space-y-3 mb-6">
             {sessions.map((session) => {
-              const device = getDeviceInfo(session.userAgent || '');
+              const deviceInfo = getDeviceInfo(session.userAgent || '');
+              const lastActive = session.lastActive ? new Date(session.lastActive) : new Date(session.createdAt);
+              const isRecent = Date.now() - lastActive.getTime() < 3600000; // Within 1 hour
+
               return (
                 <div
                   key={session.id}
-                  className="p-4 border border-gray-200 dark:border-white/[0.06] rounded-lg hover:border-gray-300 dark:hover:border-white/[0.1] transition-colors"
+                  className={cn(
+                    'p-4 border rounded-lg transition-all',
+                    session.isCurrent
+                      ? 'border-blue-300 dark:border-blue-600/30 bg-blue-50 dark:bg-blue-900/10'
+                      : 'border-gray-200 dark:border-white/[0.06] hover:border-gray-300 dark:hover:border-white/[0.1]'
+                  )}
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <span className="text-2xl">{device.icon}</span>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h4 className="font-medium text-gray-900 dark:text-white">
-                              {device.type}
+                      {/* Header: Icon, Browser, Device, Badge */}
+                      <div className="flex items-start gap-3 mb-3">
+                        <span className="text-3xl">{deviceInfo.icon}</span>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <h4 className="font-semibold text-gray-900 dark:text-white text-base">
+                              {deviceInfo.browser}
                             </h4>
+                            <span className="text-sm text-gray-500 dark:text-gray-400">•</span>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                              {deviceInfo.device}
+                            </p>
+                          </div>
+
+                          {/* Status & Activity Badges */}
+                          <div className="flex items-center gap-2 flex-wrap mt-1">
                             {session.isCurrent && (
-                              <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded text-xs font-medium">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 rounded-full text-xs font-medium">
+                                <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
                                 Current
                               </span>
                             )}
+                            {isRecent && !session.isCurrent && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 rounded-full text-xs font-medium">
+                                <span className="w-2 h-2 bg-green-500 rounded-full" />
+                                Active now
+                              </span>
+                            )}
                           </div>
-                          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                            {session.ipAddress && `IP: ${session.ipAddress}`}
-                          </p>
                         </div>
                       </div>
 
-                      {/* Session Details */}
-                      <div className="mt-3 text-xs text-gray-600 dark:text-gray-400 space-y-1">
+                      {/* Session Details Grid */}
+                      <div className="grid grid-cols-2 gap-4 mt-4 text-xs text-gray-600 dark:text-gray-400">
+                        {session.ipAddress && (
+                          <div>
+                            <p className="font-medium text-gray-700 dark:text-gray-300">IP Address</p>
+                            <p className="font-mono text-gray-600 dark:text-gray-400 mt-0.5">{session.ipAddress}</p>
+                          </div>
+                        )}
                         {session.createdAt && (
-                          <p>Created: {formatDate(session.createdAt)}</p>
+                          <div>
+                            <p className="font-medium text-gray-700 dark:text-gray-300">Created</p>
+                            <p className="mt-0.5">{formatDate(session.createdAt)}</p>
+                          </div>
+                        )}
+                        {session.lastActive && (
+                          <div>
+                            <p className="font-medium text-gray-700 dark:text-gray-300">Last Active</p>
+                            <p className="mt-0.5">{formatDate(session.lastActive)}</p>
+                          </div>
                         )}
                         {session.expiresAt && (
-                          <p>Expires: {formatDate(session.expiresAt)}</p>
+                          <div>
+                            <p className="font-medium text-gray-700 dark:text-gray-300">Expires</p>
+                            <p className="mt-0.5">{formatDate(session.expiresAt)}</p>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -324,10 +401,9 @@ export const AccountSection: React.FC<AccountSectionProps> = ({
                         onClick={() => handleRevokeSession(session.id)}
                         disabled={revoking !== null}
                         className={cn(
-                          'ml-4 px-3 py-1 text-sm font-medium',
-                          'text-red-600 dark:text-red-400',
-                          'hover:bg-red-50 dark:hover:bg-red-900/20',
-                          'rounded transition-colors',
+                          'ml-4 flex-shrink-0 px-4 py-2 text-sm font-medium rounded-lg transition-colors',
+                          'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400',
+                          'hover:bg-red-100 dark:hover:bg-red-900/30',
                           revoking === session.id && 'opacity-50 cursor-not-allowed'
                         )}
                       >

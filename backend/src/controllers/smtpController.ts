@@ -10,7 +10,7 @@ const MODULE = 'smtpController';
  */
 export async function getSMTPStatusHandler(req: Request, res: Response): Promise<void> {
   const method = 'getSMTPStatusHandler';
-  const companyId = req.user?.companyId;
+  const companyId = (req as any).companyId;
 
   if (!companyId) {
     res.status(401).json({ error: 'Unauthorized' });
@@ -33,7 +33,7 @@ export async function getSMTPStatusHandler(req: Request, res: Response): Promise
  */
 export async function configureSmtpHandler(req: Request, res: Response): Promise<void> {
   const method = 'configureSmtpHandler';
-  const companyId = req.user?.companyId;
+  const companyId = (req as any).companyId;
 
   if (!companyId) {
     res.status(401).json({ error: 'Unauthorized' });
@@ -83,7 +83,7 @@ export async function configureSmtpHandler(req: Request, res: Response): Promise
  */
 export async function testSmtpHandler(req: Request, res: Response): Promise<void> {
   const method = 'testSmtpHandler';
-  const companyId = req.user?.companyId;
+  const companyId = (req as any).companyId;
 
   if (!companyId) {
     res.status(401).json({ error: 'Unauthorized' });
@@ -138,7 +138,7 @@ export async function testSmtpHandler(req: Request, res: Response): Promise<void
  */
 export async function disableSmtpHandler(req: Request, res: Response): Promise<void> {
   const method = 'disableSmtpHandler';
-  const companyId = req.user?.companyId;
+  const companyId = (req as any).companyId;
 
   if (!companyId) {
     res.status(401).json({ error: 'Unauthorized' });
