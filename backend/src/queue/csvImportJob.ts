@@ -2,8 +2,7 @@ import { Queue, Worker } from 'bullmq';
 import { getRedisConnection } from './dunningQueue';
 import { logInfo, logError } from '../utils/logger';
 import { pool } from '../config/database';
-import { scoreCustomerRisk } from '../services/riskScoringService';
-import { updateInvoiceRiskScore } from '../db/invoices';
+import { scoreCustomerRiskFromDaysOverdue } from '../services/riskScoringService';
 
 const LOG_MODULE = 'csvImportJob';
 
@@ -250,21 +249,33 @@ export async function processCsvImportJob(companyId: string, invoices: CSVImport
 
       created = result.rows.length;
 
-      // Calculate and update customer risk_score (once per unique customer, not per invoice)
+      // Calculate and update customer risk_score based on days overdue (MVP: no payment behavior yet)
       const uniqueCustomerIds = [...new Set(result.rows.map((r: any) => r.customer_id))];
 
       for (const customerId of uniqueCustomerIds) {
         try {
-          const { score } = await scoreCustomerRisk(companyId, customerId);
-          // Update customer's overall risk score (not invoice risk_score)
+          // Get max days overdue for this customer from the newly imported invoices
+          const overdueResult = await pool.query(
+            `SELECT MAX(CEIL(EXTRACT(EPOCH FROM (NOW() - i.due_date)) / 86400)::INT) AS max_days_overdue
+             FROM invoices i
+             WHERE i.customer_id = $1 AND i.company_id = $2 AND i.status = 'unpaid' AND i.due_date < NOW()`,
+            [customerId, companyId]
+          );
+
+          const maxDaysOverdue = overdueResult.rows[0]?.max_days_overdue || 0;
+          const score = scoreCustomerRiskFromDaysOverdue(maxDaysOverdue);
+
+          // Update customer's overall risk score
           await pool.query(
             `UPDATE customers
              SET customer_risk_score = $1, customer_risk_score_updated_at = NOW()
              WHERE id = $2 AND company_id = $3`,
             [score, customerId, companyId]
           );
-          logInfo(LOG_MODULE, 'processCsvImportJob', 'Updated customer risk score', {
+
+          logInfo(LOG_MODULE, 'processCsvImportJob', 'Updated customer risk score (CSV import)', {
             customerId,
+            maxDaysOverdue,
             score,
           });
         } catch (err) {

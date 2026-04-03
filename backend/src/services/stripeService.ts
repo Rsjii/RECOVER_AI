@@ -123,21 +123,26 @@ class StripeService {
 
         isNew ? result.created++ : result.updated++;
 
-        // After any Stripe invoice upsert, recalculate customer risk_score (non-blocking)
+        // After Stripe invoice upsert, recalculate customer risk_score using FULL signals
+        // (by now we have payment behavior from Stripe)
         if (invoiceRow) {
           try {
             const { scoreCustomerRisk } = await import('./riskScoringService');
             const { score } = await scoreCustomerRisk(companyId, customer.id);
-            // Update CUSTOMER risk score, not invoice risk_score
+            // Update CUSTOMER risk score
             await pool.query(
               `UPDATE customers
                SET customer_risk_score = $1, customer_risk_score_updated_at = NOW()
                WHERE id = $2 AND company_id = $3`,
               [score, customer.id, companyId]
             );
+            logInfo('stripeService', method, 'Updated customer risk score (Stripe sync)', {
+              customerId: customer.id,
+              score,
+            });
           } catch (err) {
             logError('stripeService', method, 'Failed to calculate customer risk score for Stripe sync', err, {
-              invoiceId: invoiceRow.id,
+              invoiceId: invoiceRow?.id,
               customerId: customer.id,
             });
             // Non-blocking — continue with next invoice

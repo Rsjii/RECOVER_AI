@@ -16,6 +16,12 @@ import {
   updatePauseCustomer,
   updateAggressiveMode,
 } from '../controllers/settingsController';
+import {
+  getSMTPStatusHandler,
+  configureSmtpHandler,
+  testSmtpHandler,
+  disableSmtpHandler,
+} from '../controllers/smtpController';
 
 const router = Router();
 
@@ -36,5 +42,11 @@ router.put('/dunning-tone', requireRole('admin'), updateDunningTone);
 router.put('/pause-dunning', requireRole('admin'), updatePauseDunning);
 router.put('/pause-customer', requireRole('admin'), updatePauseCustomer);
 router.put('/aggressive-mode', requireRole('admin'), updateAggressiveMode);
+
+// SMTP Configuration (Option A: client's own email server)
+router.get('/smtp/status', getSMTPStatusHandler);
+router.post('/smtp/configure', requireRole('admin'), configureSmtpHandler);
+router.post('/smtp/test', requireRole('admin'), testSmtpHandler);
+router.post('/smtp/disable', requireRole('admin'), disableSmtpHandler);
 
 export default router;

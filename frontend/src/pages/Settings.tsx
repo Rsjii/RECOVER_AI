@@ -6,6 +6,7 @@ import { useNotification } from '../hooks/useNotification';
 import { ProfileSection } from '../components/settings/ProfileSection';
 import { IntegrationSection } from '../components/settings/IntegrationSection';
 import { EmailSettingsSection } from '../components/settings/EmailSettingsSection';
+import { SMTPSection } from '../components/settings/SMTPSection';
 import { DunningSection } from '../components/settings/DunningSection';
 import { AutomationSection } from '../components/settings/AutomationSection';
 import { AccountSection } from '../components/settings/AccountSection';
@@ -168,15 +169,24 @@ const Settings: React.FC = () => {
         />
       )}
 
-      {/* Email Settings Tab - Sender, Tone, Signature */}
+      {/* Email Settings Tab - Sender, Tone, Signature, SMTP */}
       {activeTab === 'email' && (
-        <EmailSettingsSection
-          data={formData.email}
-          onChange={(field, value) => updateField('email', field, value)}
-          onSave={handleSave}
-          isSaving={isSaving}
-          isDirty={isDirty}
-        />
+        <div className="space-y-12">
+          <EmailSettingsSection
+            data={formData.email}
+            onChange={(field, value) => updateField('email', field, value)}
+            onSave={handleSave}
+            isSaving={isSaving}
+            isDirty={isDirty}
+          />
+          <div className="border-t border-gray-200 dark:border-white/[0.06] pt-12">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">SMTP Configuration</h2>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-8">
+              Send emails from your own domain for better deliverability and trust
+            </p>
+            <SMTPSection />
+          </div>
+        </div>
       )}
 
       {/* Dunning Settings Tab - Email Timing, Auto-Pause, Payment Splits */}

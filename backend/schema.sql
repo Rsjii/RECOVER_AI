@@ -51,6 +51,18 @@ CREATE TABLE IF NOT EXISTS companies (
   manual_mode                BOOLEAN DEFAULT false,         -- when true, all emails queued for approval
   reply_to_email             VARCHAR(255),                  -- company email for dunning replies
 
+  -- SMTP Configuration (for sending from client's domain)
+  smtp_host                  VARCHAR(255),                  -- e.g., smtp.gmail.com
+  smtp_port                  INT DEFAULT 587,               -- 587 (TLS) or 465 (SSL)
+  smtp_username_encrypted    TEXT,                          -- username (encrypted)
+  smtp_password_encrypted    TEXT,                          -- password (encrypted)
+  smtp_from_email            VARCHAR(255),                  -- From: email address
+  smtp_from_name             VARCHAR(255),                  -- From: display name
+  smtp_enabled               BOOLEAN DEFAULT false,         -- whether to use SMTP
+  smtp_verified              BOOLEAN DEFAULT false,         -- test email sent successfully
+  smtp_last_verified_at      TIMESTAMPTZ,                   -- when SMTP was last tested
+  smtp_error_message         TEXT,                          -- last error if verification failed
+
   -- Phase 2: Dunning strategy controls (via Slack bot)
   dunning_tone               VARCHAR(20) DEFAULT 'standard', -- 'gentle' | 'standard' | 'aggressive'
   pause_dunning_until        TIMESTAMPTZ,                   -- Pause all dunning until this date

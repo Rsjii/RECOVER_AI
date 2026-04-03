@@ -7,6 +7,7 @@ import { pool } from '../config/database';
 import { logError, logInfo } from '../utils/logger';
 import aiService from './aiService';
 import resendService from './resendService';
+import { sendViaSmtp } from './smtpService';
 
 const LOG_MODULE = 'emailService';
 
@@ -98,26 +99,47 @@ class EmailService {
         replyTo = company?.reply_to_email || undefined;
       } catch { /* non-critical */ }
 
-      // 4. Send via Resend
-      const sendResult = await resendService.sendEmail({
-        to: job.recipientEmail,
-        subject: generated.subject,
-        bodyText: bodyTextWithFooter,
-        bodyHtml: bodyHtmlWithTracking,
-        companyId: job.companyId,
-        replyTo,  // P0: Wire reply-to through
-      });
+      // 4. Try SMTP first (Option A: client's own email server), fallback to Resend (Option C)
+      let sendResult = await sendViaSmtp(
+        job.companyId,
+        job.recipientEmail,
+        generated.subject,
+        bodyHtmlWithTracking,
+        replyTo
+      );
 
       if (!sendResult.success) {
-        throw new Error(sendResult.error || 'Failed to send email');
-      }
+        // SMTP failed or not configured → fallback to Resend
+        logInfo(LOG_MODULE, method, 'SMTP unavailable, falling back to Resend', {
+          invoiceId: job.invoiceId,
+          smtpError: sendResult.error,
+        });
 
-      logInfo(LOG_MODULE, method, 'Email sent via Resend', {
-        invoiceId: job.invoiceId,
-        recipientEmail: job.recipientEmail,
-        messageId: sendResult.messageId,
-        subject: generated.subject,
-      });
+        sendResult = await resendService.sendEmail({
+          to: job.recipientEmail,
+          subject: generated.subject,
+          bodyText: bodyTextWithFooter,
+          bodyHtml: bodyHtmlWithTracking,
+          companyId: job.companyId,
+          replyTo,
+        });
+
+        if (!sendResult.success) {
+          throw new Error(sendResult.error || 'Failed to send email (both SMTP and Resend failed)');
+        }
+
+        logInfo(LOG_MODULE, method, 'Email sent via Resend (fallback)', {
+          invoiceId: job.invoiceId,
+          recipientEmail: job.recipientEmail,
+          messageId: sendResult.messageId,
+        });
+      } else {
+        logInfo(LOG_MODULE, method, 'Email sent via SMTP (client domain)', {
+          invoiceId: job.invoiceId,
+          recipientEmail: job.recipientEmail,
+          messageId: sendResult.messageId,
+        });
+      }
 
       // 5. Log to DB with pre-generated ID
       // NOTE: If email was sent but DB log fails (e.g. FK violation from deleted invoice),

@@ -23,9 +23,23 @@ export interface AtRiskCustomer {
 }
 
 /**
+ * Simple CSV import scoring: based only on days overdue.
+ * Used during CSV import when we have no payment behavior yet.
+ * Once Stripe syncs or payments happen, full scoreCustomerRisk() takes over.
+ */
+export function scoreCustomerRiskFromDaysOverdue(maxDaysOverdue: number): number {
+  if (maxDaysOverdue > 90) return 80;   // Very old → high risk
+  if (maxDaysOverdue > 60) return 60;   // Old → medium-high risk
+  if (maxDaysOverdue > 30) return 40;   // Getting stale → medium risk
+  if (maxDaysOverdue > 0) return 20;    // A few days late → low risk
+  return 10;                             // On time or future → minimal risk
+}
+
+/**
  * Score a customer's payment failure risk (0-100).
- * Signals now include: payment failures, card expiry, amount spike, inactivity, hard declines, invoice aging.
+ * Uses 7 signals: payment failures, card expiry, amount spike, inactivity, hard declines, invoice aging, multiple declines.
  * Score >= 40 = at-risk, >= 60 = high risk (proactive email triggered).
+ * Called after Stripe sync, payment attempts, or daily recalc — NOT on CSV import.
  */
 export async function scoreCustomerRisk(
   companyId: string,

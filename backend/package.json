@@ -26,6 +26,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",
     "@sendgrid/mail": "^8.1.6",
+    "@types/nodemailer": "^7.0.11",
     "axios": "^1.13.6",
     "bcrypt": "^6.0.0",
     "bcryptjs": "^3.0.3",
@@ -42,6 +43,7 @@
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.3",
     "node-cron": "^4.2.1",
+    "nodemailer": "^8.0.4",
     "pg": "^8.19.0",
     "rate-limit-redis": "^4.3.1",
     "razorpay": "^2.9.6",
