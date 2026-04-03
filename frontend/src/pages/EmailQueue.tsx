@@ -90,14 +90,13 @@ const EmailQueue: React.FC = () => {
   const handleApproveAll = async () => {
     setApprovingAll(true);
     try {
-      // Approve all pending emails sequentially
-      const pendingEmails = emails.filter((e) => e.status === 'pending');
-      for (const email of pendingEmails) {
-        await api.post(`/api/pilot-queue/${email.id}/approve`);
-      }
+      // Call bulk approve endpoint (sends all pending emails atomically)
+      const res = await api.post<{ sent_count: number; failed_count: number }>(
+        `/api/pilot-queue/approve-all`
+      );
       addToast({
         type: 'success',
-        message: `${pendingEmails.length} emails approved and sent`,
+        message: `${res.sent_count} emails sent${res.failed_count > 0 ? `, ${res.failed_count} failed` : ''}`,
       });
       fetchEmails();
     } catch (err: any) {
@@ -116,7 +115,7 @@ const EmailQueue: React.FC = () => {
     setPreview(null);
     try {
       const res = await api.get<{ data: { subject: string; body: string } }>(
-        `/api/email/preview/${email.invoice_id}/${email.email_type}`
+        `/api/email/preview?invoiceId=${email.invoice_id}&emailType=${email.email_type}`
       );
       setPreview(res.data);
     } catch (err: any) {

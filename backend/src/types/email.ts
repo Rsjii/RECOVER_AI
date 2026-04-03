@@ -12,6 +12,9 @@ export interface DunningEmailJob {
   attemptNumber: number;       // 1–5
   paymentLink?: string;
   riskScore?: number;
+  // Company config (passed to avoid DB lookup in worker)
+  pilotMode?: 'shadow' | 'auto' | 'paused';
+  manualMode?: boolean;
 }
 
 export type DunningEmailType =

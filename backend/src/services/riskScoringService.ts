@@ -5,7 +5,7 @@ import { logInfo, logError } from '../utils/logger';
 const MODULE = 'RiskScoringService';
 
 export interface RiskSignal {
-  type: 'payment_failure_history' | 'card_expiring' | 'amount_spike' | 'inactivity' | 'hard_decline';
+  type: 'payment_failure_history' | 'card_expiring' | 'amount_spike' | 'inactivity' | 'hard_decline' | 'invoice_aging' | 'multiple_hard_declines';
   description: string;
   weight: number;
 }
@@ -24,7 +24,7 @@ export interface AtRiskCustomer {
 
 /**
  * Score a customer's payment failure risk (0-100).
- * Each of 5 signals contributes 20 points.
+ * Signals now include: payment failures, card expiry, amount spike, inactivity, hard declines, invoice aging.
  * Score >= 40 = at-risk, >= 60 = high risk (proactive email triggered).
  */
 export async function scoreCustomerRisk(
@@ -34,7 +34,7 @@ export async function scoreCustomerRisk(
   const signals: RiskSignal[] = [];
 
   try {
-    // ✅ Single CTE query — replaces 4 separate round-trips
+    // ✅ Single CTE query — all signals in one round-trip
     const result = await pool.query(
       `SELECT
          (SELECT COUNT(*) FROM payments
@@ -47,7 +47,19 @@ export async function scoreCustomerRisk(
          c.last_activity_at,
          (SELECT AVG(amount) FROM invoices WHERE customer_id = $2 AND company_id = $1) AS avg_amount,
          (SELECT MAX(amount) FROM invoices WHERE customer_id = $2 AND company_id = $1 AND status = 'unpaid') AS max_unpaid,
-         (SELECT COUNT(*) FROM invoices WHERE customer_id = $2 AND company_id = $1 AND last_decline_type = 'hard') AS hard_decline_count
+         (SELECT COUNT(*) FROM invoices WHERE customer_id = $2 AND company_id = $1 AND last_decline_type = 'hard') AS hard_decline_count,
+         (SELECT MAX(CEIL(EXTRACT(EPOCH FROM (NOW() - i.due_date)) / 86400)::INT)
+          FROM invoices i
+          WHERE customer_id = $2 AND company_id = $1 AND status = 'unpaid' AND i.due_date < NOW()
+         ) AS max_days_overdue,
+         (SELECT COUNT(*) FROM invoices
+          WHERE customer_id = $2 AND company_id = $1 AND status = 'unpaid'
+            AND due_date < NOW() - INTERVAL '61 days'
+         ) AS invoices_90plus_days_overdue,
+         (SELECT COUNT(*) FROM invoices
+          WHERE customer_id = $2 AND company_id = $1 AND status = 'unpaid'
+            AND due_date >= NOW() - INTERVAL '61 days' AND due_date < NOW() - INTERVAL '30 days'
+         ) AS invoices_61_to_90_days_overdue
        FROM customers c
        WHERE c.id = $2 AND c.company_id = $1`,
       [companyId, customerId]
@@ -57,28 +69,57 @@ export async function scoreCustomerRisk(
 
     const row = result.rows[0];
 
+    // Signal 1: Payment failures in last 90d
     if (parseInt(row.failed_count) > 0) {
       signals.push({ type: 'payment_failure_history', description: 'Failed payment in last 90 days', weight: 20 });
     }
+
+    // Signal 2: Card expiring soon (within 30 days)
     if (row.card_expires_at) {
       const daysUntilExpiry = Math.ceil((new Date(row.card_expires_at).getTime() - Date.now()) / 86400000);
       if (daysUntilExpiry <= 30 && daysUntilExpiry >= 0) {
         signals.push({ type: 'card_expiring', description: `Card expires in ${daysUntilExpiry} days`, weight: 20 });
       }
     }
+
+    // Signal 3: Amount spike (40%+ above average)
     if (row.avg_amount && row.max_unpaid && parseFloat(row.max_unpaid) > parseFloat(row.avg_amount) * 1.4) {
       signals.push({ type: 'amount_spike', description: 'Current invoice 40%+ above average', weight: 20 });
     }
+
+    // Signal 4: Inactivity (21+ days without activity)
     if (row.last_activity_at) {
       const daysSinceActivity = Math.ceil((Date.now() - new Date(row.last_activity_at).getTime()) / 86400000);
       if (daysSinceActivity >= 21) {
         signals.push({ type: 'inactivity', description: `No activity for ${daysSinceActivity} days`, weight: 20 });
       }
     }
+
+    // Signal 5: Hard decline on payment attempt
     if (parseInt(row.hard_decline_count) > 0) {
       signals.push({ type: 'hard_decline', description: 'Hard decline on last payment attempt', weight: 20 });
     }
 
+    // Signal 6: Invoice aging (91+ days overdue = invoice kab se delay hai)
+    const maxDaysOverdue = parseInt(row.max_days_overdue) || 0;
+    if (maxDaysOverdue > 90) {
+      signals.push({
+        type: 'invoice_aging',
+        description: `Invoice overdue ${maxDaysOverdue} days — severe aging`,
+        weight: 20
+      });
+    }
+
+    // Signal 7: Multiple hard declines (2+ hard declines = persistent problem)
+    if (parseInt(row.hard_decline_count) > 1) {
+      signals.push({
+        type: 'multiple_hard_declines',
+        description: `Multiple hard declines (${row.hard_decline_count}) — persistent payment issues`,
+        weight: 20
+      });
+    }
+
+    // Cap score at 100 (max 7 signals × 20 = 140, but we cap at 100)
     const score = Math.min(signals.reduce((sum, s) => sum + s.weight, 0), 100);
     return { score, signals };
   } catch (err: unknown) {

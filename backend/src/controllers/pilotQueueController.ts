@@ -72,6 +72,7 @@ export const approveQueuedEmail = async (req: Request, res: Response) => {
         recipient_email,
         customer_name,
         invoice_amount,
+        due_date,
         days_overdue,
         email_type,
         attempt_number,
@@ -91,8 +92,8 @@ export const approveQueuedEmail = async (req: Request, res: Response) => {
 
     // 2. Send the email via emailService
     try {
-      // Calculate approximate due date based on days overdue
-      const dueDate = new Date(Date.now() - queued.days_overdue * 24 * 60 * 60 * 1000).toISOString();
+      // Use exact due_date stored at queue time (not reconstructed from days_overdue which drifts)
+      const dueDate = queued.due_date || new Date(Date.now() - queued.days_overdue * 24 * 60 * 60 * 1000).toISOString();
 
       await emailService.sendDunningEmail({
         companyId,
@@ -193,6 +194,7 @@ export const approveAllQueuedEmails = async (req: Request, res: Response) => {
         recipient_email,
         customer_name,
         invoice_amount,
+        due_date,
         days_overdue,
         email_type,
         attempt_number,
@@ -213,8 +215,8 @@ export const approveAllQueuedEmails = async (req: Request, res: Response) => {
     // Send each email
     for (const queued of emails) {
       try {
-        // Calculate approximate due date based on days overdue
-        const dueDate = new Date(Date.now() - queued.days_overdue * 24 * 60 * 60 * 1000).toISOString();
+        // Use exact due_date stored at queue time (not reconstructed from days_overdue which drifts)
+        const dueDate = queued.due_date || new Date(Date.now() - queued.days_overdue * 24 * 60 * 60 * 1000).toISOString();
 
         await emailService.sendDunningEmail({
           companyId,

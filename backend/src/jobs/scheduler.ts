@@ -15,6 +15,7 @@ import { pool } from '../config/database'; // Used in smartARReport job
 
 const LOG_MODULE = 'scheduler';
 const activeJobs = new Map<string, boolean>();
+const AGENT_ENABLED = process.env.AGENT_ENABLED !== 'false'; // Toggle via env var
 
 /**
  * Wrapper for job execution (prevents concurrent runs)
@@ -49,17 +50,23 @@ export function initScheduler() {
   // Placeholder jobs - will be replaced with actual implementations
   // These demonstrate the cron scheduling pattern
 
-  cron.schedule('0 */6 * * *', async () => {
-    await executeJob('agentLoop', async () => {
-      const result = await runDecisionEngineNow();
-      logInfo(LOG_MODULE, 'agentLoop', 'Decision engine complete', {
-        totalInvoices: result.total,
-        emailsQueued: result.emailsQueued,
-        planOffersQueued: result.planOffersQueued,
-        skipped: result.skipped,
+  // Agent loop: runs every 6 hours if AGENT_ENABLED (default: true)
+  // Disable via env var AGENT_ENABLED=false for testing manual triggers only
+  if (AGENT_ENABLED) {
+    cron.schedule('0 */6 * * *', async () => {
+      await executeJob('agentLoop', async () => {
+        const result = await runDecisionEngineNow();
+        logInfo(LOG_MODULE, 'agentLoop', 'Decision engine complete', {
+          totalInvoices: result.total,
+          emailsQueued: result.emailsQueued,
+          planOffersQueued: result.planOffersQueued,
+          skipped: result.skipped,
+        });
       });
     });
-  });
+  } else {
+    logInfo(LOG_MODULE, 'initScheduler', '⏸ Agent loop DISABLED (AGENT_ENABLED=false)');
+  }
 
   cron.schedule('0 1 * * *', async () => {
     await executeJob('timeline', async () => {
@@ -68,6 +75,44 @@ export function initScheduler() {
   });
 
   cron.schedule('0 2 * * *', async () => {
+    await executeJob('customerRiskRecalculation', async () => {
+      // Recalculate customer_risk_score for all customers daily
+      const { scoreCustomerRisk } = await import('../services/riskScoringService');
+
+      const companies = await pool.query(`
+        SELECT DISTINCT company_id FROM customers
+      `);
+
+      let updated = 0;
+      for (const { company_id: companyId } of companies.rows) {
+        const customers = await pool.query(`
+          SELECT id FROM customers WHERE company_id = $1
+        `, [companyId]);
+
+        for (const { id: customerId } of customers.rows) {
+          try {
+            const { score } = await scoreCustomerRisk(companyId, customerId);
+            await pool.query(
+              `UPDATE customers
+               SET customer_risk_score = $1, customer_risk_score_updated_at = NOW()
+               WHERE id = $2 AND company_id = $3`,
+              [score, customerId, companyId]
+            );
+            updated++;
+          } catch (err) {
+            logError(LOG_MODULE, 'customerRiskRecalculation', 'Failed to update customer risk score', err, {
+              customerId,
+              companyId,
+            });
+          }
+        }
+      }
+
+      logInfo(LOG_MODULE, 'customerRiskRecalculation', 'Customer risk scores recalculated', { updated });
+    });
+  });
+
+  cron.schedule('0 3 * * *', async () => {
     await executeJob('segmentation', async () => {
       logInfo(LOG_MODULE, 'segmentation', 'Would update customer tiers here');
     });

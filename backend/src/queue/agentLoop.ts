@@ -81,14 +81,14 @@ async function getOverdueInvoicesForProcessing(): Promise<Array<{
       co.paused_customers,
       COALESCE(co.aggressive_enabled, false) AS aggressive_enabled,
       COUNT(DISTINCT el.id) FILTER (
-        WHERE el.email_type LIKE 'dunning_%' AND el.status != 'failed'
+        WHERE el.email_type LIKE 'dunning_%' AND el.status NOT IN ('failed', 'skipped')
       )::int AS dunning_emails_sent,
       COALESCE(
-        ARRAY_AGG(DISTINCT el.email_type) FILTER (WHERE el.email_type IS NOT NULL AND el.status != 'failed'),
+        ARRAY_AGG(DISTINCT el.email_type) FILTER (WHERE el.email_type IS NOT NULL AND el.status NOT IN ('failed', 'skipped')),
         '{}'::text[]
       ) AS email_types_sent,
       (COUNT(DISTINCT pp.id) FILTER (WHERE pp.status = 'active') > 0) AS has_active_plan,
-      (COUNT(DISTINCT el2.id) FILTER (WHERE el2.email_type = 'payment_plan_offer' AND el2.status != 'failed') > 0) AS plan_offer_sent
+      (COUNT(DISTINCT el2.id) FILTER (WHERE el2.email_type = 'payment_plan_offer' AND el2.status NOT IN ('failed', 'skipped')) > 0) AS plan_offer_sent
     FROM invoices i
     JOIN customers c  ON i.customer_id = c.id
     JOIN companies co ON i.company_id  = co.id
@@ -130,20 +130,25 @@ async function runDecisionEngine(): Promise<{
 
   const allInvoices = await getOverdueInvoicesForProcessing();
 
-  // Filter out demo company from actual agent loop (but keep for preview)
+  // Filter: Only process companies in 'auto' mode (not shadow/paused)
+  // Also filter out demo company
   const demoCompanyId = await pool.query(
     `SELECT id FROM companies WHERE name = 'Acme SaaS (Demo)' LIMIT 1`
   );
   const demoCompId = demoCompanyId.rows[0]?.id;
-  const invoices = demoCompId
-    ? allInvoices.filter(inv => inv.company_id !== demoCompId)
-    : allInvoices;
 
-  logInfo(LOG_MODULE, method, `Processing ${invoices.length} unpaid overdue invoices (skipped ${allInvoices.length - invoices.length} demo invoices)`);
+  const invoices = allInvoices.filter(inv => {
+    if (demoCompId && inv.company_id === demoCompId) return false; // Skip demo
+    // NOTE: Don't skip shadow mode here — dunningQueue worker will route to pilot_queued_emails
+    // Only skip paused mode (checked inside the loop)
+    return true;
+  });
+
+  let skippedCount = 0;
+  logInfo(LOG_MODULE, method, `Processing ${invoices.length} unpaid overdue invoices (skipped ${skippedCount} demo/paused)`);
 
   let emailsQueued = 0;
   let planOffersQueued = 0;
-  let skipped = 0;
 
   for (const invoice of invoices) {
     try {
@@ -152,24 +157,24 @@ async function runDecisionEngine(): Promise<{
       const daysOverdue = Math.floor((now - dueDate) / (24 * 60 * 60 * 1000));
 
       if (daysOverdue < 1) {
-        skipped++;
+        skippedCount++;
         continue;
       }
 
-      // P0: Skip paused pilot accounts (shadow mode queued via dunningQueue worker)
+      // P0: Skip paused pilot accounts (shadow mode will be routed by dunningQueue worker)
       if (invoice.company_pilot_mode === 'paused') {
         logInfo(LOG_MODULE, method, 'Company pilot paused — skipping invoice', {
           invoiceId: invoice.id,
           companyId: invoice.company_id,
         });
-        skipped++;
+        skippedCount++;
         continue;
       }
 
       // ── Dunning control checks ──
       if (invoice.dunning_stopped) {
         logInfo(LOG_MODULE, method, 'Dunning stopped — skipping', { invoiceId: invoice.id });
-        skipped++;
+        skippedCount++;
         continue;
       }
 
@@ -178,13 +183,13 @@ async function runDecisionEngine(): Promise<{
           invoiceId: invoice.id,
           pausedUntil: invoice.dunning_paused_until,
         });
-        skipped++;
+        skippedCount++;
         continue;
       }
 
       if (!invoice.customer_email) {
         logWarn(LOG_MODULE, method, 'No customer email — skipping', { invoiceId: invoice.id });
-        skipped++;
+        skippedCount++;
         continue;
       }
 
@@ -194,7 +199,7 @@ async function runDecisionEngine(): Promise<{
           invoiceId: invoice.id,
           pausedUntil: invoice.pause_dunning_until,
         });
-        skipped++;
+        skippedCount++;
         continue;
       }
 
@@ -203,7 +208,7 @@ async function runDecisionEngine(): Promise<{
           invoiceId: invoice.id,
           customerId: invoice.customer_id,
         });
-        skipped++;
+        skippedCount++;
         continue;
       }
 
@@ -263,6 +268,7 @@ async function runDecisionEngine(): Promise<{
           emailType: nextStep.emailType,
           attemptNumber: invoice.dunning_emails_sent + 1,
           riskScore: invoice.risk_score || undefined,
+          pilotMode: invoice.company_pilot_mode as any,  // Pass config to avoid DB lookup
         });
         emailsQueued++;
         logInfo(LOG_MODULE, method, 'Dunning email queued', {
@@ -277,13 +283,13 @@ async function runDecisionEngine(): Promise<{
           daysOverdue,
           emailTypesSent: [...emailTypesSent],
         });
-        skipped++;
+        skippedCount++;
       } else {
         logInfo(LOG_MODULE, method, 'Max dunning emails reached', {
           invoiceId: invoice.id,
           dunningEmailsSent: invoice.dunning_emails_sent,
         });
-        skipped++;
+        skippedCount++;
       }
 
       // ── Auto-offer payment plan at day 15+ ──
@@ -317,6 +323,7 @@ async function runDecisionEngine(): Promise<{
           emailType: 'payment_plan_offer',
           attemptNumber: 1,
           riskScore: invoice.risk_score || undefined,
+          pilotMode: invoice.company_pilot_mode as any,  // Pass config to avoid DB lookup
         });
         planOffersQueued++;
         logInfo(LOG_MODULE, method, 'Payment plan offer queued', {
@@ -430,7 +437,7 @@ async function runDecisionEngine(): Promise<{
     }
   }
 
-  const result = { total: invoices.length, emailsQueued, planOffersQueued, skipped };
+  const result = { total: invoices.length, emailsQueued, planOffersQueued, skipped: skippedCount };
   logInfo(LOG_MODULE, method, 'Agent run complete', result);
   return result;
 }
@@ -443,14 +450,10 @@ export function startAgentLoop(): void {
     );
   }, 60_000);
 
-  // Run every 6 hours via cron (no Redis needed)
-  cron.schedule('0 */6 * * *', () => {
-    runDecisionEngine().catch(err =>
-      logError(LOG_MODULE, 'cronRun', 'Scheduled agent run failed', err)
-    );
-  });
+  // NOTE: DO NOT add cron.schedule here — scheduler.ts handles the 6h cron job
+  // Double-scheduling caused duplicate emails. Scheduler is the single source of truth.
 
-  logInfo(LOG_MODULE, 'startAgentLoop', 'Agent loop started (runs every 6 hours via cron, startup in 60s)');
+  logInfo(LOG_MODULE, 'startAgentLoop', 'Agent loop started (6h cron job managed by scheduler.ts, startup in 60s)');
 }
 
 export function stopAgentLoop(): void {

@@ -12,7 +12,8 @@ export interface Customer {
   industry?: string;
   card_expires_at?: string | null;
   last_activity_at?: string | null;
-  max_risk_score?: number | null;
+  max_risk_score?: number | null;  // Max invoice risk_score (legacy)
+  customer_risk_score?: number | null;  // Calculated customer payment risk (0-100)
   last_decline_type?: string | null;
   total_ar_balance?: number;
   last_payment_date?: string | null;

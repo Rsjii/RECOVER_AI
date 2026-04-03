@@ -6,12 +6,15 @@
 import { pool } from '../config/database';
 import { DunningEmailJob } from '../types/email';
 
-export async function insertQueuedEmail(job: DunningEmailJob): Promise<string> {
+export async function insertQueuedEmail(job: DunningEmailJob): Promise<string | null> {
+  // ON CONFLICT DO NOTHING prevents duplicates when agent re-runs during shadow mode
+  // Returns null if this invoice/type is already pending (dedup skipped)
   const result = await pool.query(
     `INSERT INTO pilot_queued_emails
        (company_id, invoice_id, customer_id, recipient_email, customer_name,
-        invoice_amount, days_overdue, email_type, attempt_number, risk_score)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        invoice_amount, due_date, days_overdue, email_type, attempt_number, risk_score)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+     ON CONFLICT (company_id, invoice_id, email_type) WHERE status = 'pending' DO NOTHING
      RETURNING id`,
     [
       job.companyId,
@@ -20,13 +23,14 @@ export async function insertQueuedEmail(job: DunningEmailJob): Promise<string> {
       job.recipientEmail,
       job.customerName,
       job.invoiceAmount,
+      job.dueDate,  // Store exact due_date from invoice (not reconstructed from days_overdue)
       job.daysOverdue,
       job.emailType,
       job.attemptNumber || 1,
       job.riskScore || null,
     ]
   );
-  return result.rows[0].id;
+  return result.rows[0]?.id || null;  // null = already pending (dedup)
 }
 
 export async function listQueuedEmails(companyId: string): Promise<any[]> {

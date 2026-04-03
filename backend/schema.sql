@@ -134,10 +134,14 @@ CREATE TABLE IF NOT EXISTS customers (
   do_not_email    BOOLEAN DEFAULT false,
   risk_tier       INT DEFAULT 2,
   risk_tier_updated_at TIMESTAMPTZ,
+  customer_risk_score INT DEFAULT 0,           -- calculated payment risk (0-100), updated daily
+  customer_risk_score_updated_at TIMESTAMPTZ,  -- when risk score was last calculated
   created_at      TIMESTAMPTZ DEFAULT NOW(),
   updated_at      TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(company_id, email)  -- NULL values don't violate unique constraint in PostgreSQL
 );
+
+CREATE INDEX IF NOT EXISTS idx_customers_risk_score ON customers(company_id, customer_risk_score DESC);
 
 -- ============================================================
 -- INVOICES (unpaid invoices - the core of everything)
@@ -987,6 +991,7 @@ CREATE TABLE IF NOT EXISTS pilot_queued_emails (
   attempt_number  INT DEFAULT 1,
   risk_score      INT,
   queued_at       TIMESTAMPTZ DEFAULT NOW(),
+  due_date        TIMESTAMPTZ,                   -- original invoice due date (not days_overdue which drifts)
   approved_at     TIMESTAMPTZ,
   status          VARCHAR(20) DEFAULT 'pending',  -- pending | approved | rejected | sent
   sent_at         TIMESTAMPTZ
@@ -994,6 +999,7 @@ CREATE TABLE IF NOT EXISTS pilot_queued_emails (
 
 CREATE INDEX IF NOT EXISTS idx_pilot_queued_company ON pilot_queued_emails(company_id, status);
 CREATE INDEX IF NOT EXISTS idx_pilot_queued_created ON pilot_queued_emails(queued_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_pilot_queued_dedup ON pilot_queued_emails(company_id, invoice_id, email_type) WHERE status = 'pending';
 
 -- ============================================================
 -- AUDIT SYSTEM: Invitation-Only + Website Form Capture

@@ -18,6 +18,13 @@ router.get('/', authMiddleware, demoBlocker, pilotQueueController.listQueuedEmai
 router.get('/stats', authMiddleware, demoBlocker, pilotQueueController.getQueueStats);
 
 /**
+ * POST /api/pilot-queue/approve-all
+ * Approve and send all pending queued emails (requires auth)
+ * MUST be registered BEFORE /:id routes to prevent :id from matching "approve-all"
+ */
+router.post('/approve-all', authMiddleware, demoBlocker, pilotQueueController.approveAllQueuedEmails);
+
+/**
  * POST /api/pilot-queue/:id/approve
  * Approve and send a queued email (requires auth)
  */
@@ -28,11 +35,5 @@ router.post('/:id/approve', authMiddleware, demoBlocker, pilotQueueController.ap
  * Reject a queued email (requires auth)
  */
 router.post('/:id/reject', authMiddleware, demoBlocker, pilotQueueController.rejectQueuedEmail);
-
-/**
- * POST /api/pilot-queue/approve-all
- * Approve and send all pending queued emails (requires auth)
- */
-router.post('/approve-all', authMiddleware, demoBlocker, pilotQueueController.approveAllQueuedEmails);
 
 export default router;

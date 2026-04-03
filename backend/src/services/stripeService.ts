@@ -110,7 +110,7 @@ class StripeService {
           email: inv.customer_email,
         });
 
-        const { isNew } = await InvoiceDB.upsertInvoice({
+        const { isNew, row: invoiceRow } = await InvoiceDB.upsertInvoice({
           companyId,
           customerId: customer.id,
           amount: inv.amount_due / 100,
@@ -122,6 +122,27 @@ class StripeService {
         });
 
         isNew ? result.created++ : result.updated++;
+
+        // After any Stripe invoice upsert, recalculate customer risk_score (non-blocking)
+        if (invoiceRow) {
+          try {
+            const { scoreCustomerRisk } = await import('./riskScoringService');
+            const { score } = await scoreCustomerRisk(companyId, customer.id);
+            // Update CUSTOMER risk score, not invoice risk_score
+            await pool.query(
+              `UPDATE customers
+               SET customer_risk_score = $1, customer_risk_score_updated_at = NOW()
+               WHERE id = $2 AND company_id = $3`,
+              [score, customer.id, companyId]
+            );
+          } catch (err) {
+            logError('stripeService', method, 'Failed to calculate customer risk score for Stripe sync', err, {
+              invoiceId: invoiceRow.id,
+              customerId: customer.id,
+            });
+            // Non-blocking — continue with next invoice
+          }
+        }
       }
 
       // Update last synced timestamp

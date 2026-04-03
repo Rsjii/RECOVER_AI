@@ -137,7 +137,7 @@ const Customers: React.FC = () => {
     : customers;
 
   const totalAR = filtered.reduce((sum, c) => sum + Number(c.total_ar_balance ?? 0), 0);
-  const atRiskCount = filtered.filter(c => (c.max_risk_score ?? 0) > 60).length;
+  const atRiskCount = filtered.filter(c => (c.customer_risk_score ?? 0) > 60).length;
 
   return (
     <>

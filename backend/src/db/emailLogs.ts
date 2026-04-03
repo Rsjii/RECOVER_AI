@@ -72,7 +72,7 @@ export async function updateEmailStatus(
 
 export async function countEmailsSentForInvoice(invoiceId: string): Promise<number> {
   const result = await pool.query(
-    `SELECT COUNT(*) as count FROM email_logs WHERE invoice_id = $1 AND status != 'failed'`,
+    `SELECT COUNT(*) as count FROM email_logs WHERE invoice_id = $1 AND status NOT IN ('failed', 'skipped')`,
     [invoiceId]
   );
   return Number(result.rows[0]?.count || 0);

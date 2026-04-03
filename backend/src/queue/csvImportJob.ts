@@ -2,6 +2,8 @@ import { Queue, Worker } from 'bullmq';
 import { getRedisConnection } from './dunningQueue';
 import { logInfo, logError } from '../utils/logger';
 import { pool } from '../config/database';
+import { scoreCustomerRisk } from '../services/riskScoringService';
+import { updateInvoiceRiskScore } from '../db/invoices';
 
 const LOG_MODULE = 'csvImportJob';
 
@@ -242,11 +244,36 @@ export async function processCsvImportJob(companyId: string, invoices: CSVImport
 
       const result = await pool.query(
         `INSERT INTO invoices (customer_id, amount, currency, due_date, issued_date, company_id, source, status)
-         VALUES ${vals} RETURNING id`,
+         VALUES ${vals} RETURNING id, customer_id`,
         params
       );
 
       created = result.rows.length;
+
+      // Calculate and update customer risk_score (once per unique customer, not per invoice)
+      const uniqueCustomerIds = [...new Set(result.rows.map((r: any) => r.customer_id))];
+
+      for (const customerId of uniqueCustomerIds) {
+        try {
+          const { score } = await scoreCustomerRisk(companyId, customerId);
+          // Update customer's overall risk score (not invoice risk_score)
+          await pool.query(
+            `UPDATE customers
+             SET customer_risk_score = $1, customer_risk_score_updated_at = NOW()
+             WHERE id = $2 AND company_id = $3`,
+            [score, customerId, companyId]
+          );
+          logInfo(LOG_MODULE, 'processCsvImportJob', 'Updated customer risk score', {
+            customerId,
+            score,
+          });
+        } catch (err) {
+          logError(LOG_MODULE, 'processCsvImportJob', 'Failed to calculate customer risk score', err, {
+            customerId,
+          });
+          // Non-blocking — continue with next customer
+        }
+      }
     }
 
     const elapsed = Date.now() - startTime;

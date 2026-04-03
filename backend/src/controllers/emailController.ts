@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { scheduleDunningEmails, queueEmailNow, getDunningQueue } from '../queue/dunningQueue';
 import { listEmailLogs, updateEmailStatus, markEmailOpened, markEmailClicked } from '../db/emailLogs';
 import { findInvoiceById } from '../db/invoices';
+import { findCompanyById } from '../db/companies';
 import * as SecurityDB from '../db/security';
 import { SendGridWebhookEvent, DunningEmailType } from '../types/email';
 import { logError, logInfo, logWarn } from '../utils/logger';
@@ -131,6 +132,9 @@ export const sendEmailNow = async (req: Request, res: Response): Promise<void> =
     const dueDate = new Date(invoice.due_date).getTime();
     const daysOverdue = Math.max(0, Math.floor((Date.now() - dueDate) / (24 * 60 * 60 * 1000)));
 
+    // Get company config to pass to worker (avoid DB lookup in worker)
+    const company = await findCompanyById(companyId);
+
     const jobId = await queueEmailNow({
       companyId,
       customerId: invoice.customer_id,
@@ -142,13 +146,18 @@ export const sendEmailNow = async (req: Request, res: Response): Promise<void> =
       daysOverdue,
       emailType: (emailType as DunningEmailType) || 'dunning_1',
       attemptNumber: 1,
+      pilotMode: (company?.pilot_mode || 'auto') as any,
+      manualMode: company?.manual_mode || false,
     });
 
     logInfo(LOG_MODULE, handler, 'Email queued for immediate send', { invoiceId, jobId });
 
+    // Flag whether this email was queued for review (shadow mode) vs sent directly (auto mode)
+    const queuedForReview = company?.pilot_mode === 'shadow';
+
     res.status(200).json({
-      message: 'Email queued for immediate delivery',
-      data: { invoiceId, jobId },
+      message: queuedForReview ? 'Email queued for review' : 'Email queued for immediate delivery',
+      data: { invoiceId, jobId, queued_for_review: queuedForReview },
     });
   } catch (error) {
     logError(LOG_MODULE, handler, 'Failed to queue email', error);
@@ -262,19 +271,35 @@ export const resendWebhook = async (req: Request, res: Response): Promise<void> 
 };
 
 /**
- * Get queue stats (jobs waiting, active, completed, failed)
+ * Get queue stats (pending, approved, rejected, sent emails in pilot queue)
  * GET /api/email/queue/stats
  */
-export const getQueueStats = async (_req: Request, res: Response): Promise<void> => {
+export const getQueueStats = async (req: Request, res: Response): Promise<void> => {
   const handler = 'getQueueStats';
+  const companyId = (req as any).companyId;
 
   try {
-    // OPTIMIZATION: Return mock queue data instead of querying Redis
-    // This prevents unnecessary Redis polling. Actual queue status is not critical for this endpoint.
-    const queueStats = { waiting: 0, active: 0, completed: 0, failed: 0, delayed: 0 };
+    // Query pilot_queued_emails for real counts (not Redis mock data)
+    const { pool } = await import('../config/database');
+    const result = await pool.query(
+      `SELECT status, COUNT(*)::int AS count
+       FROM pilot_queued_emails
+       WHERE company_id = $1
+       GROUP BY status`,
+      [companyId]
+    );
+
+    const stats = { pending: 0, approved: 0, rejected: 0, sent: 0 };
+    for (const row of result.rows) {
+      const s = row.status as string;
+      if (s === 'pending') stats.pending = row.count;
+      else if (s === 'approved') stats.approved = row.count;
+      else if (s === 'rejected') stats.rejected = row.count;
+      else if (s === 'sent') stats.sent = row.count;
+    }
 
     res.status(200).json({
-      data: queueStats,
+      data: stats,
     });
   } catch (error) {
     logError(LOG_MODULE, handler, 'Failed to get queue stats', error);

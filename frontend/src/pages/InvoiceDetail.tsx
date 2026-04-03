@@ -35,6 +35,8 @@ const InvoiceDetail: React.FC = () => {
   const [updatingEmail, setUpdatingEmail] = useState(false);
   const [showStopDunningConfirm, setShowStopDunningConfirm] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [selectedEmailType, setSelectedEmailType] = useState<string>('dunning_1');
+  const [sendingEmail, setSendingEmail] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -67,13 +69,31 @@ const InvoiceDetail: React.FC = () => {
     } finally { setUpdating(false); }
   };
 
-  const sendEmail = async () => {
+  const sendEmail = async (emailType?: string) => {
     if (!invoice) return;
+    setSendingEmail(true);
     try {
-      await api.post(API_ENDPOINTS.email.sendNow, { invoiceId: invoice.id });
-      addToast({ type: 'success', message: 'Dunning email queued' });
+      const res = await api.post<{ queued_for_review?: boolean }>(API_ENDPOINTS.email.sendNow, {
+        invoiceId: invoice.id,
+        emailType: emailType || selectedEmailType,
+      });
+
+      if (res.queued_for_review) {
+        addToast({
+          type: 'info',
+          message: 'Email queued for review in Email Queue'
+        });
+      } else {
+        addToast({
+          type: 'success',
+          message: 'Email sent successfully'
+        });
+      }
+      setShowEmailPreview(false);
     } catch (err: any) {
       addToast({ type: 'error', message: err.message || 'Failed to send email' });
+    } finally {
+      setSendingEmail(false);
     }
   };
 
@@ -416,11 +436,32 @@ const InvoiceDetail: React.FC = () => {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-medium text-gray-900 dark:text-white">Email History</h3>
-              <div className="flex gap-2">
-                <Button size="sm" variant="secondary" onClick={() => setShowEmailPreview(true)}>
-                  Preview Next Email
-                </Button>
-                <Button size="sm" onClick={sendEmail}>Send Email</Button>
+              <div className="space-y-2">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Email Type
+                  </label>
+                  <select
+                    value={selectedEmailType}
+                    onChange={(e) => setSelectedEmailType(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-white/[0.08] rounded text-sm bg-white dark:bg-white/[0.03] text-gray-900 dark:text-white"
+                  >
+                    <option value="dunning_1">Dunning Email 1 (Friendly)</option>
+                    <option value="dunning_2">Dunning Email 2</option>
+                    <option value="dunning_3">Dunning Email 3</option>
+                    <option value="dunning_4">Dunning Email 4 (Urgent)</option>
+                    <option value="dunning_5">Dunning Email 5 (Final Notice)</option>
+                    <option value="payment_plan_offer">Payment Plan Offer</option>
+                  </select>
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="secondary" onClick={() => setShowEmailPreview(true)}>
+                    Preview Email
+                  </Button>
+                  <Button size="sm" onClick={() => sendEmail()} loading={sendingEmail}>
+                    Send Email
+                  </Button>
+                </div>
               </div>
             </div>
             {!detail?.emailLogs.length
@@ -450,8 +491,9 @@ const InvoiceDetail: React.FC = () => {
             {showEmailPreview && invoice && (
               <EmailPreviewModal
                 invoiceId={invoice.id}
-                emailType="dunning_1"
+                emailType={selectedEmailType}
                 onClose={() => setShowEmailPreview(false)}
+                onApprove={() => sendEmail(selectedEmailType)}
               />
             )}
           </div>

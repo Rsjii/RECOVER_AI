@@ -46,10 +46,11 @@ export async function listCustomers(
   riskTier?: string
 ): Promise<{ data: CustomerRow[]; total: number }> {
   let riskFilter = '';
-  if (riskTier === 'high') riskFilter = 'HAVING MAX(i.risk_score) > 60';
-  else if (riskTier === 'medium') riskFilter = 'HAVING MAX(i.risk_score) BETWEEN 30 AND 60';
-  else if (riskTier === 'low') riskFilter = 'HAVING MAX(i.risk_score) < 30 AND MAX(i.risk_score) IS NOT NULL';
-  else if (riskTier === 'none') riskFilter = 'HAVING MAX(i.risk_score) IS NULL';
+  // Filter by calculated customer_risk_score (0-100), not invoice risk_score
+  if (riskTier === 'high') riskFilter = 'WHERE c.customer_risk_score > 60';
+  else if (riskTier === 'medium') riskFilter = 'WHERE c.customer_risk_score BETWEEN 30 AND 60';
+  else if (riskTier === 'low') riskFilter = 'WHERE c.customer_risk_score > 0 AND c.customer_risk_score < 30';
+  else if (riskTier === 'none') riskFilter = 'WHERE c.customer_risk_score = 0';
 
   const baseQuery = `
     SELECT c.*,
@@ -61,8 +62,8 @@ export async function listCustomers(
     LEFT JOIN invoices i ON i.customer_id = c.id AND i.company_id = c.company_id
     LEFT JOIN payments p ON p.invoice_id = i.id AND p.company_id = c.company_id
     WHERE c.company_id = $1
+      ${riskFilter ? `AND ${riskFilter.replace('WHERE ', '')}` : ''}
     GROUP BY c.id
-    ${riskFilter}
   `;
 
   const [data, count] = await Promise.all([

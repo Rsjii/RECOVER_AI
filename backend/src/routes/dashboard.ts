@@ -6,6 +6,7 @@ import { demoBlocker } from '../middleware/demoBlocker';
 import { getStats, getPipeline, getRiskList, getRecoveryTimeline, getAtRisk, getCashPositionHandler, updateCashBalanceHandler, getWhatIfHandler, getRunwayHandler, getCashLeakageHandler, getKpi, getAgingAnalysisHandler, getEmailAnalyticsHandler, getRiskDriversHandler, getPaymentPlansSummaryHandler, getPaymentEvents, getSmsActivity, getWorkingCapitalFreedHandler, getDSOReductionHandler, getHoursSavedHandler, getCashForecastHandler, getVoiceStatsHandler, getRecoveryToday, getTrialAnalysis } from '../controllers/dashboardController';
 import { runDecisionEngineNow, runDecisionEngineDryRun } from '../queue/agentLoop';
 import { findInvoiceById } from '../db/invoices';
+import { findCompanyById } from '../db/companies';
 import { queueEmailNow } from '../queue/dunningQueue';
 import { logInfo, logError } from '../utils/logger';
 
@@ -198,6 +199,9 @@ router.post('/agent/trigger-single', requireActiveSubscription, requireNotTrial,
     // Calculate days overdue
     const daysOverdue = Math.max(0, Math.floor((Date.now() - new Date(invoice.due_date).getTime()) / (24 * 60 * 60 * 1000)));
 
+    // Get company config to pass to worker (avoid DB lookup in worker)
+    const company = await findCompanyById(companyId);
+
     // Queue the email
     const jobId = await queueEmailNow({
       companyId,
@@ -211,6 +215,8 @@ router.post('/agent/trigger-single', requireActiveSubscription, requireNotTrial,
       emailType: 'dunning_1', // Always send first-stage email for manual triggers
       attemptNumber: 1,
       riskScore: invoice.risk_score || undefined,
+      pilotMode: (company?.pilot_mode || 'auto') as any,
+      manualMode: company?.manual_mode || false,
     });
 
     // Record rate limit ONLY on success (after email is actually queued)

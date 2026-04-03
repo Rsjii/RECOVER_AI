@@ -7,7 +7,6 @@ import { countEmailsSentForInvoice } from '../db/emailLogs';
 import { pool } from '../config/database';
 import { logError, logInfo, logWarn } from '../utils/logger';
 import { findInvoiceById } from '../db/invoices';
-import { findCompanyById } from '../db/companies';  // P0: pilot_mode check
 import { insertQueuedEmail } from '../db/pilotQueuedEmails';  // P1: shadow mode queue
 import { createPlanForInvoice } from '../services/paymentPlanService';
 
@@ -16,34 +15,33 @@ const QUEUE_NAME = 'dunning-emails';
 
 /**
  * Record skipped email in email_logs so agent doesn't keep retrying.
- * Non-blocking operation — errors are logged but don't throw.
+ * Fire-and-forget: doesn't block job processing, errors are logged but ignored.
  */
-async function recordSkippedEmail(
+function recordSkippedEmail(
   invoiceId: string,
   companyId: string,
   emailType: DunningEmailType,
   recipientEmail: string,
   reason: string
-): Promise<void> {
-  try {
-    await pool.query(
-      `INSERT INTO email_logs (invoice_id, company_id, email_type, recipient_email, subject, body, status)
-       VALUES ($1, $2, $3, $4, $5, $6, 'skipped')`,
-      [
-        invoiceId,
-        companyId,
-        emailType,
-        recipientEmail,
-        `[SKIPPED] ${emailType}`,
-        `Skipped: ${reason}`,
-      ]
-    );
-  } catch (err) {
+): void {
+  // Fire and forget — don't await, don't block job processing
+  pool.query(
+    `INSERT INTO email_logs (invoice_id, company_id, email_type, recipient_email, subject, body, status)
+     VALUES ($1, $2, $3, $4, $5, $6, 'skipped')`,
+    [
+      invoiceId,
+      companyId,
+      emailType,
+      recipientEmail,
+      `[SKIPPED] ${emailType}`,
+      `Skipped: ${reason}`,
+    ]
+  ).catch(err => {
     logWarn(LOG_MODULE, 'recordSkippedEmail', 'Failed to record skipped email (non-critical)', {
       invoiceId,
       reason: String(err),
     });
-  }
+  });
 }
 
 // ============================================================
@@ -91,11 +89,7 @@ export function getDunningQueue(): Queue<DunningEmailJob> | null {
     dunningQueue = new Queue<DunningEmailJob>(QUEUE_NAME, {
       connection: getRedisConnection(),
       defaultJobOptions: {
-        attempts: 3,
-        backoff: {
-          type: 'exponential',
-          delay: 5000,  // 5s, 25s, 125s
-        },
+        attempts: 1,  // No auto-retries (agent run handles retry logic, manual send can retry manually)
         removeOnComplete: { count: 100 },
         removeOnFail: { count: 200 },
       },
@@ -269,7 +263,7 @@ export async function queueEmailNow(job: DunningEmailJob): Promise<string> {
 
   const bullJob = await queue.add(job.emailType, job, {
     delay: 0,
-    jobId: `${job.invoiceId}-${job.emailType}-${Date.now()}`,
+    jobId: `${job.invoiceId}-${job.emailType}`,
   });
 
   logInfo(LOG_MODULE, 'queueEmailNow', 'Email queued immediately', {
@@ -341,7 +335,7 @@ export function startDunningWorker(): Worker<DunningEmailJob> {
           jobId: job.id,
           invoiceId: data.invoiceId,
         });
-        await recordSkippedEmail(data.invoiceId, data.companyId, data.emailType, data.recipientEmail, 'Invoice already paid');
+        recordSkippedEmail(data.invoiceId, data.companyId, data.emailType, data.recipientEmail, 'Invoice already paid');
         return { skipped: true, reason: 'Invoice already paid' };
       }
 
@@ -351,13 +345,12 @@ export function startDunningWorker(): Worker<DunningEmailJob> {
           jobId: job.id,
           invoiceId: data.invoiceId,
         });
-        await recordSkippedEmail(data.invoiceId, data.companyId, data.emailType, data.recipientEmail, 'Dunning stopped');
+        recordSkippedEmail(data.invoiceId, data.companyId, data.emailType, data.recipientEmail, 'Dunning stopped');
         return { skipped: true, reason: 'Dunning stopped' };
       }
 
-      // P0: Pilot mode check — shadow/paused/auto
-      const company = await findCompanyById(data.companyId);
-      const pilotMode = company?.pilot_mode ?? 'auto';
+      // P0: Pilot mode check — use passed-in value to avoid DB lookup
+      const pilotMode = data.pilotMode ?? 'auto';
 
       if (pilotMode === 'paused') {
         logInfo(LOG_MODULE, 'worker', 'Pilot mode PAUSED — discarding job', {
@@ -365,7 +358,7 @@ export function startDunningWorker(): Worker<DunningEmailJob> {
           invoiceId: data.invoiceId,
           companyId: data.companyId,
         });
-        await recordSkippedEmail(data.invoiceId, data.companyId, data.emailType, data.recipientEmail, 'Pilot paused');
+        recordSkippedEmail(data.invoiceId, data.companyId, data.emailType, data.recipientEmail, 'Pilot paused');
         return { skipped: true, reason: 'Pilot paused' };
       }
 
@@ -379,13 +372,13 @@ export function startDunningWorker(): Worker<DunningEmailJob> {
         } catch (err) {
           logError(LOG_MODULE, 'worker', 'Failed to insert shadow email (non-critical)', err);
         }
-        await recordSkippedEmail(data.invoiceId, data.companyId, data.emailType, data.recipientEmail, 'Shadow mode — stored for review');
+        recordSkippedEmail(data.invoiceId, data.companyId, data.emailType, data.recipientEmail, 'Shadow mode — stored for review');
         return { skipped: true, reason: 'Shadow mode — stored for review' };
       }
       // pilotMode === 'auto' (or null) — fall through to normal send
 
       // Manual mode — queue email for approval instead of auto-sending
-      const manualMode = company?.manual_mode ?? false;
+      const manualMode = data.manualMode ?? false;
       if (manualMode) {
         logInfo(LOG_MODULE, 'worker', 'Manual mode ON — queuing for approval', {
           jobId: job.id,
@@ -396,7 +389,7 @@ export function startDunningWorker(): Worker<DunningEmailJob> {
         } catch (err) {
           logError(LOG_MODULE, 'worker', 'Failed to insert queued email for approval (non-critical)', err);
         }
-        await recordSkippedEmail(data.invoiceId, data.companyId, data.emailType, data.recipientEmail, 'Manual mode — stored for approval');
+        recordSkippedEmail(data.invoiceId, data.companyId, data.emailType, data.recipientEmail, 'Manual mode — stored for approval');
         return { skipped: true, reason: 'Manual mode — stored for approval' };
       }
 
@@ -411,7 +404,7 @@ export function startDunningWorker(): Worker<DunningEmailJob> {
         } catch (_err) {
           // Plan likely already exists — safe to ignore
         }
-        await recordSkippedEmail(data.invoiceId, data.companyId, data.emailType, data.recipientEmail, 'Hard decline — payment plan created');
+        recordSkippedEmail(data.invoiceId, data.companyId, data.emailType, data.recipientEmail, 'Hard decline — payment plan created');
         return { skipped: true, reason: 'Hard decline — payment plan created' };
       }
 
@@ -423,7 +416,7 @@ export function startDunningWorker(): Worker<DunningEmailJob> {
           invoiceId: data.invoiceId,
           emailsSent,
         });
-        await recordSkippedEmail(data.invoiceId, data.companyId, data.emailType, data.recipientEmail, 'Max emails reached');
+        recordSkippedEmail(data.invoiceId, data.companyId, data.emailType, data.recipientEmail, 'Max emails reached');
         return { skipped: true, reason: 'Max emails reached' };
       }
 

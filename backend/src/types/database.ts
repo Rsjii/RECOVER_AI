@@ -85,6 +85,9 @@ export interface CustomerRow {
   // Phase 3: Behavioral segmentation
   risk_tier: number | null;
   risk_tier_updated_at: string | null;
+  // Risk scoring (calculated daily from payment behavior)
+  customer_risk_score: number;  // 0-100, calculated from payment history
+  customer_risk_score_updated_at: string | null;
 }
 
 // ============ Invoices ============

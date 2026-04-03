@@ -15,17 +15,17 @@ interface CustomerTableProps {
   onSelectAllPages?: () => void;
 }
 
-type SortKey = 'total_ar_balance' | 'max_risk_score' | 'last_payment_date' | null;
+type SortKey = 'total_ar_balance' | 'customer_risk_score' | 'last_payment_date' | null;
 
 function getRiskColor(score: number | null | undefined) {
-  if (score == null) return 'bg-gray-400';
+  if (score == null || score === 0) return 'bg-gray-400';
   if (score > 60) return 'bg-rose-500';
   if (score > 30) return 'bg-amber-500';
   return 'bg-emerald-500';
 }
 
 function getRiskLabel(score: number | null | undefined) {
-  if (score == null) return '—';
+  if (score == null || score === 0) return '—';
   if (score > 60) return 'High';
   if (score > 30) return 'Med';
   return 'Low';
@@ -141,8 +141,8 @@ export const CustomerTable: React.FC<CustomerTableProps> = ({
                   <div className="text-xs text-gray-500 dark:text-gray-400">{c.email}</div>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <div className={`w-2 h-2 rounded-full ${getRiskColor(c.max_risk_score)}`} />
-                  <span className="text-xs font-medium text-gray-700 dark:text-gray-300">{getRiskLabel(c.max_risk_score)}</span>
+                  <div className={`w-2 h-2 rounded-full ${getRiskColor(c.customer_risk_score)}`} />
+                  <span className="text-xs font-medium text-gray-700 dark:text-gray-300">{getRiskLabel(c.customer_risk_score)}</span>
                 </div>
               </div>
               <div className="flex justify-between items-center">
@@ -182,8 +182,8 @@ export const CustomerTable: React.FC<CustomerTableProps> = ({
               <th className="px-6 py-3 font-semibold text-gray-900 dark:text-white">Customer</th>
               <th className="px-6 py-3 font-semibold text-gray-900 dark:text-white">Company</th>
               <th className="px-6 py-3 font-semibold text-gray-900 dark:text-white cursor-pointer select-none hover:text-indigo-600 dark:hover:text-indigo-400"
-                onClick={() => handleSort('max_risk_score')}>
-                Risk <SortIcon active={sortKey === 'max_risk_score'} dir={sortDir} />
+                onClick={() => handleSort('customer_risk_score')}>
+                Risk <SortIcon active={sortKey === 'customer_risk_score'} dir={sortDir} />
               </th>
               <th className="px-6 py-3 font-semibold text-gray-900 dark:text-white">Signals</th>
               <th className="px-6 py-3 font-semibold text-gray-900 dark:text-white">On-Time</th>
@@ -220,10 +220,10 @@ export const CustomerTable: React.FC<CustomerTableProps> = ({
                   <td className="px-6 py-4 text-gray-600 dark:text-gray-300 cursor-pointer" onClick={() => onRowClick(c)}>{c.company_name || '—'}</td>
                   <td className="px-6 py-4 cursor-pointer" onClick={() => onRowClick(c)}>
                     <div className="flex items-center gap-1.5">
-                      <div className={`w-2 h-2 rounded-full ${getRiskColor(c.max_risk_score)}`} />
-                      <span className="text-xs font-medium">{getRiskLabel(c.max_risk_score)}</span>
-                      {c.max_risk_score != null && (
-                        <span className="text-xs text-gray-400">({Math.round(c.max_risk_score)})</span>
+                      <div className={`w-2 h-2 rounded-full ${getRiskColor(c.customer_risk_score)}`} />
+                      <span className="text-xs font-medium">{getRiskLabel(c.customer_risk_score)}</span>
+                      {c.customer_risk_score != null && c.customer_risk_score > 0 && (
+                        <span className="text-xs text-gray-400">({Math.round(c.customer_risk_score)})</span>
                       )}
                     </div>
                   </td>
