@@ -492,6 +492,7 @@ const InvoiceDetail: React.FC = () => {
               <EmailPreviewModal
                 invoiceId={invoice.id}
                 emailType={selectedEmailType}
+                daysOverdue={invoice.days_overdue || 0}
                 onClose={() => setShowEmailPreview(false)}
                 onApprove={() => sendEmail(selectedEmailType)}
               />

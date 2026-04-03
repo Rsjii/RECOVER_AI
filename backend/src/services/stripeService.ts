@@ -128,15 +128,9 @@ class StripeService {
         if (invoiceRow) {
           try {
             const { scoreCustomerRisk } = await import('./riskScoringService');
+            // scoreCustomerRisk() now saves to DB automatically (event-driven)
             const { score } = await scoreCustomerRisk(companyId, customer.id);
-            // Update CUSTOMER risk score
-            await pool.query(
-              `UPDATE customers
-               SET customer_risk_score = $1, customer_risk_score_updated_at = NOW()
-               WHERE id = $2 AND company_id = $3`,
-              [score, customer.id, companyId]
-            );
-            logInfo('stripeService', method, 'Updated customer risk score (Stripe sync)', {
+            logInfo('stripeService', method, 'Customer risk score recalculated (Stripe sync)', {
               customerId: customer.id,
               score,
             });
@@ -320,6 +314,15 @@ class StripeService {
       logError('stripeService', method, 'Failed to update customer history (non-blocking)', err);
     }
 
+    // Recalculate customer risk score (event-driven, not daily job)
+    try {
+      const { scoreCustomerRisk } = await import('./riskScoringService');
+      await scoreCustomerRisk(invoice.customer_id, invoice.company_id);
+      logInfo('stripeService', method, 'Customer risk score recalculated after payment', { customerId: invoice.customer_id });
+    } catch (err) {
+      logError('stripeService', method, 'Failed to recalculate risk score (non-blocking)', err);
+    }
+
     // Send Slack notification (non-blocking)
     try {
       const { slackNotificationService } = await import('./slackNotificationService');
@@ -490,6 +493,15 @@ class StripeService {
     }
 
     if (classification.type === 'hard') {
+      // Recalculate risk score (hard decline increases risk)
+      try {
+        const { scoreCustomerRisk } = await import('./riskScoringService');
+        await scoreCustomerRisk(invoice.company_id, invoice.customer_id);
+        logInfo('stripeService', method, 'Customer risk score recalculated (hard decline)', { customerId: invoice.customer_id });
+      } catch (err) {
+        logError('stripeService', method, 'Failed to recalculate risk after hard decline (non-blocking)', err);
+      }
+
       // Create payment plan immediately — card can't be retried
       try {
         await createPlanForInvoice(invoice.id, invoice.company_id, 3);

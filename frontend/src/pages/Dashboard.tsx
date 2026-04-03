@@ -899,6 +899,7 @@ const Dashboard: React.FC = () => {
           invoiceId={selectedEmailForModal.invoiceId}
           emailType={selectedEmailForModal.emailType}
           riskScore={selectedEmailForModal.riskScore}
+          daysOverdue={selectedEmailForModal.daysOverdue}
           onClose={() => setSelectedEmailForModal(null)}
         />
       )}

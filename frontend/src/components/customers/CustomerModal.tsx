@@ -15,9 +15,28 @@ interface CustomerModalProps {
   onUpdated?: (customer: Customer) => void;
 }
 
+interface CustomerStats {
+  totalInvoices: number;
+  totalAmount: number;
+  paidAmount: number;
+  unpaidAmount: number;
+  onTimeRate: number;
+  avgDaysLate: number;
+  riskScore: number;
+}
+
 export const CustomerModal: React.FC<CustomerModalProps> = ({ customer, isOpen, onClose, onUpdated }) => {
   const { addToast } = useNotification();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [stats, setStats] = useState<CustomerStats>({
+    totalInvoices: 0,
+    totalAmount: 0,
+    paidAmount: 0,
+    unpaidAmount: 0,
+    onTimeRate: 0,
+    avgDaysLate: 0,
+    riskScore: 0,
+  });
   const [loading, setLoading] = useState(false);
   const [editingPhone, setEditingPhone] = useState(false);
   const [phone, setPhone] = useState('');
@@ -37,11 +56,12 @@ export const CustomerModal: React.FC<CustomerModalProps> = ({ customer, isOpen, 
       setIsEditingProfile(false);
       setEditForm({ name: customer.name, email: customer.email });
       setLoading(true);
-      api.get<{ data: { customer: Customer; invoices: Invoice[]; totalInvoices: number } }>(
+      api.get<{ data: { customer: Customer; invoices: Invoice[]; stats: CustomerStats } }>(
         API_ENDPOINTS.customers.detail(customer.id)
       )
         .then(res => {
           setInvoices(res.data.invoices);
+          setStats(res.data.stats);
           const c = res.data.customer;
           setPhone(c.phone || '');
           setPhoneOptIn(c.phone_opt_in ?? false);
@@ -193,15 +213,19 @@ export const CustomerModal: React.FC<CustomerModalProps> = ({ customer, isOpen, 
               </div>
               <div>
                 <label className="text-xs text-gray-500 dark:text-gray-400">On-Time Rate</label>
-                <p className="text-sm font-medium text-gray-900 dark:text-white">{customer.payment_history.on_time_rate}%</p>
+                <p className="text-sm font-medium text-gray-900 dark:text-white">{stats.onTimeRate}%</p>
               </div>
               <div>
                 <label className="text-xs text-gray-500 dark:text-gray-400">Total Invoices</label>
-                <p className="text-sm text-gray-900 dark:text-white">{customer.payment_history.total_invoices}</p>
+                <p className="text-sm text-gray-900 dark:text-white">{stats.totalInvoices}</p>
               </div>
               <div>
                 <label className="text-xs text-gray-500 dark:text-gray-400">Avg Days Late</label>
-                <p className="text-sm text-gray-900 dark:text-white">{customer.payment_history.avg_days_late}d</p>
+                <p className="text-sm text-gray-900 dark:text-white">{stats.avgDaysLate}d</p>
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 dark:text-gray-400">Risk Score</label>
+                <p className="text-sm font-medium text-gray-900 dark:text-white">{stats.riskScore} / 100</p>
               </div>
             </div>
           )}

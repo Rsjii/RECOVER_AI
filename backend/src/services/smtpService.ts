@@ -196,16 +196,8 @@ export async function testSMTPConnection(
       },
     });
 
-    // Test connection
+    // Test connection (verify() checks auth without sending email)
     await transporter.verify();
-
-    // Send test email
-    await transporter.sendMail({
-      from: `${config.fromName} <${config.fromEmail}>`,
-      to: config.fromEmail, // Send to self as test
-      subject: 'RecoverAI SMTP Test',
-      html: '<p>Your SMTP configuration is working correctly.</p>',
-    });
 
     // Mark as verified AND enabled in DB
     await pool.query(

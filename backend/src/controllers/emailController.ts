@@ -367,7 +367,7 @@ export const previewEmail = async (req: Request, res: Response): Promise<void> =
 
     const preview = {
       subject: generated.subject,
-      body: generated.bodyText,
+      body: generated.bodyHtml || generated.bodyText,
       tone: generated.tone,
     };
 

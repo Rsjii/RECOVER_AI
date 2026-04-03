@@ -15,6 +15,7 @@ interface EmailPreviewModalProps {
   invoiceId: string;
   emailType?: string;
   riskScore?: number;
+  daysOverdue?: number;
   onClose: () => void;
   onApprove?: () => void;
 }
@@ -28,14 +29,27 @@ const CONFIDENCE_BY_TYPE: Record<string, number> = {
   payment_plan_offer: 72,
 };
 
+// Helper to recommend dunning type based on days overdue
+function getRecommendedType(days: number): string {
+  if (days <= 15) return 'dunning_1';
+  if (days <= 30) return 'dunning_2';
+  if (days <= 60) return 'dunning_3';
+  if (days <= 90) return 'dunning_4';
+  return 'dunning_5';
+}
+
 export const EmailPreviewModal: React.FC<EmailPreviewModalProps> = ({
   invoiceId,
-  emailType: initialType = 'dunning_1',
+  emailType: initialType,
   riskScore,
+  daysOverdue = 0,
   onClose,
   onApprove,
 }) => {
-  const [selectedType, setSelectedType] = useState(initialType);
+  const recommendedType = getRecommendedType(daysOverdue);
+  const defaultType = initialType || recommendedType;
+
+  const [selectedType, setSelectedType] = useState(defaultType);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [preview, setPreview] = useState<{ subject: string; body: string; tone: string } | null>(null);
@@ -94,21 +108,33 @@ export const EmailPreviewModal: React.FC<EmailPreviewModalProps> = ({
               </svg>
             </button>
           </div>
-          {/* Email type selector */}
-          <div className="flex flex-wrap gap-2">
-            {EMAIL_TYPES.map((t) => (
-              <button
-                key={t.value}
-                onClick={() => setSelectedType(t.value)}
-                className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-colors ${
-                  selectedType === t.value
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 dark:bg-white/[0.03] text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/[0.06]'
-                }`}
-              >
-                {t.label}
-              </button>
-            ))}
+          {/* Email type selector with recommendation */}
+          <div className="space-y-2">
+            <p className="text-xs text-gray-600 dark:text-gray-400">
+              🔴 <strong>Recommended:</strong> {EMAIL_TYPES.find(t => t.value === recommendedType)?.label}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {EMAIL_TYPES.map((t) => {
+                const isRecommended = t.value === recommendedType;
+                const isSelected = selectedType === t.value;
+                return (
+                  <button
+                    key={t.value}
+                    onClick={() => setSelectedType(t.value)}
+                    className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-colors border ${
+                      isSelected
+                        ? 'bg-blue-600 text-white border-blue-700'
+                        : isRecommended
+                        ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border-green-300 dark:border-green-700 hover:bg-green-100 dark:hover:bg-green-900/30'
+                        : 'bg-gray-100 dark:bg-white/[0.03] text-gray-600 dark:text-gray-400 border-gray-200 dark:border-white/[0.06] hover:bg-gray-200 dark:hover:bg-white/[0.06]'
+                    }`}
+                  >
+                    {t.label}
+                    {isRecommended && <span className="ml-1">✓</span>}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
 
@@ -164,8 +190,12 @@ export const EmailPreviewModal: React.FC<EmailPreviewModalProps> = ({
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1 uppercase tracking-wide">Body</label>
-                <div className="bg-gray-50 dark:bg-white/[0.03] rounded-lg px-4 py-4 text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">
-                  {preview.body}
+                <div className="bg-gray-50 dark:bg-white/[0.03] rounded-lg px-4 py-4 text-sm text-gray-700 dark:text-gray-300 leading-relaxed border border-gray-200 dark:border-white/[0.06]">
+                  {preview.body.includes('<') ? (
+                    <div dangerouslySetInnerHTML={{ __html: preview.body }} className="prose dark:prose-invert max-w-none" />
+                  ) : (
+                    <div className="whitespace-pre-wrap">{preview.body}</div>
+                  )}
                 </div>
               </div>
             </div>

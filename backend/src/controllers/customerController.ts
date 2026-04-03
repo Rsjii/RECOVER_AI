@@ -143,13 +143,21 @@ export const getCustomer = async (req: Request, res: Response): Promise<void> =>
       0
     );
 
-    logInfo(LOG_MODULE, handler, 'Customer fetched', { customerId: id });
+    // Use stored payment_history + risk_score from database (already calculated daily)
+    const stats = {
+      totalInvoices: (customer.payment_history?.total_invoices || 0),
+      onTimeRate: (customer.payment_history?.on_time_rate || 0),
+      avgDaysLate: (customer.payment_history?.avg_days_late || 0),
+      riskScore: customer.customer_risk_score || 0,
+    };
+
+    logInfo(LOG_MODULE, handler, 'Customer fetched', { customerId: id, stats });
 
     res.status(200).json({
       data: {
         customer,
         invoices,
-        totalInvoices,
+        stats,
       },
     });
   } catch (error) {

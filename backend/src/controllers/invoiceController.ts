@@ -605,7 +605,17 @@ export const deleteInvoice = async (req: Request, res: Response): Promise<void> 
     }
 
     // Delete invoice and all related records
+    const customerId = invoice.customer_id;
     await InvoiceDB.deleteInvoice(id, companyId);
+
+    // Recalculate customer risk score after invoice deletion (event-driven)
+    try {
+      const { scoreCustomerRisk } = await import('../services/riskScoringService');
+      await scoreCustomerRisk(customerId, companyId);
+      logInfo(handler, `Risk score recalculated after invoice deletion`, { customerId, invoiceId: id });
+    } catch (err) {
+      logError(handler, 'Failed to recalculate risk score after deletion (non-blocking)', err);
+    }
 
     logInfo(handler, `Invoice deleted in ${Date.now() - startTime}ms`, { invoiceId: id, companyId });
 

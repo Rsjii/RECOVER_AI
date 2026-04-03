@@ -135,6 +135,21 @@ export async function scoreCustomerRisk(
 
     // Cap score at 100 (max 7 signals × 20 = 140, but we cap at 100)
     const score = Math.min(signals.reduce((sum, s) => sum + s.weight, 0), 100);
+
+    // ✅ SAVE to database immediately (event-driven)
+    try {
+      await pool.query(
+        `UPDATE customers
+         SET customer_risk_score = $1, customer_risk_score_updated_at = NOW()
+         WHERE id = $2 AND company_id = $3`,
+        [score, customerId, companyId]
+      );
+      logInfo(MODULE, 'scoreCustomerRisk', 'Risk score saved', { customerId, score, signalCount: signals.length });
+    } catch (dbErr) {
+      logError(MODULE, 'scoreCustomerRisk', 'Failed to save score to DB', dbErr);
+      // Don't throw — continue returning the calculated score
+    }
+
     return { score, signals };
   } catch (err: unknown) {
     logError(MODULE, 'scoreCustomerRisk', err instanceof Error ? err.message : String(err));

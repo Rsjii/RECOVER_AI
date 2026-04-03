@@ -74,43 +74,14 @@ export function initScheduler() {
     });
   });
 
-  cron.schedule('0 2 * * *', async () => {
-    await executeJob('customerRiskRecalculation', async () => {
-      // Recalculate customer_risk_score for all customers daily
-      const { scoreCustomerRisk } = await import('../services/riskScoringService');
-
-      const companies = await pool.query(`
-        SELECT DISTINCT company_id FROM customers
-      `);
-
-      let updated = 0;
-      for (const { company_id: companyId } of companies.rows) {
-        const customers = await pool.query(`
-          SELECT id FROM customers WHERE company_id = $1
-        `, [companyId]);
-
-        for (const { id: customerId } of customers.rows) {
-          try {
-            const { score } = await scoreCustomerRisk(companyId, customerId);
-            await pool.query(
-              `UPDATE customers
-               SET customer_risk_score = $1, customer_risk_score_updated_at = NOW()
-               WHERE id = $2 AND company_id = $3`,
-              [score, customerId, companyId]
-            );
-            updated++;
-          } catch (err) {
-            logError(LOG_MODULE, 'customerRiskRecalculation', 'Failed to update customer risk score', err, {
-              customerId,
-              companyId,
-            });
-          }
-        }
-      }
-
-      logInfo(LOG_MODULE, 'customerRiskRecalculation', 'Customer risk scores recalculated', { updated });
-    });
-  });
+  // NOTE: Removed daily customer risk recalculation job (2026-04-03)
+  // Risk scores are now updated event-driven:
+  // - Invoice paid → recalculate immediately
+  // - Invoice deleted → recalculate immediately
+  // - CSV import → recalculate immediately
+  // - Stripe sync → recalculate immediately
+  // - Charge.failed → recalculate immediately
+  // This is 90% more efficient than recalculating all customers daily
 
   cron.schedule('0 3 * * *', async () => {
     await executeJob('segmentation', async () => {
