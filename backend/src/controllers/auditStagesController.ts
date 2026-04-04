@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
-import { logInfo, logError } from '../utils/logger';
+import { logInfo, logError, logWarn } from '../utils/logger';
 import { config } from '../config/env';
 import { redisClient } from '../config/redis';
 import resendService from '../services/resendService';
@@ -384,49 +384,62 @@ export const proceedFromStage4 = async (req: Request, res: Response) => {
         // Sync each invoice to local database
         let syncedCount = 0;
 
-        // Create or find a placeholder customer for this company to satisfy FK constraint
-        const placeholderResult = await pool.query(
-          `INSERT INTO customers (company_id, name, email)
-           VALUES ($1, 'Stripe Import', 'stripe-import@system.local')
-           ON CONFLICT DO NOTHING
-           RETURNING id`,
-          [companyId]
-        );
-        const existingPlaceholder = await pool.query(
-          `SELECT id FROM customers WHERE company_id = $1 AND email = 'stripe-import@system.local' LIMIT 1`,
-          [companyId]
-        );
-        const placeholderCustomerId = placeholderResult.rows[0]?.id || existingPlaceholder.rows[0]?.id;
-
-        if (!placeholderCustomerId) {
-          logError(MODULE, handler, 'Could not create placeholder customer', {});
-        } else {
-          for (const stripeInv of invoices.data) {
-            try {
-              const stripeCreatedAt = new Date(stripeInv.created * 1000);
-              await pool.query(
-                `INSERT INTO invoices (company_id, customer_id, amount, currency, due_date, issued_date, status, source, source_id, created_at, updated_at)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, 'stripe', $8, $9, NOW())
-                 ON CONFLICT (company_id, source, source_id) DO NOTHING`,
-                [
-                  companyId,
-                  placeholderCustomerId,
-                  (stripeInv.amount_due || 0) / 100,
-                  stripeInv.currency?.toUpperCase() || 'USD',
-                  stripeInv.due_date ? new Date(stripeInv.due_date * 1000) : new Date(),
-                  stripeCreatedAt,
-                  stripeInv.status || 'draft',
-                  stripeInv.id,
-                  stripeCreatedAt,
-                ]
-              );
-              syncedCount++;
-            } catch (invoiceErr: any) {
-              logError(MODULE, handler, 'Failed to insert invoice', {
+        for (const stripeInv of invoices.data) {
+          try {
+            // Extract customer email from Stripe invoice (same as stripeService.ts)
+            // Skip invoices without customer email — can't send dunning emails anyway
+            if (!stripeInv.customer_email) {
+              logWarn(MODULE, handler, 'Skipping invoice without customer email', {
                 stripeInvoiceId: stripeInv.id,
-                error: String(invoiceErr)
+                customerId: stripeInv.customer,
               });
+              continue;
             }
+
+            const customerEmail = stripeInv.customer_email;
+            const customerName = stripeInv.customer_name || customerEmail;
+
+            // Create or find customer with actual email (not placeholder)
+            const customerResult = await pool.query(
+              `INSERT INTO customers (company_id, name, email)
+               VALUES ($1, $2, $3)
+               ON CONFLICT (company_id, email) DO UPDATE SET name = EXCLUDED.name
+               RETURNING id`,
+              [companyId, customerName, customerEmail]
+            );
+            const customerId = customerResult.rows[0]?.id;
+
+            if (!customerId) {
+              logError(MODULE, handler, 'Could not create customer for invoice', {
+                stripeInvoiceId: stripeInv.id,
+                customerEmail,
+              });
+              continue;
+            }
+
+            const stripeCreatedAt = new Date(stripeInv.created * 1000);
+            await pool.query(
+              `INSERT INTO invoices (company_id, customer_id, amount, currency, due_date, issued_date, status, source, source_id, created_at, updated_at)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, 'stripe', $8, $9, NOW())
+               ON CONFLICT (company_id, source, source_id) DO NOTHING`,
+              [
+                companyId,
+                customerId,
+                (stripeInv.amount_due || 0) / 100,
+                stripeInv.currency?.toUpperCase() || 'USD',
+                stripeInv.due_date ? new Date(stripeInv.due_date * 1000) : new Date(),
+                stripeCreatedAt,
+                stripeInv.status || 'draft',
+                stripeInv.id,
+                stripeCreatedAt,
+              ]
+            );
+            syncedCount++;
+          } catch (invoiceErr: any) {
+            logError(MODULE, handler, 'Failed to insert invoice', {
+              stripeInvoiceId: stripeInv.id,
+              error: String(invoiceErr)
+            });
           }
         }
         logInfo(MODULE, handler, 'Invoices synced from Stripe', {

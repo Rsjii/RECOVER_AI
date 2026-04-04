@@ -648,6 +648,9 @@ export const verifyEmail = async (req: Request, res: Response) => {
         authProvider: 'email',
       });
 
+      // Mark email as verified (OTP already verified)
+      await pool.query('UPDATE users SET email_verified = true WHERE id = $1', [user.id]);
+
       // Set onboarding stage
       await CompanyDB.updateCompany(company.id, { onboarding_stage: 'create_account' });
 
