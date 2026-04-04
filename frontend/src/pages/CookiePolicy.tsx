@@ -22,7 +22,7 @@ const CookiePolicy: React.FC = () => {
         <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed mb-4">
           These cookies are strictly necessary for the Service to function and cannot be disabled. Without these cookies, core features such as authentication and secure access would not be available. Essential cookies do not require your consent under applicable privacy laws.
         </p>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto sm:scrollbar-show">
           <table className="w-full text-sm border border-gray-200 dark:border-white/[0.06] rounded-lg">
             <thead>
               <tr className="bg-gray-100 dark:bg-[#111113]">
@@ -65,7 +65,7 @@ const CookiePolicy: React.FC = () => {
         <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed mb-4">
           We may use analytics cookies to understand how visitors interact with the Service. These cookies collect information in an aggregated form to help us improve the platform's performance and usability. Analytics cookies are only set with your explicit consent.
         </p>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto sm:scrollbar-show">
           <table className="w-full text-sm border border-gray-200 dark:border-white/[0.06] rounded-lg">
             <thead>
               <tr className="bg-gray-100 dark:bg-[#111113]">

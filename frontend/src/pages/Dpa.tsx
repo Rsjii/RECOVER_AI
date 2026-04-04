@@ -67,7 +67,7 @@ const Dpa: React.FC = () => {
         <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed mb-4">
           The Customer provides general authorization for RecoverAI to engage Sub-processors to assist in providing the Service. RecoverAI will notify the Customer of any intended changes to the list of Sub-processors at least 30 days before engaging a new Sub-processor. The Customer may object to such changes by providing written notice within 14 days; if the parties cannot resolve the objection, the Customer may terminate the affected Service. RecoverAI ensures that each Sub-processor is bound by data protection obligations no less protective than those set out in this DPA.
         </p>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto sm:scrollbar-show">
           <table className="w-full text-sm border border-gray-200 dark:border-white/[0.06] rounded-lg">
             <thead>
               <tr className="bg-gray-100 dark:bg-[#111113]">

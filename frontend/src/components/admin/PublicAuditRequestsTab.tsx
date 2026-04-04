@@ -255,7 +255,7 @@ export const PublicAuditRequestsTab: React.FC = () => {
             No audit requests found.
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto sm:scrollbar-show">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
                 <tr>

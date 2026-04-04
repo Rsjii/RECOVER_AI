@@ -24,7 +24,7 @@ export const TopCustomersTable: React.FC<TopCustomersTableProps> = ({ customers,
       <div className="px-3 pt-3 pb-2">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Top At-Risk Customers</h3>
       </div>
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto sm:scrollbar-show">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 dark:bg-white/[0.03]">
             <tr>

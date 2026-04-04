@@ -303,7 +303,7 @@ const Billing: React.FC = () => {
                 </div>
                 <div className="bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] rounded-xl overflow-hidden">
                   {invoices.length > 0 ? (
-                    <div className="overflow-x-auto">
+                    <div className="overflow-x-auto sm:scrollbar-show">
                       <table className="w-full">
                         <thead className="bg-gray-50 dark:bg-white/[0.02] border-b border-gray-200 dark:border-white/[0.06]">
                           <tr>

@@ -61,7 +61,7 @@ interface MetricsData {
 
 type Tab = 'overview' | 'emails' | 'costs' | 'queue' | 'invoices' | 'users' | 'audits' | 'activity' | 'billing' | 'integrations' | 'security' | 'performance';
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+// ─── Constants ─────────────────────��───────────────────────��──────────────────
 
 const SERVICE_COLORS: Record<string, string> = {
   claude: '#7c3aed',
@@ -147,22 +147,24 @@ const Admin: React.FC = () => {
 
       {/* Tab Bar */}
       <div className="border-b border-gray-200 dark:border-white/[0.06]">
-        <nav className="flex gap-6">
-          {tabs.map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={cn(
-                'pb-3 text-sm font-medium border-b-2 transition-colors',
-                activeTab === tab.id
-                  ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400'
-                  : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-              )}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </nav>
+        <div className="overflow-x-auto sm:scrollbar-show">
+          <nav className="flex gap-6">
+            {tabs.map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={cn(
+                  'pb-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap',
+                  activeTab === tab.id
+                    ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400'
+                    : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                )}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </nav>
+        </div>
       </div>
 
       {/* ── Tab: Overview ─────────────────────────────────────────────────────── */}
@@ -271,7 +273,8 @@ const OverviewTab: React.FC<{ metrics: MetricsData }> = ({ metrics }) => {
         {recentCompanies.length === 0 ? (
           <p className="text-sm text-gray-400">No companies yet.</p>
         ) : (
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto sm:scrollbar-show">
+            <table className="w-full text-sm">
             <thead className="bg-gray-50 dark:bg-white/[0.04]">
               <tr>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Company</th>
@@ -298,6 +301,7 @@ const OverviewTab: React.FC<{ metrics: MetricsData }> = ({ metrics }) => {
               ))}
             </tbody>
           </table>
+            </div>
         )}
       </Card>
     </div>
@@ -505,7 +509,7 @@ const EmailsTab: React.FC<{ metrics: MetricsData }> = ({ metrics }) => {
             <p className="text-sm text-gray-400">No emails found.</p>
           ) : (
             <>
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto sm:scrollbar-show">
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50 dark:bg-white/[0.04]">
                     <tr>
@@ -660,7 +664,8 @@ const CostsTab: React.FC<{ metrics: MetricsData }> = ({ metrics }) => {
         {usageByModel.length === 0 ? (
           <p className="text-sm text-gray-400">No data yet. Will populate after first AI call.</p>
         ) : (
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto sm:scrollbar-show">
+            <table className="w-full text-sm">
             <thead className="bg-gray-50 dark:bg-white/[0.04]">
               <tr>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Model</th>
@@ -687,6 +692,7 @@ const CostsTab: React.FC<{ metrics: MetricsData }> = ({ metrics }) => {
               ))}
             </tbody>
           </table>
+            </div>
         )}
       </Card>
 
@@ -696,7 +702,8 @@ const CostsTab: React.FC<{ metrics: MetricsData }> = ({ metrics }) => {
         {usageByMonth.length === 0 ? (
           <p className="text-sm text-gray-400">No usage tracked yet.</p>
         ) : (
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto sm:scrollbar-show">
+            <table className="w-full text-sm">
             <thead className="bg-gray-50 dark:bg-white/[0.04]">
               <tr>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Month</th>
@@ -720,6 +727,7 @@ const CostsTab: React.FC<{ metrics: MetricsData }> = ({ metrics }) => {
               ))}
             </tbody>
           </table>
+            </div>
         )}
       </Card>
 
@@ -729,7 +737,8 @@ const CostsTab: React.FC<{ metrics: MetricsData }> = ({ metrics }) => {
         {topCompaniesByCost.length === 0 ? (
           <p className="text-sm text-gray-400">No data yet.</p>
         ) : (
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto sm:scrollbar-show">
+            <table className="w-full text-sm">
             <thead className="bg-gray-50 dark:bg-white/[0.04]">
               <tr>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Company</th>
@@ -749,6 +758,7 @@ const CostsTab: React.FC<{ metrics: MetricsData }> = ({ metrics }) => {
               ))}
             </tbody>
           </table>
+            </div>
         )}
       </Card>
     </div>
@@ -1005,7 +1015,7 @@ const InvoicesTab: React.FC = () => {
               {results.filter(r => r.status === 'error').length} errors
             </span>
           </div>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto sm:scrollbar-show">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-xs text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-white/[0.06]">
@@ -1087,7 +1097,7 @@ const ActivityLogsTab: React.FC = () => {
       ) : logs.length === 0 ? (
         <p className="text-sm text-gray-400">No activity recorded yet.</p>
       ) : (
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto sm:scrollbar-show">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 dark:bg-white/[0.04]">
               <tr>
@@ -1403,7 +1413,7 @@ const PerformanceTab: React.FC = () => {
       {endpoints.length > 0 && (
         <Card>
           <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Endpoint Performance</h3>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto sm:scrollbar-show">
             <table className="w-full text-sm">
               <thead className="border-b border-gray-200 dark:border-white/[0.06]">
                 <tr>

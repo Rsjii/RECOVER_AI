@@ -191,7 +191,7 @@ const EmailQueue: React.FC = () => {
         ) : (
           <div className="bg-white dark:bg-[#111113] rounded-xl border border-gray-200 dark:border-white/[0.06] overflow-hidden">
             {/* Table */}
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto sm:scrollbar-show">
               <table className="w-full">
                 <thead className="border-b border-gray-200 dark:border-white/[0.06] bg-gray-50 dark:bg-white/[0.02]">
                   <tr>

@@ -317,7 +317,7 @@ const Activity: React.FC = () => {
               {paymentEvents.length === 0 ? (
                 <p className="text-gray-500 text-center py-8">No payment events recorded yet.</p>
               ) : (
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto sm:scrollbar-show">
                   <table className="w-full text-sm text-left">
                     <thead className="border-b border-gray-200 dark:border-white/[0.08]">
                       <tr className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">

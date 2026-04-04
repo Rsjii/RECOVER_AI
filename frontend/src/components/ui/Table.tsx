@@ -26,7 +26,7 @@ export const Table = <T extends Record<string, any>>({
 
   if (loading) {
     return (
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto sm:scrollbar-show">
         <table className="w-full text-sm text-left">
           <thead className="bg-gray-50 dark:bg-white/[0.03] border-b border-gray-200 dark:border-white/[0.06]">
             <tr>
@@ -59,7 +59,7 @@ export const Table = <T extends Record<string, any>>({
 
   return (
     <div className="flex flex-col">
-      <div className="overflow-x-auto flex-1">
+      <div className="overflow-x-auto sm:scrollbar-show flex-1">
         <table className="w-full text-sm text-left text-gray-700 dark:text-gray-300">
         <thead className="bg-gray-50 dark:bg-white/[0.03] border-b border-gray-200 dark:border-white/[0.06]">
           <tr>

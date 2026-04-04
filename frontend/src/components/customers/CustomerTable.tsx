@@ -191,7 +191,7 @@ export const CustomerTable: React.FC<CustomerTableProps> = ({
       </div>
 
       {/* Desktop table view */}
-      <div className="hidden md:block overflow-x-auto bg-white dark:bg-[#111113] rounded-lg border border-gray-200 dark:border-white/[0.06]">
+      <div className="hidden md:block overflow-x-auto sm:scrollbar-show bg-white dark:bg-[#111113] rounded-lg border border-gray-200 dark:border-white/[0.06]">
         <table className="w-full text-sm text-left text-gray-700 dark:text-gray-300">
           <thead className="bg-gray-50 dark:bg-white/[0.03] border-b border-gray-200 dark:border-white/[0.08]">
             <tr>

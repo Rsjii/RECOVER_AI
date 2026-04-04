@@ -109,7 +109,7 @@ export default function PaymentPlansSummary({ summary, loading = false, hideHead
 
           {/* Recent plans mini-table */}
           {summary && summary.recentPlans.length > 0 && (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto sm:scrollbar-show">
               <table className="w-full text-xs">
                 <thead>
                   <tr className="text-gray-500 dark:text-zinc-500 border-b border-gray-100 dark:border-white/[0.05]">

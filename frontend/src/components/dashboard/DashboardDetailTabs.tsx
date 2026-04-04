@@ -68,7 +68,7 @@ export default function DashboardDetailTabs({
 
       {/* At-Risk Customers tab */}
       {activeTab === 'At-Risk Customers' && (
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto sm:scrollbar-show">
           {loading ? (
             <div className="p-5 space-y-3 animate-pulse">
               {Array.from({ length: 5 }).map((_, i) => (
@@ -118,7 +118,7 @@ export default function DashboardDetailTabs({
 
       {/* Aging Detail tab */}
       {activeTab === 'Aging Detail' && (
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto sm:scrollbar-show">
           {loading ? (
             <div className="p-5 space-y-3 animate-pulse">
               {Array.from({ length: 4 }).map((_, i) => (

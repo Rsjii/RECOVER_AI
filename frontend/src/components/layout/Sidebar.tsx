@@ -45,22 +45,17 @@ const getSidebarSections = (isAdmin: boolean): SidebarSection[] => [
   {
     title: 'OPERATIONS',
     items: [
-      // Activity and Reports: Show to admin or demo users
-      // Email Queue hidden (moved to Settings → Automation for advanced users)
-      ...(isAdmin || localStorage.getItem('isDemo') === 'true'
-        ? [
-            {
-              path: '/activity',
-              label: 'Activity',
-              icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>,
-            },
-            {
-              path: '/reports',
-              label: 'Reports',
-              icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6m6 0h6m-6 0V9a2 2 0 012-2h2a2 2 0 012 2v10m6 0v-4a2 2 0 00-2-2h-2a2 2 0 00-2 2v4" /></svg>,
-            },
-          ]
-        : []),
+      // Activity and Reports: Show to all users
+      {
+        path: '/activity',
+        label: 'Activity',
+        icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>,
+      },
+      {
+        path: '/reports',
+        label: 'Reports',
+        icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6m6 0h6m-6 0V9a2 2 0 012-2h2a2 2 0 012 2v10m6 0v-4a2 2 0 00-2-2h-2a2 2 0 00-2 2v4" /></svg>,
+      },
     ],
   },
   // BUSINESS section — hide from demo users (they don't need billing)

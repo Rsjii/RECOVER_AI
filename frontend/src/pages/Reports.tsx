@@ -344,7 +344,7 @@ const Reports: React.FC = () => {
       </div>
 
       {/* Tab Nav */}
-      <div className="flex border-b border-gray-200 dark:border-white/[0.06] overflow-x-auto">
+      <div className="flex border-b border-gray-200 dark:border-white/[0.06] overflow-x-auto sm:scrollbar-show">
         {TABS.map(tab => (
           <button
             key={tab}
@@ -433,7 +433,7 @@ const Reports: React.FC = () => {
                   <div className="px-5 py-4 border-b border-gray-100 dark:border-white/[0.05]">
                     <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Period Breakdown</h3>
                   </div>
-                  <div className="overflow-x-auto">
+                  <div className="overflow-x-auto sm:scrollbar-show">
                     <table className="w-full text-xs">
                       <thead>
                         <tr className="text-gray-500 dark:text-zinc-500 border-b border-gray-100 dark:border-white/[0.05]">
@@ -530,7 +530,7 @@ const Reports: React.FC = () => {
                   <div className="px-5 py-4 border-b border-gray-100 dark:border-white/[0.05]">
                     <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Campaign Breakdown</h3>
                   </div>
-                  <div className="overflow-x-auto">
+                  <div className="overflow-x-auto sm:scrollbar-show">
                     <table className="w-full text-xs">
                       <thead>
                         <tr className="text-gray-500 dark:text-zinc-500 border-b border-gray-100 dark:border-white/[0.05]">
@@ -696,7 +696,7 @@ const Reports: React.FC = () => {
                   <div className="px-5 py-4 border-b border-gray-100 dark:border-white/[0.05]">
                     <h3 className="text-sm font-semibold text-gray-900 dark:text-white">All Payment Plans</h3>
                   </div>
-                  <div className="overflow-x-auto">
+                  <div className="overflow-x-auto sm:scrollbar-show">
                     <table className="w-full text-xs">
                       <thead>
                         <tr className="text-gray-500 dark:text-zinc-500 border-b border-gray-100 dark:border-white/[0.05]">
@@ -775,7 +775,7 @@ const Reports: React.FC = () => {
               {/* Recovery by Stage */}
               <div className="bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] rounded-lg p-6">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Recovery by Dunning Stage</h3>
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto sm:scrollbar-show">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-gray-200 dark:border-white/[0.06]">
@@ -802,7 +802,7 @@ const Reports: React.FC = () => {
               {/* Recovery by Action */}
               <div className="bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] rounded-lg p-6">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Recovery by Action Type</h3>
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto sm:scrollbar-show">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-gray-200 dark:border-white/[0.06]">

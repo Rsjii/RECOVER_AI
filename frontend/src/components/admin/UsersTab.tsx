@@ -200,7 +200,7 @@ export const UsersTab: React.FC = () => {
           <p className="text-gray-500 dark:text-gray-400">No users found</p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-white/[0.08]">
+        <div className="overflow-x-auto sm:scrollbar-show rounded-lg border border-gray-200 dark:border-white/[0.08]">
           <table className="w-full">
             <thead>
               <tr className="bg-gray-50 dark:bg-[#0a0a0a] border-b border-gray-200 dark:border-white/[0.08]">
