@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNotification } from '../../hooks/useNotification';
 import { api } from '../../lib/api';
+import { ConfirmationModal } from '../ui/ConfirmationModal';
 
 interface SMTPStatus {
   configured: boolean;
@@ -27,6 +28,8 @@ export const SMTPSection: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showDisableConfirm, setShowDisableConfirm] = useState(false);
+  const [isDisabling, setIsDisabling] = useState(false);
 
   const [config, setConfig] = useState<SMTPConfig>({
     host: '',
@@ -100,11 +103,8 @@ export const SMTPSection: React.FC = () => {
     }
   }
 
-  async function handleDisableSMTP() {
-    if (!confirm('Disable SMTP and revert to RecoverAI email? Emails will still work but from recoverai.com')) {
-      return;
-    }
-
+  async function handleConfirmDisableSMTP() {
+    setIsDisabling(true);
     try {
       await api.post('/api/settings/smtp/disable');
       addToast({ type: 'success', message: 'SMTP disabled. Using Resend for emails.' });
@@ -112,7 +112,13 @@ export const SMTPSection: React.FC = () => {
       setShowModal(false);
     } catch (err: any) {
       addToast({ type: 'error', message: 'Failed to disable SMTP' });
+    } finally {
+      setIsDisabling(false);
     }
+  }
+
+  function handleDisableSMTP() {
+    setShowDisableConfirm(true);
   }
 
   if (isLoading) {
@@ -451,6 +457,19 @@ export const SMTPSection: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Disable SMTP Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showDisableConfirm}
+        title="Disable Custom SMTP Configuration?"
+        message="Your customers will receive emails from noreply@recoverai.com instead of your configured domain. This may impact deliverability. Are you sure?"
+        confirmLabel="Disable SMTP"
+        cancelLabel="Cancel"
+        isDangerous={true}
+        isLoading={isDisabling}
+        onConfirm={handleConfirmDisableSMTP}
+        onCancel={() => setShowDisableConfirm(false)}
+      />
     </>
   );
 };

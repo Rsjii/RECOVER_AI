@@ -19,35 +19,67 @@ export function sendErrorResponse(
 
 /**
  * Parse error and determine appropriate status code and message
+ * IMPORTANT: Sanitize error messages to avoid leaking internal details
  */
 export function parseError(err: any): { statusCode: number; message: string } {
-  // Handle specific error types
+  // Handle specific error types with custom status codes
   if (err.statusCode) {
-    return { statusCode: err.statusCode, message: err.message };
+    // Only return raw message if it's explicitly marked as safe, otherwise sanitize
+    const message = err.isSafe ? err.message : sanitizeErrorMessage(err.message, err.statusCode);
+    return { statusCode: err.statusCode, message };
   }
 
   // Handle Stripe errors (they have type property)
-  if (err.type === 'StripeSignatureVerificationError' || err.type === 'StripeSignatureVerificationError') {
+  if (err.type === 'StripeSignatureVerificationError') {
     return { statusCode: 400, message: 'Invalid webhook signature' };
   }
 
   if (err.message) {
-    // Common error patterns
-    if (err.message.includes('not found')) return { statusCode: 404, message: err.message };
-    if (err.message.includes('not connected') || err.message.includes('Not connected')) return { statusCode: 400, message: err.message };
-    // Authentication errors (invalid credentials) - check before generic "Invalid"
-    if (err.message.includes('Invalid email or password') || err.message.includes('invalid email or password')) return { statusCode: 401, message: err.message };
-    if (err.message.includes('unauthorized') || err.message.includes('Unauthorized')) return { statusCode: 401, message: err.message };
-    // Other invalid errors
-    if (err.message.includes('Invalid') || err.message.includes('invalid') || err.message.includes('signature')) return { statusCode: 400, message: err.message };
-    if (err.message.includes('Forbidden') || err.message.includes('forbidden')) return { statusCode: 403, message: err.message };
-    if (err.message.includes('required')) return { statusCode: 400, message: err.message };
-    // Conflict errors (duplicate/already exists)
-    if (err.message.includes('already exists') || err.message.includes('already registered') || err.message.includes('Email already')) return { statusCode: 409, message: err.message };
+    // Safe, user-facing error messages (whitelist approach)
+    // Only return message if it matches known safe patterns
+    const msg = err.message.toLowerCase();
 
-    // Default to 500 for unexpected errors
-    return { statusCode: 500, message: 'An error occurred' };
+    if (msg.includes('not found')) return { statusCode: 404, message: 'Resource not found' };
+    if (msg.includes('not connected')) return { statusCode: 400, message: 'Integration not connected' };
+    if (msg.includes('invalid email or password')) return { statusCode: 401, message: 'Invalid email or password' };
+    if (msg.includes('unauthorized')) return { statusCode: 401, message: 'Unauthorized' };
+    if (msg.includes('forbidden')) return { statusCode: 403, message: 'Access denied' };
+    if (msg.includes('already exists') || msg.includes('already registered')) return { statusCode: 409, message: 'Resource already exists' };
+    if (msg.includes('required')) return { statusCode: 400, message: 'Missing required field' };
+
+    // Default: Don't leak internal error details in production
+    return { statusCode: 500, message: 'An error occurred. Please try again later.' };
   }
 
-  return { statusCode: 500, message: 'An error occurred' };
+  return { statusCode: 500, message: 'An error occurred. Please try again later.' };
+}
+
+/**
+ * Sanitize error message for client exposure
+ * Removes internal details (database, crypto, file paths, etc.)
+ */
+function sanitizeErrorMessage(message: string, statusCode: number): string {
+  // Return generic message for 5xx errors (internal)
+  if (statusCode >= 500) {
+    return 'An error occurred. Please try again later.';
+  }
+
+  // For 4xx errors, return the message only if it looks user-safe
+  // Avoid messages with SQL, file paths, stack traces, crypto details
+  const unsafePatterns = [
+    /syntax error/i,
+    /column/i,
+    /table/i,
+    /database/i,
+    /query/i,
+    /\/[a-z]/i, // file paths
+    /stack/i,
+    /at \w+/i, // stack traces
+  ];
+
+  if (unsafePatterns.some(p => p.test(message))) {
+    return 'Invalid request';
+  }
+
+  return message;
 }

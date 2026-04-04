@@ -7,7 +7,7 @@ import { useNotification } from '../hooks/useNotification';
 import { ConfirmationModal } from '../components/ui/ConfirmationModal';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { Spinner } from '../components/ui/Spinner';
+import { DetailPageSkeleton } from '../components/ui/Skeleton';
 import { EmailPreviewModal } from '../components/invoices/EmailPreviewModal';
 import type { Invoice, InvoiceDetail as InvoiceDetailType, InvoiceStatus, DunningStatus } from '../types';
 
@@ -73,7 +73,7 @@ const InvoiceDetail: React.FC = () => {
       addToast({ type: 'success', message: `Invoice marked as ${status}` });
       setInvoice({ ...invoice, status });
     } catch (err: any) {
-      addToast({ type: 'error', message: err.message || 'Update failed' });
+      addToast({ type: 'error', message: err.message || `Failed to update invoice status to ${status}` });
     } finally { setUpdating(false); }
   };
 
@@ -216,9 +216,7 @@ const InvoiceDetail: React.FC = () => {
   };
 
   if (loading) {
-    return (
-      <div className="flex justify-center py-20"><Spinner size="lg" text="Loading invoice..." /></div>
-    );
+    return <DetailPageSkeleton />;
   }
 
   if (!invoice) return null;

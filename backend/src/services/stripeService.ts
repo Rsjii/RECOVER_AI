@@ -79,7 +79,40 @@ class StripeService {
 
       const result: SyncInvoicesResult = { created: 0, updated: 0, skipped: 0, skippedDetails: [] };
 
-      const stripeInvoices = await stripe.invoices.list({ status: 'open', limit: 100 });
+      // Helper: Fetch all invoices for a given status (handles pagination)
+      const fetchAllInvoicesForStatus = async (status: 'open' | 'paid' | 'void'): Promise<Stripe.Invoice[]> => {
+        const invoices: Stripe.Invoice[] = [];
+        let hasMore = true;
+        let startingAfter: string | undefined;
+
+        while (hasMore) {
+          const page = await stripe.invoices.list({
+            status,
+            limit: 100,
+            starting_after: startingAfter,
+          });
+          invoices.push(...page.data);
+          hasMore = page.has_more;
+          if (page.data.length > 0) {
+            startingAfter = page.data[page.data.length - 1].id;
+          }
+        }
+        return invoices;
+      };
+
+      // Fetch ALL open, paid, and voided invoices (with pagination)
+      // Open: unpaid invoices to sync
+      // Paid: invoices marked as paid in Stripe that need to update local DB status
+      // Void: invoices cancelled in Stripe that need to mark as voided locally
+      const [openInvoices, paidInvoices, voidedInvoices] = await Promise.all([
+        fetchAllInvoicesForStatus('open'),
+        fetchAllInvoicesForStatus('paid'),
+        fetchAllInvoicesForStatus('void'),
+      ]);
+
+      const stripeInvoices = {
+        data: [...openInvoices, ...paidInvoices, ...voidedInvoices],
+      };
 
       for (const inv of stripeInvoices.data) {
         if (!inv.customer_email) {
@@ -93,7 +126,10 @@ class StripeService {
           continue;
         }
 
-        if (inv.amount_due === 0) {
+        // Use inv.total (original invoice amount) not amount_due
+        // amount_due is 0 for paid invoices, but total has the actual amount
+        // Skip only if total is 0 (truly zero-amount invoice)
+        if (inv.total === 0) {
           result.skipped++;
           result.skippedDetails.push({
             stripeInvoiceId: inv.id,
@@ -113,7 +149,7 @@ class StripeService {
         const { isNew, row: invoiceRow } = await InvoiceDB.upsertInvoice({
           companyId,
           customerId: customer.id,
-          amount: inv.amount_due / 100,
+          amount: inv.total / 100, // Use total amount (original invoice), not amount_due (remainder)
           currency: inv.currency.toUpperCase(),
           dueDate: inv.due_date ? new Date(inv.due_date * 1000) : new Date(),
           issuedDate: new Date(inv.created * 1000),
@@ -122,6 +158,41 @@ class StripeService {
         });
 
         isNew ? result.created++ : result.updated++;
+
+        // If Stripe shows invoice as paid, update local status
+        if (invoiceRow && inv.status === 'paid') {
+          try {
+            await InvoiceDB.updateInvoiceStatus(invoiceRow.id, companyId, 'paid');
+            logInfo('stripeService', method, 'Invoice marked as paid (Stripe sync)', {
+              invoiceId: invoiceRow.id,
+              stripeId: inv.id,
+              amount: inv.total / 100,
+            });
+          } catch (err) {
+            logError('stripeService', method, 'Failed to update invoice status to paid', err, {
+              invoiceId: invoiceRow?.id,
+              stripeId: inv.id,
+            });
+            // Non-blocking — continue
+          }
+        }
+
+        // If Stripe shows invoice as void (cancelled), mark as voided locally
+        if (invoiceRow && inv.status === 'void') {
+          try {
+            await InvoiceDB.updateInvoiceStatus(invoiceRow.id, companyId, 'voided');
+            logInfo('stripeService', method, 'Invoice marked as voided (Stripe sync)', {
+              invoiceId: invoiceRow.id,
+              stripeId: inv.id,
+            });
+          } catch (err) {
+            logError('stripeService', method, 'Failed to update invoice status to voided', err, {
+              invoiceId: invoiceRow?.id,
+              stripeId: inv.id,
+            });
+            // Non-blocking — continue
+          }
+        }
 
         // After Stripe invoice upsert, recalculate customer risk_score using FULL signals
         // (by now we have payment behavior from Stripe)

@@ -50,7 +50,6 @@ export const connectStripe = async (req: Request, res: Response) => {
     const elapsed = Date.now() - startTime;
     logError(handler, `Failed after ${elapsed}ms`, err);
     const { statusCode, message } = parseError(err);
-    console.error('=== STRIPE CONNECT ERROR ===', { error: err.message, stack: err.stack });
     return sendErrorResponse(res, statusCode, message);
   }
 };

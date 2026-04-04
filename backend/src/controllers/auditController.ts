@@ -221,11 +221,33 @@ const analyzeAuditAsync = async (auditId: string) => {
     logInfo(MODULE, 'analyzeAuditAsync', 'Fetching invoices');
 
     // Fetch only open (unpaid/overdue) invoices for accurate AR analysis
-    const invoices = await stripe.invoices.list({ limit: 100, status: 'open' });
-    const charges = await stripe.charges.list({ limit: 100 });
+    // With pagination support for >100 invoices
+    const openInvoices: any[] = [];
+    let hasMore = true;
+    let startingAfter: string | undefined;
+    while (hasMore) {
+      const page = await stripe.invoices.list({ limit: 100, status: 'open', starting_after: startingAfter });
+      openInvoices.push(...page.data);
+      hasMore = page.has_more;
+      if (page.data.length > 0) {
+        startingAfter = page.data[page.data.length - 1].id;
+      }
+    }
+
+    const charges: any = { data: [] };
+    hasMore = true;
+    startingAfter = undefined;
+    while (hasMore) {
+      const page = await stripe.charges.list({ limit: 100, starting_after: startingAfter });
+      charges.data.push(...page.data);
+      hasMore = page.has_more;
+      if (page.data.length > 0) {
+        startingAfter = page.data[page.data.length - 1].id;
+      }
+    }
 
     const now = Date.now() / 1000;
-    const analyzed = invoices.data.map(inv => {
+    const analyzed = openInvoices.map(inv => {
       // Use due_date if available (most accurate), else fall back to created date
       const refDate = inv.due_date || inv.created;
       const daysOverdue = Math.max(0, Math.floor((now - refDate) / 86400));

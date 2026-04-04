@@ -353,9 +353,20 @@ export const proceedFromStage4 = async (req: Request, res: Response) => {
 
         const stripe = new Stripe(apiKey);
 
-        // Fetch all invoices from Stripe
+        // Fetch all invoices from Stripe (with pagination for >100 invoices)
         logInfo(MODULE, handler, 'Fetching from Stripe API...');
-        const invoices = await stripe.invoices.list({ limit: 100 });
+        const allInvoices: any[] = [];
+        let hasMore = true;
+        let startingAfter: string | undefined;
+        while (hasMore) {
+          const page = await stripe.invoices.list({ limit: 100, starting_after: startingAfter });
+          allInvoices.push(...page.data);
+          hasMore = page.has_more;
+          if (page.data.length > 0) {
+            startingAfter = page.data[page.data.length - 1].id;
+          }
+        }
+        const invoices = { data: allInvoices };
 
         logInfo(MODULE, handler, 'Fetching invoices from Stripe', { count: invoices.data.length });
 

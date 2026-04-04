@@ -44,7 +44,8 @@ router.post('/validate-key', authMiddleware, demoBlocker, async (req, res) => {
 
     return res.json({ success: true, message: 'API key validated and saved' });
   } catch (err: any) {
-    return res.status(500).json({ error: 'Failed to save API key', details: err.message });
+    // Don't leak error details to client
+    return res.status(500).json({ error: 'Failed to save API key. Please try again.' });
   }
 });
 

@@ -231,11 +231,9 @@ export const EmailPreviewModal: React.FC<EmailPreviewModalProps> = ({
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1 uppercase tracking-wide">Body</label>
                 <div className="bg-gray-50 dark:bg-white/[0.03] rounded-lg px-4 py-4 text-sm text-gray-700 dark:text-gray-300 leading-relaxed border border-gray-200 dark:border-white/[0.06]">
-                  {preview.body.includes('<') ? (
-                    <div dangerouslySetInnerHTML={{ __html: preview.body }} className="prose dark:prose-invert max-w-none" />
-                  ) : (
-                    <div className="whitespace-pre-wrap">{preview.body}</div>
-                  )}
+                  {/* Render email body as plain text with whitespace preservation.
+                      Email is AI-generated and safe, but we strip HTML to prevent XSS. */}
+                  <div className="whitespace-pre-wrap">{preview.body.replace(/<[^>]*>/g, '')}</div>
                 </div>
               </div>
             </div>

@@ -69,7 +69,7 @@ export const BusinessImpactGrid: React.FC<BusinessImpactGridProps> = ({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
           </svg>
         </button>
-        {expandedSections.campaign && <div className="px-4 pb-4"><EmailAnalyticsRow analytics={emailAnalytics} loading={loading} hideHeader={true} /></div>}
+        {expandedSections.campaign && <div className="px-4 pb-4"><EmailAnalyticsRow analytics={emailAnalytics} loading={loading} /></div>}
       </div>
 
       {/* Payment Plans */}

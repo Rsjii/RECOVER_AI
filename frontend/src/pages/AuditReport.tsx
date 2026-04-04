@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
-import { Spinner } from '../components/ui/Spinner';
+import { ReportSkeleton } from '../components/ui/Skeleton';
 import { logError } from '../utils/logger';
 import { useNotification } from '../hooks/useNotification';
 
@@ -95,10 +95,9 @@ export const AuditReport: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 flex items-center justify-center px-4">
-        <div className="text-center">
-          <Spinner size="lg" />
-          <p className="mt-4 text-slate-600 dark:text-slate-400">Analyzing your cash position...</p>
+      <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 p-6">
+        <div className="max-w-7xl mx-auto">
+          <ReportSkeleton />
         </div>
       </div>
     );

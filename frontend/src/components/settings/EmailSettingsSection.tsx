@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { cn } from '../../lib/utils';
 import { useNotification } from '../../hooks/useNotification';
 import { api } from '../../lib/api';
+import { ConfirmationModal } from '../ui/ConfirmationModal';
 
 interface EmailSettingsFormData {
   senderEmail: string;
@@ -73,6 +74,8 @@ export const EmailSettingsSection: React.FC<EmailSettingsSectionProps> = ({
   const [showPassword, setShowPassword] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [useOwnDomain, setUseOwnDomain] = useState(false);
+  const [showDisableSMTPConfirm, setShowDisableSMTPConfirm] = useState(false);
+  const [isDisablingSmtp, setIsDisablingSmtp] = useState(false);
 
   const [smtpConfig, setSMTPConfig] = useState<SMTPConfig>({
     host: '',
@@ -184,11 +187,8 @@ export const EmailSettingsSection: React.FC<EmailSettingsSectionProps> = ({
     }
   }
 
-  async function handleDisableSMTP() {
-    if (!confirm('Switch back to RecoverAI email? Your customers will see noreply@recoverai.com')) {
-      return;
-    }
-
+  async function handleConfirmDisableSMTP() {
+    setIsDisablingSmtp(true);
     try {
       await api.post('/api/settings/smtp/disable');
       addToast({ type: 'success', message: 'SMTP disabled. Using RecoverAI email.' });
@@ -196,7 +196,13 @@ export const EmailSettingsSection: React.FC<EmailSettingsSectionProps> = ({
       setUseOwnDomain(false);
     } catch (err: any) {
       addToast({ type: 'error', message: 'Failed to disable SMTP' });
+    } finally {
+      setIsDisablingSmtp(false);
     }
+  }
+
+  function handleDisableSMTP() {
+    setShowDisableSMTPConfirm(true);
   }
 
   const handleSave = async () => {
@@ -679,6 +685,19 @@ export const EmailSettingsSection: React.FC<EmailSettingsSectionProps> = ({
           {isSaving ? 'Saving...' : 'Save Changes'}
         </button>
       </div>
+
+      {/* Disable SMTP Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showDisableSMTPConfirm}
+        title="Disable Custom Email Domain?"
+        message="Your customers will receive emails from noreply@recoverai.com instead of your domain. This may reduce deliverability and customer trust. Are you sure?"
+        confirmLabel="Switch to RecoverAI Email"
+        cancelLabel="Cancel"
+        isDangerous={true}
+        isLoading={isDisablingSmtp}
+        onConfirm={handleConfirmDisableSMTP}
+        onCancel={() => setShowDisableSMTPConfirm(false)}
+      />
     </div>
   );
 };

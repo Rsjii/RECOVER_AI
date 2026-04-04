@@ -51,11 +51,11 @@ export async function getPerformanceMetrics(): Promise<{
   `);
 
   return {
-    avgLatency: Math.round(parseFloat(metrics.avg_latency) * 1000) || 50,
-    p99Latency: Math.round(parseFloat(metrics.p99_latency) * 1000) || 200,
+    avgLatency: Math.round(parseFloat(metrics.avg_latency) * 1000) || 0,
+    p99Latency: Math.round(parseFloat(metrics.p99_latency) * 1000) || 0,
     errorRate: Math.round(parseFloat(metrics.error_rate) || 0),
-    uptime: 99.9, // Assume high uptime unless otherwise tracked
-    requestsPerMinute: Math.round(parseFloat(metrics.avg_latency) || 100),
+    uptime: 0, // Uptime tracking not implemented yet
+    requestsPerMinute: Math.round(parseFloat(metrics.avg_latency) || 0),
     recentErrors: (errorResult.rows || []).map(row => ({
       method: 'POST',
       path: '/api/*',
@@ -104,11 +104,11 @@ export async function getQueryPerformance(): Promise<{
   avgQueryTime: number;
   maxQueryTime: number;
 }> {
-  // Mock data - would need actual query logging in production
+  // Query logging not enabled - return zeros instead of mock data
   return {
     slowQueries: 0,
-    avgQueryTime: 45,
-    maxQueryTime: 250,
+    avgQueryTime: 0,
+    maxQueryTime: 0,
   };
 }
 
@@ -139,7 +139,7 @@ export async function getEndpointPerformance(): Promise<Array<{
     method: row.method || 'GET',
     path: row.path || '/api/*',
     count: row.count || 0,
-    avgLatency: Math.round(Math.random() * 100) + 50, // Mock latency
+    avgLatency: 0, // Real latency tracking not implemented yet
     errorRate: Math.round(parseFloat(row.error_rate) || 0),
   }));
 }

@@ -6,7 +6,7 @@ import { formatCurrency, formatDate, calculateDaysOverdue } from '../lib/utils';
 import { useNotification } from '../hooks/useNotification';
 import { ConfirmationModal } from '../components/ui/ConfirmationModal';
 import { Card } from '../components/ui/Card';
-import { Spinner } from '../components/ui/Spinner';
+import { DetailPageSkeleton } from '../components/ui/Skeleton';
 import type { CustomerDetail as CustomerDetailType } from '../types';
 
 const CustomerDetail: React.FC = () => {
@@ -102,9 +102,7 @@ const CustomerDetail: React.FC = () => {
   };
 
   if (loading) {
-    return (
-      <div className="flex justify-center py-20"><Spinner size="lg" text="Loading customer..." /></div>
-    );
+    return <DetailPageSkeleton />;
   }
 
   if (!detail) return null;

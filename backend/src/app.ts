@@ -16,12 +16,12 @@ import customerRoutes from './routes/customers';
 import settingsRoutes from './routes/settings';
 import billingRoutes from './routes/billing';
 import teamRoutes from './routes/team';
-import complianceRoutes from './routes/compliance';
+// import complianceRoutes from './routes/compliance';  // ❌ DISABLED: Admin-only, not STARTER tier
 import policyRoutes from './routes/policy';
 import entitlementsRoutes from './routes/entitlements';
 import featureFlagsRoutes from './routes/featureFlags';
-import quickbooksRoutes from './routes/quickbooks';
-import chargebeeRoutes from './routes/chargebee';
+// import quickbooksRoutes from './routes/quickbooks';  // ❌ DISABLED: QB integration Month 3+
+// import chargebeeRoutes from './routes/chargebee';    // ❌ DISABLED: Not needed (Stripe covers MVP)
 import demoRoutes from './routes/demo';
 import adminRoutes from './routes/admin';
 import reportsRoutes from './routes/reports';
@@ -29,7 +29,7 @@ import billingOptimizationRoutes from './routes/billingOptimization';
 import declineCodeRoutes from './routes/declineCodes';
 import retryRoutes from './routes/retry';
 import segmentationRoutes from './routes/segmentation';
-import voiceRoutes from './routes/voice';
+// import voiceRoutes from './routes/voice';            // ❌ DISABLED: SMS/Voice Month 4+ (email-only in STARTER)
 import attributionRoutes from './routes/attribution';
 import unsubscribeRoutes from './routes/unsubscribe';
 import pilotRoutes from './routes/pilots';
@@ -216,12 +216,12 @@ app.use('/api/customers', customerRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/billing', billingRoutes);
 app.use('/api/team', teamRoutes);
-app.use('/api/compliance', complianceRoutes);
-app.use('/api/policy', policyRoutes);
-app.use('/api/entitlements', entitlementsRoutes);
-app.use('/api/feature-flags', featureFlagsRoutes);
-app.use('/api/quickbooks', quickbooksRoutes);
-app.use('/api/chargebee', chargebeeRoutes);
+// app.use('/api/compliance', complianceRoutes);        // ❌ DISABLED: Admin-only
+// app.use('/api/policy', policyRoutes);
+// app.use('/api/entitlements', entitlementsRoutes);
+// app.use('/api/feature-flags', featureFlagsRoutes);
+// app.use('/api/quickbooks', quickbooksRoutes);        // ❌ DISABLED: Month 3+
+// app.use('/api/chargebee', chargebeeRoutes);          // ❌ DISABLED: Not needed
 app.use('/api/demo', demoRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/admin', adminPilotRoutes);
@@ -230,14 +230,14 @@ app.use('/api/billing-optimization', billingOptimizationRoutes);
 app.use('/api/decline-codes', declineCodeRoutes);
 app.use('/api/retry-analytics', retryRoutes);
 app.use('/api/segmentation', segmentationRoutes);
-app.use('/api/voice', voiceRoutes);
-app.use('/api/attribution', attributionRoutes);
-app.use('/api/unsubscribe', unsubscribeRoutes);
-app.use('/api/pilots', pilotRoutes);
-app.use('/api/admin/pilots', pilotManagementRoutes);
-app.use('/api/audits', auditRoutes);  // Public audit requests + admin endpoints
-app.use('/api/audits', auditStagesRoutes);  // CashOS Stages 1-5 new flow
-app.use('/api/pilot-queue', pilotQueueRoutes);
+// app.use('/api/voice', voiceRoutes);                  // ❌ DISABLED: Email-only in STARTER
+// app.use('/api/attribution', attributionRoutes);
+// app.use('/api/unsubscribe', unsubscribeRoutes);
+// app.use('/api/pilots', pilotRoutes);
+// app.use('/api/admin/pilots', pilotManagementRoutes);
+// app.use('/api/audits', auditRoutes);  // ❌ DISABLED
+// app.use('/api/audits', auditStagesRoutes);  // ❌ DISABLED
+// app.use('/api/pilot-queue', pilotQueueRoutes);  // ❌ DISABLED
 app.use('/api/slack', slackRoutes);  // Slack bot integration
 app.use('/api/admin/email-dashboard', emailDashboardRoutes);  // Email dashboard for admins
 

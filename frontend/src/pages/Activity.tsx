@@ -6,7 +6,7 @@ import { ConfirmationModal } from '../components/ui/ConfirmationModal';
 import { formatDate, formatCurrency } from '../lib/utils';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { Spinner } from '../components/ui/Spinner';
+import { ActivitySkeleton } from '../components/ui/Skeleton';
 
 type Tab = 'emails' | 'sms' | 'payments' | 'events';
 
@@ -191,7 +191,7 @@ const Activity: React.FC = () => {
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-20"><Spinner size="lg" text="Loading..." /></div>
+        <ActivitySkeleton />
       ) : (
         <>
           {/* Emails Tab */}
