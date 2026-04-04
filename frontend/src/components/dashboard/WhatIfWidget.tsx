@@ -118,7 +118,7 @@ export const WhatIfWidget: React.FC<WhatIfWidgetProps> = ({ onCalculate, custome
         <div className="border-t border-gray-100 dark:border-white/[0.06] pt-4">
           <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">{result.impactDescription}</p>
 
-          <div className="grid grid-cols-3 gap-2 text-center">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-center">
             {[
               { label: '30d', baseline: result.baselineBalance30, scenario: result.scenarioBalance30 },
               { label: '60d', baseline: result.baselineBalance60, scenario: result.scenarioBalance60 },

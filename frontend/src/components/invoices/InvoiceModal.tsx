@@ -207,7 +207,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ invoice, isOpen, onC
 
               {isEditing ? (
                 <div className="space-y-4 p-4 border border-blue-200 dark:border-blue-900/30 rounded-lg bg-blue-50 dark:bg-blue-900/10">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Amount</label>
                       <input
@@ -257,7 +257,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ invoice, isOpen, onC
                   </div>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="text-xs text-gray-500 dark:text-gray-400">Amount</label>
                     <p className="text-lg font-bold text-gray-900 dark:text-white">{formatCurrency(Number(invoice.amount), invoice.currency)}</p>

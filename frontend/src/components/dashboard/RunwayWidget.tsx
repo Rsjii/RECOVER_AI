@@ -64,7 +64,7 @@ export const RunwayWidget: React.FC<RunwayWidgetProps> = ({ runway, loading }) =
         {/* Burn rate breakdown */}
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Monthly Cash Flow (6-month avg)</p>
-          <div className="grid grid-cols-2 gap-4 mb-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-3">
             <div>
               <p className="text-xs text-gray-500 dark:text-gray-400">Invoices Created</p>
               <p className="text-lg font-semibold text-gray-900 dark:text-white">{fmt(runway.avgMonthlyCreated)}</p>

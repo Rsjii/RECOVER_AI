@@ -129,39 +129,65 @@ export const CustomerTable: React.FC<CustomerTableProps> = ({
   return (
     <>
       {/* Mobile card view */}
-      <div className="md:hidden space-y-3">
-        {sorted.map(c => {
-          const ar = Number(c.total_ar_balance ?? 0);
-          return (
-            <div key={c.id} onClick={() => onRowClick(c)}
-              className="p-4 bg-white dark:bg-[#111113] rounded-lg border border-gray-200 dark:border-white/[0.06] cursor-pointer hover:bg-gray-50 dark:hover:bg-white/[0.03] transition-colors">
-              <div className="flex justify-between items-start mb-2">
-                <div>
-                  <div className="font-medium text-gray-900 dark:text-white">{c.name}</div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">{c.email}</div>
+      <div className="md:hidden flex flex-col">
+        <div className="space-y-3 flex-1">
+          {sorted.map(c => {
+            const ar = Number(c.total_ar_balance ?? 0);
+            return (
+              <div key={c.id} onClick={() => onRowClick(c)}
+                className="p-4 bg-white dark:bg-[#111113] rounded-lg border border-gray-200 dark:border-white/[0.06] cursor-pointer hover:bg-gray-50 dark:hover:bg-white/[0.03] transition-colors">
+                <div className="flex justify-between items-start mb-2">
+                  <div>
+                    <div className="font-medium text-gray-900 dark:text-white">{c.name}</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">{c.email}</div>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className={`w-2 h-2 rounded-full ${getRiskColor(c.customer_risk_score)}`} />
+                    <span className="text-xs font-medium text-gray-700 dark:text-gray-300">{getRiskLabel(c.customer_risk_score)}</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <div className={`w-2 h-2 rounded-full ${getRiskColor(c.customer_risk_score)}`} />
-                  <span className="text-xs font-medium text-gray-700 dark:text-gray-300">{getRiskLabel(c.customer_risk_score)}</span>
+                <div className="flex justify-between items-center">
+                  <span className={`text-lg font-bold ${ar > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                    {formatCurrency(ar)}
+                  </span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">{relativeDate(c.last_payment_date)}</span>
+                </div>
+                <div className="flex items-center gap-2 mt-2">
+                  <div className="w-16 h-1.5 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
+                    <div className={`h-full rounded-full ${c.payment_history.on_time_rate >= 80 ? 'bg-green-500' : c.payment_history.on_time_rate >= 50 ? 'bg-yellow-500' : 'bg-red-500'}`}
+                      style={{ width: `${c.payment_history.on_time_rate}%` }} />
+                  </div>
+                  <span className="text-xs text-gray-500">{c.payment_history.on_time_rate}% on-time</span>
+                  <RiskSignals customer={c} />
                 </div>
               </div>
-              <div className="flex justify-between items-center">
-                <span className={`text-lg font-bold ${ar > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
-                  {formatCurrency(ar)}
-                </span>
-                <span className="text-xs text-gray-500 dark:text-gray-400">{relativeDate(c.last_payment_date)}</span>
-              </div>
-              <div className="flex items-center gap-2 mt-2">
-                <div className="w-16 h-1.5 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
-                  <div className={`h-full rounded-full ${c.payment_history.on_time_rate >= 80 ? 'bg-green-500' : c.payment_history.on_time_rate >= 50 ? 'bg-yellow-500' : 'bg-red-500'}`}
-                    style={{ width: `${c.payment_history.on_time_rate}%` }} />
-                </div>
-                <span className="text-xs text-gray-500">{c.payment_history.on_time_rate}% on-time</span>
-                <RiskSignals customer={c} />
-              </div>
+            );
+          })}
+        </div>
+        {pagination && pagination.pages > 1 && (
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-3 sm:p-4 border-t border-gray-200 dark:border-white/[0.06] bg-gray-50 dark:bg-white/[0.02] mt-3">
+            <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 order-2 sm:order-1">
+              <span className="sm:hidden">Page {pagination.page}/{pagination.pages}</span>
+              <span className="hidden sm:inline">Page {pagination.page} of {pagination.pages} (Total: {pagination.total})</span>
             </div>
-          );
-        })}
+            <div className="flex gap-2 order-1 sm:order-2 w-full sm:w-auto">
+              <button
+                disabled={pagination.page === 1}
+                onClick={() => pagination.onPageChange(pagination.page - 1)}
+                className="flex-1 sm:flex-none px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-lg bg-white dark:bg-white/[0.03] text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-white/[0.08] hover:bg-gray-50 dark:hover:bg-white/[0.06] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                ← Previous
+              </button>
+              <button
+                disabled={pagination.page === pagination.pages}
+                onClick={() => pagination.onPageChange(pagination.page + 1)}
+                className="flex-1 sm:flex-none px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-lg bg-white dark:bg-white/[0.03] text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-white/[0.08] hover:bg-gray-50 dark:hover:bg-white/[0.06] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Next →
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Desktop table view */}

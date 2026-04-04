@@ -200,64 +200,63 @@ export const IntegrationSection: React.FC<IntegrationSectionProps> = ({ integrat
                 <div key={key}>
                   {/* Main Card */}
                   <div
-                    className="p-4 border border-gray-200 dark:border-white/[0.06] rounded-lg hover:border-gray-300 dark:hover:border-white/[0.1] transition-colors"
+                    className="p-3 sm:p-4 border border-gray-200 dark:border-white/[0.06] rounded-lg hover:border-gray-300 dark:hover:border-white/[0.1] transition-colors"
                   >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <span className="text-2xl">{config.icon}</span>
-                          <div>
-                            <h4 className="font-medium text-gray-900 dark:text-white">
+                    <div className="flex flex-col gap-3">
+                      {/* Header: Icon + Name/Description */}
+                      <div className="flex items-start gap-2 sm:gap-3">
+                        <span className="text-2xl flex-shrink-0">{config.icon}</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center flex-wrap gap-2 mb-1">
+                            <h4 className="font-medium text-gray-900 dark:text-white text-sm sm:text-base">
                               {config.label}
-                              {config.tier === 'GROWTH' && (
-                                <span className="ml-2 text-xs px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-full">Growth</span>
-                              )}
                             </h4>
-                            <p className="text-sm text-gray-600 dark:text-gray-400">
-                              {config.description}
-                            </p>
+                            {config.tier === 'GROWTH' && (
+                              <span className="text-xs px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-full whitespace-nowrap">Growth</span>
+                            )}
                           </div>
-                        </div>
-
-                        {/* Status Badge */}
-                        <div className="mt-3">
-                          {integration ? (
-                            <>
-                              {getStatusBadge(integration.status)}
-                              {integration.status === 'connected' && integration.details && (
-                                <div className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                                  {integration.details.accountName && (
-                                    <p>Account: {integration.details.accountName}</p>
-                                  )}
-                                  {integration.details.workspaceName && (
-                                    <p>Workspace: {integration.details.workspaceName}</p>
-                                  )}
-                                  {integration.details.channel && (
-                                    <p>Channel: {integration.details.channel}</p>
-                                  )}
-                                  {integration.lastSynced && (
-                                    <p>
-                                      Last synced:{' '}
-                                      {new Date(integration.lastSynced).toLocaleDateString()} at{' '}
-                                      {new Date(integration.lastSynced).toLocaleTimeString()}
-                                    </p>
-                                  )}
-                                </div>
-                              )}
-                              {integration.status === 'coming_soon' && config.availableIn && (
-                                <p className="mt-2 text-xs text-blue-600 dark:text-blue-400">
-                                  Coming in {config.availableIn}
-                                </p>
-                              )}
-                            </>
-                          ) : (
-                            getStatusBadge('not_connected')
-                          )}
+                          <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
+                            {config.description}
+                          </p>
                         </div>
                       </div>
 
-                      {/* Actions */}
-                      <div className="ml-4 flex flex-col gap-2 items-end">
+                      {/* Status Badge + Details */}
+                      <div>
+                        {integration ? (
+                          <>
+                            <div className="mb-2">
+                              {getStatusBadge(integration.status)}
+                            </div>
+                            {integration.status === 'connected' && integration.details && (
+                              <div className="mt-2 text-xs sm:text-sm text-gray-600 dark:text-gray-400 space-y-1">
+                                {integration.details.accountName && (
+                                  <p className="truncate"><span className="font-medium">Account:</span> {integration.details.accountName}</p>
+                                )}
+                                {integration.details.workspaceName && (
+                                  <p className="truncate"><span className="font-medium">Workspace:</span> {integration.details.workspaceName}</p>
+                                )}
+                                {integration.details.channel && (
+                                  <p className="truncate"><span className="font-medium">Channel:</span> {integration.details.channel}</p>
+                                )}
+                                {integration.lastSynced && (
+                                  <p className="text-xs"><span className="font-medium">Last synced:</span> {new Date(integration.lastSynced).toLocaleDateString()}</p>
+                                )}
+                              </div>
+                            )}
+                            {integration.status === 'coming_soon' && config.availableIn && (
+                              <p className="mt-2 text-xs text-blue-600 dark:text-blue-400">
+                                Coming in {config.availableIn}
+                              </p>
+                            )}
+                          </>
+                        ) : (
+                          getStatusBadge('not_connected')
+                        )}
+                      </div>
+
+                      {/* Actions - full width on mobile, right-aligned on desktop */}
+                      <div className="flex flex-col sm:flex-row lg:justify-end gap-2 pt-2 border-t border-gray-100 dark:border-white/[0.03]">
                         {integration && integration.status === 'connected' && (
                           <>
                             {/* Sync button for Stripe & QB */}
@@ -267,13 +266,14 @@ export const IntegrationSection: React.FC<IntegrationSectionProps> = ({ integrat
                                 size="sm"
                                 onClick={() => handleManualSync(key)}
                                 disabled={syncing === key}
+                                className="w-full sm:w-auto lg:flex-none text-xs sm:text-sm"
                               >
-                                {syncing === key ? 'Syncing...' : '🔄 Sync Now'}
+                                {syncing === key ? 'Syncing...' : '🔄 Sync'}
                               </Button>
                             )}
                             <button
                               onClick={() => onDisconnect?.(key)}
-                              className="px-3 py-1 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                              className="w-full sm:w-auto lg:flex-none px-3 py-1.5 text-xs sm:text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
                             >
                               Disconnect
                             </button>
@@ -284,18 +284,20 @@ export const IntegrationSection: React.FC<IntegrationSectionProps> = ({ integrat
                           <>
                             {/* Stripe: Manual Key + OAuth */}
                             {key === 'stripe' && (
-                              <div className="flex flex-col gap-2">
+                              <div className="flex flex-col sm:flex-row lg:flex-row gap-2 w-full sm:w-auto">
                                 <Button
                                   variant="secondary"
                                   size="sm"
                                   onClick={() => setStripeKeyMode(!stripeKeyMode)}
+                                  className="flex-1 sm:flex-none text-xs sm:text-sm"
                                 >
-                                  🔑 Manual Key
+                                  🔑 Key
                                 </Button>
                                 <Button
                                   variant="primary"
                                   size="sm"
                                   onClick={() => handleOAuthConnect('/api/stripe/oauth/authorize')}
+                                  className="flex-1 sm:flex-none text-xs sm:text-sm"
                                 >
                                   Connect
                                 </Button>
@@ -308,8 +310,9 @@ export const IntegrationSection: React.FC<IntegrationSectionProps> = ({ integrat
                                 variant="primary"
                                 size="sm"
                                 onClick={() => window.location.href = '/invoices'}
+                                className="w-full sm:w-auto lg:flex-none text-xs sm:text-sm"
                               >
-                                📤 Go to Invoices
+                                📤 Invoices
                               </Button>
                             )}
 
@@ -319,6 +322,7 @@ export const IntegrationSection: React.FC<IntegrationSectionProps> = ({ integrat
                                 variant="primary"
                                 size="sm"
                                 onClick={() => handleOAuthConnect('/api/slack/authorize')}
+                                className="w-full sm:w-auto lg:flex-none text-xs sm:text-sm"
                               >
                                 Connect
                               </Button>
@@ -330,6 +334,7 @@ export const IntegrationSection: React.FC<IntegrationSectionProps> = ({ integrat
                                 variant="primary"
                                 size="sm"
                                 onClick={() => handleOAuthConnect('/api/quickbooks/oauth/authorize')}
+                                className="w-full sm:w-auto lg:flex-none text-xs sm:text-sm"
                               >
                                 Connect
                               </Button>
@@ -337,8 +342,8 @@ export const IntegrationSection: React.FC<IntegrationSectionProps> = ({ integrat
 
                             {/* Xero & Plaid: Coming Soon */}
                             {(key === 'xero' || key === 'plaid') && (
-                              <span className="text-xs text-blue-600 dark:text-blue-400 text-right">
-                                Coming in Growth plan
+                              <span className="text-xs text-blue-600 dark:text-blue-400 py-2">
+                                Growth plan
                               </span>
                             )}
                           </>
@@ -349,11 +354,11 @@ export const IntegrationSection: React.FC<IntegrationSectionProps> = ({ integrat
 
                   {/* Stripe Manual Key Input - appears inline under Stripe card */}
                   {key === 'stripe' && stripeKeyMode && (
-                    <div className="mt-2 p-4 border border-blue-200 dark:border-blue-800 rounded-lg bg-blue-50 dark:bg-blue-900/10">
-                      <label className="block text-sm font-medium text-gray-900 dark:text-white mb-3">
-                        Paste your Stripe API Key
+                    <div className="mt-2 p-3 sm:p-4 border border-blue-200 dark:border-blue-800 rounded-lg bg-blue-50 dark:bg-blue-900/10 space-y-3">
+                      <label className="block text-xs sm:text-sm font-medium text-gray-900 dark:text-white">
+                        Stripe API Key
                       </label>
-                      <div className="flex gap-2 mb-3">
+                      <div className="flex flex-col sm:flex-row gap-2">
                         <input
                           type="password"
                           value={stripeKey}
@@ -361,20 +366,24 @@ export const IntegrationSection: React.FC<IntegrationSectionProps> = ({ integrat
                           placeholder="sk_live_..."
                           className="flex-1 px-3 py-2 border border-gray-300 dark:border-white/[0.08] rounded-lg bg-white dark:bg-white/[0.03] text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
                         />
-                        <Button
-                          variant="primary"
-                          size="sm"
-                          onClick={() => handleManualKey()}
-                        >
-                          Save
-                        </Button>
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => setStripeKeyMode(false)}
-                        >
-                          Cancel
-                        </Button>
+                        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            onClick={() => handleManualKey()}
+                            className="flex-1 sm:flex-none text-xs sm:text-sm"
+                          >
+                            Save
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => setStripeKeyMode(false)}
+                            className="flex-1 sm:flex-none text-xs sm:text-sm"
+                          >
+                            Cancel
+                          </Button>
+                        </div>
                       </div>
                       <p className="text-xs text-gray-600 dark:text-gray-400">
                         🔒 Encrypted & secure. Get from <a href="https://dashboard.stripe.com/apikeys" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline font-medium">Stripe Dashboard</a>

@@ -331,7 +331,7 @@ export const UsersTab: React.FC = () => {
               {/* Account Info */}
               <div>
                 <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Account</h3>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <p className="text-xs text-gray-500 dark:text-gray-400">Company</p>
                     <p className="text-sm font-medium text-gray-900 dark:text-white mt-1">
@@ -406,7 +406,7 @@ export const UsersTab: React.FC = () => {
               {/* Status & Dates */}
               <div>
                 <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Details</h3>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <p className="text-xs text-gray-500 dark:text-gray-400">Status</p>
                     <p className="text-sm font-medium text-gray-900 dark:text-white mt-1">

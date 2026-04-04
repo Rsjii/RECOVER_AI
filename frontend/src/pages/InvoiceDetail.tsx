@@ -298,15 +298,15 @@ const InvoiceDetail: React.FC = () => {
       {/* High-Risk Warning */}
       {invoice && invoice.days_overdue && invoice.days_overdue > 90 && (
         <Card className="border-l-4 border-red-600 bg-red-50 dark:bg-red-950/20">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="text-2xl">🚨</div>
-              <div>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="flex items-start gap-3 min-w-0">
+              <div className="text-2xl flex-shrink-0">🚨</div>
+              <div className="min-w-0">
                 <p className="font-semibold text-red-900 dark:text-red-300">Critical: {invoice.days_overdue} Days Overdue</p>
                 <p className="text-sm text-red-700 dark:text-red-400 mt-0.5">This invoice requires immediate action. Consider escalating to collections.</p>
               </div>
             </div>
-            <button className="px-3 py-1 bg-red-600 text-white rounded font-medium text-sm hover:bg-red-700 transition-colors">
+            <button className="px-3 py-2 bg-red-600 text-white rounded font-medium text-sm hover:bg-red-700 transition-colors whitespace-nowrap flex-shrink-0">
               📞 Escalate
             </button>
           </div>
@@ -315,9 +315,9 @@ const InvoiceDetail: React.FC = () => {
 
       {invoice && invoice.days_overdue && invoice.days_overdue > 60 && invoice.days_overdue <= 90 && (
         <Card className="border-l-4 border-orange-600 bg-orange-50 dark:bg-orange-950/20">
-          <div className="flex items-center gap-3">
-            <div className="text-2xl">⚠️</div>
-            <div>
+          <div className="flex items-start gap-3">
+            <div className="text-2xl flex-shrink-0">⚠️</div>
+            <div className="min-w-0">
               <p className="font-semibold text-orange-900 dark:text-orange-300">{invoice.days_overdue} Days Overdue - High Risk</p>
               <p className="text-sm text-orange-700 dark:text-orange-400 mt-0.5">Send final notice and offer payment plan.</p>
             </div>
@@ -326,7 +326,7 @@ const InvoiceDetail: React.FC = () => {
       )}
 
       {/* KPI row */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Card>
           <p className="text-xs text-gray-500 dark:text-gray-400">Invoice Amount</p>
           <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
@@ -343,29 +343,31 @@ const InvoiceDetail: React.FC = () => {
 
       {/* Tabs */}
       <Card>
-        <div className="flex border-b border-gray-200 dark:border-white/[0.06] gap-1 -mt-2 -mx-1 mb-4">
-          {tabs.map(t => (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className={`relative px-4 py-2.5 text-sm font-medium transition-colors ${
-                tab === t.id
-                  ? 'text-blue-600 dark:text-blue-400'
-                  : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-              }`}
-            >
-              {t.label}
-              {tab === t.id && (
-                <span className="absolute left-0 right-0 -bottom-[1px] h-0.5 bg-blue-600 dark:bg-blue-400 rounded-full" />
-              )}
-            </button>
-          ))}
+        <div className="overflow-x-auto sm:scrollbar-show -mx-1 mb-4">
+          <div className="flex border-b border-gray-200 dark:border-white/[0.06] gap-1 -mt-2 px-1">
+            {tabs.map(t => (
+              <button
+                key={t.id}
+                onClick={() => setTab(t.id)}
+                className={`relative px-4 py-2.5 text-sm font-medium transition-colors whitespace-nowrap ${
+                  tab === t.id
+                    ? 'text-blue-600 dark:text-blue-400'
+                    : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                }`}
+              >
+                {t.label}
+                {tab === t.id && (
+                  <span className="absolute left-0 right-0 -bottom-[1px] h-0.5 bg-blue-600 dark:bg-blue-400 rounded-full" />
+                )}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Details */}
         {tab === 'details' && (
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-6 text-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-sm">
               <div><span className="text-gray-500 dark:text-gray-400 block mb-1">Customer</span><span className="text-gray-900 dark:text-white font-medium">{invoice.customer_name}</span></div>
               <div className="relative group">
                 <span className="text-gray-500 dark:text-gray-400 block mb-1">Email</span>
@@ -466,9 +468,9 @@ const InvoiceDetail: React.FC = () => {
         {/* Emails */}
         {tab === 'emails' && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-4">
               <h3 className="text-sm font-medium text-gray-900 dark:text-white">Email History</h3>
-              <div className="space-y-2">
+              <div className="space-y-2 w-full sm:w-auto sm:max-w-sm ml-auto">
                 <div>
                   <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Email Type
@@ -501,10 +503,10 @@ const InvoiceDetail: React.FC = () => {
               : (
                 <div className="space-y-3">
                   {detail!.emailLogs.map(e => (
-                    <div key={e.id} className="border border-gray-200 dark:border-white/[0.06] rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-sm font-medium text-gray-900 dark:text-white">{e.subject}</span>
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                    <div key={e.id} className="border border-gray-200 dark:border-white/[0.06] rounded-lg p-3 sm:p-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
+                        <span className="text-sm font-medium text-gray-900 dark:text-white truncate">{e.subject}</span>
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium whitespace-nowrap flex-shrink-0 ${
                           ['opened','clicked'].includes(e.status) ? 'bg-green-100 text-green-700' :
                           ['bounced','failed'].includes(e.status) ? 'bg-red-100 text-red-700' :
                           'bg-gray-100 text-gray-600'}`}>

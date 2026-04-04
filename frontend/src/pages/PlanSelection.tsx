@@ -53,7 +53,7 @@ const PlanSelection: React.FC = () => {
           <div className="w-12 h-12 rounded-xl bg-brand-600 flex items-center justify-center mx-auto mb-4">
             <span className="text-white text-xl font-bold">R</span>
           </div>
-          <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-3">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-3">
             Welcome to RecoverAI
           </h1>
           <p className="text-lg text-gray-600 dark:text-gray-400">

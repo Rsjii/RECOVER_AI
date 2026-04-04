@@ -214,7 +214,7 @@ export const CustomerModal: React.FC<CustomerModalProps> = ({ customer, isOpen, 
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="text-xs text-gray-500 dark:text-gray-400">Name</label>
                 <p className="text-sm text-gray-900 dark:text-white">{customer.name}</p>
@@ -304,7 +304,7 @@ export const CustomerModal: React.FC<CustomerModalProps> = ({ customer, isOpen, 
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs text-gray-500 dark:text-gray-400">Phone</label>
                   <p className="text-sm text-gray-900 dark:text-white">{phone || '—'}</p>

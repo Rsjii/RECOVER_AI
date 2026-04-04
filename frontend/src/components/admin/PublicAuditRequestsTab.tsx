@@ -178,7 +178,7 @@ export const PublicAuditRequestsTab: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header with stats */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <p className="text-xs text-gray-500 dark:text-gray-400">Total Requests</p>
           <p className="text-2xl font-bold mt-1 text-gray-900 dark:text-white">{stats.total}</p>

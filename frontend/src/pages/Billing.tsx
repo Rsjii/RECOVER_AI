@@ -189,7 +189,7 @@ const Billing: React.FC = () => {
                   {/* What you get */}
                   <div className="bg-white dark:bg-white/5 rounded-xl border border-gray-100 dark:border-white/10 p-4 mb-6">
                     <p className="text-sm font-semibold text-gray-900 dark:text-white mb-3">What's included after upgrade:</p>
-                    <div className="grid grid-cols-2 gap-y-2 gap-x-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-2 gap-x-4">
                       {[
                         'Autonomous AR agent',
                         'AI-written dunning emails',

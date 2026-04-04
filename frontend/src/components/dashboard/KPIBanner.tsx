@@ -367,7 +367,7 @@ export const KPIBanner: React.FC<KPIBannerProps> = ({ data, aging, workingCapita
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-lg p-4 border border-emerald-200 dark:border-emerald-800">
                 <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">Recovered</p>
                 <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300 mt-1">{data?.recoveryRate ?? 0}%</p>
@@ -436,7 +436,7 @@ export const KPIBanner: React.FC<KPIBannerProps> = ({ data, aging, workingCapita
                 {fmtCurrency(workingCapital?.total ?? 0)}
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-lg p-4 border border-emerald-200 dark:border-emerald-800">
                 <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium uppercase tracking-wide">AR Recovered</p>
                 <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300 mt-1">
@@ -497,7 +497,7 @@ export const KPIBanner: React.FC<KPIBannerProps> = ({ data, aging, workingCapita
                 {dsoReductionDays > 0 ? '+' : ''}{dsoReductionDays}d
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="bg-gray-50 dark:bg-white/[0.02] rounded-lg p-4 border border-gray-200 dark:border-white/[0.05]">
                 <p className="text-xs text-gray-600 dark:text-gray-400 font-medium uppercase tracking-wide">Current DSO</p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{dsoReduction?.currentDSO ?? 0}d</p>

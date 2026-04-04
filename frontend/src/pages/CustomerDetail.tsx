@@ -173,7 +173,7 @@ const CustomerDetail: React.FC = () => {
         )}
 
         {/* KPI Row */}
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card>
             <p className="text-xs text-gray-500 dark:text-gray-400">Total Invoices</p>
             <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{stats.totalInvoices}</p>
@@ -232,23 +232,25 @@ const CustomerDetail: React.FC = () => {
 
         {/* Tabs */}
         <Card>
-          <div className="flex border-b border-gray-200 dark:border-white/[0.06] gap-1 -mt-2 -mx-1 mb-4">
-            {tabs.map(t => (
-              <button
-                key={t.id}
-                onClick={() => setTab(t.id)}
-                className={`relative px-4 py-2.5 text-sm font-medium transition-colors ${
-                  tab === t.id
-                    ? 'text-blue-600 dark:text-blue-400'
-                    : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-                }`}
-              >
-                {t.label}
-                {tab === t.id && (
-                  <span className="absolute left-0 right-0 -bottom-[1px] h-0.5 bg-blue-600 dark:bg-blue-400 rounded-full" />
-                )}
-              </button>
-            ))}
+          <div className="overflow-x-auto sm:scrollbar-show -mx-1 mb-4">
+            <div className="flex border-b border-gray-200 dark:border-white/[0.06] gap-1 -mt-2 px-1">
+              {tabs.map(t => (
+                <button
+                  key={t.id}
+                  onClick={() => setTab(t.id)}
+                  className={`relative px-4 py-2.5 text-sm font-medium transition-colors whitespace-nowrap ${
+                    tab === t.id
+                      ? 'text-blue-600 dark:text-blue-400'
+                      : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                  }`}
+                >
+                  {t.label}
+                  {tab === t.id && (
+                    <span className="absolute left-0 right-0 -bottom-[1px] h-0.5 bg-blue-600 dark:bg-blue-400 rounded-full" />
+                  )}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Overview Tab */}
@@ -256,7 +258,7 @@ const CustomerDetail: React.FC = () => {
             <div className="space-y-6">
               <div>
                 <h3 className="font-semibold text-gray-900 dark:text-white mb-4">Profile Information</h3>
-                <div className="grid grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   <div>
                     <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Name</label>
                     <p className="text-sm text-gray-900 dark:text-white">{customer.name}</p>
@@ -293,11 +295,11 @@ const CustomerDetail: React.FC = () => {
                         </button>
                       </div>
                     ) : (
-                      <div className="flex items-center justify-between">
-                        <p className="text-sm text-gray-900 dark:text-white">{customer.email}</p>
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                        <p className="text-sm text-gray-900 dark:text-white truncate">{customer.email}</p>
                         <button
                           onClick={() => setEditingEmail(true)}
-                          className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                          className="text-xs text-blue-600 dark:text-blue-400 hover:underline whitespace-nowrap flex-shrink-0"
                         >
                           Edit
                         </button>
@@ -315,7 +317,7 @@ const CustomerDetail: React.FC = () => {
 
               <div className="border-t border-gray-200 dark:border-white/[0.06] pt-6">
                 <h3 className="font-semibold text-gray-900 dark:text-white mb-4">Payment Behavior</h3>
-                <div className="grid grid-cols-3 gap-6 text-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 text-sm">
                   <div>
                     <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Avg Days Late</label>
                     <p className="text-lg font-semibold text-gray-900 dark:text-white">{stats.avgDaysLate}d</p>
@@ -348,12 +350,12 @@ const CustomerDetail: React.FC = () => {
                       onClick={() => navigate(`/invoices/${inv.id}`)}
                       className="p-4 border border-gray-200 dark:border-white/[0.06] rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-white/[0.03] transition-colors"
                     >
-                      <div className="flex items-center justify-between mb-2">
-                        <div>
-                          <p className="font-medium text-gray-900 dark:text-white">{formatCurrency(inv.amount, inv.currency)}</p>
+                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-gray-900 dark:text-white truncate">{formatCurrency(inv.amount, inv.currency)}</p>
                           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Due {formatDate(inv.due_date)}</p>
                         </div>
-                        <div className="text-right">
+                        <div className="text-right flex-shrink-0">
                           <span className="px-2 py-0.5 rounded-full text-xs font-medium capitalize"
                             style={{ backgroundColor: `${color}20`, color }}>
                             {inv.status}
@@ -376,12 +378,12 @@ const CustomerDetail: React.FC = () => {
               ) : (
                 detail.emailLogs.map(log => (
                   <div key={log.id} className="p-3 border border-gray-200 dark:border-white/[0.06] rounded-lg">
-                    <div className="flex items-start justify-between mb-2">
-                      <div>
-                        <p className="font-medium text-sm text-gray-900 dark:text-white">{log.subject}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{log.email_type} • {log.recipient_email}</p>
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-sm text-gray-900 dark:text-white truncate">{log.subject}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate">{log.email_type} • {log.recipient_email}</p>
                       </div>
-                      <span className={`px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap ${
+                      <span className={`px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap flex-shrink-0 ${
                         log.status === 'opened' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
                         log.status === 'clicked' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
                         log.status === 'bounced' || log.status === 'failed' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
@@ -409,9 +411,9 @@ const CustomerDetail: React.FC = () => {
               ) : (
                 detail.paymentPlans.map(plan => (
                   <div key={plan.id} className="p-4 border border-gray-200 dark:border-white/[0.06] rounded-lg">
-                    <div className="flex items-center justify-between mb-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
                       <p className="font-medium text-gray-900 dark:text-white">{plan.installments?.length || 0} installments</p>
-                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                      <span className={`px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap flex-shrink-0 ${
                         plan.status === 'active' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
                         plan.status === 'completed' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
                         'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
@@ -422,9 +424,9 @@ const CustomerDetail: React.FC = () => {
                     {plan.installments && (
                       <div className="space-y-2">
                         {plan.installments.map((inst, idx) => (
-                          <div key={idx} className="flex items-center justify-between text-sm p-2 bg-gray-50 dark:bg-white/[0.03] rounded">
-                            <span className="text-gray-600 dark:text-gray-400">Installment {idx + 1}: {formatCurrency(inst.amount, 'USD')}</span>
-                            <span className={`text-xs font-medium ${inst.paid ? 'text-green-600' : 'text-gray-500'}`}>
+                          <div key={idx} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-sm p-2 bg-gray-50 dark:bg-white/[0.03] rounded">
+                            <span className="text-gray-600 dark:text-gray-400 min-w-0 flex-1 truncate">Installment {idx + 1}: {formatCurrency(inst.amount, 'USD')}</span>
+                            <span className={`text-xs font-medium whitespace-nowrap flex-shrink-0 ${inst.paid ? 'text-green-600' : 'text-gray-500'}`}>
                               {inst.paid ? '✓ Paid' : `Due ${formatDate(inst.due_date)}`}
                             </span>
                           </div>

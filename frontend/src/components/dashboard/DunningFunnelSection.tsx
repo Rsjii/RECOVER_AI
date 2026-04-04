@@ -128,9 +128,9 @@ export const DunningFunnelSection: React.FC<DunningFunnelSectionProps> = ({
     >
       <div className="space-y-6">
         {/* Horizontal flow visualization */}
-        <div className="space-y-2">
-          {/* Stage boxes in a row */}
-          <div className="grid grid-cols-5 gap-2">
+        <div className="space-y-3">
+          {/* Stage boxes - vertical on mobile, horizontal on lg */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-2">
             {stages.map((stage) => {
               const isExpanded = expandedStage === stage.id;
 
@@ -141,12 +141,12 @@ export const DunningFunnelSection: React.FC<DunningFunnelSectionProps> = ({
                   className={`relative group transition-all`}
                 >
                   {/* Card */}
-                  <div className={`${stage.bgColor} ${stage.borderColor} border rounded-lg p-4 transition-all ${isExpanded ? 'ring-2' : ''}`}>
-                    <div className="text-2xl mb-2">{stage.icon}</div>
-                    <p className={`text-xs font-semibold mb-1 ${stage.textColor}`}>{stage.name}</p>
-                    <p className={`text-lg font-bold ${stage.textColor}`}>{stage.count.toLocaleString()}</p>
+                  <div className={`${stage.bgColor} ${stage.borderColor} border rounded-lg p-4 sm:p-3 lg:p-4 transition-all ${isExpanded ? 'ring-2' : ''} hover:shadow-md`}>
+                    <div className="text-3xl sm:text-2xl mb-3 sm:mb-2">{stage.icon}</div>
+                    <p className={`text-xs sm:text-xs font-semibold mb-2 sm:mb-1 ${stage.textColor} leading-tight`}>{stage.name}</p>
+                    <p className={`text-xl sm:text-lg font-bold ${stage.textColor}`}>{stage.count.toLocaleString()}</p>
                     {stage.amount > 0 && (
-                      <p className={`text-xs mt-1 opacity-75 ${stage.textColor}`}>${stage.amount.toLocaleString()}</p>
+                      <p className={`text-xs sm:text-xs mt-2 sm:mt-1 opacity-75 ${stage.textColor}`}>${stage.amount.toLocaleString()}</p>
                     )}
                   </div>
 
@@ -173,9 +173,9 @@ export const DunningFunnelSection: React.FC<DunningFunnelSectionProps> = ({
           </div>
 
           {/* Mobile conversion rates */}
-          <div className="grid grid-cols-4 gap-2 sm:hidden text-xs text-center">
+          <div className="grid grid-cols-2 sm:hidden gap-2 text-xs text-center">
             {conversions.map((conv) => (
-              <div key={`${conv.from}-${conv.to}`} className="text-gray-600 dark:text-gray-400 font-medium">
+              <div key={`${conv.from}-${conv.to}`} className="py-2 text-gray-600 dark:text-gray-400 font-semibold bg-gray-50 dark:bg-white/[0.02] rounded">
                 ↓ {conv.rate}%
               </div>
             ))}
@@ -291,7 +291,7 @@ export const DunningFunnelSection: React.FC<DunningFunnelSectionProps> = ({
         )}
 
         {/* Summary cards */}
-        <div className="grid grid-cols-3 gap-3 pt-2 border-t border-gray-200 dark:border-white/[0.05]">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 pt-2 border-t border-gray-200 dark:border-white/[0.05]">
           <div className="bg-gray-100 dark:bg-white/[0.05] rounded-lg p-3 border border-gray-200 dark:border-white/[0.1]">
             <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Recovery %</p>
             <p className="text-xl font-bold text-gray-900 dark:text-white">

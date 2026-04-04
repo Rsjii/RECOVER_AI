@@ -163,10 +163,10 @@ const Activity: React.FC = () => {
 
   return (
     <div className="space-y-6 pb-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Agent Activity</h1>
         {queueStats && activeTab === 'emails' && (
-          <div className="flex gap-4 text-sm">
+          <div className="flex gap-4 text-sm flex-wrap">
             <span className="text-gray-500">Queue: <span className="font-medium text-gray-900 dark:text-white">{queueStats.waiting || 0} waiting</span></span>
             <span className="text-gray-500">Active: <span className="font-medium text-green-600">{queueStats.active || 0}</span></span>
           </div>
@@ -217,9 +217,9 @@ const Activity: React.FC = () => {
                               <div className="flex items-start gap-3">
                                 <span className="text-lg mt-0.5">{statusIcon(log.status)}</span>
                                 <div className="flex-1 min-w-0">
-                                  <div className="flex items-start justify-between gap-2">
-                                    <div className="flex-1">
-                                      <p className="text-sm font-medium text-gray-900 dark:text-white">{log.subject}</p>
+                                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-sm font-medium text-gray-900 dark:text-white break-words">{log.subject}</p>
                                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                                         To: <span className="font-mono">{log.recipient_email}</span> · {log.email_type} · {formatDate(log.sent_at)}
                                       </p>
@@ -383,7 +383,7 @@ const Activity: React.FC = () => {
                 {queueStats && (
                   <div className="p-3 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-lg">
                     <p className="text-sm font-medium text-indigo-900 dark:text-indigo-300">Current Queue Status</p>
-                    <div className="flex gap-6 mt-2 text-sm">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-2 text-xs sm:text-sm">
                       <span className="text-gray-600 dark:text-gray-400">Waiting: <span className="font-semibold text-gray-900 dark:text-white">{queueStats.waiting || 0}</span></span>
                       <span className="text-gray-600 dark:text-gray-400">Active: <span className="font-semibold text-emerald-600">{queueStats.active || 0}</span></span>
                       <span className="text-gray-600 dark:text-gray-400">Completed: <span className="font-semibold text-gray-900 dark:text-white">{queueStats.completed || 0}</span></span>

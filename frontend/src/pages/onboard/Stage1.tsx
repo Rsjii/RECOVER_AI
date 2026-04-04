@@ -526,7 +526,7 @@ export const Stage1: React.FC = () => {
             )}
 
             <form onSubmit={handleDetailsSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Input
                   type="text"
                   placeholder="First Name"

@@ -174,7 +174,7 @@ const Landing: React.FC = () => {
           </div>
           <div className="bg-white dark:bg-[#09090b] p-5">
             {/* Row 1: Cash Runway + Cash Position + At-Risk */}
-            <div className="grid grid-cols-3 gap-3 mb-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 mb-4">
               <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-xl p-4 border border-emerald-200 dark:border-emerald-800 text-center">
                 <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">Cash Runway</p>
                 <p className="text-3xl font-bold text-emerald-700 dark:text-emerald-300 mt-1">142 <span className="text-lg">days</span></p>

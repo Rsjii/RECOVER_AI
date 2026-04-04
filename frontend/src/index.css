@@ -62,6 +62,17 @@
     scrollbar-width: none;
   }
 
+  /* Hide scrollbars on desktop, show on mobile */
+  @media (min-width: 640px) {
+    .sm\:scrollbar-show::-webkit-scrollbar {
+      display: none;
+    }
+    .sm\:scrollbar-show {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  }
+
   /* Glow effects */
   .glow-brand {
     box-shadow: 0 0 30px var(--color-brand-glow);

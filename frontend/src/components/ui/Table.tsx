@@ -58,8 +58,9 @@ export const Table = <T extends Record<string, any>>({
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm text-left text-gray-700 dark:text-gray-300">
+    <div className="flex flex-col">
+      <div className="overflow-x-auto flex-1">
+        <table className="w-full text-sm text-left text-gray-700 dark:text-gray-300">
         <thead className="bg-gray-50 dark:bg-white/[0.03] border-b border-gray-200 dark:border-white/[0.06]">
           <tr>
             {columns.map((col) => (
@@ -85,15 +86,33 @@ export const Table = <T extends Record<string, any>>({
             </tr>
           ))}
         </tbody>
-      </table>
+        </table>
+      </div>
       {pagination && (
-        <div className="flex items-center justify-between p-4 border-t border-gray-200 dark:border-white/[0.06] bg-gray-50 dark:bg-white/[0.02]">
-          <div className="text-sm text-gray-600 dark:text-gray-400">
-            Page {pagination.page} of {pagination.pages} (Total: {pagination.total})
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-3 sm:p-4 border-t border-gray-200 dark:border-white/[0.06] bg-gray-50 dark:bg-white/[0.02]">
+          <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 order-2 sm:order-1">
+            <span className="sm:hidden">Page {pagination.page}/{pagination.pages}</span>
+            <span className="hidden sm:inline">Page {pagination.page} of {pagination.pages} (Total: {pagination.total})</span>
           </div>
-          <div className="flex gap-2">
-            <Button size="sm" variant="secondary" disabled={pagination.page === 1} onClick={() => pagination.onPageChange(pagination.page - 1)}>Previous</Button>
-            <Button size="sm" variant="secondary" disabled={pagination.page === pagination.pages} onClick={() => pagination.onPageChange(pagination.page + 1)}>Next</Button>
+          <div className="flex gap-2 order-1 sm:order-2 w-full sm:w-auto">
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={pagination.page === 1}
+              onClick={() => pagination.onPageChange(pagination.page - 1)}
+              className="flex-1 sm:flex-none text-xs sm:text-sm"
+            >
+              ← Previous
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={pagination.page === pagination.pages}
+              onClick={() => pagination.onPageChange(pagination.page + 1)}
+              className="flex-1 sm:flex-none text-xs sm:text-sm"
+            >
+              Next →
+            </Button>
           </div>
         </div>
       )}

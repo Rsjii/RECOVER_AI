@@ -83,7 +83,7 @@ export const ManualInvoiceModal: React.FC<ManualInvoiceModalProps> = ({ isOpen, 
         {field('Customer Name', 'customerName', { placeholder: 'Acme Corp' })}
         {field('Customer Email', 'customerEmail', { type: 'email', placeholder: 'billing@acme.com' })}
         {field('Phone (optional)', 'customerPhone', { type: 'tel', placeholder: '+12125551234' })}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {field('Amount', 'amount', { type: 'number', min: '0.01', step: '0.01', placeholder: '1000.00' })}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Currency</label>

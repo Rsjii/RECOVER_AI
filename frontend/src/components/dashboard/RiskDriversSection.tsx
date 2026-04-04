@@ -46,7 +46,7 @@ export const RiskDriversSection: React.FC<RiskDriversSectionProps> = ({ drivers,
         {/* Signal Breakdown */}
         <div className="space-y-3">
           <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Signal Breakdown</h3>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {sorted.map((item) => (
               <div key={item.label} className={`${item.bgColor} rounded-lg p-3 border border-transparent`}>
                 <div className="text-xl font-bold mb-1">{item.icon}</div>

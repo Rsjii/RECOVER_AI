@@ -133,12 +133,12 @@ const DemoLaunch: React.FC = () => {
               </div>
               <div className="divide-y divide-gray-100 dark:divide-gray-700">
                 {preview.previews.slice(0, 8).map((item) => (
-                  <div key={`${item.invoiceId}-${item.emailType}`} className="p-4 flex items-center justify-between gap-4">
-                    <div className="min-w-0">
+                  <div key={`${item.invoiceId}-${item.emailType}`} className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div className="min-w-0 flex-1">
                       <div className="font-medium text-sm text-gray-900 dark:text-white truncate">{item.customerName}</div>
                       <div className="text-xs text-gray-500 truncate">{item.recipientEmail}</div>
                     </div>
-                    <div className="flex items-center gap-3 flex-shrink-0">
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-3 flex-shrink-0">
                       <span className="text-xs text-gray-500">{item.daysOverdue}d overdue</span>
                       <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
                         ${item.amount.toLocaleString()}

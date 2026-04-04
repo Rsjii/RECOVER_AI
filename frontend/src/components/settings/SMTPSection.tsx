@@ -149,7 +149,7 @@ export const SMTPSection: React.FC = () => {
 
             {/* Config Summary */}
             <div className="space-y-3 bg-white dark:bg-white/[0.03] rounded-lg p-4 border border-green-200 dark:border-green-900/20">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <p className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wider">From Email</p>
                   <p className="text-sm font-semibold text-gray-900 dark:text-white mt-1">{status.fromEmail}</p>
@@ -317,7 +317,7 @@ export const SMTPSection: React.FC = () => {
               </div>
 
               {/* Port & Username Grid */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-900 dark:text-white mb-2">
                     Port <span className="text-red-500">*</span>
@@ -374,7 +374,7 @@ export const SMTPSection: React.FC = () => {
               </div>
 
               {/* From Email & Name Grid */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-900 dark:text-white mb-2">
                     From Email <span className="text-red-500">*</span>

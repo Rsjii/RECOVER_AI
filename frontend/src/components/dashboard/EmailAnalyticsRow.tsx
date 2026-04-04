@@ -30,7 +30,7 @@ export default function EmailAnalyticsRow({ analytics, loading = false }: EmailA
     return (
       <div className="bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] rounded-xl p-4 animate-pulse">
         <div className="h-3 w-40 bg-gray-200 dark:bg-white/10 rounded mb-4" />
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {Array.from({ length: 2 }).map((_, i) => (
             <div key={i} className="bg-gray-100 dark:bg-[#18181b] rounded-lg p-3 h-20" />
           ))}
@@ -43,7 +43,7 @@ export default function EmailAnalyticsRow({ analytics, loading = false }: EmailA
     <div className="bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] rounded-xl p-4">
       <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Email Campaign Status</h3>
 
-      <div className="grid grid-cols-2 gap-3 mb-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
         <MetricPill label="Emails Sent" value={(analytics?.sent ?? 0).toLocaleString()} sublabel="dunning emails" />
         <MetricPill label="Deliverability" value={`${analytics?.sent ? '100' : 0}%`} sublabel="via Resend" />
       </div>

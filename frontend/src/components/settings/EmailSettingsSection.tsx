@@ -368,7 +368,7 @@ export const EmailSettingsSection: React.FC<EmailSettingsSectionProps> = ({
 
               {/* Form Fields */}
               <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-900 dark:text-white mb-2">
                     SMTP Host <span className="text-red-500">*</span>
@@ -442,7 +442,7 @@ export const EmailSettingsSection: React.FC<EmailSettingsSectionProps> = ({
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-900 dark:text-white mb-2">
                     From Email <span className="text-red-500">*</span>

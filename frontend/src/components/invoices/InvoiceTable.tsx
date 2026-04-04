@@ -301,42 +301,68 @@ export const InvoiceTable: React.FC<InvoiceTableProps> = ({
 
   // Mobile card view
   const MobileCards = () => (
-    <div className="md:hidden space-y-3">
-      {loading
-        ? Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="p-4 bg-white dark:bg-[#111113] rounded-lg border border-gray-200 dark:border-white/[0.06] animate-pulse">
-              <div className="h-4 bg-gray-200 dark:bg-white/[0.08] rounded w-3/4 mb-2" />
-              <div className="h-3 bg-gray-100 dark:bg-white/[0.05] rounded w-1/2" />
-            </div>
-          ))
-        : invoices.map(inv => {
-            const days = calculateDaysOverdue(inv.due_date);
-            const color = STATUS_COLORS[inv.status as keyof typeof STATUS_COLORS] || '#6b7280';
-            const { label: dunLabel, cls: dunCls } = dunningBadge(inv.dunning_stage);
-            return (
-              <div key={inv.id} onClick={() => onRowClick(inv)}
-                className="p-4 bg-white dark:bg-[#111113] rounded-lg border border-gray-200 dark:border-white/[0.06] cursor-pointer hover:bg-gray-50 dark:hover:bg-white/[0.03] transition-colors">
-                <div className="flex justify-between items-start mb-2">
-                  <div>
-                    <div className="font-medium text-gray-900 dark:text-white">{inv.customer_name || 'Unknown'}</div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400 font-mono">{inv.source_id ?? inv.id.slice(0, 8)}</div>
-                  </div>
-                  <span className="px-2.5 py-1 rounded-full text-xs font-medium capitalize"
-                    style={{ backgroundColor: `${color}20`, color }}>{inv.status}</span>
-                </div>
-                <div className="flex justify-between items-center mb-1">
-                  <span className="text-lg font-bold text-gray-900 dark:text-white">{formatCurrency(inv.amount, inv.currency)}</span>
-                  {days > 0
-                    ? <span className="text-xs font-medium text-red-500">{days}d overdue</span>
-                    : <span className="text-xs text-gray-500 dark:text-gray-400">{formatDate(inv.due_date)}</span>}
-                </div>
-                <div className="flex justify-between items-center mt-2">
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${dunCls}`}>{dunLabel}</span>
-                  <span className="text-xs text-blue-600 dark:text-blue-400">{inv.next_action ?? '—'}</span>
-                </div>
+    <div className="md:hidden flex flex-col">
+      <div className="space-y-3 flex-1">
+        {loading
+          ? Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="p-4 bg-white dark:bg-[#111113] rounded-lg border border-gray-200 dark:border-white/[0.06] animate-pulse">
+                <div className="h-4 bg-gray-200 dark:bg-white/[0.08] rounded w-3/4 mb-2" />
+                <div className="h-3 bg-gray-100 dark:bg-white/[0.05] rounded w-1/2" />
               </div>
-            );
-          })}
+            ))
+          : invoices.map(inv => {
+              const days = calculateDaysOverdue(inv.due_date);
+              const color = STATUS_COLORS[inv.status as keyof typeof STATUS_COLORS] || '#6b7280';
+              const { label: dunLabel, cls: dunCls } = dunningBadge(inv.dunning_stage);
+              return (
+                <div key={inv.id} onClick={() => onRowClick(inv)}
+                  className="p-4 bg-white dark:bg-[#111113] rounded-lg border border-gray-200 dark:border-white/[0.06] cursor-pointer hover:bg-gray-50 dark:hover:bg-white/[0.03] transition-colors">
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <div className="font-medium text-gray-900 dark:text-white">{inv.customer_name || 'Unknown'}</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400 font-mono">{inv.source_id ?? inv.id.slice(0, 8)}</div>
+                    </div>
+                    <span className="px-2.5 py-1 rounded-full text-xs font-medium capitalize"
+                      style={{ backgroundColor: `${color}20`, color }}>{inv.status}</span>
+                  </div>
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-lg font-bold text-gray-900 dark:text-white">{formatCurrency(inv.amount, inv.currency)}</span>
+                    {days > 0
+                      ? <span className="text-xs font-medium text-red-500">{days}d overdue</span>
+                      : <span className="text-xs text-gray-500 dark:text-gray-400">{formatDate(inv.due_date)}</span>}
+                  </div>
+                  <div className="flex justify-between items-center mt-2">
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${dunCls}`}>{dunLabel}</span>
+                    <span className="text-xs text-blue-600 dark:text-blue-400">{inv.next_action ?? '—'}</span>
+                  </div>
+                </div>
+              );
+            })}
+      </div>
+      {pagination && (
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-3 sm:p-4 border-t border-gray-200 dark:border-white/[0.06] bg-gray-50 dark:bg-white/[0.02] mt-3">
+          <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 order-2 sm:order-1">
+            <span className="sm:hidden">Page {pagination.page}/{pagination.pages}</span>
+            <span className="hidden sm:inline">Page {pagination.page} of {pagination.pages} (Total: {pagination.total})</span>
+          </div>
+          <div className="flex gap-2 order-1 sm:order-2 w-full sm:w-auto">
+            <button
+              disabled={pagination.page === 1}
+              onClick={() => pagination.onPageChange(pagination.page - 1)}
+              className="flex-1 sm:flex-none px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-lg bg-white dark:bg-white/[0.03] text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-white/[0.08] hover:bg-gray-50 dark:hover:bg-white/[0.06] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              ← Previous
+            </button>
+            <button
+              disabled={pagination.page === pagination.pages}
+              onClick={() => pagination.onPageChange(pagination.page + 1)}
+              className="flex-1 sm:flex-none px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-lg bg-white dark:bg-white/[0.03] text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-white/[0.08] hover:bg-gray-50 dark:hover:bg-white/[0.06] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              Next →
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 

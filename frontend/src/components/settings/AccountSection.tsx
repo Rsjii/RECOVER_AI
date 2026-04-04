@@ -184,12 +184,12 @@ export const AccountSection: React.FC<AccountSectionProps> = ({
 
       <div className="space-y-8">
       {/* Email Section */}
-      <div className="border border-gray-200 dark:border-white/[0.06] rounded-lg p-6">
+      <div className="border border-gray-200 dark:border-white/[0.06] rounded-lg p-4 sm:p-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Email Address</h3>
         <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">Your account email address</p>
-        <div className="flex items-center justify-between">
-          <span className="text-gray-900 dark:text-white font-medium">{userEmail || 'Loading...'}</span>
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <span className="text-gray-900 dark:text-white font-medium break-all">{userEmail || 'Loading...'}</span>
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 whitespace-nowrap flex-shrink-0">
             <span className="w-2 h-2 bg-green-600 dark:bg-green-400 rounded-full"></span>
             Verified
           </span>
@@ -198,7 +198,7 @@ export const AccountSection: React.FC<AccountSectionProps> = ({
 
       {/* Password Section */}
       {authProvider !== 'google' ? (
-        <div className="border border-gray-200 dark:border-white/[0.06] rounded-lg p-6">
+        <div className="border border-gray-200 dark:border-white/[0.06] rounded-lg p-4 sm:p-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Password</h3>
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">Manage your password and security</p>
 
@@ -311,7 +311,7 @@ export const AccountSection: React.FC<AccountSectionProps> = ({
 
       {/* Active Sessions Section */}
       {sessions && sessions.length > 0 && (
-        <div className="border border-gray-200 dark:border-white/[0.06] rounded-lg p-6">
+        <div className="border border-gray-200 dark:border-white/[0.06] rounded-lg p-4 sm:p-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">
             Active Sessions
           </h3>
@@ -326,13 +326,13 @@ export const AccountSection: React.FC<AccountSectionProps> = ({
                 <div
                   key={session.id}
                   className={cn(
-                    'p-4 border rounded-lg transition-all',
+                    'p-3 sm:p-4 border rounded-lg transition-all',
                     session.isCurrent
                       ? 'border-blue-300 dark:border-blue-600/30 bg-blue-50 dark:bg-blue-900/10'
                       : 'border-gray-200 dark:border-white/[0.06] hover:border-gray-300 dark:hover:border-white/[0.1]'
                   )}
                 >
-                  <div className="flex items-start justify-between">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                     <div className="flex-1">
                       {/* Header: Icon, Browser, Device, Badge */}
                       <div className="flex items-start gap-3 mb-3">
@@ -367,7 +367,7 @@ export const AccountSection: React.FC<AccountSectionProps> = ({
                       </div>
 
                       {/* Session Details Grid */}
-                      <div className="grid grid-cols-2 gap-4 mt-4 text-xs text-gray-600 dark:text-gray-400">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4 text-xs text-gray-600 dark:text-gray-400">
                         {session.ipAddress && (
                           <div>
                             <p className="font-medium text-gray-700 dark:text-gray-300">IP Address</p>
@@ -401,7 +401,7 @@ export const AccountSection: React.FC<AccountSectionProps> = ({
                         onClick={() => handleRevokeSession(session.id)}
                         disabled={revoking !== null}
                         className={cn(
-                          'ml-4 flex-shrink-0 px-4 py-2 text-sm font-medium rounded-lg transition-colors',
+                          'flex-shrink-0 px-4 py-2 text-sm font-medium rounded-lg transition-colors whitespace-nowrap',
                           'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400',
                           'hover:bg-red-100 dark:hover:bg-red-900/30',
                           revoking === session.id && 'opacity-50 cursor-not-allowed'
@@ -441,7 +441,7 @@ export const AccountSection: React.FC<AccountSectionProps> = ({
       )}
 
       {/* Danger Zone */}
-      <div className="border border-red-200 dark:border-red-900/30 rounded-lg p-6 bg-red-50 dark:bg-red-900/10">
+      <div className="border border-red-200 dark:border-red-900/30 rounded-lg p-4 sm:p-6 bg-red-50 dark:bg-red-900/10">
         <h3 className="text-lg font-semibold text-red-700 dark:text-red-400 mb-2">Danger Zone</h3>
         <p className="text-sm text-red-600 dark:text-red-400 mb-4">Irreversible actions</p>
         <Button

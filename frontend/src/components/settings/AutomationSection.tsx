@@ -18,9 +18,9 @@ export const AutomationSection: React.FC = () => {
       </div>
 
       {/* Email Queue Card */}
-      <div className="bg-white dark:bg-[#111113] rounded-xl border border-gray-200 dark:border-white/[0.06] p-6">
-        <div className="flex items-start justify-between">
-          <div>
+      <div className="bg-white dark:bg-[#111113] rounded-xl border border-gray-200 dark:border-white/[0.06] p-4 sm:p-6">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+          <div className="flex-1 min-w-0">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
               Email Queue
             </h3>
@@ -35,7 +35,7 @@ export const AutomationSection: React.FC = () => {
           </div>
           <Button
             onClick={() => navigate('/email-queue')}
-            className="shrink-0"
+            className="shrink-0 whitespace-nowrap"
           >
             View Email Queue
           </Button>

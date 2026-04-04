@@ -14,7 +14,7 @@ const Pricing: React.FC = () => {
     <div className="min-h-screen bg-white dark:bg-[#09090b]">
       {/* Header */}
       <header className="border-b border-gray-200 dark:border-white/[0.06]">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <Link to="/" className="flex items-center gap-2">
             <span className="text-lg font-bold text-gray-900 dark:text-white">RecoverAI</span>
           </Link>
@@ -33,7 +33,7 @@ const Pricing: React.FC = () => {
         {/* Hero */}
         <section className="text-center space-y-6">
           <div>
-            <h1 className="text-5xl font-bold text-gray-900 dark:text-white mb-4">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900 dark:text-white mb-4">
               Pricing Plans for Every Business
             </h1>
             <p className="text-xl text-gray-600 dark:text-gray-400">
@@ -43,7 +43,7 @@ const Pricing: React.FC = () => {
         </section>
 
         {/* Value Proposition */}
-        <section className="bg-gray-50 dark:bg-white/[0.03] rounded-3xl border border-gray-200 dark:border-white/[0.06] p-12 space-y-8">
+        <section className="bg-gray-50 dark:bg-white/[0.03] rounded-3xl border border-gray-200 dark:border-white/[0.06] p-6 sm:p-12 space-y-8">
           <div className="max-w-2xl mx-auto text-center">
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Aligned Incentives</h2>
             <p className="text-gray-600 dark:text-gray-400 leading-relaxed mb-8">

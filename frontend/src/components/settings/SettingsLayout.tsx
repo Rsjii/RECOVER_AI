@@ -150,34 +150,36 @@ export const SettingsLayout: React.FC<SettingsLayoutProps> = ({
       />
 
       <div className="min-h-screen bg-gray-50 dark:bg-[#09090b]">
-        <div className="max-w-4xl mx-auto px-4 py-8">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Settings</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-2">Settings</h1>
           <p className="text-gray-600 dark:text-gray-400">
             Manage your account, integrations, and automation rules
           </p>
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex flex-wrap gap-2 mb-8 border-b border-gray-200 dark:border-white/[0.06] overflow-x-auto">
-          {TABS.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => handleTabChange(tab.id)}
-              disabled={isLoading || isSaving}
-              className={cn(
-                'flex items-center gap-2 px-4 py-3 font-medium text-sm whitespace-nowrap',
-                'border-b-2 transition-colors duration-200',
-                activeTab === tab.id
-                  ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400'
-                  : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-              )}
-            >
-              <span className="inline-flex">{tab.icon}</span>
-              <span>{tab.label}</span>
-            </button>
-          ))}
+        <div className="mb-8 border-b border-gray-200 dark:border-white/[0.06] overflow-x-auto sm:scrollbar-show">
+          <div className="flex gap-2 sm:gap-4 flex-nowrap">
+            {TABS.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => handleTabChange(tab.id)}
+                disabled={isLoading || isSaving}
+                className={cn(
+                  'flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-3 font-medium text-xs sm:text-sm whitespace-nowrap',
+                  'border-b-2 transition-colors duration-200',
+                  activeTab === tab.id
+                    ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400'
+                    : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                )}
+              >
+                <span className="inline-flex flex-shrink-0">{tab.icon}</span>
+                <span>{tab.label}</span>
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Unsaved Changes Warning */}
@@ -190,7 +192,7 @@ export const SettingsLayout: React.FC<SettingsLayoutProps> = ({
         )}
 
         {/* Tab Content */}
-        <div className="bg-white dark:bg-[#111113] rounded-xl shadow-sm border border-gray-200 dark:border-white/[0.06] p-8">
+        <div className="bg-white dark:bg-[#111113] rounded-xl shadow-sm border border-gray-200 dark:border-white/[0.06] p-4 sm:p-8">
           {isLoading ? (
             <div className="flex justify-center py-20">
               <div className="text-center">

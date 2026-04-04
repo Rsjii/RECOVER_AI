@@ -279,7 +279,7 @@ const Invoices: React.FC = () => {
               {importJobId && importStatus && (
                 <div>
                   <h3 className="font-semibold text-blue-900 dark:text-blue-300 text-sm">Importing {importStatus.total} invoices...</h3>
-                  <div className="mt-2 grid grid-cols-3 gap-4 text-xs">
+                  <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
                     <div className="text-blue-700 dark:text-blue-300">
                       <span className="block font-medium">{importStatus.created}</span>
                       <span className="text-blue-600 dark:text-blue-400">Created</span>
@@ -316,26 +316,29 @@ const Invoices: React.FC = () => {
       )}
 
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Invoices</h1>
         <div className="flex items-center gap-2 flex-wrap">
           <Button variant="secondary" size="sm" onClick={handleExportCSV}>
-            <svg className="w-4 h-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
             </svg>
-            Export CSV
+            <span className="hidden sm:inline">Export CSV</span>
+            <span className="sm:hidden">Export</span>
           </Button>
           <Button variant="secondary" size="sm" onClick={() => setShowCSVModal(true)}>
-            <svg className="w-4 h-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
             </svg>
-            Import CSV
+            <span className="hidden sm:inline">Import CSV</span>
+            <span className="sm:hidden">Import</span>
           </Button>
           <Button variant="secondary" size="sm" onClick={() => setShowCreateModal(true)}>
-            <svg className="w-4 h-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
-            New Invoice
+            <span className="hidden sm:inline">New Invoice</span>
+            <span className="sm:hidden">New</span>
           </Button>
           <BulkActions
             onSync={handleSync}
