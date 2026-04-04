@@ -24,8 +24,9 @@ router.post('/sync', authMiddleware, demoBlocker, syncInvoices);
 router.get('/sync/history', authMiddleware, demoBlocker, getSyncHistory);
 
 // Validate API key (for manual paste)
+// DEPRECATED: Use /connect instead (which accepts both API key and webhook secret)
 router.post('/validate-key', authMiddleware, demoBlocker, async (req, res) => {
-  const { apiKey } = req.body;
+  const { apiKey, webhookSecret } = req.body;
   const companyId = (req as any).companyId;
 
   if (!apiKey) {
@@ -37,12 +38,26 @@ router.post('/validate-key', authMiddleware, demoBlocker, async (req, res) => {
     return res.status(400).json({ error: 'Invalid Stripe API key format' });
   }
 
-  try {
-    // SAVE the key to company record (encrypted)
-    const encrypted = encryptField(apiKey);
-    await CompanyDB.updateCompany(companyId, { stripe_api_key_encrypted: encrypted });
+  // Validate webhook secret if provided
+  if (webhookSecret && !webhookSecret.match(/^whsec_/)) {
+    return res.status(400).json({ error: 'Invalid webhook secret format (must start with whsec_)' });
+  }
 
-    return res.json({ success: true, message: 'API key validated and saved' });
+  try {
+    // SAVE both key and secret to company record (encrypted)
+    const encrypted = encryptField(apiKey);
+    const secretEncrypted = webhookSecret ? encryptField(webhookSecret) : null;
+
+    await CompanyDB.updateCompany(companyId, {
+      stripe_api_key_encrypted: encrypted,
+      ...(secretEncrypted && { stripe_webhook_secret_encrypted: secretEncrypted })
+    });
+
+    return res.json({
+      success: true,
+      message: 'API key validated and saved',
+      webhookSecretSaved: !!secretEncrypted
+    });
   } catch (err: any) {
     // Don't leak error details to client
     return res.status(500).json({ error: 'Failed to save API key. Please try again.' });

@@ -4,6 +4,7 @@ import { authService } from '../services/authService';
 import { SignupInput, LoginInput } from '../types/auth';
 import { config } from '../config/env';
 import { pool } from '../config/database';
+import { redisClient } from '../config/redis';
 import * as SecurityDB from '../db/security';
 import * as UserDB from '../db/users';
 import * as CompanyDB from '../db/companies';
@@ -57,63 +58,238 @@ const clearCookies = (res: Response) => {
 
 // ============ Handlers ============
 
-export const signup = async (req: Request, res: Response) => {
-  const handler = 'signup';
+/**
+ * POST /api/auth/signup-otp
+ * NEW FLOW: Simple signup with OTP verification
+ * Input: email, password, firstName, lastName, companyName
+ * Output: OTP sent, no account yet (data in Redis)
+ */
+export const signupWithOTP = async (req: Request, res: Response) => {
+  const handler = 'signupWithOTP';
   const startTime = Date.now();
 
   try {
-    const { email, password, companyName, firstName, lastName, planCode = 'phase_0' } = req.body;
+    const { email, password, companyName, firstName = '', lastName = '' } = req.body;
 
-    logInfo(handler, 'Request received', { email, companyName });
+    logInfo(handler, 'Signup request received', { email, companyName });
 
     // Validation
     if (!email || !password || !companyName) {
-      logInfo(handler, 'Validation failed — missing required fields');
-      return res.status(400).json({ error: 'Missing required fields: email, password, companyName' });
+      return sendErrorResponse(res, 400, 'Missing required fields: email, password, companyName');
     }
 
     if (password.length < 8) {
-      return res.status(400).json({ error: 'Password must be at least 8 characters' });
+      return sendErrorResponse(res, 400, 'Password must be at least 8 characters');
     }
 
-    // Call authService to create account
-    const result = await authService.signup({
+    // Check if user already exists
+    const existingUser = await UserDB.findUserByEmail(email);
+    if (existingUser) {
+      return sendErrorResponse(res, 400, 'Email already registered. Please sign in.');
+    }
+
+    // Hash password
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    // Generate OTP
+    const isDev = config.nodeEnv !== 'production';
+    const otp = isDev ? '123456' : String(Math.floor(100000 + Math.random() * 900000));
+
+    // Store pending data in Redis (15 min expiry)
+    await redisClient.set(
+      `signup_pending:${email}`,
+      JSON.stringify({ email, passwordHash, companyName, firstName, lastName }),
+      { EX: 15 * 60 }
+    );
+    await redisClient.set(`signup_otp:${email}`, otp, { EX: 15 * 60 });
+
+    // Send OTP email
+    if (!isDev) {
+      try {
+        await resendService.sendOTP({ email, code: otp });
+      } catch (emailErr: any) {
+        logError(handler, 'Failed to send OTP email', emailErr);
+        // Continue anyway — user can resend
+      }
+    }
+
+    const elapsed = Date.now() - startTime;
+    logInfo(handler, `OTP sent in ${elapsed}ms`, { email, isDev });
+
+    return res.status(200).json({
+      success: true,
+      message: isDev ? 'Dev: OTP is 123456' : 'Verification code sent to your email',
+      devOtp: isDev ? '123456' : undefined,
+    });
+  } catch (err: any) {
+    const elapsed = Date.now() - startTime;
+    logError(handler, `Failed after ${elapsed}ms`, err);
+    const { statusCode, message } = parseError(err);
+    return sendErrorResponse(res, statusCode, message);
+  }
+};
+
+/**
+ * POST /api/auth/signup-verify-otp
+ * Verify OTP and create account
+ * Input: email, otp
+ * Output: Account created, auth cookies set
+ */
+export const signupVerifyOTP = async (req: Request, res: Response) => {
+  const handler = 'signupVerifyOTP';
+  const startTime = Date.now();
+
+  try {
+    const { email, otp } = req.body;
+
+    logInfo(handler, 'OTP verification', { email });
+
+    if (!email || !otp) {
+      return sendErrorResponse(res, 400, 'Email and OTP required');
+    }
+
+    // Verify OTP
+    const storedOtp = await redisClient.get(`signup_otp:${email}`);
+    if (!storedOtp || storedOtp !== otp) {
+      return sendErrorResponse(res, 400, 'Invalid or expired OTP');
+    }
+
+    // Get pending data
+    const pendingStr = await redisClient.get(`signup_pending:${email}`);
+    if (!pendingStr) {
+      return sendErrorResponse(res, 400, 'Session expired, please start again');
+    }
+
+    const { passwordHash, companyName, firstName, lastName } = JSON.parse(pendingStr);
+
+    // Create company
+    const company = await CompanyDB.createCompany({
+      name: companyName,
       email,
-      password,
-      companyName,
-      firstName,
-      lastName,
-      planCode,
+      timezone: 'UTC',
+      preferredCurrency: 'USD',
     });
 
-    // Update company onboarding_stage to 'integrations' to skip company details form
-    await CompanyDB.updateCompany(result.company.id, { onboarding_stage: 'integrations' });
+    // Create user
+    const user = await UserDB.createUser({
+      companyId: company.id,
+      email,
+      passwordHash,
+      firstName: firstName || email.split('@')[0],
+      lastName: lastName || 'User',
+      role: 'owner',
+      authProvider: 'email',
+    });
+
+    // Set onboarding stage
+    await CompanyDB.updateCompany(company.id, { onboarding_stage: 'create_account' });
 
     // Create session
     await SecurityDB.createSession({
-      userId: result.user.id,
-      companyId: result.company.id,
-      refreshToken: result.tokens.refreshToken,
+      userId: user.id,
+      companyId: company.id,
+      refreshToken: '', // Will be set by setCookies
+      userAgent: req.get('user-agent') || undefined,
+      ipAddress: req.ip,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    });
+
+    // Generate tokens
+    const tokens = authService.createAuthTokens(user.id, company.id, user.email);
+
+    // Update session with refresh token
+    await SecurityDB.createSession({
+      userId: user.id,
+      companyId: company.id,
+      refreshToken: tokens.refreshToken,
       userAgent: req.get('user-agent') || undefined,
       ipAddress: req.ip,
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     });
 
     // Set cookies
-    setCookies(res, result.tokens.accessToken, result.tokens.refreshToken);
+    setCookies(res, tokens.accessToken, tokens.refreshToken);
+
+    // Clean Redis
+    await redisClient.del(`signup_otp:${email}`);
+    await redisClient.del(`signup_pending:${email}`);
 
     const elapsed = Date.now() - startTime;
-    logInfo(handler, `Completed in ${elapsed}ms`, { userId: result.user.id });
-
-    // In dev mode, include devOtpCode for testing
-    const isDev = config.nodeEnv !== 'production';
-    const devOtpCode = isDev ? '123456' : undefined;
+    logInfo(handler, `Account created in ${elapsed}ms`, { userId: user.id });
 
     return res.status(201).json({
-      message: 'Account created. Verify your email to continue.',
-      user: result.user,
-      company: { ...result.company, onboarding_stage: 'integrations' },
-      devOtpCode,
+      success: true,
+      message: 'Account created successfully',
+      user: { id: user.id, email: user.email, firstName, lastName },
+      company: { id: company.id, name: company.name },
+    });
+  } catch (err: any) {
+    const elapsed = Date.now() - startTime;
+    logError(handler, `Failed after ${elapsed}ms`, err);
+    const { statusCode, message } = parseError(err);
+    return sendErrorResponse(res, statusCode, message);
+  }
+};
+
+export const signup = async (req: Request, res: Response) => {
+  const handler = 'signup';
+  const startTime = Date.now();
+
+  try {
+    const { email, password, companyName, firstName = '', lastName = '' } = req.body;
+
+    logInfo(handler, 'Signup request - sending OTP', { email, companyName });
+
+    // Validation
+    if (!email || !password || !companyName) {
+      return sendErrorResponse(res, 400, 'Missing required fields: email, password, companyName');
+    }
+
+    if (password.length < 8) {
+      return sendErrorResponse(res, 400, 'Password must be at least 8 characters');
+    }
+
+    // Check if user already exists
+    const existingUser = await UserDB.findUserByEmail(email);
+    if (existingUser) {
+      return sendErrorResponse(res, 400, 'Email already registered. Please sign in.');
+    }
+
+    // Hash password
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    // Generate OTP
+    const isDev = config.nodeEnv !== 'production';
+    const otp = isDev ? '123456' : String(Math.floor(100000 + Math.random() * 900000));
+
+    // Store pending signup data in Redis (15 min expiry)
+    // NO account created yet — just OTP sent
+    await redisClient.set(
+      `signup_pending:${email}`,
+      JSON.stringify({ email, passwordHash, companyName, firstName, lastName }),
+      { EX: 15 * 60 }
+    );
+    await redisClient.set(`signup_otp:${email}`, otp, { EX: 15 * 60 });
+
+    // Send OTP email
+    if (!isDev) {
+      try {
+        await resendService.sendOTP({ email, code: otp });
+      } catch (emailErr: any) {
+        logError(handler, 'Failed to send OTP email', emailErr);
+        // Continue anyway — user can resend
+      }
+    }
+
+    const elapsed = Date.now() - startTime;
+    logInfo(handler, `OTP sent in ${elapsed}ms`, { email, isDev });
+
+    // Return success BUT DO NOT SET COOKIES
+    // User must verify OTP first
+    return res.status(200).json({
+      success: true,
+      message: isDev ? 'Dev: OTP is 123456' : 'Verification code sent to your email',
+      devOtp: isDev ? '123456' : undefined,
     });
   } catch (err: any) {
     const elapsed = Date.now() - startTime;
@@ -425,7 +601,7 @@ export const resetPassword = async (req: Request, res: Response) => {
 export const verifyEmail = async (req: Request, res: Response) => {
   const handler = 'verifyEmail';
   try {
-    const { otp } = req.body;
+    const { otp, email } = req.body;
     const userId = (req as any).userId as string | undefined;
 
     if (!otp || typeof otp !== 'string') {
@@ -435,9 +611,80 @@ export const verifyEmail = async (req: Request, res: Response) => {
       return sendErrorResponse(res, 400, 'OTP must be exactly 6 digits');
     }
 
+    // ============ SIGNUP FLOW (Unauthenticated) ============
+    if (!userId && email) {
+      logInfo(handler, 'Signup flow: verifying OTP for signup', { email });
+
+      // Verify OTP from Redis
+      const storedOtp = await redisClient.get(`signup_otp:${email}`);
+      if (!storedOtp || storedOtp !== otp) {
+        return sendErrorResponse(res, 400, 'Invalid or expired OTP');
+      }
+
+      // Get pending signup data from Redis
+      const pendingStr = await redisClient.get(`signup_pending:${email}`);
+      if (!pendingStr) {
+        return sendErrorResponse(res, 400, 'Session expired, please start again');
+      }
+
+      const { passwordHash, companyName, firstName, lastName } = JSON.parse(pendingStr);
+
+      // Create company
+      const company = await CompanyDB.createCompany({
+        name: companyName,
+        email,
+        timezone: 'UTC',
+        preferredCurrency: 'USD',
+      });
+
+      // Create user
+      const user = await UserDB.createUser({
+        companyId: company.id,
+        email,
+        passwordHash,
+        firstName: firstName || email.split('@')[0],
+        lastName: lastName || 'User',
+        role: 'owner',
+        authProvider: 'email',
+      });
+
+      // Set onboarding stage
+      await CompanyDB.updateCompany(company.id, { onboarding_stage: 'create_account' });
+
+      // Generate tokens
+      const tokens = authService.createAuthTokens(user.id, company.id, user.email);
+
+      // Create session
+      await SecurityDB.createSession({
+        userId: user.id,
+        companyId: company.id,
+        refreshToken: tokens.refreshToken,
+        userAgent: req.get('user-agent') || undefined,
+        ipAddress: req.ip,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      });
+
+      // Set cookies
+      setCookies(res, tokens.accessToken, tokens.refreshToken);
+
+      // Clean Redis
+      await redisClient.del(`signup_otp:${email}`);
+      await redisClient.del(`signup_pending:${email}`);
+
+      logInfo(handler, 'Signup complete - account created and verified', { userId: user.id });
+
+      return res.status(201).json({
+        success: true,
+        message: 'Account verified and created successfully',
+        user: { id: user.id, email: user.email },
+        company: { id: company.id, name: company.name },
+      });
+    }
+
+    // ============ EXISTING FLOW (Authenticated User) ============
     let user;
     if (userId) {
-      // Preferred: authenticated user — verify their specific OTP
+      // Authenticated user — verify their specific OTP
       user = await UserDB.findUserById(userId);
       if (!user) return sendErrorResponse(res, 404, 'User not found');
       if (user.otp_code !== otp) {
@@ -449,12 +696,8 @@ export const verifyEmail = async (req: Request, res: Response) => {
         return sendErrorResponse(res, 400, 'OTP has expired — request a new one');
       }
     } else {
-      // Fallback: unauthenticated (edge case) — find by OTP
-      user = await UserDB.findUserByOTP(otp);
-      if (!user) {
-        logInfo(handler, 'Invalid or expired OTP (no auth context)');
-        return sendErrorResponse(res, 400, 'Invalid or expired OTP');
-      }
+      // Unauthenticated and no email — error
+      return sendErrorResponse(res, 400, 'Email or authentication required for OTP verification');
     }
 
     // Clear OTP and mark email as verified

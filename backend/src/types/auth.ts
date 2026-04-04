@@ -43,6 +43,7 @@ export interface AuthCompany {
   pilotMode: 'shadow' | 'auto' | 'paused' | null;
   pilotEndsAt: string | null;
   stripeConnected: boolean;
+  onboarding_stage: string | null;
 }
 
 export interface AuthTokens {

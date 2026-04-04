@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS companies (
   -- Integration credentials (all encrypted at rest)
   stripe_api_key_encrypted   TEXT,
   stripe_account_id          VARCHAR,
+  stripe_webhook_secret_encrypted TEXT,         -- Webhook signing secret (per company, one per account)
   stripe_last_synced_at      TIMESTAMPTZ,
   slack_webhook_url_encrypted TEXT,
   slack_bot_token_encrypted  TEXT,           -- xoxb-... token for Slack bot API
@@ -87,6 +88,10 @@ CREATE TABLE IF NOT EXISTS companies (
   created_at                 TIMESTAMPTZ DEFAULT NOW(),
   updated_at                 TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Indexes for companies table
+CREATE INDEX IF NOT EXISTS idx_companies_stripe_account_id ON companies(stripe_account_id);
+CREATE INDEX IF NOT EXISTS idx_companies_stripe_key ON companies(stripe_api_key_encrypted) WHERE stripe_api_key_encrypted IS NOT NULL;
 
 -- ============================================================
 -- USERS (login accounts)

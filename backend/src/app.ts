@@ -236,7 +236,7 @@ app.use('/api/segmentation', segmentationRoutes);
 // app.use('/api/pilots', pilotRoutes);
 // app.use('/api/admin/pilots', pilotManagementRoutes);
 // app.use('/api/audits', auditRoutes);  // ❌ DISABLED
-// app.use('/api/audits', auditStagesRoutes);  // ❌ DISABLED
+app.use('/api/audit-stages', auditStagesRoutes);  // ✅ SIGNUP FLOW: /signup → /verify-email → /integrations
 // app.use('/api/pilot-queue', pilotQueueRoutes);  // ❌ DISABLED
 app.use('/api/slack', slackRoutes);  // Slack bot integration
 app.use('/api/admin/email-dashboard', emailDashboardRoutes);  // Email dashboard for admins

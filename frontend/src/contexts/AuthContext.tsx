@@ -112,7 +112,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     dispatch({ type: 'SET_LOADING', payload: true });
     dispatch({ type: 'SET_ERROR', payload: null });
     try {
-      const response: any = await api.post(API_ENDPOINTS.auth.signup, {
+      // Signup only sends OTP — does NOT create account or set cookies
+      // No LOGIN_SUCCESS here — user must verify OTP first
+      await api.post(API_ENDPOINTS.auth.signup, {
         email,
         password,
         companyName,
@@ -120,8 +122,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         lastName,
         planCode,
       });
-      const { user, company } = response;
-      dispatch({ type: 'LOGIN_SUCCESS', payload: { user, company } });
     } catch (error: any) {
       dispatch({ type: 'SET_ERROR', payload: error.message || 'Signup failed' });
       throw error;

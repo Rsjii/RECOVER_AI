@@ -38,6 +38,7 @@ export const getSettings = async (req: Request, res: Response): Promise<void> =>
         integrations: {
           stripe: !!company.stripe_api_key_encrypted,
           stripeLastSyncedAt: (company as any).stripe_last_synced_at || null,
+          stripeHasWebhookSecret: !!company.stripe_webhook_secret_encrypted,  // New: flag for webhook secret
           slack: !!company.slack_webhook_url_encrypted,
           quickbooks: !!(company.quickbooks_realm_id && (company as any).quickbooks_access_token_encrypted),
           chargebee: !!(company.chargebee_site && (company as any).chargebee_api_key_encrypted),
@@ -559,6 +560,41 @@ export const updateDunningSenderName = async (req: Request, res: Response): Prom
     });
   } catch (error) {
     logError(LOG_MODULE, handler, 'Failed to update dunning sender name', error);
+    const { statusCode, message } = parseError(error);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
+
+/**
+ * POST /api/settings/integrations/stripe/disconnect
+ * Disconnects Stripe integration (clears API key and webhook secret)
+ */
+export const disconnectStripe = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'disconnectStripe';
+  const companyId = (req as any).companyId;
+
+  try {
+    const updated = await updateCompany(companyId, {
+      stripe_api_key_encrypted: null,
+      stripe_account_id: null,
+      stripe_webhook_secret_encrypted: null,
+      stripe_last_synced_at: null,
+    });
+
+    logInfo(LOG_MODULE, handler, 'Stripe disconnected', {
+      companyId,
+    });
+
+    res.status(200).json({
+      data: {
+        message: 'Stripe integration disconnected successfully',
+        integrations: {
+          stripe: false,
+        },
+      },
+    });
+  } catch (error) {
+    logError(LOG_MODULE, handler, 'Failed to disconnect Stripe', error);
     const { statusCode, message } = parseError(error);
     sendErrorResponse(res, statusCode, message);
   }

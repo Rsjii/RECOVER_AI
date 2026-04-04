@@ -21,6 +21,11 @@ export const connectStripeSchema = z.object({
     .string()
     .min(10, 'Invalid Stripe key')
     .refine(k => k.startsWith('sk_live_') || k.startsWith('sk_test_'), 'Key must start with sk_live_ or sk_test_'),
+  stripe_webhook_secret: z
+    .string()
+    .min(20, 'Invalid webhook secret')
+    .refine(s => s.startsWith('whsec_'), 'Secret must start with whsec_')
+    .optional(),  // OPTIONAL - user can add later
 });
 
 export const createPaymentPlanSchema = z.object({

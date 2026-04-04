@@ -55,11 +55,11 @@ const Landing: React.FC = () => {
             </div>
             <span className="hidden sm:inline">RecoverAI</span>
           </Link>
-          <nav className="hidden md:flex items-center gap-4 lg:gap-6">
-            <Link to="/pricing" className="text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors">Pricing</Link>
-            <Link to="/security" className="text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors">Security</Link>
-          </nav>
-          <div className="flex items-center gap-2 sm:gap-3 ml-auto">
+          <div className="flex items-center gap-2 sm:gap-3 lg:gap-6 ml-auto">
+            <nav className="hidden md:flex items-center gap-4 lg:gap-6">
+              <Link to="/pricing" className="text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors">Pricing</Link>
+              <Link to="/security" className="text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors">Security</Link>
+            </nav>
             <ThemeToggle />
             <Link to="/login" className="hidden sm:block text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors">Sign in</Link>
             <Button size="sm" onClick={() => navigate('/signup')}>Start Free Trial</Button>

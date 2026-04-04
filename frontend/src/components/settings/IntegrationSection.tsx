@@ -94,38 +94,52 @@ export const IntegrationSection: React.FC<IntegrationSectionProps> = ({ integrat
   const { addToast } = useNotification();
   const [stripeKeyMode, setStripeKeyMode] = useState(false);
   const [stripeKey, setStripeKey] = useState('');
+  const [stripeWebhookSecret, setStripeWebhookSecret] = useState('');
   const [syncing, setSyncing] = useState<string | null>(null);
 
   const handleManualKey = async () => {
-    if (!stripeKey.trim()) return;
+    if (!stripeKey.trim()) {
+      addToast({
+        type: 'error',
+        message: 'API key is required',
+      });
+      return;
+    }
+
     try {
-      // Call API to save manual Stripe key - use correct endpoint
+      // Call API to save manual Stripe key + webhook secret
       const response = await fetch('/api/stripe/validate-key', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ apiKey: stripeKey }),
+        body: JSON.stringify({
+          apiKey: stripeKey,
+          ...(stripeWebhookSecret && { webhookSecret: stripeWebhookSecret }),
+        }),
       });
       const data = await response.json();
       if (response.ok) {
         setStripeKeyMode(false);
         setStripeKey('');
+        setStripeWebhookSecret('');
         addToast({
           type: 'success',
-          message: 'Stripe API key saved successfully!',
+          message: stripeWebhookSecret
+            ? 'Stripe API key and webhook secret saved! Real-time webhooks enabled ✅'
+            : 'Stripe API key saved. Add webhook secret for real-time updates.',
         });
         onRefetch?.();
       } else {
         addToast({
           type: 'error',
-          message: data.error || 'Failed to save API key',
+          message: data.error || 'Failed to save Stripe credentials',
         });
       }
     } catch (err: any) {
       addToast({
         type: 'error',
-        message: 'Failed to save Stripe key',
+        message: 'Failed to save Stripe credentials',
       });
-      console.error('Failed to save Stripe key:', err);
+      console.error('Failed to save Stripe credentials:', err);
     }
   };
 
@@ -229,18 +243,28 @@ export const IntegrationSection: React.FC<IntegrationSectionProps> = ({ integrat
                               {getStatusBadge(integration.status)}
                             </div>
                             {integration.status === 'connected' && integration.details && (
-                              <div className="mt-2 text-xs sm:text-sm text-gray-600 dark:text-gray-400 space-y-1">
-                                {integration.details.accountName && (
-                                  <p className="truncate"><span className="font-medium">Account:</span> {integration.details.accountName}</p>
-                                )}
-                                {integration.details.workspaceName && (
-                                  <p className="truncate"><span className="font-medium">Workspace:</span> {integration.details.workspaceName}</p>
-                                )}
-                                {integration.details.channel && (
-                                  <p className="truncate"><span className="font-medium">Channel:</span> {integration.details.channel}</p>
-                                )}
-                                {integration.lastSynced && (
-                                  <p className="text-xs"><span className="font-medium">Last synced:</span> {new Date(integration.lastSynced).toLocaleDateString()}</p>
+                              <div className="mt-2 space-y-2">
+                                <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 space-y-1">
+                                  {integration.details.accountName && (
+                                    <p className="truncate"><span className="font-medium">Account:</span> {integration.details.accountName}</p>
+                                  )}
+                                  {integration.details.workspaceName && (
+                                    <p className="truncate"><span className="font-medium">Workspace:</span> {integration.details.workspaceName}</p>
+                                  )}
+                                  {integration.details.channel && (
+                                    <p className="truncate"><span className="font-medium">Channel:</span> {integration.details.channel}</p>
+                                  )}
+                                  {integration.lastSynced && (
+                                    <p className="text-xs"><span className="font-medium">Last synced:</span> {new Date(integration.lastSynced).toLocaleDateString()}</p>
+                                  )}
+                                </div>
+                                {/* Warning if Stripe is connected BUT webhook secret is NOT configured */}
+                                {key === 'stripe' && !integration.hasWebhookSecret && (
+                                  <div className="mt-2 p-2 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20">
+                                    <p className="text-xs text-amber-900 dark:text-amber-200">
+                                      <strong>⚠️ Webhook Status:</strong> For real-time updates, ensure webhook signing secret is configured (OAuth auto-configures it).
+                                    </p>
+                                  </div>
                                 )}
                               </div>
                             )}
@@ -354,40 +378,71 @@ export const IntegrationSection: React.FC<IntegrationSectionProps> = ({ integrat
 
                   {/* Stripe Manual Key Input - appears inline under Stripe card */}
                   {key === 'stripe' && stripeKeyMode && (
-                    <div className="mt-2 p-3 sm:p-4 border border-blue-200 dark:border-blue-800 rounded-lg bg-blue-50 dark:bg-blue-900/10 space-y-3">
-                      <label className="block text-xs sm:text-sm font-medium text-gray-900 dark:text-white">
-                        Stripe API Key
-                      </label>
-                      <div className="flex flex-col sm:flex-row gap-2">
+                    <div className="mt-2 p-3 sm:p-4 border border-blue-200 dark:border-blue-800 rounded-lg bg-blue-50 dark:bg-blue-900/10 space-y-4">
+                      {/* Warning Message */}
+                      <div className="p-3 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20">
+                        <p className="text-xs sm:text-sm text-amber-900 dark:text-amber-200">
+                          <strong>⚠️ For real-time webhooks:</strong> You can use OAuth (auto) or provide webhook secret below (manual)
+                        </p>
+                      </div>
+
+                      {/* API Key Field */}
+                      <div>
+                        <label className="block text-xs sm:text-sm font-medium text-gray-900 dark:text-white mb-2">
+                          Stripe API Key <span className="text-red-500">*</span>
+                        </label>
                         <input
                           type="password"
                           value={stripeKey}
                           onChange={(e) => setStripeKey(e.target.value)}
                           placeholder="sk_live_..."
-                          className="flex-1 px-3 py-2 border border-gray-300 dark:border-white/[0.08] rounded-lg bg-white dark:bg-white/[0.03] text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-white/[0.08] rounded-lg bg-white dark:bg-white/[0.03] text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
                         />
-                        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                          <Button
-                            variant="primary"
-                            size="sm"
-                            onClick={() => handleManualKey()}
-                            className="flex-1 sm:flex-none text-xs sm:text-sm"
-                          >
-                            Save
-                          </Button>
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={() => setStripeKeyMode(false)}
-                            className="flex-1 sm:flex-none text-xs sm:text-sm"
-                          >
-                            Cancel
-                          </Button>
-                        </div>
+                        <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                          Get from <a href="https://dashboard.stripe.com/apikeys" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline font-medium">Stripe Dashboard</a>
+                        </p>
                       </div>
-                      <p className="text-xs text-gray-600 dark:text-gray-400">
-                        🔒 Encrypted & secure. Get from <a href="https://dashboard.stripe.com/apikeys" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline font-medium">Stripe Dashboard</a>
-                      </p>
+
+                      {/* Webhook Secret Field */}
+                      <div>
+                        <label className="block text-xs sm:text-sm font-medium text-gray-900 dark:text-white mb-2">
+                          Webhook Signing Secret <span className="text-gray-500">(Optional but recommended)</span>
+                        </label>
+                        <input
+                          type="password"
+                          value={stripeWebhookSecret}
+                          onChange={(e) => setStripeWebhookSecret(e.target.value)}
+                          placeholder="whsec_live_..."
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-white/[0.08] rounded-lg bg-white dark:bg-white/[0.03] text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                        />
+                        <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                          Get from <a href="https://dashboard.stripe.com/webhooks" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline font-medium">Stripe Webhooks</a> (find your endpoint, copy "Signing secret")
+                        </p>
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-blue-200 dark:border-blue-800">
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          onClick={() => handleManualKey()}
+                          className="flex-1 sm:flex-none text-xs sm:text-sm"
+                        >
+                          💾 Save
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => {
+                            setStripeKeyMode(false);
+                            setStripeKey('');
+                            setStripeWebhookSecret('');
+                          }}
+                          className="flex-1 sm:flex-none text-xs sm:text-sm"
+                        >
+                          Cancel
+                        </Button>
+                      </div>
                     </div>
                   )}
                 </div>

@@ -17,6 +17,7 @@ import {
   updateAggressiveMode,
   getDunningSenderName,
   updateDunningSenderName,
+  disconnectStripe,
 } from '../controllers/settingsController';
 import {
   getSMTPStatusHandler,
@@ -54,5 +55,8 @@ router.get('/smtp/config', requireRole('admin'), getSMTPConfigHandler);
 router.post('/smtp/configure', requireRole('admin'), configureSmtpHandler);
 router.post('/smtp/test', requireRole('admin'), testSmtpHandler);
 router.post('/smtp/disable', requireRole('admin'), disableSmtpHandler);
+
+// Integrations disconnect endpoints
+router.post('/integrations/stripe/disconnect', requireRole('admin'), disconnectStripe);
 
 export default router;

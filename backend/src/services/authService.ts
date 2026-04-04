@@ -111,6 +111,7 @@ class AuthService {
         pilotMode: null,
         pilotEndsAt: null,
         stripeConnected: false,
+        onboarding_stage: (company as any).onboarding_stage || null,
       },
       tokens: { accessToken, refreshToken },
     };
@@ -182,6 +183,7 @@ class AuthService {
         pilotMode: user.pilot_mode || null,
         pilotEndsAt: user.pilot_ends_at || null,
         stripeConnected: !!user.stripe_account_id,
+        onboarding_stage: (user as any).onboarding_stage || null,
       },
       tokens: { accessToken, refreshToken },
     };
@@ -265,6 +267,7 @@ class AuthService {
         pilotMode: user.pilot_mode || null,
         pilotEndsAt: user.pilot_ends_at || null,
         stripeConnected: !!user.stripe_account_id,
+        onboarding_stage: (user as any).onboarding_stage || null,
       },
     };
   }
@@ -460,6 +463,7 @@ async googleLogin(code: string): Promise<AuthResponse> {
       pilotMode: (user.pilot_mode || null) as 'shadow' | 'auto' | 'paused' | null,
       pilotEndsAt: user.pilot_ends_at || null,
       stripeConnected: !!user.stripe_account_id,
+      onboarding_stage: (user as any).onboarding_stage || null,
     },
     tokens: { accessToken, refreshToken },
   };

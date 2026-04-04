@@ -1,6 +1,7 @@
 // ============ Stripe Connect ============
 export interface ConnectStripeInput {
   stripe_api_key: string;
+  stripe_webhook_secret?: string;  // Optional: webhook signing secret (recommended)
 }
 
 // ============ Invoice Sync ============

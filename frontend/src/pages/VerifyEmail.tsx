@@ -1,17 +1,16 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useNotification } from '../hooks/useNotification';
 import { useAuth } from '../hooks/useAuth';
 import { api } from '../lib/api';
 
 export default function VerifyEmail() {
   const navigate = useNavigate();
-  const location = useLocation();
   const { addToast } = useNotification();
-  const { setUser } = useAuth();
-  const fromLocation = (location.state as any)?.from;
-  const from = typeof fromLocation === 'string' ? fromLocation : fromLocation?.pathname || '/integrations';
-  const [digits, setDigits] = useState(['', '', '', '', '', '']);
+  const { setUser, setAuthState } = useAuth();
+  const [digits, setDigits] = useState(
+    import.meta.env.DEV ? ['1', '2', '3', '4', '5', '6'] : ['', '', '', '', '', '']
+  );
   const [loading, setLoading] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -53,19 +52,33 @@ export default function VerifyEmail() {
 
     setLoading(true);
     try {
-      await api.post('/api/auth/verify-email', { otp });
+      const signupEmail = localStorage.getItem('signup_email');
 
-      addToast({ type: 'success', message: 'Email verified successfully!' });
+      // Verify OTP via /api/auth/verify-email
+      // Pass email for signup flow (unauthenticated)
+      await api.post('/api/auth/verify-email', {
+        otp,
+        email: signupEmail || undefined,
+      });
 
-      // Refresh auth context so emailVerified = true before navigating
-      try {
-        const meData = await api.get('/api/auth/me');
-        if (meData.user) setUser(meData.user);
-      } catch {
-        // Non-critical — navigate anyway
+      addToast({ type: 'success', message: 'Email verified! Going to integrations...' });
+
+      // Clear signup data from localStorage
+      localStorage.removeItem('signup_email');
+      localStorage.removeItem('signup_company_name');
+      localStorage.removeItem('signup_first_name');
+      localStorage.removeItem('signup_last_name');
+
+      // Refresh auth context — must set BOTH user and company
+      // so isAuthenticated becomes true before navigate
+      const meData = await api.get('/api/auth/me');
+      if (meData.user && meData.company) {
+        setAuthState(meData.user, meData.company);
+      } else if (meData.user) {
+        setUser(meData.user);
       }
 
-      navigate(from, { replace: true });
+      navigate('/integrations', { replace: true });
     } catch (err: any) {
       const msg = err.message || 'Invalid or expired OTP';
       const isExpired = msg.toLowerCase().includes('expired');

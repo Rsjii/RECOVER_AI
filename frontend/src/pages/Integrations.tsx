@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { Button } from '../components/ui/Button';
 import { useNotification } from '../hooks/useNotification';
+import { useAuth } from '../hooks/useAuth';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
 
@@ -15,6 +16,7 @@ interface IntegrationStatus {
 export const Integrations: React.FC = () => {
   const navigate = useNavigate();
   const { addToast } = useNotification();
+  const { setAuthState, company } = useAuth();
 
   const [status, setStatus] = useState<IntegrationStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -24,11 +26,22 @@ export const Integrations: React.FC = () => {
   const [stripeManualMode, setStripeManualMode] = useState(false);
   const [stripeApiKey, setStripeApiKey] = useState('');
   const [validatingKey, setValidatingKey] = useState(false);
+  const shouldNavigateToDashboard = useRef(false);
+
+  // Watch for auth state update after proceed — navigate only after state is committed
+  useEffect(() => {
+    if (shouldNavigateToDashboard.current &&
+        (company?.onboarding_stage === 'trial_active' || company?.onboarding_stage === 'paid_active')) {
+      shouldNavigateToDashboard.current = false;
+      navigate('/dashboard', { replace: true });
+    }
+  }, [company?.onboarding_stage, navigate]);
 
   useEffect(() => {
     const fetchStatus = async () => {
       try {
-        const res: any = await api.get('/api/audits/stage/2');
+        // Use audit-stages endpoint for new flow
+        const res: any = await api.get('/api/audit-stages/stage/2');
         setStatus(res);
       } catch (err: any) {
         if (err?.status === 401) {
@@ -41,7 +54,7 @@ export const Integrations: React.FC = () => {
     };
 
     fetchStatus();
-  }, []);
+  }, [navigate]);
 
   const handleConnectStripe = () => {
     setConnecting('stripe');
@@ -56,9 +69,15 @@ export const Integrations: React.FC = () => {
 
     setProceeding(true);
     try {
-      await api.post(`/api/audits/stage/2/proceed`);
-      navigate(`/audit-report`, { replace: true });
+      await api.post(`/api/audit-stages/stage/2/proceed`);
+      // Set flag BEFORE updating auth state — useEffect will navigate once state commits
+      shouldNavigateToDashboard.current = true;
+      const meData = await api.get('/api/auth/me');
+      if (meData.user && meData.company) {
+        setAuthState(meData.user, meData.company);
+      }
     } catch (err: any) {
+      shouldNavigateToDashboard.current = false;
       setError(err?.message || 'Failed to proceed');
       setProceeding(false);
     }
@@ -197,7 +216,7 @@ export const Integrations: React.FC = () => {
             disabled={proceeding || !status?.stripe_connected}
             className="w-full mb-4"
           >
-            {proceeding ? 'Processing...' : 'Continue to Audit Report'}
+            {proceeding ? 'Setting up...' : 'Go to Dashboard'}
           </Button>
         </div>
       </div>

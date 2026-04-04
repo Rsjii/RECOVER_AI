@@ -12,6 +12,8 @@ import { logInfo, logError } from '../utils/logger';
 import { runDecisionEngineNow } from '../queue/agentLoop';
 import { fetchSmartARData, sendSmartARReport } from '../services/slackService';
 import { pool } from '../config/database'; // Used in smartARReport job
+import { stripeService } from '../services/stripeService';
+import * as CompanyDB from '../db/companies';
 
 const LOG_MODULE = 'scheduler';
 const activeJobs = new Map<string, boolean>();
@@ -165,8 +167,60 @@ export function initScheduler() {
     });
   });
 
-  logInfo(LOG_MODULE, 'initScheduler', '✅ Cron scheduler initialized (8 jobs, 0 polling)', {
+  // ============================================================
+  // STRIPE AUTO-SYNC (NEW - 2026-04-04)
+  // ============================================================
+  // Syncs all Stripe invoices every 6 hours (backup for webhook failures)
+  // Handles: new invoices, paid invoices, voided invoices
+  // Runs at: 00:00, 06:00, 12:00, 18:00 UTC
+  cron.schedule('0 0,6,12,18 * * *', async () => {
+    await executeJob('stripeAutoSync', async () => {
+      try {
+        const companies = await CompanyDB.listCompaniesWithStripe();
+
+        if (companies.length === 0) {
+          logInfo(LOG_MODULE, 'stripeAutoSync', 'No companies with Stripe connected');
+          return;
+        }
+
+        let totalCreated = 0;
+        let totalUpdated = 0;
+        let failedCount = 0;
+
+        for (const company of companies) {
+          try {
+            const result = await stripeService.syncInvoices(company.id);
+            totalCreated += result.created;
+            totalUpdated += result.updated;
+
+            logInfo(LOG_MODULE, 'stripeAutoSync', `✅ Synced ${company.name}`, {
+              companyId: company.id,
+              created: result.created,
+              updated: result.updated,
+            });
+          } catch (err) {
+            failedCount++;
+            logError(LOG_MODULE, 'stripeAutoSync', `Failed to sync ${company.name}`, err, {
+              companyId: company.id,
+            });
+          }
+        }
+
+        logInfo(LOG_MODULE, 'stripeAutoSync', 'Stripe sync batch complete', {
+          companiesProcessed: companies.length,
+          failedCount,
+          totalCreated,
+          totalUpdated,
+        });
+      } catch (err) {
+        logError(LOG_MODULE, 'stripeAutoSync', 'Stripe auto-sync failed', err);
+      }
+    });
+  });
+
+  logInfo(LOG_MODULE, 'initScheduler', '✅ Cron scheduler initialized (9 jobs, 0 polling)', {
     architecture: 'Event-driven + Cron-scheduled',
+    newJobs: ['stripeAutoSync (every 6h)'],
   });
 }
 

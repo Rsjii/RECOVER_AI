@@ -46,6 +46,7 @@ export interface IntegrationStatus {
   lastSynced?: string;
   errorMessage?: string;
   availableIn?: string; // "GROWTH_TIER"
+  hasWebhookSecret?: boolean; // For Stripe: whether webhook signing secret is configured
 }
 
 export interface SessionInfo {

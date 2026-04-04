@@ -59,3 +59,30 @@ export async function findCompanyBySlackUserId(slackUserId: string): Promise<Com
   // SELECT c.* FROM companies c JOIN users u ON c.owner_id = u.id WHERE u.slack_user_id = $1
   return null;
 }
+
+/**
+ * Find company by Stripe account ID (for account-aware webhook processing)
+ * Used when webhook arrives and we need to find which company it belongs to
+ */
+export async function findCompanyByStripeAccountId(stripeAccountId: string): Promise<CompanyRow | null> {
+  const result = await pool.query(
+    'SELECT * FROM companies WHERE stripe_account_id = $1 LIMIT 1',
+    [stripeAccountId]
+  );
+  return result.rows[0] || null;
+}
+
+/**
+ * List all companies with Stripe connected (for cron job auto-sync)
+ * Returns only companies that have stripe_api_key_encrypted set
+ */
+export async function listCompaniesWithStripe(): Promise<CompanyRow[]> {
+  const result = await pool.query(
+    `SELECT id, name, stripe_api_key_encrypted, stripe_webhook_secret_encrypted
+     FROM companies
+     WHERE stripe_api_key_encrypted IS NOT NULL
+     AND stripe_api_key_encrypted != ''
+     ORDER BY updated_at DESC`
+  );
+  return result.rows;
+}

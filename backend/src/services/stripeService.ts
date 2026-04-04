@@ -28,9 +28,13 @@ class StripeService {
     const method = 'connectStripe';
     const startTime = Date.now();
     try {
-      const { stripe_api_key } = input;
+      const { stripe_api_key, stripe_webhook_secret } = input;
 
-      logInfo('stripeService', method, 'Starting Stripe connect', { companyId, userId });
+      logInfo('stripeService', method, 'Starting Stripe connect', {
+        companyId,
+        userId,
+        hasWebhookSecret: !!stripe_webhook_secret,
+      });
 
       // Validate stripe_api_key is not empty
       if (!stripe_api_key || typeof stripe_api_key !== 'string' || stripe_api_key.trim().length === 0) {
@@ -41,7 +45,31 @@ class StripeService {
       await stripe.accounts.retrieve();
 
       const encrypted = encryptField(stripe_api_key);
-      await CompanyDB.updateCompany(companyId, { stripe_api_key_encrypted: encrypted });
+
+      // Webhook secret is OPTIONAL (can be added later)
+      let secretEncrypted = null;
+      if (stripe_webhook_secret && stripe_webhook_secret.trim().length > 0) {
+        secretEncrypted = encryptField(stripe_webhook_secret);
+        logInfo('stripeService', method, 'API key and webhook secret validated and encrypted', {
+          companyId,
+          apiKeyLength: stripe_api_key.length,
+          webhookSecretLength: stripe_webhook_secret.length,
+        });
+      } else {
+        logWarn('stripeService', method, 'Webhook secret NOT provided - webhooks will not work until secret is added', {
+          companyId,
+        });
+      }
+
+      await CompanyDB.updateCompany(companyId, {
+        stripe_api_key_encrypted: encrypted,
+        stripe_webhook_secret_encrypted: secretEncrypted,
+      });
+
+      logInfo('stripeService', method, 'Company updated with Stripe credentials', {
+        companyId,
+        hasWebhookSecret: !!secretEncrypted,
+      });
 
       await AuditDB.createAuditLog({
         companyId,
@@ -265,18 +293,150 @@ class StripeService {
     const startTime = Date.now();
     let processedEventId: string | null = null;
     try {
-      const webhookSecret = config.stripe.webhookSecret;
-      if (!webhookSecret) throw new Error('Stripe webhook secret not configured');
+      // Step 1: Try to extract account ID from webhook body (works for some events)
+      const payload = JSON.parse(rawBody.toString());
 
-      const stripe = new Stripe(config.stripe.apiKey || '');
-      const event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret, 300);
-      processedEventId = event.id;
+      // Try multiple locations for account ID
+      let stripeAccountId =
+        payload.data?.object?.account ||  // invoice.account (for invoice events)
+        payload.account;                   // top-level account (for some webhook types)
 
-      // Additional replay protection guard: stale events beyond 24h are ignored.
-      if (Math.abs(Date.now() / 1000 - event.created) > 24 * 60 * 60) {
-        logInfo('stripeService', method, 'Ignored stale webhook event', { eventId: event.id, created: event.created });
+      logInfo('stripeService', method, 'Webhook payload analysis', {
+        eventType: payload.type,
+        hasAccountId: !!stripeAccountId,
+        stripeAccountId: stripeAccountId || 'NOT_FOUND',
+        payloadKeys: Object.keys(payload).join(','),
+      });
+
+      let company = null;
+      let event = null;
+
+      // Step 2a: If we have account ID, find company directly
+      if (stripeAccountId) {
+        company = await CompanyDB.findCompanyByStripeAccountId(stripeAccountId);
+        if (company) {
+          logInfo('stripeService', method, 'Found company by account ID', {
+            companyId: company.id,
+            stripeAccountId,
+          });
+
+          const webhookSecret = company.stripe_webhook_secret_encrypted ?
+            decryptField(company.stripe_webhook_secret_encrypted) :
+            null;
+
+          if (webhookSecret) {
+            logInfo('stripeService', method, 'Webhook secret found, verifying signature', {
+              companyId: company.id,
+            });
+
+            const apiKey = company.stripe_api_key_encrypted;
+            if (apiKey) {
+              const stripe = new Stripe(decryptField(apiKey));
+              try {
+                event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret, 300);
+                processedEventId = event.id;
+                logInfo('stripeService', method, 'Signature verified with company secret', {
+                  companyId: company.id,
+                  eventId: event.id,
+                });
+              } catch (err) {
+                logWarn('stripeService', method, 'Signature verification failed for account', {
+                  stripeAccountId,
+                  error: String(err),
+                });
+                // Signature didn't match, try fallback
+                event = null;
+              }
+            }
+          } else {
+            logWarn('stripeService', method, 'Webhook secret is NULL for company', {
+              companyId: company.id,
+              stripeAccountId,
+            });
+          }
+        } else {
+          logWarn('stripeService', method, 'Company not found for account ID', {
+            stripeAccountId,
+          });
+        }
+      }
+
+      // Step 2b: Fallback - try all companies' secrets until one matches (for events without account ID)
+      if (!event) {
+        logInfo('stripeService', method, 'No account ID or verification failed - trying all company secrets', {
+          totalCompanies: (await CompanyDB.listCompaniesWithStripe()).length,
+        });
+
+        const companies = await CompanyDB.listCompaniesWithStripe();
+
+        for (const tryCompany of companies) {
+          const webhookSecret = tryCompany.stripe_webhook_secret_encrypted ?
+            decryptField(tryCompany.stripe_webhook_secret_encrypted) :
+            null;
+
+          if (!webhookSecret) {
+            logWarn('stripeService', method, 'Company has no webhook secret, skipping', {
+              companyId: tryCompany.id,
+              companyName: tryCompany.name,
+            });
+            continue;
+          }
+
+          const apiKey = tryCompany.stripe_api_key_encrypted;
+          if (!apiKey) {
+            logWarn('stripeService', method, 'Company has no API key, skipping', {
+              companyId: tryCompany.id,
+              companyName: tryCompany.name,
+            });
+            continue;
+          }
+
+          logInfo('stripeService', method, 'Trying to verify webhook with company secret', {
+            companyId: tryCompany.id,
+            companyName: tryCompany.name,
+          });
+
+          try {
+            const stripe = new Stripe(decryptField(apiKey));
+            event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret, 300);
+            processedEventId = event.id;
+            company = tryCompany;
+            logInfo('stripeService', method, 'Webhook verified using company secret (fallback)', {
+              companyId: company.id,
+              companyName: company.name,
+              eventId: event.id,
+            });
+            break;  // Success!
+          } catch (err) {
+            logWarn('stripeService', method, 'Signature verification failed for company (fallback)', {
+              companyId: tryCompany.id,
+              error: String(err),
+            });
+            // This company's secret didn't match, try next
+            continue;
+          }
+        }
+      }
+
+      // Step 3: If still no match, reject webhook
+      if (!event || !company) {
+        logWarn('stripeService', method, 'Could not verify webhook signature against any company secret', {
+          attemptedCompanies: await CompanyDB.listCompaniesWithStripe().then(c => c.length),
+        });
         return;
       }
+
+      // Step 5: Replay protection guard: stale events beyond 24h are ignored
+      if (Math.abs(Date.now() / 1000 - event.created) > 24 * 60 * 60) {
+        logInfo('stripeService', method, 'Ignored stale webhook event', {
+          eventId: event.id,
+          companyId: company.id,
+          created: event.created,
+        });
+        return;
+      }
+
+      // Step 6: Check for duplicate webhooks (idempotency)
       const payloadHash = crypto.createHash('sha256').update(rawBody).digest('hex');
       const accepted = await SecurityDB.registerWebhookEvent({
         provider: 'stripe',
@@ -285,15 +445,36 @@ class StripeService {
         payloadHash,
       });
       if (!accepted) {
-        logInfo('stripeService', method, 'Duplicate webhook ignored', { eventId: event.id, eventType: event.type });
+        logInfo('stripeService', method, 'Duplicate webhook ignored', {
+          eventId: event.id,
+          eventType: event.type,
+          companyId: company.id,
+        });
         return;
       }
 
-      logInfo('stripeService', method, 'Processing webhook', { eventType: event.type });
+      logInfo('stripeService', method, 'Processing webhook', {
+        eventType: event.type,
+        companyId: company.id,
+        stripeAccountId,
+      });
 
       switch (event.type) {
+        case 'invoice.created': {
+          // Skip invoice.created — it fires when draft is created (amount = 0)
+          // We handle invoice.finalized instead (when amount is set and invoice is ready)
+          logInfo('stripeService', method, 'Skipping invoice.created (draft) — handling finalized instead', {
+            stripeInvoiceId: (event.data.object as Stripe.Invoice).id,
+          });
+          break;
+        }
+        case 'invoice.finalized': {
+          // This fires when invoice is finalized with actual amount (ready to send)
+          await this.handleInvoiceCreated(event.data.object as Stripe.Invoice, company.id);
+          break;
+        }
         case 'invoice.paid': {
-          await this.handleInvoicePaid(event.data.object as Stripe.Invoice);
+          await this.handleInvoicePaid(event.data.object as Stripe.Invoice, company.id);
           break;
         }
         case 'invoice.payment_failed': {
@@ -301,13 +482,18 @@ class StripeService {
           logInfo('stripeService', method, 'Invoice payment failed', {
             stripeInvoiceId: inv.id,
             customerId: inv.customer,
+            companyId: company.id,
           });
           // Dunning worker will handle re-sending emails automatically on next cycle
           break;
         }
+        case 'invoice.deleted': {
+          await this.handleInvoiceDeleted(event.data.object as Stripe.Invoice, company.id);
+          break;
+        }
         case 'charge.succeeded': {
           const charge = event.data.object as Stripe.Charge;
-          logInfo('stripeService', method, 'Charge succeeded', { chargeId: charge.id });
+          logInfo('stripeService', method, 'Charge succeeded', { chargeId: charge.id, companyId: company.id });
           // charge.succeeded fires alongside invoice.paid — avoid duplicate handling
           // Only handle if no invoice attached (direct charge scenario)
           if (!(charge as any).invoice) {
@@ -320,8 +506,9 @@ class StripeService {
           logInfo('stripeService', method, 'Charge failed', {
             chargeId: charge.id,
             failureMessage: charge.failure_message,
+            companyId: company.id,
           });
-          await this.handleChargeFailed(charge);
+          await this.handleChargeFailed(charge, company.id);
           break;
         }
         default:
@@ -345,11 +532,11 @@ class StripeService {
     }
   }
 
-  private async handleInvoicePaid(inv: Stripe.Invoice): Promise<void> {
+  private async handleInvoicePaid(inv: Stripe.Invoice, companyId: string): Promise<void> {
     const method = 'handleInvoicePaid';
 
     // Find our internal invoice by Stripe invoice ID
-    const invoice = await InvoiceDB.findInvoiceBySourceId(inv.id, 'stripe');
+    const invoice = await InvoiceDB.findInvoiceBySourceId(inv.id, 'stripe', companyId);
     if (!invoice) {
       logInfo('stripeService', method, 'Internal invoice not found for stripe invoice', {
         stripeInvoiceId: inv.id,
@@ -498,6 +685,120 @@ class StripeService {
     });
   }
 
+  private async handleInvoiceCreated(inv: Stripe.Invoice, companyId: string): Promise<void> {
+    const method = 'handleInvoiceCreated';
+
+    try {
+      // Skip invoices without email (can't contact customer)
+      if (!inv.customer_email) {
+        logInfo('stripeService', method, 'Invoice skipped - no customer email', {
+          stripeId: inv.id,
+        });
+        return;
+      }
+
+      // Skip zero-amount invoices (drafts, tests, or incomplete invoices)
+      if (inv.total === 0) {
+        logInfo('stripeService', method, 'Invoice skipped - zero amount (draft/incomplete)', {
+          stripeId: inv.id,
+          customerEmail: inv.customer_email,
+        });
+        return;
+      }
+
+      // Check if invoice already exists locally
+      const existingInvoice = await InvoiceDB.findInvoiceBySourceId(inv.id, 'stripe', companyId);
+      if (existingInvoice) {
+        logInfo('stripeService', method, 'Invoice already exists in system', {
+          invoiceId: existingInvoice.id,
+          stripeId: inv.id,
+        });
+        return;
+      }
+
+      // Create or find customer
+      const customer = await CustomerDB.findOrCreateCustomer({
+        companyId,
+        name: inv.customer_name || (inv.customer_email as string) || 'Unknown Customer',
+        email: (inv.customer_email as string) || '',
+      });
+
+      // Create invoice in our system
+      const { row: createdInvoice } = await InvoiceDB.upsertInvoice({
+        companyId,
+        customerId: customer.id,
+        amount: inv.total / 100, // Use total amount (original invoice)
+        currency: (inv.currency || 'usd').toUpperCase(),
+        dueDate: inv.due_date ? new Date(inv.due_date * 1000) : new Date(),
+        issuedDate: new Date(inv.created * 1000),
+        source: 'stripe',
+        sourceId: inv.id,
+      });
+
+      logInfo('stripeService', method, 'Invoice created from webhook', {
+        invoiceId: createdInvoice.id,
+        stripeId: inv.id,
+        customerId: customer.id,
+        amount: inv.total / 100,
+      });
+
+      // Recalculate customer risk score
+      try {
+        const { scoreCustomerRisk } = await import('./riskScoringService');
+        await scoreCustomerRisk(customer.id, companyId);
+      } catch (err) {
+        logError('stripeService', method, 'Failed to calculate risk score (non-blocking)', err);
+      }
+    } catch (error) {
+      logError('stripeService', method, 'Failed to handle invoice.created webhook', error, {
+        stripeInvoiceId: inv.id,
+        companyId,
+      });
+      // Non-blocking — don't throw
+    }
+  }
+
+  private async handleInvoiceDeleted(inv: Stripe.Invoice, companyId: string): Promise<void> {
+    const method = 'handleInvoiceDeleted';
+
+    try {
+      // Find invoice in our system
+      const invoice = await InvoiceDB.findInvoiceBySourceId(inv.id, 'stripe', companyId);
+      if (!invoice) {
+        logInfo('stripeService', method, 'Invoice not found locally (already deleted?)', {
+          stripeId: inv.id,
+        });
+        return;
+      }
+
+      // Mark as voided (Stripe deleted = locally voided)
+      await InvoiceDB.updateInvoiceStatus(invoice.id, companyId, 'voided');
+
+      logInfo('stripeService', method, 'Invoice marked as voided (deleted in Stripe)', {
+        invoiceId: invoice.id,
+        stripeId: inv.id,
+        customerId: invoice.customer_id,
+      });
+
+      // Recalculate customer risk score (fewer open invoices = lower risk)
+      try {
+        const { scoreCustomerRisk } = await import('./riskScoringService');
+        await scoreCustomerRisk(invoice.customer_id, companyId);
+        logInfo('stripeService', method, 'Customer risk score recalculated after invoice deletion', {
+          customerId: invoice.customer_id,
+        });
+      } catch (err) {
+        logError('stripeService', method, 'Failed to recalculate risk score (non-blocking)', err);
+      }
+    } catch (error) {
+      logError('stripeService', method, 'Failed to handle invoice.deleted webhook', error, {
+        stripeInvoiceId: inv.id,
+        companyId,
+      });
+      // Non-blocking — don't throw
+    }
+  }
+
   private async handleDirectCharge(charge: Stripe.Charge): Promise<void> {
     const method = 'handleDirectCharge';
     // Direct charge (not invoice-based) — log only, no invoice to update
@@ -508,7 +809,7 @@ class StripeService {
     });
   }
 
-  private async handleChargeFailed(charge: Stripe.Charge): Promise<void> {
+  private async handleChargeFailed(charge: Stripe.Charge, companyId: string): Promise<void> {
     const method = 'handleChargeFailed';
 
     // Only process if this charge is tied to a Stripe invoice
@@ -521,7 +822,7 @@ class StripeService {
     }
 
     // Find our internal invoice by Stripe invoice ID
-    const invoice = await InvoiceDB.findInvoiceBySourceId(stripeInvoiceId, 'stripe');
+    const invoice = await InvoiceDB.findInvoiceBySourceId(stripeInvoiceId, 'stripe', companyId);
     if (!invoice) {
       logInfo('stripeService', method, 'Internal invoice not found for failed charge', { stripeInvoiceId });
       return;
@@ -627,6 +928,7 @@ class StripeService {
   async getAccessToken(code: string): Promise<{
     access_token: string;
     stripe_user_id: string;
+    webhook_secret?: string;
     error?: string;
   }> {
     const method = 'getAccessToken';
@@ -653,11 +955,13 @@ class StripeService {
 
       logInfo('stripeService', method, '✅ OAuth token received', {
         user_id: data.stripe_user_id,
+        hasWebhookSecret: !!data.webhook_secret,
       });
 
       return {
         access_token: data.access_token,
         stripe_user_id: data.stripe_user_id,
+        webhook_secret: data.webhook_secret || undefined,
       };
     } catch (error) {
       logError('stripeService', method, 'OAuth error', error);
@@ -681,12 +985,16 @@ class StripeService {
         throw new Error(tokenResult.error);
       }
 
-      // Encrypt and save token
+      // Encrypt and save token + webhook secret
       const encrypted = encryptField(tokenResult.access_token);
+      const secretEncrypted = tokenResult.webhook_secret ?
+        encryptField(tokenResult.webhook_secret) :
+        null;
 
       await CompanyDB.updateCompany(companyId, {
         stripe_api_key_encrypted: encrypted,
         stripe_account_id: tokenResult.stripe_user_id,
+        stripe_webhook_secret_encrypted: secretEncrypted,
       });
 
       await AuditDB.createAuditLog({

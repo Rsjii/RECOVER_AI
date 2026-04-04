@@ -11,6 +11,14 @@ const instance: AxiosInstance = axios.create({
   withCredentials: true,
 });
 
+// Force fresh responses — prevent 304 caching issues
+instance.interceptors.request.use((config) => {
+  if (config.method === 'get') {
+    config.params = { ...config.params, _t: Date.now() };
+  }
+  return config;
+});
+
 // Auto-refresh token logic
 let isRefreshing = false;
 let failedQueue: Array<{ resolve: (v: any) => void; reject: (e: any) => void }> = [];

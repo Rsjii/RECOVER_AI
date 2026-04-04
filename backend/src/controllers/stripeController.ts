@@ -25,15 +25,20 @@ export const connectStripe = async (req: Request, res: Response) => {
   try {
     const companyId = (req as any).companyId;
     const userId = (req as any).userId;
-    const { stripe_api_key } = req.body;
+    const { stripe_api_key, stripe_webhook_secret } = req.body;
 
-    logInfo(handler, 'Request received', { companyId, userId });
+    logInfo(handler, 'Request received', { companyId, userId, hasWebhookSecret: !!stripe_webhook_secret });
 
     if (!stripe_api_key || typeof stripe_api_key !== 'string') {
       return sendErrorResponse(res, 400, 'stripe_api_key is required and must be a string');
     }
 
-    await stripeService.connectStripe(companyId, userId, { stripe_api_key });
+    // Webhook secret is OPTIONAL (can be added later)
+    if (stripe_webhook_secret && typeof stripe_webhook_secret !== 'string') {
+      return sendErrorResponse(res, 400, 'stripe_webhook_secret must be a string');
+    }
+
+    await stripeService.connectStripe(companyId, userId, { stripe_api_key, stripe_webhook_secret });
 
     // Mark onboarding complete — manual key connection counts as Stripe connected
     try {

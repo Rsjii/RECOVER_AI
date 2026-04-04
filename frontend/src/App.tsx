@@ -8,6 +8,7 @@ import { useAuth } from './hooks/useAuth';
 
 // Pages (lazy loaded)
 import Login from './pages/Login';
+import Signup from './pages/Signup';
 import VerifyEmail from './pages/VerifyEmail';
 import NotFound from './pages/NotFound';
 import ForgotPassword from './pages/ForgotPassword';
@@ -100,20 +101,14 @@ const App: React.FC = () => {
             <Route path="/cookie-policy" element={<CookiePolicy />} />
             <Route path="/dpa" element={<Dpa />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/signup" element={<Signup />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/auth/google/callback" element={<GoogleCallback />} />
             <Route path="/stripe/oauth/callback" element={<StripeCallback />} />
             <Route path="/unsubscribe" element={<Unsubscribe />} />
             <Route path="/onboard" element={<Onboard />} />
 
-            <Route
-              path="/verify-email"
-              element={
-                <ProtectedRoute>
-                  <VerifyEmail />
-                </ProtectedRoute>
-              }
-            />
+            <Route path="/verify-email" element={<VerifyEmail />} />
 
             {/* Audit Flow: Integrations → Audit Report */}
             <Route

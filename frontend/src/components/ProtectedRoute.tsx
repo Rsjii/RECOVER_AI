@@ -28,26 +28,22 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requireEmailV
   }
 
   // Enforce onboarding flow: block dashboard access if not completed
-  // BUT: Skip for admin/owner users (they don't go through onboarding)
-  // Users must complete: stage-1 → stage-2 → stage-3 → stage-4 → dashboard
+  // Users must complete: signup → verify-email → integrations → dashboard
   if (_requireEmailVerification) {
     const stage = company?.onboarding_stage;
-    const isAdmin = user?.role === 'admin' || user?.role === 'owner';
+    // Platform admin (role='admin') skips onboarding entirely
+    // Owner must complete integrations first — stage check enforces this
+    const isAdmin = user?.role === 'admin';
 
-    // Allow if onboarding is complete OR if user is admin
-    if (!isAdmin && stage !== 'trial_active' && stage !== 'paid_active') {
-      // Redirect to appropriate onboarding stage based on current progress
-      const stageMap: Record<string, string> = {
-        pending: '/onboard/stage-1',
-        create_account: '/onboard/stage-3',  // Account created, do company details
-        details_form: '/onboard/stage-3',     // Company details form, stay on stage-3
-        integrations: '/onboard/stage-4',     // Connecting integrations
-        audit_report: '/onboard/stage-5',     // Showing analysis
-        trial_offer: '/onboard/stage-5',      // Trial offer page
-      };
+    // Stages that still need to complete integrations
+    const needsIntegrations = !isAdmin && stage !== 'trial_active' && stage !== 'paid_active';
 
-      const redirectTo = stageMap[stage || 'pending'] || '/onboard/stage-1';
-      return <Navigate to={redirectTo} replace />;
+    // If on /integrations route, allow create_account and integrations stages through
+    const isIntegrationsPage = location.pathname === '/integrations' || location.pathname === '/audit-report';
+
+    if (needsIntegrations && !isIntegrationsPage) {
+      // Not yet at dashboard stage — send to integrations
+      return <Navigate to="/integrations" replace />;
     }
   }
 

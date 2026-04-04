@@ -106,6 +106,7 @@ export const useSettings = () => {
             status: 'connected',
             details: { accountName: 'Stripe' },
             lastSynced: integrationStatus.stripeLastSyncedAt,
+            hasWebhookSecret: integrationStatus.stripeHasWebhookSecret || false,  // New: pass webhook secret flag
           });
         }
         if (integrationStatus.slack) {

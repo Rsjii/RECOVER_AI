@@ -34,6 +34,8 @@ export interface CompanyRow {
   dunning_strategy: any;
   stripe_api_key_encrypted: string | null;
   stripe_account_id: string | null;
+  stripe_webhook_secret_encrypted: string | null;
+  stripe_last_synced_at: string | null;
   slack_webhook_url_encrypted: string | null;
   created_at: string;
   updated_at: string;

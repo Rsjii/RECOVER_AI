@@ -63,12 +63,28 @@ export const submitStage1Auth = async (req: Request, res: Response) => {
   const handler = 'submitStage1Auth';
 
   try {
-    logInfo(MODULE, handler, 'Stage 1 auth submission', { token: token?.substring(0, 8), email });
+    logInfo(MODULE, handler, 'Stage 1 auth submission', { token: token?.substring(0, 8), email, isDirectSignup: !token });
 
-    // 1. Validate token
-    const invite = await getInviteToken(token);
-    if (!invite) {
-      return res.status(400).json({ error: 'Link expired or invalid' });
+    // 1. Validate token (optional — if provided, it's invite flow; if not, it's direct signup)
+    let invite = null;
+    let companyName = email.split('@')[1] || 'My Company';
+
+    if (token) {
+      // INVITE FLOW: Token must be valid
+      invite = await getInviteToken(token);
+      if (!invite) {
+        return res.status(400).json({ error: 'Link expired or invalid' });
+      }
+      // Use company name from invite
+      companyName = invite.company_name || companyName;
+
+      // Check email matches invite (if email-locked)
+      if (invite.email && invite.email.toLowerCase() !== email.toLowerCase()) {
+        return res.status(400).json({ error: 'Email does not match this invite' });
+      }
+    } else {
+      // DIRECT SIGNUP FLOW: No token required, use email-derived company name
+      logInfo(MODULE, handler, 'Direct signup (no invite token)', { email });
     }
 
     // 2. Validate email format
@@ -76,18 +92,11 @@ export const submitStage1Auth = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Valid email required' });
     }
 
-    // 3. Check email matches invite (if invite is email-locked)
-    if (invite.email && invite.email.toLowerCase() !== email.toLowerCase()) {
-      return res.status(400).json({ error: 'Email does not match this invite' });
-    }
-
-    // 4. Check if user already exists
+    // 3. Check if user already exists
     const existingUser = await UserDB.findUserByEmail(email);
     if (existingUser) {
       return res.status(400).json({ error: 'Email already registered. Please sign in instead.' });
     }
-
-    const companyName = invite.company_name || email.split('@')[1] || 'My Company';
 
     // 5. Google OAuth: Create account immediately
     if (oauth_provider === 'google') {
@@ -134,10 +143,10 @@ export const submitStage1Auth = async (req: Request, res: Response) => {
     const passwordHash = await bcrypt.hash(password, 10);
     const otp = isDev ? '123456' : String(Math.floor(100000 + Math.random() * 900000));
 
-    // Store pending data — include company_name from invite so Stage 2 can create company
+    // Store pending data — include company_name (from invite or email domain)
     await redisClient.set(
       `stage1_pending:${email}`,
-      JSON.stringify({ email, passwordHash, token, invite_company_name: companyName }),
+      JSON.stringify({ email, passwordHash, token: token || null, invite_company_name: companyName }),
       { EX: 15 * 60 }
     );
     await redisClient.set(`otp:${email}`, otp, { EX: 15 * 60 });
@@ -217,9 +226,11 @@ export const verifyStage1OTP = async (req: Request, res: Response) => {
       authProvider: 'email',
     });
 
-    // 5. Mark token as used and link to company
-    await markTokenUsed(token, email);
-    await linkTokenToCompany(token, company.id);
+    // 5. Mark token as used and link to company (only if token provided — invite flow)
+    if (token) {
+      await markTokenUsed(token, email);
+      await linkTokenToCompany(token, company.id);
+    }
 
     // 6. Set auth cookies
     setAuthCookies(res, user.id, company.id, user.email);
@@ -438,9 +449,11 @@ export const proceedFromStage4 = async (req: Request, res: Response) => {
       });
     }
 
-    await CompanyDB.updateCompany(companyId, { onboarding_stage: 'audit_report' });
+    // ✅ CRITICAL: Set to trial_active so dashboard access is immediately unlocked
+    // User goes directly to dashboard (no audit report page)
+    await CompanyDB.updateCompany(companyId, { onboarding_stage: 'trial_active' });
 
-    return res.json({ success: true, next_stage: 5 });
+    return res.json({ success: true, next_stage: 'dashboard' });
   } catch (err) {
     logError(MODULE, handler, 'Error proceeding to stage 5', err);
     return res.status(500).json({ error: 'Failed to proceed' });
