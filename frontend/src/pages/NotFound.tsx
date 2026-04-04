@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
+import { PublicHeader } from '../components/layout/PublicHeader';
 
 const NotFound: React.FC = () => {
   useEffect(() => {
@@ -8,7 +9,9 @@ const NotFound: React.FC = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-[#09090b] flex items-center justify-center px-4">
+    <div className="min-h-screen bg-gray-50 dark:bg-[#09090b]">
+      <PublicHeader />
+      <div className="flex items-center justify-center px-4 py-12">
       <div className="max-w-md w-full text-center">
         <div className="text-6xl font-bold text-blue-600 mb-3">404</div>
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Page not found</h1>
@@ -18,6 +21,7 @@ const NotFound: React.FC = () => {
         <Link to="/">
           <Button variant="primary">Go to Dashboard</Button>
         </Link>
+      </div>
       </div>
     </div>
   );

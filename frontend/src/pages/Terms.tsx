@@ -1,12 +1,15 @@
 import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { PublicHeader } from '../components/layout/PublicHeader';
 
 const Terms: React.FC = () => {
   useEffect(() => { document.title = 'Terms of Service — RecoverAI'; }, []);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-[#09090b]">
-      <div className="max-w-4xl mx-auto px-6 py-12">
+      <PublicHeader />
+
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Terms of Service</h1>
         <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Effective Date: March 1, 2026</p>
         <p className="mt-4 text-sm text-gray-700 dark:text-gray-300 leading-relaxed">

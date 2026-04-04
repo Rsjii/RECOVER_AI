@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { PublicHeader } from '../components/layout/PublicHeader';
 
 const SecurityPage: React.FC = () => {
   useEffect(() => {
@@ -7,9 +8,11 @@ const SecurityPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-[#09090b]">
+      <PublicHeader />
+
       {/* Hero Section */}
       <section className="bg-white dark:bg-[#111113] border-b border-gray-200 dark:border-white/[0.06]">
-        <div className="max-w-5xl mx-auto px-6 py-20 text-center">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-12 sm:py-20 text-center">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-indigo-100 dark:bg-indigo-900/40 mb-6">
             <svg className="w-8 h-8 text-indigo-600 dark:text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
@@ -26,7 +29,7 @@ const SecurityPage: React.FC = () => {
       </section>
 
       {/* Trust Badges */}
-      <section className="max-w-5xl mx-auto px-6 -mt-8">
+      <section className="max-w-5xl mx-auto px-4 sm:px-6 -mt-8">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           {[
             { label: 'SOC 2 in progress', sub: 'Infrastructure via Supabase' },
@@ -48,7 +51,7 @@ const SecurityPage: React.FC = () => {
       </section>
 
       {/* Detail Cards */}
-      <section className="max-w-5xl mx-auto px-6 py-16">
+      <section className="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-16">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Data Security */}
           <div className="rounded-xl bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] shadow-sm p-6">

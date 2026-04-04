@@ -1,10 +1,12 @@
 import React, { useEffect } from 'react';
+import { PublicHeader } from '../components/layout/PublicHeader';
 
 const Support: React.FC = () => {
   useEffect(() => { document.title = 'Support & Contact — RecoverAI'; }, []);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-[#09090b]">
+      <PublicHeader />
       <div className="max-w-4xl mx-auto px-6 py-12">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Contact & Support</h1>
         <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Get in touch with our team</p>

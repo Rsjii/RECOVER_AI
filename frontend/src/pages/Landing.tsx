@@ -11,7 +11,6 @@ const Landing: React.FC = () => {
   const { isAuthenticated, setAuthState } = useAuth();
   const { addToast } = useNotification();
   const [demoLoading, setDemoLoading] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     document.title = 'RecoverAI — Autonomous AR Recovery for B2B SaaS';
@@ -48,40 +47,25 @@ const Landing: React.FC = () => {
       `,
     }}>
       {/* Nav */}
-      <header className="max-w-6xl mx-auto px-6 py-5 flex items-center justify-between">
-        <Link to="/landing" className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center">
-            <span className="text-white text-sm font-bold">R</span>
+      <header className="border-b border-gray-200 dark:border-white/[0.06]">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
+          <Link to="/landing" className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2 shrink-0">
+            <div className="w-6 sm:w-7 h-6 sm:h-7 rounded-lg bg-blue-600 flex items-center justify-center">
+              <span className="text-white text-xs sm:text-sm font-bold">R</span>
+            </div>
+            <span className="hidden sm:inline">RecoverAI</span>
+          </Link>
+          <nav className="hidden md:flex items-center gap-4 lg:gap-6">
+            <Link to="/pricing" className="text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors">Pricing</Link>
+            <Link to="/security" className="text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors">Security</Link>
+          </nav>
+          <div className="flex items-center gap-2 sm:gap-3 ml-auto">
+            <ThemeToggle />
+            <Link to="/login" className="hidden sm:block text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors">Sign in</Link>
+            <Button size="sm" onClick={() => navigate('/signup')}>Start Free Trial</Button>
           </div>
-          RecoverAI
-        </Link>
-        <nav className="hidden md:flex items-center gap-6">
-          <Link to="/pricing" className="text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">Pricing</Link>
-          <Link to="/security" className="text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">Security</Link>
-          <ThemeToggle />
-          <Link to="/login" className="text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">Sign in</Link>
-          <Button size="sm" onClick={() => navigate('/signup')}>Start Free Trial</Button>
-        </nav>
-        <div className="flex md:hidden items-center gap-2">
-          <ThemeToggle className="p-2 text-gray-500 dark:text-gray-400 rounded-lg hover:bg-gray-100 dark:hover:bg-white/[0.06] transition-colors" />
-          <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="p-2 text-gray-500 dark:text-gray-400 rounded-lg hover:bg-gray-100 dark:hover:bg-white/[0.06] transition-colors">
-            {mobileMenuOpen ? (
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-            ) : (
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
-            )}
-          </button>
         </div>
       </header>
-      {mobileMenuOpen && (
-        <div className="md:hidden border-b border-gray-200 dark:border-white/[0.06] bg-white dark:bg-[#09090b] px-6 py-4 flex flex-col gap-4">
-          <Link to="/pricing" onClick={() => setMobileMenuOpen(false)} className="text-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">Pricing</Link>
-          <Link to="/security" onClick={() => setMobileMenuOpen(false)} className="text-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">Security</Link>
-          <Link to="/login" onClick={() => setMobileMenuOpen(false)} className="text-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">Sign in</Link>
-          <Button size="sm" className="w-full" onClick={() => { setMobileMenuOpen(false); navigate('/signup'); }}>Start Free Trial</Button>
-        </div>
-      )}
 
       {/* Hero */}
       <main className="max-w-6xl mx-auto px-6 pt-20 pb-16 text-center">
