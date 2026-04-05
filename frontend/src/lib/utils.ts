@@ -38,7 +38,7 @@ export const validateEmail = (email: string): boolean =>
   /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
 export const validatePassword = (password: string): boolean =>
-  password.length >= 8 && /[A-Z]/.test(password) && /[0-9]/.test(password);
+  password.length >= 8 && /[A-Z]/.test(password) && /[0-9]/.test(password) && /[!@#$%^&*]/.test(password);
 
 export const getPasswordStrength = (password: string): { score: number; message: string } => {
   let score = 0;

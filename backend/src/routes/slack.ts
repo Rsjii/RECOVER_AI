@@ -6,6 +6,16 @@ const router = Router();
 
 const LOG_MODULE = 'slackRoutes';
 
+// Middleware: Block access to Slack OAuth (hidden integration)
+const slackDisabled = (req: Request, res: Response, next: Function) => {
+  const path = req.path;
+  if (path.includes('authorize') || path.includes('callback')) {
+    logInfo(LOG_MODULE, 'slackDisabled', 'Slack OAuth endpoint disabled');
+    return res.status(404).json({ error: 'Not found' });
+  }
+  next();
+};
+
 /**
  * Slack Events API endpoint
  * POST /api/slack/events

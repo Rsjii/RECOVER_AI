@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import type { IntegrationStatus } from '../../types/settings';
 import { Button } from '../ui/Button';
 import { useNotification } from '../../hooks/useNotification';
-import { useAuth } from '../../hooks/useAuth';
 import { CSVUploadModal } from '../invoices/CSVUploadModal';
 import { api } from '../../lib/api';
 
@@ -12,7 +11,7 @@ interface IntegrationSectionProps {
   onRefetch?: () => Promise<void>;
 }
 
-const INTEGRATION_CONFIG: Record<string, { label: string; icon: string; description: string; group: string; availableIn?: string; tier: 'STARTER' | 'GROWTH' }> = {
+const INTEGRATION_CONFIG: Record<string, { label: string; icon: string; description: string; group: string; availableIn?: string; tier: 'STARTER' | 'GROWTH'; hidden?: boolean }> = {
   stripe: {
     label: 'Stripe',
     icon: '💳',
@@ -33,6 +32,7 @@ const INTEGRATION_CONFIG: Record<string, { label: string; icon: string; descript
     description: 'Daily digest and notifications',
     group: 'NOTIFICATIONS',
     tier: 'STARTER',
+    hidden: true,
   },
   quickbooks: {
     label: 'QuickBooks',
@@ -41,6 +41,7 @@ const INTEGRATION_CONFIG: Record<string, { label: string; icon: string; descript
     group: 'BILLING_SYSTEMS',
     availableIn: 'GROWTH_TIER',
     tier: 'GROWTH',
+    hidden: true,
   },
   xero: {
     label: 'Xero',
@@ -49,6 +50,7 @@ const INTEGRATION_CONFIG: Record<string, { label: string; icon: string; descript
     group: 'BILLING_SYSTEMS',
     availableIn: 'GROWTH_TIER',
     tier: 'GROWTH',
+    hidden: true,
   },
   plaid: {
     label: 'Plaid',
@@ -57,6 +59,7 @@ const INTEGRATION_CONFIG: Record<string, { label: string; icon: string; descript
     group: 'BANK_DATA',
     availableIn: 'GROWTH_TIER',
     tier: 'GROWTH',
+    hidden: true,
   },
 };
 
@@ -95,7 +98,6 @@ const getStatusBadge = (status: string) => {
 
 export const IntegrationSection: React.FC<IntegrationSectionProps> = ({ integrations, onDisconnect, onRefetch }) => {
   const { addToast } = useNotification();
-  const { logout } = useAuth();
   const [stripeKeyMode, setStripeKeyMode] = useState(false);
   const [stripeKey, setStripeKey] = useState('');
   const [stripeWebhookSecret, setStripeWebhookSecret] = useState('');
@@ -237,6 +239,9 @@ export const IntegrationSection: React.FC<IntegrationSectionProps> = ({ integrat
 
   const groupedIntegrations = Object.entries(INTEGRATION_CONFIG).reduce(
     (acc, [key, config]) => {
+      // Skip hidden integrations
+      if (config.hidden) return acc;
+
       if (!acc[config.group]) {
         acc[config.group] = [];
       }
@@ -533,44 +538,7 @@ export const IntegrationSection: React.FC<IntegrationSectionProps> = ({ integrat
                 <strong>CSV Upload</strong> – Go to Invoices tab to import invoices from CSV files. Supports monthly updates & duplicate detection.
               </div>
             </li>
-            <li className="flex items-start gap-2">
-              <span>💬</span>
-              <div>
-                <strong>Slack</strong> – Get daily digests, real-time alerts, and use commands. Requires workspace authorization.
-              </div>
-            </li>
-            <li className="flex items-start gap-2">
-              <span>📊</span>
-              <div>
-                <strong>QuickBooks</strong> – Connect for AR aging and AP data. (Beta - test on dev)
-              </div>
-            </li>
-            <li className="flex items-start gap-2">
-              <span>🔒</span>
-              <div>
-                <strong>Xero, Plaid</strong> – Coming in Growth plan for enterprise features.
-              </div>
-            </li>
           </ul>
-        </div>
-      </div>
-
-      {/* Logout Section */}
-      <div className="p-4 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800 rounded-lg">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <h4 className="font-semibold text-red-900 dark:text-red-200 mb-1">Sign Out</h4>
-            <p className="text-sm text-red-700 dark:text-red-400">
-              Sign out of RecoverAI on this device
-            </p>
-          </div>
-          <Button
-            variant="secondary"
-            className="text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/20 whitespace-nowrap"
-            onClick={() => logout()}
-          >
-            Sign Out
-          </Button>
         </div>
       </div>
 

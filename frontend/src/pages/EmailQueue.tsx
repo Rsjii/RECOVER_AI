@@ -17,6 +17,7 @@ interface QueuedEmail {
   attempt_number: number;
   queued_at: string;
   status: 'pending' | 'approved' | 'rejected' | 'sent';
+  due_date?: string;
 }
 
 const EmailQueue: React.FC = () => {

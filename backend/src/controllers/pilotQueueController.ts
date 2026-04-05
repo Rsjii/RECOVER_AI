@@ -28,7 +28,6 @@ export const listQueuedEmails = async (req: Request, res: Response) => {
         days_overdue,
         email_type,
         attempt_number,
-        risk_score,
         queued_at,
         status
        FROM pilot_queued_emails
@@ -75,8 +74,7 @@ export const approveQueuedEmail = async (req: Request, res: Response) => {
         due_date,
         days_overdue,
         email_type,
-        attempt_number,
-        risk_score
+        attempt_number
        FROM pilot_queued_emails
        WHERE id = $1 AND company_id = $2`,
       [id, companyId]
@@ -106,7 +104,6 @@ export const approveQueuedEmail = async (req: Request, res: Response) => {
         daysOverdue: queued.days_overdue,
         emailType: queued.email_type as any,
         attemptNumber: queued.attempt_number,
-        riskScore: queued.risk_score || undefined,
       });
 
       logInfo(MODULE, 'approveQueuedEmail', 'Email sent successfully');
@@ -197,8 +194,7 @@ export const approveAllQueuedEmails = async (req: Request, res: Response) => {
         due_date,
         days_overdue,
         email_type,
-        attempt_number,
-        risk_score
+        attempt_number
        FROM pilot_queued_emails
        WHERE company_id = $1 AND status = 'pending'
        ORDER BY queued_at ASC`,
@@ -229,7 +225,6 @@ export const approveAllQueuedEmails = async (req: Request, res: Response) => {
           daysOverdue: queued.days_overdue,
           emailType: queued.email_type as any,
           attemptNumber: queued.attempt_number,
-          riskScore: queued.risk_score || undefined,
         });
 
         // Mark as sent

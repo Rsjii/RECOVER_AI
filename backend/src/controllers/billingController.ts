@@ -3,7 +3,6 @@ import * as BillingDB from '../db/billing';
 import { pool } from '../config/database';
 import { logError, logInfo } from '../utils/logger';
 import { sendErrorResponse, parseError } from '../utils/errorHandler';
-import lemonSqueezyService from '../services/lemonSqueezyService';
 import * as RazorpayService from '../services/razorpayService';
 
 const LOG_MODULE = 'billingController';
@@ -352,77 +351,6 @@ export const reconcileBillingState = async (req: Request, res: Response): Promis
     });
   } catch (error) {
     logError(LOG_MODULE, 'reconcileBillingState', 'Failed to reconcile billing state', error, { companyId });
-    const { statusCode, message } = parseError(error);
-    sendErrorResponse(res, statusCode, message);
-  }
-};
-
-// ============ LemonSqueezy Integration ============
-
-export const createLemonSqueezyCheckout = async (req: Request, res: Response): Promise<void> => {
-  const companyId = (req as any).companyId as string;
-  const { plan, billingInterval } = req.body as { plan: 'phase_0' | 'growth' | 'enterprise'; billingInterval?: 'monthly' | 'annual' };
-
-  try {
-    logInfo(LOG_MODULE, 'createLemonSqueezyCheckout', 'Creating checkout', { companyId, plan, billingInterval });
-
-    if (!['phase_0', 'growth', 'enterprise'].includes(plan)) {
-      sendErrorResponse(res, 400, 'Invalid plan');
-      return;
-    }
-
-    if (billingInterval && !['monthly', 'annual'].includes(billingInterval)) {
-      sendErrorResponse(res, 400, 'Invalid billingInterval (must be monthly or annual)');
-      return;
-    }
-
-    const result = await lemonSqueezyService.createCheckout({
-      planId: plan,
-      billingInterval: billingInterval || 'monthly',
-      customerEmail: (req as any).email || 'unknown@example.com',
-      customerName: (req as any).name || 'User',
-      companyId,
-    });
-
-    if (!result.success) {
-      sendErrorResponse(res, 400, result.error || 'Failed to create checkout');
-      return;
-    }
-
-    res.status(200).json({
-      success: true,
-      checkoutUrl: result.checkoutUrl,
-    });
-  } catch (error) {
-    logError(LOG_MODULE, 'createLemonSqueezyCheckout', 'Failed to create checkout', error, { companyId });
-    const { statusCode, message } = parseError(error);
-    sendErrorResponse(res, statusCode, message);
-  }
-};
-
-export const handleLemonSqueezyWebhook = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const signature = req.headers['x-signature'] as string;
-    const body = JSON.stringify(req.body);
-
-    logInfo(LOG_MODULE, 'handleLemonSqueezyWebhook', 'Received webhook');
-
-    // Verify signature
-    const isValid = lemonSqueezyService.verifyWebhookSignature(body, signature);
-
-    if (!isValid) {
-      logError(LOG_MODULE, 'handleLemonSqueezyWebhook', 'Invalid signature');
-      sendErrorResponse(res, 401, 'Invalid signature');
-      return;
-    }
-
-    // Handle webhook event
-    await lemonSqueezyService.handleWebhook(req.body);
-
-    logInfo(LOG_MODULE, 'handleLemonSqueezyWebhook', 'Webhook processed successfully');
-    res.status(200).json({ success: true });
-  } catch (error) {
-    logError(LOG_MODULE, 'handleLemonSqueezyWebhook', 'Webhook processing failed', error);
     const { statusCode, message } = parseError(error);
     sendErrorResponse(res, statusCode, message);
   }

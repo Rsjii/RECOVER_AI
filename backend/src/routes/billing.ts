@@ -14,8 +14,6 @@ import {
   recordUsage,
   syncRecoveredAmountToUsage,
   updateSubscription,
-  createLemonSqueezyCheckout,
-  handleLemonSqueezyWebhook,
   generateRazorpayInvoices,
   generateRazorpayInvoiceForCompany,
   handleRazorpayWebhook,
@@ -39,10 +37,6 @@ router.post('/usage', requireRole('admin'), recordUsage);
 router.post('/usage/sync-recovered', requireRole('admin'), syncRecoveredAmountToUsage);
 router.post('/usage/reconcile', requireRole('admin'), reconcileBillingState);
 router.get('/entitlements', getEntitlements);
-
-// LemonSqueezy routes
-router.post('/checkout', createLemonSqueezyCheckout);
-router.post('/webhook/lemonsqueezy', handleLemonSqueezyWebhook);
 
 // Pilot conversion
 router.post('/checkout/pilot-conversion', startPilotConversion);

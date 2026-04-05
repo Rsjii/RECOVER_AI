@@ -20,7 +20,7 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction) 
       return res.status(500).json({ error: 'Server misconfigured' });
     }
 
-    const decoded = verify(token, config.jwtSecret) as JWTPayload;
+    const decoded = verify(token, config.jwtSecret, { algorithms: ['HS256'] }) as JWTPayload;
 
     // Attach to request object
     (req as any).userId = decoded.userId;

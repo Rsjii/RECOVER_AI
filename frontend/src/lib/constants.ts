@@ -83,7 +83,6 @@ export const API_ENDPOINTS = {
     syncRecovered: '/api/billing/usage/sync-recovered',
     reconcileUsage: '/api/billing/usage/reconcile',
     entitlements: '/api/billing/entitlements',
-    checkout: '/api/billing/checkout',
     razorpayGenerateInvoices: '/api/billing/razorpay/generate-invoices',
     razorpayGenerateInvoice: (companyId: string) => `/api/billing/razorpay/generate-invoice/${companyId}`,
     razorpaySetTier: (companyId: string) => `/api/billing/razorpay/company/${companyId}/tier`,

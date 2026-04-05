@@ -289,13 +289,14 @@ export const getQueueStats = async (req: Request, res: Response): Promise<void> 
       [companyId]
     );
 
-    const stats = { pending: 0, approved: 0, rejected: 0, sent: 0 };
+    // Map database status to UI field names: pending→waiting, sent→active
+    const stats = { waiting: 0, approved: 0, rejected: 0, active: 0 };
     for (const row of result.rows) {
       const s = row.status as string;
-      if (s === 'pending') stats.pending = row.count;
-      else if (s === 'approved') stats.approved = row.count;
+      if (s === 'pending') stats.waiting = row.count;           // Pending approval in queue = waiting
+      else if (s === 'approved') stats.approved = row.count;    // Approved but not yet sent
       else if (s === 'rejected') stats.rejected = row.count;
-      else if (s === 'sent') stats.sent = row.count;
+      else if (s === 'sent') stats.active = row.count;          // Sent/being tracked = active
     }
 
     res.status(200).json({

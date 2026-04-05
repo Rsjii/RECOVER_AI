@@ -38,7 +38,7 @@ import adminPilotRoutes from './routes/adminPilot';
 import pilotManagementRoutes from './routes/pilotManagement';
 import auditStagesRoutes from './routes/auditStages';
 import pilotQueueRoutes from './routes/pilotQueue';
-import slackRoutes from './routes/slack';
+// import slackRoutes from './routes/slack';  // ❌ DISABLED: see below
 import emailDashboardRoutes from './routes/emailDashboard';
 import { getRequestContext, logError, logInfo, logWarn, withRequestContext } from './utils/logger';
 import { apiLimiter, authLimiter, authSlowDown, syncLimiter, aiLimiter, webhookLimiter, emailLimiter, auditOtpLimiter, publicFormLimiter } from './middleware/rateLimiter';
@@ -85,13 +85,9 @@ app.use(cors({
       return callback(null, false);
     }
 
-    // Check exact match
+    // Strict allowlist — only origins explicitly configured via FRONTEND_URL (comma-separated)
+    // plus localhost dev defaults. No wildcard/suffix matching.
     if (allowedOrigins.includes(origin)) {
-      return callback(null, origin);
-    }
-
-    // Allow all Vercel preview URLs (*.vercel.app)
-    if (origin.endsWith('.vercel.app')) {
       return callback(null, origin);
     }
 
@@ -112,9 +108,8 @@ app.use('/api/email/webhook/sendgrid', express.json());
 app.use('/api/invoices/csv-upload', express.text({ type: '*/*', limit: '10mb' }));
 app.use('/api/customers/import-csv', express.text({ type: '*/*', limit: '10mb' }));
 
-// Increase JSON/form limits to handle larger payloads (images, batch operations, large CSVs)
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+// JSON-only body parsing (prevents CSRF via simple-request urlencoded forms; 1mb limit prevents DoS)
+app.use(express.json({ limit: '1mb' }));
 app.use(cookieParser());
 
 // Request correlation middleware
@@ -236,8 +231,10 @@ app.use('/api/segmentation', segmentationRoutes);
 // app.use('/api/admin/pilots', pilotManagementRoutes);
 // app.use('/api/audits', auditRoutes);  // ❌ DISABLED
 app.use('/api/audit-stages', auditStagesRoutes);  // ✅ SIGNUP FLOW: /signup → /verify-email → /integrations
-// app.use('/api/pilot-queue', pilotQueueRoutes);  // ❌ DISABLED
-app.use('/api/slack', slackRoutes);  // Slack bot integration
+app.use('/api/pilot-queue', pilotQueueRoutes);  // ✅ EMAIL QUEUE: Sidebar > Operations > Email Queue
+// ❌ DISABLED: Slack bot not in use yet. Routes have no signature verification —
+// re-enable only after implementing Slack signing-secret HMAC middleware (audit C1).
+// app.use('/api/slack', slackRoutes);
 app.use('/api/admin/email-dashboard', emailDashboardRoutes);  // Email dashboard for admins
 
 // Health check

@@ -65,7 +65,7 @@ export const useSettings = () => {
       try {
         // Fetch all settings from single endpoint
         const settingsRes = await api.get('/api/settings');
-        const data = settingsRes.data || settingsRes;
+        const data = settingsRes.data?.data || settingsRes.data || settingsRes;
 
         // Build form data from settings response
         const newFormData: SettingsFormData = {
@@ -170,11 +170,7 @@ export const useSettings = () => {
     try {
       // For now, just update the original data to clear dirty flag
       setOriginalData(formData);
-
-      addToast({
-        type: 'success',
-        message: 'Settings saved successfully',
-      });
+      // No toast here - let the calling component handle it
     } catch (err: any) {
       const errorMsg = err.response?.data?.error || err.message || 'Failed to save settings';
       setError(errorMsg);
@@ -193,6 +189,7 @@ export const useSettings = () => {
    */
   const cancel = useCallback(() => {
     setFormData(originalData);
+    setOriginalData(originalData);
     setError(null);
   }, [originalData]);
 

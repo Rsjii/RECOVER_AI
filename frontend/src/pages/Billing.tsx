@@ -120,7 +120,7 @@ const Billing: React.FC = () => {
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-1">Billing</h1>
           <p className="text-base text-gray-600 dark:text-gray-400">
-            {(isPilot || isTrial) ? 'Your free trial details and upgrade options' : 'Manage your subscription and invoices'}
+            {loading ? '' : (isPilot || isTrial) ? 'Your free trial details and upgrade options' : 'Manage your subscription and invoices'}
           </p>
         </div>
 
@@ -176,7 +176,7 @@ const Billing: React.FC = () => {
                         {pilotRecovery > 0 ? `$${pilotRecovery.toLocaleString('en-US', { maximumFractionDigits: 0 })}` : '$0'}
                       </p>
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        {pilotRecovery > 0 ? 'already recovered during trial' : 'agent is working on it'}
+                        {pilotRecovery > 0 ? 'recovered during trial' : 'during your trial period'}
                       </p>
                     </div>
                     <div className="p-4 bg-white dark:bg-white/5 rounded-xl border border-gray-100 dark:border-white/10">

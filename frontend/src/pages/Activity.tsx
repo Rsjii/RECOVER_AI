@@ -3,18 +3,19 @@ import { api } from '../lib/api';
 import { API_ENDPOINTS } from '../lib/constants';
 import { useNotification } from '../hooks/useNotification';
 import { ConfirmationModal } from '../components/ui/ConfirmationModal';
-import { formatDate, formatCurrency } from '../lib/utils';
+import { formatDate } from '../lib/utils';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { ActivitySkeleton } from '../components/ui/Skeleton';
+import { Spinner } from '../components/ui/Spinner';
 
-type Tab = 'emails' | 'sms' | 'payments' | 'events';
+type Tab = 'emails'; // SMS, Payments, Events hidden (not in use yet)
 
 const tabs: { id: Tab; label: string }[] = [
   { id: 'emails', label: 'Emails' },
-  { id: 'sms', label: 'SMS' },
-  { id: 'payments', label: 'Payments' },
-  { id: 'events', label: 'Events' },
+  // { id: 'sms', label: 'SMS' },              // ❌ HIDDEN: SMS not in use (re-enable in Month 2)
+  // { id: 'payments', label: 'Payments' },    // ❌ HIDDEN: Payments not in use (re-enable in Month 3)
+  // { id: 'events', label: 'Events' },        // ❌ REMOVED: Internal noise in pilot (re-add as "Agent Decisions" in Month 2+ if needed)
 ];
 
 const statusIcon = (status: string) => {
@@ -60,9 +61,17 @@ const Activity: React.FC = () => {
   const { addToast } = useNotification();
   const [activeTab, setActiveTab] = useState<Tab>('emails');
   const [emailLogs, setEmailLogs] = useState<any[]>([]);
-  const [smsActivity, setSmsActivity] = useState<any[]>([]);
-  const [paymentEvents, setPaymentEvents] = useState<any[]>([]);
+  // const [smsActivity, setSmsActivity] = useState<any[]>([]);           // ❌ HIDDEN
+  // const [paymentEvents, setPaymentEvents] = useState<any[]>([]);       // ❌ HIDDEN
   const [queueStats, setQueueStats] = useState<any>(null);
+
+  // Queued emails (pending approval)
+  const [queuedEmails, setQueuedEmails] = useState<any[]>([]);
+  const [approvingQueue, setApprovingQueue] = useState<string | null>(null);
+  const [approvingAllQueue, setApprovingAllQueue] = useState(false);
+  const [previewQueueEmail, setPreviewQueueEmail] = useState<any>(null);
+  const [previewQueueLoading, setPreviewQueueLoading] = useState(false);
+  const [previewQueueData, setPreviewQueueData] = useState<{ subject: string; body: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedEmail, setSelectedEmail] = useState<any>(null);
   const [showPreview, setShowPreview] = useState(false);
@@ -85,29 +94,46 @@ const Activity: React.FC = () => {
     finally { setLoading(false); }
   }, []);
 
-  const fetchSms = useCallback(async () => {
-    setLoading(true);
+  const fetchQueuedEmails = useCallback(async () => {
     try {
-      const res = await api.get<{ data: any[] }>('/api/dashboard/sms-activity');
-      setSmsActivity(res.data || []);
-    } catch {}
-    finally { setLoading(false); }
-  }, []);
+      const res = await api.get<{ data: any[] }>('/api/pilot-queue');
+      setQueuedEmails(res.data || []);
+    } catch (err: any) {
+      addToast({
+        type: 'error',
+        message: err.message || 'Failed to load queued emails',
+      });
+    }
+  }, [addToast]);
 
-  const fetchPayments = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await api.get<{ data: any[] }>('/api/dashboard/payment-events');
-      setPaymentEvents(res.data || []);
-    } catch {}
-    finally { setLoading(false); }
-  }, []);
+  // ❌ HIDDEN: SMS fetcher (not in use, re-enable in future)
+  // const fetchSms = useCallback(async () => {
+  //   setLoading(true);
+  //   try {
+  //     const res = await api.get<{ data: any[] }>('/api/dashboard/sms-activity');
+  //     setSmsActivity(res.data || []);
+  //   } catch {}
+  //   finally { setLoading(false); }
+  // }, []);
+
+  // ❌ HIDDEN: Payments fetcher (not in use, re-enable in future)
+  // const fetchPayments = useCallback(async () => {
+  //   setLoading(true);
+  //   try {
+  //     const res = await api.get<{ data: any[] }>('/api/dashboard/payment-events');
+  //     setPaymentEvents(res.data || []);
+  //   } catch {}
+  //   finally { setLoading(false); }
+  // }, []);
 
   useEffect(() => {
-    if (activeTab === 'emails') fetchEmails();
-    else if (activeTab === 'sms') fetchSms();
-    else if (activeTab === 'payments') fetchPayments();
-    else setLoading(false);
+    if (activeTab === 'emails') {
+      fetchEmails();
+      fetchQueuedEmails();
+    } else {
+      // SMS & Payments tabs are hidden
+      setLoading(false);
+    }
   }, [activeTab]);
 
   const handleEditEmail = (email: any) => {
@@ -161,6 +187,85 @@ const Activity: React.FC = () => {
     }
   };
 
+  // ============ QUEUED EMAIL HANDLERS (from EmailQueue) ============
+  const handleApproveQueuedEmail = async (id: string) => {
+    setApprovingQueue(id);
+    try {
+      await api.post(`/api/pilot-queue/${id}/approve`);
+      addToast({
+        type: 'success',
+        message: 'Email approved and sent',
+      });
+      fetchQueuedEmails();
+    } catch (err: any) {
+      addToast({
+        type: 'error',
+        message: err.message || 'Failed to approve email',
+      });
+    } finally {
+      setApprovingQueue(null);
+    }
+  };
+
+  const handleRejectQueuedEmail = async (id: string) => {
+    setApprovingQueue(id);
+    try {
+      await api.post(`/api/pilot-queue/${id}/reject`);
+      addToast({
+        type: 'success',
+        message: 'Email rejected',
+      });
+      fetchQueuedEmails();
+    } catch (err: any) {
+      addToast({
+        type: 'error',
+        message: err.message || 'Failed to reject email',
+      });
+    } finally {
+      setApprovingQueue(null);
+    }
+  };
+
+  const handleApproveAllQueued = async () => {
+    setApprovingAllQueue(true);
+    try {
+      const res = await api.post<{ sent_count: number; failed_count: number }>(
+        `/api/pilot-queue/approve-all`
+      );
+      addToast({
+        type: 'success',
+        message: `${res.sent_count} emails sent${res.failed_count > 0 ? `, ${res.failed_count} failed` : ''}`,
+      });
+      fetchQueuedEmails();
+    } catch (err: any) {
+      addToast({
+        type: 'error',
+        message: err.message || 'Failed to approve emails',
+      });
+    } finally {
+      setApprovingAllQueue(false);
+    }
+  };
+
+  const handlePreviewQueuedEmail = async (email: any) => {
+    setPreviewQueueEmail(email);
+    setPreviewQueueLoading(true);
+    setPreviewQueueData(null);
+    try {
+      const res = await api.get<{ data: { subject: string; body: string } }>(
+        `/api/email/preview?invoiceId=${email.invoice_id}&emailType=${email.email_type}`
+      );
+      setPreviewQueueData(res.data);
+    } catch (err: any) {
+      addToast({
+        type: 'error',
+        message: err.message || 'Failed to load email preview',
+      });
+    } finally {
+      setPreviewQueueLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6 pb-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -196,15 +301,113 @@ const Activity: React.FC = () => {
         <>
           {/* Emails Tab */}
           {activeTab === 'emails' && (
-            <Card>
-              <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-3">Recent Emails</h3>
-              {emailLogs.length === 0 ? (
-                <p className="text-gray-500 text-center py-8">No emails sent yet. Start the dunning agent from the Invoices page.</p>
-              ) : (
-                <>
-                  <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg mb-4 text-sm text-blue-700 dark:text-blue-300">
-                    All emails include a CAN-SPAM compliant unsubscribe link. Replies and opt-outs are tracked automatically.
+            <div className="space-y-6">
+              {/* SECTION 1: PENDING APPROVAL QUEUE */}
+              <Card>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-white">📬 Pending Approval</h3>
+                  <div className="bg-blue-100 dark:bg-blue-500/20 text-blue-900 dark:text-blue-200 px-3 py-1 rounded-full font-medium text-sm">
+                    {queuedEmails.length} pending
                   </div>
+                </div>
+
+                {queuedEmails.length === 0 ? (
+                  <p className="text-gray-500 text-center py-8">No emails awaiting approval. All emails have been reviewed or sent.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {/* Approve All Button */}
+                    {queuedEmails.length > 0 && (
+                      <div className="flex gap-2 mb-4">
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          onClick={handleApproveAllQueued}
+                          loading={approvingAllQueue}
+                        >
+                          Approve All ({queuedEmails.length})
+                        </Button>
+                      </div>
+                    )}
+
+                    {/* Queue Table */}
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead className="border-b border-gray-200 dark:border-white/[0.06] bg-gray-50 dark:bg-white/[0.02]">
+                          <tr>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300">Customer</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300">Amount</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300">Days Overdue</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300">Email Type</th>
+                            <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 dark:text-gray-300">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200 dark:divide-white/[0.06]">
+                          {queuedEmails.map((email: any) => (
+                            <tr key={email.id} className="hover:bg-gray-50 dark:hover:bg-white/[0.02] transition-colors">
+                              <td className="px-4 py-3">
+                                <div>
+                                  <p className="font-medium text-gray-900 dark:text-white text-sm">{email.customer_name}</p>
+                                  <p className="text-xs text-gray-500 dark:text-gray-400">{email.recipient_email}</p>
+                                </div>
+                              </td>
+                              <td className="px-4 py-3">
+                                <p className="font-medium text-gray-900 dark:text-white text-sm">${email.invoice_amount.toLocaleString()}</p>
+                              </td>
+                              <td className="px-4 py-3">
+                                <p className="text-gray-700 dark:text-gray-300 text-sm">{email.days_overdue}d</p>
+                              </td>
+                              <td className="px-4 py-3">
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300">
+                                  {email.email_type.replace(/_/g, ' ')}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3">
+                                <div className="flex items-center justify-end gap-2">
+                                  <button
+                                    onClick={() => handlePreviewQueuedEmail(email)}
+                                    className="text-xs px-2.5 py-1 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors"
+                                  >
+                                    👁 Preview
+                                  </button>
+                                  <Button
+                                    variant="primary"
+                                    size="sm"
+                                    onClick={() => handleApproveQueuedEmail(email.id)}
+                                    loading={approvingQueue === email.id}
+                                    disabled={approvingQueue !== null}
+                                  >
+                                    ✓ Approve
+                                  </Button>
+                                  <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    onClick={() => handleRejectQueuedEmail(email.id)}
+                                    loading={approvingQueue === email.id}
+                                    disabled={approvingQueue !== null}
+                                  >
+                                    ✕ Reject
+                                  </Button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </Card>
+
+              {/* SECTION 2: SENT & TRACKED EMAILS */}
+              <Card>
+                <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-3">✅ Sent & Tracked</h3>
+                {emailLogs.length === 0 ? (
+                  <p className="text-gray-500 text-center py-8">No emails sent yet. Start the dunning agent from the Invoices page.</p>
+                ) : (
+                  <>
+                    <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg mb-4 text-sm text-blue-700 dark:text-blue-300">
+                      All emails include a CAN-SPAM compliant unsubscribe link. Replies and opt-outs are tracked automatically.
+                    </div>
                   <div className="space-y-1 max-h-[600px] overflow-y-auto">
                     {groupByDate(emailLogs, 'sent_at').map(({ dateLabel, items }) => (
                       <div key={dateLabel}>
@@ -275,13 +478,14 @@ const Activity: React.FC = () => {
                       </div>
                     ))}
                   </div>
-                </>
-              )}
-            </Card>
+                  </>
+                )}
+              </Card>
+            </div>
           )}
 
-          {/* SMS Tab */}
-          {activeTab === 'sms' && (
+          {/* ❌ HIDDEN: SMS Tab (commented out - not in use) */}
+          {/* {activeTab === 'sms' && (
             <Card>
               <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-4">SMS Messages Sent</h3>
               {smsActivity.length === 0 ? (
@@ -308,10 +512,10 @@ const Activity: React.FC = () => {
                 </div>
               )}
             </Card>
-          )}
+          )} */}
 
-          {/* Payments Tab */}
-          {activeTab === 'payments' && (
+          {/* ❌ HIDDEN: Payments Tab (commented out - not in use) */}
+          {/* {activeTab === 'payments' && (
             <Card>
               <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-4">Payment Events</h3>
               {paymentEvents.length === 0 ? (
@@ -352,10 +556,10 @@ const Activity: React.FC = () => {
                 </div>
               )}
             </Card>
-          )}
+          )} */}
 
-          {/* Events Tab */}
-          {activeTab === 'events' && (
+          {/* ❌ HIDDEN: Events Tab (internal noise, re-add as "Agent Decisions" in Month 2 if needed) */}
+          {/* {activeTab === 'events' && (
             <Card>
               <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-4">System Events</h3>
               <div className="space-y-3">
@@ -393,7 +597,7 @@ const Activity: React.FC = () => {
                 )}
               </div>
             </Card>
-          )}
+          )} */}
         </>
       )}
 
@@ -502,6 +706,85 @@ const Activity: React.FC = () => {
                   Cancel
                 </Button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Queued Email Preview Modal */}
+      {previewQueueEmail && (
+        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-900 rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-white/[0.06] p-6 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Email Preview</h3>
+              <button
+                onClick={() => {
+                  setPreviewQueueEmail(null);
+                  setPreviewQueueData(null);
+                }}
+                className="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div>
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Customer:</p>
+                <p className="text-gray-900 dark:text-white">{previewQueueEmail.customer_name}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{previewQueueEmail.recipient_email}</p>
+              </div>
+
+              {previewQueueLoading ? (
+                <div className="flex justify-center py-12">
+                  <Spinner text="Generating preview..." />
+                </div>
+              ) : previewQueueData ? (
+                <div className="space-y-4 bg-gray-50 dark:bg-white/[0.03] rounded-lg p-4">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 uppercase tracking-wide">
+                      Subject
+                    </label>
+                    <div className="bg-white dark:bg-white/[0.05] rounded px-3 py-2 text-sm text-gray-900 dark:text-white font-medium">
+                      {previewQueueData.subject}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 uppercase tracking-wide">
+                      Body
+                    </label>
+                    <div className="bg-white dark:bg-white/[0.05] rounded px-3 py-2 text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed max-h-96 overflow-y-auto">
+                      {previewQueueData.body}
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="flex gap-3 justify-end mt-6 p-6 border-t border-gray-200 dark:border-white/[0.06]">
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setPreviewQueueEmail(null);
+                  setPreviewQueueData(null);
+                }}
+              >
+                Close
+              </Button>
+              {previewQueueData && (
+                <Button
+                  variant="primary"
+                  onClick={() => {
+                    handleApproveQueuedEmail(previewQueueEmail.id);
+                    setPreviewQueueEmail(null);
+                    setPreviewQueueData(null);
+                  }}
+                  loading={approvingQueue === previewQueueEmail.id}
+                  disabled={approvingQueue !== null}
+                >
+                  Approve & Send
+                </Button>
+              )}
             </div>
           </div>
         </div>

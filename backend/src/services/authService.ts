@@ -1,4 +1,4 @@
-import bcrypt from 'bcryptjs';
+import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { config } from '../config/env';
@@ -32,7 +32,7 @@ class AuthService {
     }
 
     // Hash password
-    const passwordHash = await bcrypt.hash(password, 10);
+    const passwordHash = await bcrypt.hash(password, 12);
 
     // Create company
     const company = await CompanyDB.createCompany({

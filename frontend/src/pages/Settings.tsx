@@ -3,11 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { SettingsLayout } from '../components/settings/SettingsLayout';
 import { useSettings } from '../components/settings/useSettings';
 import { useNotification } from '../hooks/useNotification';
-import { ProfileSection } from '../components/settings/ProfileSection';
 import { IntegrationSection } from '../components/settings/IntegrationSection';
 import { EmailSettingsSection } from '../components/settings/EmailSettingsSection';
 import { DunningSection } from '../components/settings/DunningSection';
-import { AutomationSection } from '../components/settings/AutomationSection';
 import { AccountSection } from '../components/settings/AccountSection';
 import type { SettingsTab } from '../components/settings/SettingsLayout';
 import { api } from '../lib/api';
@@ -15,7 +13,7 @@ import { useAuth } from '../hooks/useAuth';
 
 const Settings: React.FC = () => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
+  const [activeTab, setActiveTab] = useState<SettingsTab>('integrations');
   const { addToast } = useNotification();
   const { user } = useAuth();
   const {
@@ -27,6 +25,7 @@ const Settings: React.FC = () => {
     sessions,
     updateField,
     save,
+    cancel,
     refetchIntegrations,
   } = useSettings();
 
@@ -147,18 +146,8 @@ const Settings: React.FC = () => {
       isDirty={isDirty}
       isLoading={isLoading}
       isSaving={isSaving}
+      onCancel={cancel}
     >
-      {/* Profile Tab - Company Info Only */}
-      {activeTab === 'profile' && (
-        <ProfileSection
-          data={formData.profile}
-          onChange={(field, value) => updateField('profile', field, value)}
-          onSave={handleSave}
-          isSaving={isSaving}
-          isDirty={isDirty}
-        />
-      )}
-
       {/* Integrations Tab - Read-Only Status View */}
       {activeTab === 'integrations' && (
         <IntegrationSection
@@ -190,14 +179,15 @@ const Settings: React.FC = () => {
         />
       )}
 
-      {/* Automation Tab - Email Queue, Workflows, Advanced */}
-      {activeTab === 'automation' && (
-        <AutomationSection />
-      )}
-
-      {/* Account Tab - Password Reset, Security, Account Management, Sessions */}
+      {/* Account Tab - Company Profile + Password Reset, Security, Sessions */}
       {activeTab === 'account' && (
         <AccountSection
+          profileData={formData.profile}
+          onProfileChange={(field, value) => updateField('profile', field, value)}
+          onSave={handleSave}
+          onCancel={cancel}
+          isSaving={isSaving}
+          isDirty={isDirty}
           userEmail={user?.email}
           authProvider={user?.authProvider || 'email'}
           sessions={sessions}

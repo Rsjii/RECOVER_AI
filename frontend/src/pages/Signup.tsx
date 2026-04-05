@@ -52,8 +52,10 @@ const Signup: React.FC = () => {
     if (!form.email) newErrors.email = 'Email is required';
     else if (!validateEmail(form.email)) newErrors.email = 'Enter a valid email';
     if (!form.password) newErrors.password = 'Password is required';
-    else if (!validatePassword(form.password))
-      newErrors.password = 'Min 8 chars, 1 uppercase, 1 number';
+    else if (!validatePassword(form.password)) {
+      const strength = getPasswordStrength(form.password);
+      newErrors.password = strength.message;
+    }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -240,8 +242,7 @@ const Signup: React.FC = () => {
                   )}
                 </button>
               </div>
-              {errors.password && <p className="mt-1 text-xs text-red-500">{errors.password}</p>}
-              {strength && form.password.length > 0 && (
+              {form.password.length > 0 && strength && (
                 <div className="mt-2">
                   <div className="flex gap-1">
                     {[0, 1, 2, 3].map((i) => (
@@ -253,7 +254,9 @@ const Signup: React.FC = () => {
                       />
                     ))}
                   </div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{strength.message}</p>
+                  <p className={`text-xs mt-1 ${errors.password ? 'text-red-500' : 'text-gray-500 dark:text-gray-400'}`}>
+                    {errors.password || strength.message}
+                  </p>
                 </div>
               )}
             </div>

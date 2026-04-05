@@ -89,7 +89,7 @@ export const signupWithOTP = async (req: Request, res: Response) => {
     }
 
     // Hash password
-    const passwordHash = await bcrypt.hash(password, 10);
+    const passwordHash = await bcrypt.hash(password, 12);
 
     // Generate OTP
     const isDev = config.nodeEnv !== 'production';
@@ -251,44 +251,44 @@ export const signup = async (req: Request, res: Response) => {
 
     // Check if user already exists
     const existingUser = await UserDB.findUserByEmail(email);
-    if (existingUser) {
-      return sendErrorResponse(res, 400, 'Email already registered. Please sign in.');
-    }
 
-    // Hash password
-    const passwordHash = await bcrypt.hash(password, 10);
-
-    // Generate OTP
+    // Generate OTP regardless of whether email exists (prevents enumeration)
     const isDev = config.nodeEnv !== 'production';
     const otp = isDev ? '123456' : String(Math.floor(100000 + Math.random() * 900000));
 
-    // Store pending signup data in Redis (15 min expiry)
-    // NO account created yet — just OTP sent
-    await redisClient.set(
-      `signup_pending:${email}`,
-      JSON.stringify({ email, passwordHash, companyName, firstName, lastName }),
-      { EX: 15 * 60 }
-    );
-    await redisClient.set(`signup_otp:${email}`, otp, { EX: 15 * 60 });
+    // Only store and send OTP if email is NEW
+    if (!existingUser) {
+      // Hash password
+      const passwordHash = await bcrypt.hash(password, 12);
 
-    // Send OTP email
-    if (!isDev) {
-      try {
-        await resendService.sendOTP({ email, code: otp });
-      } catch (emailErr: any) {
-        logError(handler, 'Failed to send OTP email', emailErr);
-        // Continue anyway — user can resend
+      // Store pending signup data in Redis (15 min expiry)
+      // NO account created yet — just OTP sent
+      await redisClient.set(
+        `signup_pending:${email}`,
+        JSON.stringify({ email, passwordHash, companyName, firstName, lastName }),
+        { EX: 15 * 60 }
+      );
+      await redisClient.set(`signup_otp:${email}`, otp, { EX: 15 * 60 });
+
+      // Send OTP email
+      if (!isDev) {
+        try {
+          await resendService.sendOTP({ email, code: otp });
+        } catch (emailErr: any) {
+          logError(handler, 'Failed to send OTP email', emailErr);
+          // Continue anyway — user can resend
+        }
       }
     }
 
     const elapsed = Date.now() - startTime;
-    logInfo(handler, `OTP sent in ${elapsed}ms`, { email, isDev });
+    logInfo(handler, `Signup initiated in ${elapsed}ms`, { email, isNew: !existingUser, isDev });
 
-    // Return success BUT DO NOT SET COOKIES
-    // User must verify OTP first
+    // Return same success message regardless (prevents email enumeration)
+    // If email exists, verify-otp step will silently fail to create account
     return res.status(200).json({
       success: true,
-      message: isDev ? 'Dev: OTP is 123456' : 'Verification code sent to your email',
+      message: isDev ? 'Dev: OTP is 123456' : 'If this email is available, a verification code has been sent',
       devOtp: isDev ? '123456' : undefined,
     });
   } catch (err: any) {
@@ -970,7 +970,7 @@ export const onboardWithToken = async (req: Request, res: Response) => {
     // Hash password if provided
     let password_hash = null;
     if (password) {
-      password_hash = await bcrypt.hash(password, 10);
+      password_hash = await bcrypt.hash(password, 12);
     }
 
     // Create company

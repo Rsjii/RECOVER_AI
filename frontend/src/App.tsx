@@ -25,7 +25,7 @@ import GoogleCallback from './pages/GoogleCallback';
 import StripeCallback from './pages/StripeCallback';
 import Unsubscribe from './pages/Unsubscribe';
 import BillingSuccess from './pages/BillingSuccess';
-import EmailQueue from './pages/EmailQueue';
+// import EmailQueue from './pages/EmailQueue';  // ❌ REMOVED: Merged into Activity → Emails tab
 import Onboard from './pages/Onboard';
 import { Integrations } from './pages/Integrations';
 import { AuditReport } from './pages/AuditReport';
@@ -199,7 +199,8 @@ const App: React.FC = () => {
                 </ProtectedRoute>
               }
             />
-            <Route
+            {/* ❌ REMOVED: Email Queue route - merged into Activity → Emails tab */}
+            {/* <Route
               path="/email-queue"
               element={
                 <ProtectedRoute requireEmailVerification>
@@ -208,7 +209,7 @@ const App: React.FC = () => {
                   </Layout>
                 </ProtectedRoute>
               }
-            />
+            /> */}
             <Route
               path="/reports"
               element={

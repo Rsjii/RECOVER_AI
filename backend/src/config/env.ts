@@ -1,5 +1,16 @@
+// Fail-closed NODE_ENV validation.
+// Prevents 'development' defaults (including test OTP '123456') from leaking to prod
+// if the env var is missing/misspelled during deployment.
+const rawNodeEnv = process.env.NODE_ENV;
+if (!rawNodeEnv || !['production', 'staging', 'development'].includes(rawNodeEnv)) {
+  throw new Error(
+    `NODE_ENV must be explicitly set to 'production', 'staging', or 'development'. Got: '${rawNodeEnv || '<unset>'}'`
+  );
+}
+
 export const config = {
-  nodeEnv: process.env.NODE_ENV || 'development',
+  nodeEnv: rawNodeEnv,
+  isProduction: rawNodeEnv === 'production',
   port: parseInt(process.env.PORT || '3000'),
   databaseUrl: process.env.DATABASE_URL,
   redisUrl: process.env.REDIS_URL,
@@ -27,16 +38,6 @@ export const config = {
     keyId: process.env.RAZORPAY_KEY_ID,
     keySecret: process.env.RAZORPAY_KEY_SECRET,
     webhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET,
-  },
-  lemonSqueezy: {
-    apiKey: process.env.LEMON_SQUEEZY_API_KEY,
-    storeId: process.env.LEMON_SQUEEZY_STORE_ID,
-    webhookSecret: process.env.LEMON_SQUEEZY_WEBHOOK_SECRET,
-    variantPhase0Monthly: process.env.LS_VARIANT_PHASE0_MONTHLY,
-    variantGrowthMonthly: process.env.LS_VARIANT_GROWTH_MONTHLY,
-    variantGrowthAnnual: process.env.LS_VARIANT_GROWTH_ANNUAL,
-    variantEnterpriseMonthly: process.env.LS_VARIANT_ENTERPRISE_MONTHLY,
-    variantEnterpriseAnnual: process.env.LS_VARIANT_ENTERPRISE_ANNUAL,
   },
   sendgrid: {
     apiKey: process.env.SENDGRID_API_KEY,

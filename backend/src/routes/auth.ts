@@ -23,7 +23,7 @@ import {
 import { authMiddleware } from '../middleware/auth';
 import { requireRole } from '../middleware/rbac';
 import { validate } from '../middleware/validate';
-import { loginSchema } from '../types/schemas';
+import { loginSchema, signupSchema } from '../types/schemas';
 import { authLimiter, publicFormLimiter } from '../middleware/rateLimiter';
 import { demoBlocker } from '../middleware/demoBlocker';
 
@@ -31,13 +31,13 @@ const router = Router();
 
 // Public routes
 // Bootstrap: only works on empty DB (first admin setup)
-router.post('/bootstrap', bootstrap);
+router.post('/bootstrap', validate(signupSchema), bootstrap);
 
 // Signup with email/password
-router.post('/signup', publicFormLimiter, signup);
+router.post('/signup', publicFormLimiter, validate(signupSchema), signup);
 
 // Onboarding with invite token (Motion 1 - Personalized invites)
-router.post('/onboard-with-token', publicFormLimiter, onboardWithToken);
+router.post('/onboard-with-token', publicFormLimiter, validate(signupSchema), onboardWithToken);
 router.post('/onboard/company-info', authMiddleware, demoBlocker, completeCompanyForm);
 
 router.post('/login', authLimiter, validate(loginSchema), login);

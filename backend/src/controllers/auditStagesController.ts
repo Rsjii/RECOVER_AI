@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import bcrypt from 'bcryptjs';
+import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { logInfo, logError, logWarn } from '../utils/logger';
@@ -140,7 +140,7 @@ export const submitStage1Auth = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Password must be at least 8 characters' });
     }
 
-    const passwordHash = await bcrypt.hash(password, 10);
+    const passwordHash = await bcrypt.hash(password, 12);
     const otp = isDev ? '123456' : String(Math.floor(100000 + Math.random() * 900000));
 
     // Store pending data — include company_name (from invite or email domain)
@@ -472,7 +472,17 @@ export const proceedFromStage4 = async (req: Request, res: Response) => {
 
     // ✅ CRITICAL: Set to trial_active so dashboard access is immediately unlocked
     // User goes directly to dashboard (no audit report page)
-    await CompanyDB.updateCompany(companyId, { onboarding_stage: 'trial_active' });
+    // Also activate the 21-day free trial
+    const trialEndsAt = new Date();
+    trialEndsAt.setDate(trialEndsAt.getDate() + 21);
+
+    await CompanyDB.updateCompany(companyId, {
+      onboarding_stage: 'trial_active',
+      trial_status: 'active',
+      trial_starts_at: new Date(),
+      trial_ends_at: trialEndsAt,
+      account_type: 'pilot',
+    });
 
     return res.json({ success: true, next_stage: 'dashboard', syncSummary });
   } catch (err) {
