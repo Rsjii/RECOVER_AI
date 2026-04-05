@@ -19,6 +19,10 @@ export const API_ENDPOINTS = {
     syncHistory: '/api/stripe/sync/history',
     invoices: '/api/stripe/invoices',
     invoiceDetail: (id: string) => `/api/stripe/invoices/${id}`,
+    oauth: {
+      authorize: '/api/stripe/oauth/authorize',
+      callback: '/api/stripe/oauth/callback',
+    },
   },
   quickbooks: {
     authorize: '/api/quickbooks/oauth/authorize',

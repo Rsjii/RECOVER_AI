@@ -36,20 +36,17 @@ const Onboarding: React.FC = () => {
       }).catch(() => {});
   }, []);
 
-  const handleStripeConnect = () => {
-    const STRIPE_CLIENT_ID = import.meta.env.VITE_STRIPE_CLIENT_ID;
-    if (!STRIPE_CLIENT_ID) {
-      addToast({ type: 'error', message: 'Stripe Client ID not configured' });
-      return;
+  const handleStripeConnect = async () => {
+    try {
+      // Call backend OAuth endpoint which constructs the correct redirect_uri
+      const response = await api.get(API_ENDPOINTS.stripe.oauth.authorize);
+      // Backend will redirect, but in case we get here, redirect manually
+      if ((response as any).authUrl) {
+        window.location.href = (response as any).authUrl;
+      }
+    } catch (err) {
+      addToast({ type: 'error', message: 'Failed to initiate Stripe OAuth' });
     }
-    const params = new URLSearchParams({
-      client_id: STRIPE_CLIENT_ID,
-      response_type: 'code',
-      scope: 'read_write',
-      redirect_uri: 'http://localhost:3000/api/stripe/oauth/exchange',
-      state: 'onboarding',
-    });
-    window.location.href = `https://connect.stripe.com/oauth/v2/authorize?${params.toString()}`;
   };
 
   const handleSyncAndNext = async () => {
