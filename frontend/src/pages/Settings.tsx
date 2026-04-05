@@ -7,6 +7,7 @@ import { IntegrationSection } from '../components/settings/IntegrationSection';
 import { EmailSettingsSection } from '../components/settings/EmailSettingsSection';
 import { DunningSection } from '../components/settings/DunningSection';
 import { AccountSection } from '../components/settings/AccountSection';
+import { AutomationSection } from '../components/settings/AutomationSection';
 import type { SettingsTab } from '../components/settings/SettingsLayout';
 import { api } from '../lib/api';
 import { useAuth } from '../hooks/useAuth';
@@ -176,6 +177,14 @@ const Settings: React.FC = () => {
           onSave={handleSave}
           isSaving={isSaving}
           isDirty={isDirty}
+        />
+      )}
+
+      {/* Automation Tab - Agent Mode (Shadow/Auto/Paused) */}
+      {activeTab === 'automation' && (
+        <AutomationSection
+          pilotMode={formData.automation.pilotMode || 'auto'}
+          onPilotModeChange={(mode) => updateField('automation', 'pilotMode', mode)}
         />
       )}
 

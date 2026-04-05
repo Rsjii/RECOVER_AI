@@ -28,10 +28,15 @@ export interface DunningPaymentPlansFormData {
   highRiskSplit: string;
 }
 
+export interface AutomationFormData {
+  pilotMode: string;  // 'auto' | 'shadow' | 'paused'
+}
+
 export interface SettingsFormData {
   profile: ProfileFormData;
   email: EmailSettingsFormData;
   dunning: DunningPaymentPlansFormData;
+  automation: AutomationFormData;
 }
 
 export interface IntegrationStatus {

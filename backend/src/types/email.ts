@@ -14,6 +14,7 @@ export interface DunningEmailJob {
   riskScore?: number;
   // Company config (passed to avoid DB lookup in worker)
   pilotMode?: 'shadow' | 'auto' | 'paused';
+  /** @deprecated use pilotMode: 'shadow' instead */
   manualMode?: boolean;
 }
 

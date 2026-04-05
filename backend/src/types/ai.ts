@@ -37,6 +37,7 @@ export interface DunningEmailGenerationInput {
   daysOverdue: number;
   riskScore?: number;
   previousReminders?: number;
+  emailType?: string;  // dunning_1, dunning_2, ..., payment_plan_offer
   companyName: string;
   paymentLink?: string;
 }

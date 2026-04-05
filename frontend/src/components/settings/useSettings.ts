@@ -39,6 +39,9 @@ export const useSettings = () => {
       medRiskSplit: '40/60',
       highRiskSplit: '30/70',
     },
+    automation: {
+      pilotMode: 'auto',
+    },
   });
 
   const [originalData, setOriginalData] = useState<SettingsFormData>(formData);
@@ -90,6 +93,9 @@ export const useSettings = () => {
             lowRiskSplit: '50/50',
             medRiskSplit: '40/60',
             highRiskSplit: '30/70',
+          },
+          automation: {
+            pilotMode: data.pilotMode || 'auto',
           },
         };
 
@@ -219,6 +225,9 @@ export const useSettings = () => {
         lowRiskSplit: '50/50',
         medRiskSplit: '40/60',
         highRiskSplit: '30/70',
+      },
+      automation: {
+        pilotMode: 'auto',
       },
     });
   }, []);

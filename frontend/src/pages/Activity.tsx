@@ -64,6 +64,7 @@ const Activity: React.FC = () => {
   // const [smsActivity, setSmsActivity] = useState<any[]>([]);           // ❌ HIDDEN
   // const [paymentEvents, setPaymentEvents] = useState<any[]>([]);       // ❌ HIDDEN
   const [queueStats, setQueueStats] = useState<any>(null);
+  const [pilotMode, setPilotMode] = useState<string>('auto');
 
   // Queued emails (pending approval)
   const [queuedEmails, setQueuedEmails] = useState<any[]>([]);
@@ -135,6 +136,20 @@ const Activity: React.FC = () => {
       setLoading(false);
     }
   }, [activeTab]);
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const res = await api.get<{ data: any }>('/api/settings');
+        if (res.data?.pilotMode) {
+          setPilotMode(res.data.pilotMode);
+        }
+      } catch {
+        // Non-critical: use default
+      }
+    };
+    fetchSettings();
+  }, []);
 
   const handleEditEmail = (email: any) => {
     setSelectedEmail(email);
@@ -266,10 +281,27 @@ const Activity: React.FC = () => {
     }
   };
 
+  const getModeColor = () => {
+    if (pilotMode === 'shadow') return 'bg-yellow-100 dark:bg-yellow-500/20 text-yellow-900 dark:text-yellow-200';
+    if (pilotMode === 'paused') return 'bg-red-100 dark:bg-red-500/20 text-red-900 dark:text-red-200';
+    return 'bg-green-100 dark:bg-green-500/20 text-green-900 dark:text-green-200';
+  };
+
+  const getModeLabel = () => {
+    if (pilotMode === 'shadow') return '🔍 Shadow Mode (Review)';
+    if (pilotMode === 'paused') return '⏸ Paused';
+    return '✨ Auto Mode';
+  };
+
   return (
     <div className="space-y-6 pb-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Agent Activity</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Agent Activity</h1>
+          <span className={`px-3 py-1 rounded-full font-medium text-xs ${getModeColor()}`}>
+            {getModeLabel()}
+          </span>
+        </div>
         {queueStats && activeTab === 'emails' && (
           <div className="flex gap-4 text-sm flex-wrap">
             <span className="text-gray-500">Queue: <span className="font-medium text-gray-900 dark:text-white">{queueStats.waiting || 0} waiting</span></span>

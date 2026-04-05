@@ -147,7 +147,6 @@ export const sendEmailNow = async (req: Request, res: Response): Promise<void> =
       emailType: (emailType as DunningEmailType) || 'dunning_1',
       attemptNumber: 1,
       pilotMode: (company?.pilot_mode || 'auto') as any,
-      manualMode: company?.manual_mode || false,
     });
 
     logInfo(LOG_MODULE, handler, 'Email queued for immediate send', { invoiceId, jobId });
@@ -363,6 +362,14 @@ export const previewEmail = async (req: Request, res: Response): Promise<void> =
     const aiService = (await import('../services/aiService')).default;
     const daysOverdue = Math.max(0, Math.floor((Date.now() - new Date(invoice.due_date).getTime()) / (1000 * 60 * 60 * 24)));
 
+    // Map emailType to previousReminders count (attempt number - 1)
+    const emailTypeToAttempt: Record<string, number> = {
+      dunning_1: 0, dunning_2: 1, dunning_3: 2, dunning_4: 3, dunning_5: 4,
+      final_notice: 4, payment_plan_offer: 2
+    };
+    const normalizedEmailType = (emailType as string) || 'dunning_1';
+    const previousReminders = emailTypeToAttempt[normalizedEmailType] ?? 0;
+
     const generated = await aiService.generateDunningEmail({
       customerId: invoice.customer_id,
       invoiceId: invoice.id,
@@ -372,6 +379,8 @@ export const previewEmail = async (req: Request, res: Response): Promise<void> =
       dueDate: invoice.due_date,
       daysOverdue,
       riskScore: customerRiskScore,
+      previousReminders,
+      emailType: normalizedEmailType,
     });
 
     const preview = {

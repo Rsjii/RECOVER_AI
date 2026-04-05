@@ -381,9 +381,24 @@ Do not include any text outside the JSON.`;
       customerId: input.customerId,
       invoiceId: input.invoiceId,
       daysOverdue: input.daysOverdue,
+      emailType: input.emailType,
     });
 
     try {
+      // Helper to describe email stage
+      const emailStageContext = (emailType?: string): string => {
+        const map: Record<string, string> = {
+          dunning_1: 'First contact — customer may have overlooked invoice, keep friendly',
+          dunning_2: 'Second reminder — gentle escalation, note the delay',
+          dunning_3: 'Third reminder — firmer tone, mention next steps if unpaid',
+          dunning_4: 'Fourth notice — serious, mention consequences or collections',
+          dunning_5: 'Final notice — last attempt before escalation to legal/collections',
+          final_notice: 'Final notice — last attempt before escalation to legal/collections',
+          payment_plan_offer: 'Offering flexible payment plan — empathetic, solution-focused',
+        };
+        return map[emailType || ''] || 'Standard payment reminder';
+      };
+
       const tone =
         input.daysOverdue > 60
           ? 'urgent'
@@ -415,6 +430,8 @@ Context:
 - Invoice Amount: $${input.invoiceAmount}
 - Due Date: ${input.dueDate}
 - Days Overdue: ${input.daysOverdue}
+- Email Stage: ${input.emailType || 'dunning_1'} — Attempt ${(input.previousReminders || 0) + 1} of 5
+- Stage Context: ${emailStageContext(input.emailType)}
 - Risk Score: ${input.riskScore || 'N/A'}
 - Previous Reminders: ${input.previousReminders || 0}
 - Payment Link: ${input.paymentLink || 'N/A'}

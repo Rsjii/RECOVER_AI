@@ -62,7 +62,7 @@ export const approveQueuedEmail = async (req: Request, res: Response) => {
   }
 
   try {
-    // 1. Get the queued email record
+    // 1. Get the queued email record (including user-edited subject/body if present)
     const queuedResult = await pool.query(
       `SELECT
         id,
@@ -74,7 +74,9 @@ export const approveQueuedEmail = async (req: Request, res: Response) => {
         due_date,
         days_overdue,
         email_type,
-        attempt_number
+        attempt_number,
+        subject,
+        body
        FROM pilot_queued_emails
        WHERE id = $1 AND company_id = $2`,
       [id, companyId]
@@ -88,23 +90,53 @@ export const approveQueuedEmail = async (req: Request, res: Response) => {
 
     logInfo(MODULE, 'approveQueuedEmail', `Approving queued email for ${queued.customer_name}`);
 
-    // 2. Send the email via emailService
+    // 2. Send the email (use stored subject/body if edited by user, otherwise regenerate)
     try {
-      // Use exact due_date stored at queue time (not reconstructed from days_overdue which drifts)
       const dueDate = queued.due_date || new Date(Date.now() - queued.days_overdue * 24 * 60 * 60 * 1000).toISOString();
 
-      await emailService.sendDunningEmail({
-        companyId,
-        invoiceId: queued.invoice_id,
-        customerId: queued.customer_id,
-        recipientEmail: queued.recipient_email,
-        customerName: queued.customer_name,
-        invoiceAmount: queued.invoice_amount,
-        dueDate,
-        daysOverdue: queued.days_overdue,
-        emailType: queued.email_type as any,
-        attemptNumber: queued.attempt_number,
-      });
+      // If user edited subject/body, use those; otherwise regenerate via Claude
+      if (queued.subject && queued.body) {
+        // User edited this email — send with stored content
+        logInfo(MODULE, 'approveQueuedEmail', 'Sending with user-edited content', {
+          invoiceId: queued.invoice_id,
+          hasStoredSubject: !!queued.subject,
+        });
+
+        // Send directly without regenerating (uses stored subject + body)
+        const result = await emailService.sendDunningEmailDirect({
+          companyId,
+          invoiceId: queued.invoice_id,
+          customerId: queued.customer_id,
+          recipientEmail: queued.recipient_email,
+          customerName: queued.customer_name,
+          invoiceAmount: queued.invoice_amount,
+          dueDate,
+          daysOverdue: queued.days_overdue,
+          emailType: queued.email_type as any,
+          attemptNumber: queued.attempt_number,
+          // User-edited content:
+          storedSubject: queued.subject,
+          storedBody: queued.body,
+        });
+      } else {
+        // Not edited — regenerate via Claude as usual
+        logInfo(MODULE, 'approveQueuedEmail', 'Sending with AI-generated content', {
+          invoiceId: queued.invoice_id,
+        });
+
+        await emailService.sendDunningEmail({
+          companyId,
+          invoiceId: queued.invoice_id,
+          customerId: queued.customer_id,
+          recipientEmail: queued.recipient_email,
+          customerName: queued.customer_name,
+          invoiceAmount: queued.invoice_amount,
+          dueDate,
+          daysOverdue: queued.days_overdue,
+          emailType: queued.email_type as any,
+          attemptNumber: queued.attempt_number,
+        });
+      }
 
       logInfo(MODULE, 'approveQueuedEmail', 'Email sent successfully');
     } catch (emailErr: any) {
@@ -182,7 +214,7 @@ export const approveAllQueuedEmails = async (req: Request, res: Response) => {
   }
 
   try {
-    // Get all pending emails
+    // Get all pending emails (including user-edited subject/body)
     const result = await pool.query(
       `SELECT
         id,
@@ -194,7 +226,9 @@ export const approveAllQueuedEmails = async (req: Request, res: Response) => {
         due_date,
         days_overdue,
         email_type,
-        attempt_number
+        attempt_number,
+        subject,
+        body
        FROM pilot_queued_emails
        WHERE company_id = $1 AND status = 'pending'
        ORDER BY queued_at ASC`,
@@ -211,21 +245,40 @@ export const approveAllQueuedEmails = async (req: Request, res: Response) => {
     // Send each email
     for (const queued of emails) {
       try {
-        // Use exact due_date stored at queue time (not reconstructed from days_overdue which drifts)
         const dueDate = queued.due_date || new Date(Date.now() - queued.days_overdue * 24 * 60 * 60 * 1000).toISOString();
 
-        await emailService.sendDunningEmail({
-          companyId,
-          invoiceId: queued.invoice_id,
-          customerId: queued.customer_id,
-          recipientEmail: queued.recipient_email,
-          customerName: queued.customer_name,
-          invoiceAmount: queued.invoice_amount,
-          dueDate,
-          daysOverdue: queued.days_overdue,
-          emailType: queued.email_type as any,
-          attemptNumber: queued.attempt_number,
-        });
+        // If user edited, use stored content; otherwise regenerate
+        if (queued.subject && queued.body) {
+          // User edited this email — send with stored content
+          await emailService.sendDunningEmailDirect({
+            companyId,
+            invoiceId: queued.invoice_id,
+            customerId: queued.customer_id,
+            recipientEmail: queued.recipient_email,
+            customerName: queued.customer_name,
+            invoiceAmount: queued.invoice_amount,
+            dueDate,
+            daysOverdue: queued.days_overdue,
+            emailType: queued.email_type as any,
+            attemptNumber: queued.attempt_number,
+            storedSubject: queued.subject,
+            storedBody: queued.body,
+          });
+        } else {
+          // Not edited — regenerate via Claude
+          await emailService.sendDunningEmail({
+            companyId,
+            invoiceId: queued.invoice_id,
+            customerId: queued.customer_id,
+            recipientEmail: queued.recipient_email,
+            customerName: queued.customer_name,
+            invoiceAmount: queued.invoice_amount,
+            dueDate,
+            daysOverdue: queued.days_overdue,
+            emailType: queued.email_type as any,
+            attemptNumber: queued.attempt_number,
+          });
+        }
 
         // Mark as sent
         await pool.query(
@@ -299,6 +352,48 @@ export const getQueueStats = async (req: Request, res: Response) => {
     });
   } catch (err: any) {
     logError(MODULE, 'getQueueStats', 'Failed to get stats', err);
+    return res.status(400).json({ error: err.message });
+  }
+};
+
+/**
+ * PUT /api/pilot-queue/:id
+ * Update subject/body of a queued email (user customization before send)
+ */
+export const updateQueuedEmail = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { subject, body } = req.body;
+  const companyId = (req as any).companyId;
+
+  if (!companyId) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  if (!subject || !body) {
+    return res.status(400).json({ error: 'subject and body are required' });
+  }
+
+  try {
+    const result = await pool.query(
+      `UPDATE pilot_queued_emails
+       SET subject = $1, body = $2
+       WHERE id = $3 AND company_id = $4 AND status = 'pending'
+       RETURNING id, subject, body`,
+      [subject, body, id, companyId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Email not found or cannot be edited (must be pending)' });
+    }
+
+    logInfo(MODULE, 'updateQueuedEmail', 'Email updated', { email_id: id });
+
+    return res.json({
+      message: 'Email updated successfully',
+      data: result.rows[0],
+    });
+  } catch (err: any) {
+    logError(MODULE, 'updateQueuedEmail', 'Failed to update email', err);
     return res.status(400).json({ error: err.message });
   }
 };

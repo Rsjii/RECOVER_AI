@@ -1,9 +1,37 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Button } from '../ui/Button';
 import { useNavigate } from 'react-router-dom';
+import { api } from '../../lib/api';
+import { useNotification } from '../../hooks/useNotification';
 
-export const AutomationSection: React.FC = () => {
+interface AutomationSectionProps {
+  pilotMode?: string;
+  onPilotModeChange?: (mode: string) => void;
+}
+
+export const AutomationSection: React.FC<AutomationSectionProps> = ({
+  pilotMode = 'auto',
+  onPilotModeChange,
+}) => {
   const navigate = useNavigate();
+  const { addToast } = useNotification();
+  const [selectedMode, setSelectedMode] = useState(pilotMode);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleModeChange = async (mode: string) => {
+    setSelectedMode(mode);
+    setIsSaving(true);
+    try {
+      await api.put('/api/settings/pilot-mode', { pilot_mode: mode });
+      addToast({ message: `Mode changed to ${mode}`, type: 'success' });
+      onPilotModeChange?.(mode);
+    } catch (error) {
+      addToast({ message: 'Failed to update automation mode', type: 'error' });
+      setSelectedMode(pilotMode);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <div className="space-y-8">
@@ -42,17 +70,73 @@ export const AutomationSection: React.FC = () => {
         </div>
       </div>
 
-      {/* Placeholder for future automation features */}
-      <div className="bg-gray-50 dark:bg-white/[0.02] rounded-xl border border-gray-200 dark:border-white/[0.06] p-6 text-center">
-        <svg className="w-12 h-12 text-gray-300 dark:text-gray-700 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
-        </svg>
-        <h3 className="text-lg font-semibold text-gray-600 dark:text-gray-400 mb-2">
-          More automation features coming soon
+      {/* Automation Mode Selection */}
+      <div className="bg-white dark:bg-[#111113] rounded-xl border border-gray-200 dark:border-white/[0.06] p-4 sm:p-6">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+          Agent Mode
         </h3>
-        <p className="text-sm text-gray-500 dark:text-gray-500">
-          Webhook triggers, custom workflows, and advanced integrations.
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+          Choose how the AI agent handles dunning emails. In shadow mode, all emails queue for your review before sending.
         </p>
+
+        <div className="space-y-3">
+          {/* Auto Mode */}
+          <label className="flex items-start gap-3 p-4 rounded-lg border border-gray-200 dark:border-white/[0.06] cursor-pointer hover:bg-gray-50 dark:hover:bg-white/[0.02] transition-colors">
+            <input
+              type="radio"
+              name="pilot_mode"
+              value="auto"
+              checked={selectedMode === 'auto'}
+              onChange={(e) => handleModeChange(e.target.value)}
+              disabled={isSaving}
+              className="mt-1"
+            />
+            <div className="flex-1 min-w-0">
+              <div className="font-medium text-gray-900 dark:text-white">✨ Auto Mode</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">
+                Agent automatically sends all dunning emails without manual approval
+              </div>
+            </div>
+          </label>
+
+          {/* Shadow Mode */}
+          <label className="flex items-start gap-3 p-4 rounded-lg border border-gray-200 dark:border-white/[0.06] cursor-pointer hover:bg-gray-50 dark:hover:bg-white/[0.02] transition-colors">
+            <input
+              type="radio"
+              name="pilot_mode"
+              value="shadow"
+              checked={selectedMode === 'shadow'}
+              onChange={(e) => handleModeChange(e.target.value)}
+              disabled={isSaving}
+              className="mt-1"
+            />
+            <div className="flex-1 min-w-0">
+              <div className="font-medium text-gray-900 dark:text-white">🔍 Shadow Mode (Review)</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">
+                All emails queue for your review. Approve or reject before sending
+              </div>
+            </div>
+          </label>
+
+          {/* Paused Mode */}
+          <label className="flex items-start gap-3 p-4 rounded-lg border border-gray-200 dark:border-white/[0.06] cursor-pointer hover:bg-gray-50 dark:hover:bg-white/[0.02] transition-colors">
+            <input
+              type="radio"
+              name="pilot_mode"
+              value="paused"
+              checked={selectedMode === 'paused'}
+              onChange={(e) => handleModeChange(e.target.value)}
+              disabled={isSaving}
+              className="mt-1"
+            />
+            <div className="flex-1 min-w-0">
+              <div className="font-medium text-gray-900 dark:text-white">⏸ Paused</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">
+                Pause all agent actions temporarily. No emails or SMS will be sent
+              </div>
+            </div>
+          </label>
+        </div>
       </div>
     </div>
   );

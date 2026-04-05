@@ -56,7 +56,18 @@ class EmailService {
     }
 
     try {
-      // 1. Generate personalized email via AI
+      // 1. Fetch company for reply-to, company name, and SMTP fallback control (early, needed for AI generation)
+      let replyTo: string | undefined;
+      let companyName = 'Your Company';
+      let smtpFallbackToResend = false;
+      try {
+        const company = await findCompanyById(job.companyId);
+        replyTo = company?.reply_to_email || undefined;
+        companyName = company?.name || 'Your Company';
+        smtpFallbackToResend = company?.smtp_fallback_to_resend || false;
+      } catch { /* non-critical */ }
+
+      // 2. Generate personalized email via AI
       const generated = await aiService.generateDunningEmail({
         customerId: job.customerId,
         invoiceId: job.invoiceId,
@@ -66,16 +77,16 @@ class EmailService {
         daysOverdue: job.daysOverdue,
         riskScore: job.riskScore,
         previousReminders: job.attemptNumber - 1,
-        companyName: 'RecoverAI',
+        companyName: companyName,
         paymentLink: job.paymentLink,
       }, job.companyId);
 
-      // 2. Pre-generate email log ID so we can inject tracking pixel before sending
+      // 3. Pre-generate email log ID so we can inject tracking pixel before sending
       const emailLogId = crypto.randomUUID();
       const backendUrl = process.env.BACKEND_URL || 'http://localhost:3000';
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
 
-      // 3. Inject tracking pixel + unsubscribe footer (CAN-SPAM / GDPR compliance)
+      // 4. Inject tracking pixel + unsubscribe footer (CAN-SPAM / GDPR compliance)
       const trackOpenUrl = `${backendUrl}/api/email/track/open?logId=${emailLogId}`;
       // Generate HMAC-SHA256 signed token (cryptographic, not just base64)
       const unsubData = `${job.recipientEmail}:${job.companyId}`;
@@ -92,14 +103,7 @@ class EmailService {
       const bodyTextWithFooter = (generated.bodyText || '') +
         `\n\n---\nTo unsubscribe from future emails: ${unsubUrl}`;
 
-      // P0: Fetch company reply-to email (non-blocking)
-      let replyTo: string | undefined;
-      try {
-        const company = await findCompanyById(job.companyId);
-        replyTo = company?.reply_to_email || undefined;
-      } catch { /* non-critical */ }
-
-      // 4. Try SMTP first (Option A: client's own email server), fallback to Resend (Option C)
+      // 5. Try SMTP first (Option A: client's own email server), fallback to Resend (Option C)
       let sendResult = await sendViaSmtp(
         job.companyId,
         job.recipientEmail,
@@ -109,7 +113,20 @@ class EmailService {
       );
 
       if (!sendResult.success) {
-        // SMTP failed or not configured → fallback to Resend
+        // SMTP failed or not configured
+        // Check if SMTP is actually configured: if error is NOT "SMTP not configured", then it IS configured
+        const smtpIsConfigured = sendResult.error !== 'SMTP not configured';
+
+        if (smtpIsConfigured && !smtpFallbackToResend) {
+          // SMTP is configured but failed, and fallback is disabled → hard error
+          logError(LOG_MODULE, method, 'SMTP send failed and Resend fallback is disabled', {
+            invoiceId: job.invoiceId,
+            smtpError: sendResult.error,
+          });
+          throw new Error(`SMTP send failed and Resend fallback is disabled for this company. Error: ${sendResult.error}`);
+        }
+
+        // Either no SMTP configured OR fallback explicitly allowed → try Resend
         logInfo(LOG_MODULE, method, 'SMTP unavailable, falling back to Resend', {
           invoiceId: job.invoiceId,
           smtpError: sendResult.error,
@@ -141,7 +158,7 @@ class EmailService {
         });
       }
 
-      // 5. Log to DB with pre-generated ID
+      // 6. Log to DB with pre-generated ID
       // NOTE: If email was sent but DB log fails (e.g. FK violation from deleted invoice),
       // we still return success to prevent BullMQ retries (which would re-send the email).
       try {
@@ -156,7 +173,7 @@ class EmailService {
           sendgridMessageId: sendResult.messageId,
         });
 
-        // 6. Send notification to CLIENT (company) about what emails were sent to their customers
+        // 7. Send notification to CLIENT (company) about what emails were sent to their customers
         try {
           await this.sendClientNotification({
             companyId: job.companyId,
@@ -188,6 +205,140 @@ class EmailService {
       logError(LOG_MODULE, method, 'Failed to send email', error, {
         invoiceId: job.invoiceId,
         recipientEmail: job.recipientEmail,
+      });
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  /**
+   * Send a pre-composed email (user edited in shadow mode).
+   * Uses stored subject/body instead of regenerating via Claude.
+   * For shadow mode approvals where user customized the email.
+   */
+  async sendDunningEmailDirect(job: {
+    companyId: string;
+    invoiceId: string;
+    customerId: string;
+    recipientEmail: string;
+    customerName: string;
+    invoiceAmount: number;
+    dueDate: string;
+    daysOverdue: number;
+    emailType: string;
+    attemptNumber: number;
+    storedSubject: string;
+    storedBody: string;
+  }): Promise<SendResult> {
+    const method = 'sendDunningEmailDirect';
+
+    // DEV MODE: Don't send real emails in development
+    if (config.nodeEnv === 'development') {
+      logInfo(LOG_MODULE, method, 'DEV MODE: Email not sent (stored content preview)', {
+        to: job.recipientEmail,
+        subject: job.storedSubject,
+        invoiceId: job.invoiceId,
+      });
+      return { success: true, sendgridMessageId: 'dev-mode-' + Date.now() };
+    }
+
+    logInfo(LOG_MODULE, method, 'Sending user-edited email', {
+      invoiceId: job.invoiceId,
+      emailType: job.emailType,
+    });
+
+    try {
+      // 1. Fetch company for reply-to
+      let replyTo: string | undefined;
+      let smtpFallbackToResend = false;
+      try {
+        const company = await pool.query(
+          'SELECT reply_to_email, smtp_fallback_to_resend FROM companies WHERE id = $1',
+          [job.companyId]
+        );
+        if (company.rows[0]) {
+          replyTo = company.rows[0].reply_to_email || undefined;
+          smtpFallbackToResend = company.rows[0].smtp_fallback_to_resend || false;
+        }
+      } catch (err: any) {
+        logInfo(LOG_MODULE, method, 'Failed to fetch company settings (non-critical)', { error: err?.message });
+      }
+
+      // 2. Pre-generate email log ID for tracking
+      const emailLogId = crypto.randomUUID();
+      const backendUrl = process.env.BACKEND_URL || 'http://localhost:3000';
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+
+      // 3. Add tracking pixel + unsubscribe footer
+      const trackOpenUrl = `${backendUrl}/api/email/track/open?logId=${emailLogId}`;
+      const unsubData = `${job.recipientEmail}:${job.companyId}`;
+      const hmac = crypto.createHmac('sha256', config.jwtSecret || 'fallback-secret');
+      hmac.update(unsubData);
+      const unsubToken = hmac.digest('hex');
+      const unsubUrl = `${frontendUrl}/unsubscribe?token=${unsubToken}&email=${encodeURIComponent(job.recipientEmail)}&company=${job.companyId}`;
+
+      const bodyHtmlWithTracking = (job.storedBody || '') +
+        `<img src="${trackOpenUrl}" width="1" height="1" style="display:none" alt="" />` +
+        `<div style="margin-top:40px;padding-top:20px;border-top:1px solid #e5e7eb;font-size:12px;color:#9ca3af;text-align:center;">` +
+        `You receive these emails because you have an outstanding balance. ` +
+        `<a href="${unsubUrl}" style="color:#9ca3af;">Unsubscribe</a> to stop payment reminders.</div>`;
+
+      // 4. Send via SMTP or Resend
+      let sendResult = await sendViaSmtp(
+        job.companyId,
+        job.recipientEmail,
+        job.storedSubject,
+        bodyHtmlWithTracking,
+        replyTo
+      );
+
+      if (!sendResult.success) {
+        const smtpIsConfigured = sendResult.error !== 'SMTP not configured';
+        if (smtpIsConfigured && !smtpFallbackToResend) {
+          logError(LOG_MODULE, method, 'SMTP failed and fallback disabled', {
+            invoiceId: job.invoiceId,
+          });
+          throw new Error(`SMTP send failed: ${sendResult.error}`);
+        }
+
+        logInfo(LOG_MODULE, method, 'SMTP failed, trying Resend fallback');
+        sendResult = await resendService.sendEmail({
+          to: job.recipientEmail,
+          subject: job.storedSubject,
+          bodyText: job.storedBody,
+          bodyHtml: bodyHtmlWithTracking,
+          companyId: job.companyId,
+          replyTo,
+        });
+
+        if (!sendResult.success) {
+          throw new Error(sendResult.error || 'Failed to send via Resend');
+        }
+      }
+
+      // 5. Log to database
+      try {
+        await createEmailLog({
+          id: emailLogId,
+          invoiceId: job.invoiceId,
+          companyId: job.companyId,
+          emailType: job.emailType as any,
+          recipientEmail: job.recipientEmail,
+          subject: job.storedSubject,
+          body: job.storedBody,
+          sendgridMessageId: sendResult.messageId,
+        });
+      } catch (dbErr) {
+        logError(LOG_MODULE, method, 'Failed to log email (non-critical)', dbErr);
+        // Still return success — email was sent
+      }
+
+      return { success: true, sendgridMessageId: sendResult.messageId, emailLogId };
+    } catch (error) {
+      logError(LOG_MODULE, method, 'Failed to send direct email', error, {
+        invoiceId: job.invoiceId,
       });
       return {
         success: false,

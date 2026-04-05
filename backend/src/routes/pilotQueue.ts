@@ -36,4 +36,10 @@ router.post('/:id/approve', authMiddleware, demoBlocker, pilotQueueController.ap
  */
 router.post('/:id/reject', authMiddleware, demoBlocker, pilotQueueController.rejectQueuedEmail);
 
+/**
+ * PUT /api/pilot-queue/:id
+ * Update subject/body of a queued email (requires auth)
+ */
+router.put('/:id', authMiddleware, demoBlocker, pilotQueueController.updateQueuedEmail);
+
 export default router;

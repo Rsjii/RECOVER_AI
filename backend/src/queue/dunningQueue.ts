@@ -377,22 +377,6 @@ export function startDunningWorker(): Worker<DunningEmailJob> {
       }
       // pilotMode === 'auto' (or null) — fall through to normal send
 
-      // Manual mode — queue email for approval instead of auto-sending
-      const manualMode = data.manualMode ?? false;
-      if (manualMode) {
-        logInfo(LOG_MODULE, 'worker', 'Manual mode ON — queuing for approval', {
-          jobId: job.id,
-          invoiceId: data.invoiceId,
-        });
-        try {
-          await insertQueuedEmail(data);
-        } catch (err) {
-          logError(LOG_MODULE, 'worker', 'Failed to insert queued email for approval (non-critical)', err);
-        }
-        recordSkippedEmail(data.invoiceId, data.companyId, data.emailType, data.recipientEmail, 'Manual mode — stored for approval');
-        return { skipped: true, reason: 'Manual mode — stored for approval' };
-      }
-
       // Hard decline — payment plan already created by webhook handler; skip email
       if ((invoice as any).last_decline_type === 'hard') {
         logInfo(LOG_MODULE, 'worker', 'Hard decline — ensuring payment plan exists, skipping email', {

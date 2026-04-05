@@ -63,6 +63,7 @@ CREATE TABLE IF NOT EXISTS companies (
   smtp_verified              BOOLEAN DEFAULT false,         -- test email sent successfully
   smtp_last_verified_at      TIMESTAMPTZ,                   -- when SMTP was last tested
   smtp_error_message         TEXT,                          -- last error if verification failed
+  smtp_fallback_to_resend    BOOLEAN DEFAULT false,         -- allow fallback to Resend if SMTP fails (user-controlled)
 
   -- Phase 2: Dunning strategy controls (via Slack bot)
   dunning_tone               VARCHAR(20) DEFAULT 'standard', -- 'gentle' | 'standard' | 'aggressive'
@@ -1008,12 +1009,36 @@ CREATE TABLE IF NOT EXISTS pilot_queued_emails (
   due_date        TIMESTAMPTZ,                   -- original invoice due date (not days_overdue which drifts)
   approved_at     TIMESTAMPTZ,
   status          VARCHAR(20) DEFAULT 'pending',  -- pending | approved | rejected | sent
-  sent_at         TIMESTAMPTZ
+  sent_at         TIMESTAMPTZ,
+  subject         TEXT,                          -- user-edited email subject (optional, null until edited)
+  body            TEXT                           -- user-edited email body (optional, null until edited)
 );
 
 CREATE INDEX IF NOT EXISTS idx_pilot_queued_company ON pilot_queued_emails(company_id, status);
 CREATE INDEX IF NOT EXISTS idx_pilot_queued_created ON pilot_queued_emails(queued_at DESC);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_pilot_queued_dedup ON pilot_queued_emails(company_id, invoice_id, email_type) WHERE status = 'pending';
+
+-- ============================================================
+-- AGENT DECISIONS: Learning foundation for future ML optimization
+-- ============================================================
+CREATE TABLE IF NOT EXISTS agent_decisions (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id    UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  invoice_id    UUID REFERENCES invoices(id) ON DELETE SET NULL,
+  customer_id   UUID REFERENCES customers(id) ON DELETE SET NULL,
+  decision_type VARCHAR(50) NOT NULL,  -- 'email_queued'|'email_sent'|'skipped'|'paused'|'plan_created'
+  email_type    VARCHAR(50),
+  pilot_mode    VARCHAR(20),
+  days_overdue  INTEGER,
+  risk_score    NUMERIC,
+  reason        TEXT,
+  metadata      JSONB DEFAULT '{}',
+  decided_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_agent_decisions_company ON agent_decisions(company_id);
+CREATE INDEX IF NOT EXISTS idx_agent_decisions_invoice ON agent_decisions(invoice_id);
+CREATE INDEX IF NOT EXISTS idx_agent_decisions_time ON agent_decisions(decided_at DESC);
 
 -- ============================================================
 -- AUDIT SYSTEM: Invitation-Only + Website Form Capture

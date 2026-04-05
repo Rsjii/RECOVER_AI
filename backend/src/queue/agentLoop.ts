@@ -8,6 +8,7 @@ import { logError, logInfo, logWarn } from '../utils/logger';
 import { normalizePhone } from '../services/smsService';
 import { scoreCustomerRisk } from '../services/riskScoringService';
 import { createPlanForInvoice } from '../services/paymentPlanService';
+import { logAgentDecision } from '../db/agentDecisions';
 import type { DunningEmailType } from '../types/email';
 
 // SMS thresholds: send SMS when email alone isn't working
@@ -277,6 +278,22 @@ async function runDecisionEngine(): Promise<{
           emailType: nextStep.emailType,
           attemptNumber: invoice.dunning_emails_sent + 1,
         });
+        // Log decision for learning system (fire-and-forget)
+        try {
+          await logAgentDecision({
+            companyId: invoice.company_id,
+            invoiceId: invoice.id,
+            customerId: invoice.customer_id,
+            decisionType: 'email_queued',
+            emailType: nextStep.emailType,
+            pilotMode: invoice.company_pilot_mode || undefined,
+            daysOverdue,
+            riskScore: invoice.customer_risk_score || undefined,
+            reason: `Dunning attempt ${invoice.dunning_emails_sent + 1}`,
+          });
+        } catch (_err) {
+          // Swallow errors - non-critical
+        }
       } else if (!nextStep) {
         logInfo(LOG_MODULE, method, 'No pending dunning step', {
           invoiceId: invoice.id,
@@ -330,6 +347,22 @@ async function runDecisionEngine(): Promise<{
           invoiceId: invoice.id,
           daysOverdue,
         });
+        // Log decision for learning system (fire-and-forget)
+        try {
+          await logAgentDecision({
+            companyId: invoice.company_id,
+            invoiceId: invoice.id,
+            customerId: invoice.customer_id,
+            decisionType: 'email_queued',
+            emailType: 'payment_plan_offer',
+            pilotMode: invoice.company_pilot_mode || undefined,
+            daysOverdue,
+            riskScore: invoice.customer_risk_score || undefined,
+            reason: 'Payment plan offer at day 15+',
+          });
+        } catch (_err) {
+          // Swallow errors - non-critical
+        }
       }
 
       // ── SMS escalation: trigger when email isn't working ──
@@ -428,6 +461,22 @@ async function runDecisionEngine(): Promise<{
                 riskScore: score,
                 daysUntilDue,
               });
+              // Log decision for learning system (fire-and-forget)
+              try {
+                await logAgentDecision({
+                  companyId: invoice.company_id,
+                  invoiceId: invoice.id,
+                  customerId: invoice.customer_id,
+                  decisionType: 'email_queued',
+                  emailType: 'proactive_reminder',
+                  pilotMode: invoice.company_pilot_mode || undefined,
+                  daysOverdue: daysUntilDue,
+                  riskScore: score,
+                  reason: `Proactive reminder due to high risk score (${score})`,
+                });
+              } catch (_err) {
+                // Swallow errors - non-critical
+              }
             }
           }
         }

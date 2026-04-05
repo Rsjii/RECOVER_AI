@@ -53,6 +53,9 @@ export interface CompanyRow {
   reply_to_email: string | null;
   // P0: Manual mode - when true, all emails queued for approval
   manual_mode: boolean | null;
+  // SMTP Configuration
+  smtp_enabled: boolean | null;
+  smtp_fallback_to_resend: boolean | null;
   // CashOS: Onboarding flow stage tracking
   onboarding_stage: 'pending' | 'details_form' | 'create_account' | 'integrations' | 'audit_report' | 'trial_offer' | 'trial_active' | 'paid_active';
   // Trial tracking
