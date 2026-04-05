@@ -64,7 +64,7 @@ const PlanSelection: React.FC = () => {
         {/* Trial Info */}
         <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-8">
           <p className="text-sm text-blue-900 dark:text-blue-200">
-            <span className="font-semibold">Pilot Program:</span> You have 14 days free access. No credit card charged. After that, we'll discuss custom pricing based on your results.
+            <span className="font-semibold">Free Trial:</span> You have 3 weeks free access. No credit card required. After that, we'll discuss what works best for your business.
           </p>
         </div>
 
@@ -89,14 +89,14 @@ const PlanSelection: React.FC = () => {
 
             <div className="mb-6">
               <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-                Pilot Program
+                Free Trial
               </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">14 days free to explore</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">3 weeks free to explore</p>
             </div>
 
             <div className="mb-6">
-              <div className="text-4xl font-bold text-gray-900 dark:text-white">$0</div>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">14 days free (pilot)</p>
+              <div className="text-4xl font-bold text-gray-900 dark:text-white">Free</div>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">3 weeks free</p>
             </div>
 
             <ul className="space-y-3 mb-8">
@@ -162,10 +162,10 @@ const PlanSelection: React.FC = () => {
             </div>
 
             <div className="mb-6">
-              <div className="text-4xl font-bold text-gray-900 dark:text-white">
-                $2,500<span className="text-lg font-normal text-gray-600 dark:text-gray-400">/mo</span>
+              <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                After Trial
               </div>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">+ 1-5% on recovery</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Custom pricing based on your results</p>
             </div>
 
             <ul className="space-y-3 mb-8">

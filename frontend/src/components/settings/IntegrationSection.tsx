@@ -1,7 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { IntegrationStatus } from '../../types/settings';
 import { Button } from '../ui/Button';
 import { useNotification } from '../../hooks/useNotification';
+import { useAuth } from '../../hooks/useAuth';
+import { CSVUploadModal } from '../invoices/CSVUploadModal';
+import { api } from '../../lib/api';
 
 interface IntegrationSectionProps {
   integrations: IntegrationStatus[];
@@ -92,10 +95,13 @@ const getStatusBadge = (status: string) => {
 
 export const IntegrationSection: React.FC<IntegrationSectionProps> = ({ integrations, onDisconnect, onRefetch }) => {
   const { addToast } = useNotification();
+  const { logout } = useAuth();
   const [stripeKeyMode, setStripeKeyMode] = useState(false);
   const [stripeKey, setStripeKey] = useState('');
   const [stripeWebhookSecret, setStripeWebhookSecret] = useState('');
   const [syncing, setSyncing] = useState<string | null>(null);
+  const [showCSVModal, setShowCSVModal] = useState(false);
+  const [importJobId, setImportJobId] = useState<string | null>(null);
 
   const handleManualKey = async () => {
     if (!stripeKey.trim()) {
@@ -143,8 +149,43 @@ export const IntegrationSection: React.FC<IntegrationSectionProps> = ({ integrat
     }
   };
 
-  const handleOAuthConnect = (url?: string) => {
-    if (url) window.location.href = url;
+  // Poll for CSV import status
+  useEffect(() => {
+    if (!importJobId) return;
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const res = await api.get(`/api/invoices/csv-import-status/${importJobId}`);
+        const status = res.data;
+
+        if (status.status === 'done' || status.status === 'error') {
+          clearInterval(pollInterval);
+          if (status.status === 'done') {
+            addToast({
+              type: 'success',
+              message: `✅ CSV Import complete: ${status.created} invoices imported${status.duplicates > 0 ? `, ${status.duplicates} duplicates skipped` : ''}${status.skipped > 0 ? `, ${status.skipped} invalid rows skipped` : ''}`
+            });
+            onRefetch?.();
+          } else {
+            addToast({ type: 'error', message: `Import failed: ${status.error}` });
+          }
+          setTimeout(() => {
+            setImportJobId(null);
+            setShowCSVModal(false);
+          }, 1500);
+        }
+      } catch (err: any) {
+        console.error('Failed to poll import status:', err);
+      }
+    }, 1000);
+
+    return () => clearInterval(pollInterval);
+  }, [importJobId, addToast, onRefetch]);
+
+  const handleOAuthConnect = (path: string) => {
+    // Use full backend URL to ensure correct redirect_uri
+    const backendUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+    window.location.href = `${backendUrl}${path}`;
   };
 
   const handleManualSync = async (type: string) => {
@@ -344,15 +385,15 @@ export const IntegrationSection: React.FC<IntegrationSectionProps> = ({ integrat
                               </div>
                             )}
 
-                            {/* CSV: Opens modal in Invoices */}
+                            {/* CSV: Upload modal */}
                             {key === 'csv' && (
                               <Button
                                 variant="primary"
                                 size="sm"
-                                onClick={() => window.location.href = '/invoices'}
+                                onClick={() => setShowCSVModal(true)}
                                 className="w-full sm:w-auto lg:flex-none text-xs sm:text-sm"
                               >
-                                📤 Invoices
+                                📤 Upload CSV
                               </Button>
                             )}
 
@@ -513,6 +554,35 @@ export const IntegrationSection: React.FC<IntegrationSectionProps> = ({ integrat
           </ul>
         </div>
       </div>
+
+      {/* Logout Section */}
+      <div className="p-4 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800 rounded-lg">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h4 className="font-semibold text-red-900 dark:text-red-200 mb-1">Sign Out</h4>
+            <p className="text-sm text-red-700 dark:text-red-400">
+              Sign out of RecoverAI on this device
+            </p>
+          </div>
+          <Button
+            variant="secondary"
+            className="text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/20 whitespace-nowrap"
+            onClick={() => logout()}
+          >
+            Sign Out
+          </Button>
+        </div>
+      </div>
+
+      {/* CSV Upload Modal */}
+      <CSVUploadModal
+        isOpen={showCSVModal}
+        onClose={() => setShowCSVModal(false)}
+        setImportJobId={(jobId: string) => {
+          // Start polling for import status
+          setImportJobId(jobId);
+        }}
+      />
     </div>
   );
 };

@@ -34,10 +34,10 @@ const Pricing: React.FC = () => {
         <section className="text-center space-y-6">
           <div>
             <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900 dark:text-white mb-4">
-              Pricing Plans for Every Business
+              How It Works
             </h1>
             <p className="text-xl text-gray-600 dark:text-gray-400">
-              Custom pricing based on your company size and recovery needs. We're only successful when you are.
+              Free 3-week trial. See results. Then we discuss what's next for your business.
             </p>
           </div>
         </section>
@@ -45,25 +45,33 @@ const Pricing: React.FC = () => {
         {/* Value Proposition */}
         <section className="bg-gray-50 dark:bg-white/[0.03] rounded-3xl border border-gray-200 dark:border-white/[0.06] p-6 sm:p-12 space-y-8">
           <div className="max-w-2xl mx-auto text-center">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Aligned Incentives</h2>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Your Journey</h2>
             <p className="text-gray-600 dark:text-gray-400 leading-relaxed mb-8">
-              We work on a hybrid model: a base subscription fee for access to our platform, plus a success fee on what we recover. This means we profit when you profit, and we're genuinely incentivized to maximize your results.
+              We only win when you recover more. That's why we start with a free trial—so you see the results before any commitment.
             </p>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
               <div className="space-y-3">
-                <span className="text-3xl">📅</span>
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Subscription Fee</h3>
+                <span className="text-3xl">🆓</span>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Week 1-3: Free Trial</h3>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Monthly platform access including all core features, support, and integrations
+                  Full access. No credit card. I set everything up for you. See your results in action.
                 </p>
               </div>
 
               <div className="space-y-3">
-                <span className="text-3xl">💰</span>
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Success Fee</h3>
+                <span className="text-3xl">✨</span>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Day 14: Results</h3>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Small percentage of recovered funds. No recovery = no success fee.
+                  See how much we recovered. See how much time you saved. Real numbers, real impact.
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <span className="text-3xl">💬</span>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Next Steps</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Based on your results, let's discuss how RecoverAI can become part of your recovery strategy.
                 </p>
               </div>
             </div>
@@ -72,19 +80,19 @@ const Pricing: React.FC = () => {
 
         {/* What's Included */}
         <section className="space-y-8">
-          <h2 className="text-3xl font-bold text-gray-900 dark:text-white text-center">What's Included</h2>
+          <h2 className="text-3xl font-bold text-gray-900 dark:text-white text-center">What You Get</h2>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Core Features</h3>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">During Trial</h3>
               <ul className="space-y-3">
                 {[
-                  'AI-powered dunning emails (5 stages)',
-                  'SMS dunning + payment prediction',
-                  'Behavioral segmentation (4 tiers)',
-                  'Stripe + QuickBooks sync',
-                  '90-day cash flow forecasting',
-                  'Attribution & ROI reporting',
+                  'AI-powered dunning emails',
+                  'Personalized per customer',
+                  'Automated invoice tracking',
+                  'Payment notifications',
+                  'Risk scoring dashboard',
+                  'Cash position forecasting',
                 ].map((feature, i) => (
                   <li key={i} className="flex items-start gap-3">
                     <span className="text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0">✓</span>
@@ -95,15 +103,15 @@ const Pricing: React.FC = () => {
             </div>
 
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Growth Plan+</h3>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Plus (If You Pay)</h3>
               <ul className="space-y-3">
                 {[
-                  'Everything in Core, plus:',
+                  'SMS dunning (higher response rates)',
                   'Voice calling (Tier 4 customers)',
-                  'Auto-generated payment plans',
-                  'Real-time DTMF/IVR handling',
-                  'Advanced attribution tracking',
-                  'Dedicated account support',
+                  'Payment plans (auto-generated)',
+                  'Advanced segmentation',
+                  'Custom reporting',
+                  'Priority support',
                 ].map((feature, i) => (
                   <li key={i} className="flex items-start gap-3">
                     <span className="text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0">✓</span>
@@ -122,24 +130,28 @@ const Pricing: React.FC = () => {
           <div className="space-y-6">
             {[
               {
-                q: "How is pricing determined?",
-                a: "We customize pricing based on your company size, ARR, and recovery goals. Schedule a demo to discuss your specific situation.",
+                q: "Is the 2-week trial really free?",
+                a: "Yes. Completely free. No credit card required. No setup fees. I'll personally set everything up for you.",
               },
               {
-                q: "Can I negotiate terms?",
-                a: "Yes. We work with all customers to find mutually beneficial pricing. Higher recovery volumes often come with better rates.",
+                q: "What happens after 3 weeks?",
+                a: "You'll see real results—how much we recovered, how many invoices we processed, how much time you saved. Then we discuss what makes sense for your business.",
               },
               {
-                q: "What if I don't recover anything?",
-                a: "You pay the subscription fee only. No recovery = no success fee. We're incentivized to help you succeed.",
+                q: "What if I don't want to pay after the trial?",
+                a: "That's fine. No obligation. You can cancel anytime.",
               },
               {
-                q: "How do I get started?",
-                a: "Apply for our pilot program on our landing page. Qualified companies get 14 days free to explore the platform and see results before deciding on custom pricing.",
+                q: "What happens after the free trial?",
+                a: "After your trial ends, we'll review your results together and discuss how RecoverAI fits your recovery strategy. Custom pricing is based on your specific needs.",
               },
               {
-                q: "Do you offer annual discounts?",
-                a: "Yes. Annual plans typically include 15–20% savings. Contact sales to discuss annual pricing.",
+                q: "Can I cancel anytime?",
+                a: "Yes. Month-to-month. Cancel anytime, no questions asked.",
+              },
+              {
+                q: "Can I upgrade features mid-trial?",
+                a: "Yes. If you need additional features during your trial, just let us know and we'll enable them for free.",
               },
             ].map((item, i) => (
               <div key={i} className="border-b border-gray-200 dark:border-white/[0.06] pb-6 last:border-b-0">
@@ -152,9 +164,9 @@ const Pricing: React.FC = () => {
 
         {/* CTA */}
         <section className="text-center space-y-6 py-12 border-t border-gray-200 dark:border-white/[0.06]">
-          <h2 className="text-3xl font-bold text-gray-900 dark:text-white">Ready to Get Started?</h2>
+          <h2 className="text-3xl font-bold text-gray-900 dark:text-white">Ready to Recover More?</h2>
           <p className="text-gray-600 dark:text-gray-400 text-lg">
-            Apply for our pilot program. Get 14 days free to see results. If we deliver, we'll discuss custom pricing based on your recovery.
+            Get 3 weeks free. See your results. Then we'll talk about what's next.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button size="lg" onClick={() => navigate('/signup')}>Become a Pilot</Button>

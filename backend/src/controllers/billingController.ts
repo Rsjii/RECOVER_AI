@@ -77,8 +77,8 @@ export const getCurrentSubscription = async (req: Request, res: Response): Promi
       res.status(200).json({
         data: {
           status: 'trialing',
-          plan_code: 'trial-14-day',
-          plan_name: '14-Day Trial',
+          plan_code: 'trial-21-day',
+          plan_name: '21-Day Trial',
           next_billing_date: company.trial_ends_at,
           trial_ends_at: company.trial_ends_at,
           days_remaining: Math.max(0, daysRemaining),

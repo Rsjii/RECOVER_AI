@@ -36,9 +36,9 @@ const Terms: React.FC = () => {
           You must provide accurate, complete, and current information when creating an account. You are responsible for maintaining the confidentiality of your account credentials and for all activities that occur under your account. You agree to notify us immediately of any unauthorized use of your account or any other breach of security. We are not liable for any loss or damage arising from your failure to safeguard your account credentials. You are responsible for ensuring that your use of the Service complies with all applicable laws, including but not limited to debt collection regulations in your jurisdiction.
         </p>
 
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-white mt-8 mb-3">5. Billing and Payment</h2>
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-white mt-8 mb-3">5. Free Trial and Billing</h2>
         <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
-          RecoverAI uses an outcome-based pricing model. Fees consist of a monthly base subscription fee plus a percentage of successfully recovered amounts. The current standard pricing is a base fee of $2,500 per month plus 1% of all amounts recovered through the Service during the billing period. Recovered amounts are calculated based on payments received on invoices that were actively managed by RecoverAI during the collection period. All fees are billed monthly in arrears and are due within 30 days of invoice date. Prices are exclusive of applicable taxes. We reserve the right to modify pricing with 30 days' prior written notice; continued use of the Service after the effective date of a price change constitutes acceptance of the new pricing.
+          RecoverAI offers a free trial period to all new accounts. During your trial, you have full access to all platform features at no cost. After your trial period ends, we will discuss custom pricing based on your specific needs and usage. All fees are exclusive of applicable taxes. We will notify you of any pricing terms before they take effect. You agree to provide accurate billing information and authorize us to charge your selected payment method for any fees incurred after the trial period.
         </p>
 
         <h2 className="text-xl font-semibold text-gray-900 dark:text-white mt-8 mb-3">6. Data Ownership</h2>

@@ -71,14 +71,14 @@ const Landing: React.FC = () => {
       <main className="max-w-6xl mx-auto px-6 pt-20 pb-16 text-center">
         <div className="inline-flex items-center gap-2 bg-brand-50 dark:bg-blue-900/30 text-brand-700 dark:text-blue-300 text-xs font-medium px-3 py-1.5 rounded-full mb-8">
           <span className="w-2 h-2 rounded-full bg-brand-500 animate-pulse" />
-          Now live — see your cash runway in 60 seconds
+          Recover working capital trapped in unpaid invoices
         </div>
         <h1 className="text-5xl md:text-7xl font-bold text-gray-900 dark:text-white max-w-5xl mx-auto leading-tight">
-          Stop Losing<br />
-          <span className="bg-gradient-to-r from-brand-600 to-brand-500 bg-clip-text text-transparent">$100K/Year to Unpaid Invoices</span>
+          Get Paid<br />
+          <span className="bg-gradient-to-r from-brand-600 to-brand-500 bg-clip-text text-transparent">20% Faster Without Manual Work</span>
         </h1>
         <p className="mt-8 text-lg md:text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto leading-relaxed">
-          Autonomous AR recovery agent that sends personalized dunning emails, offers payment plans, and tracks payments automatically. See your cash position in real-time.
+          AI-powered working capital recovery platform. Automatically handles invoice collection, payment tracking, and cash forecasting. Most SaaS founders lose $100K+/year to unpaid invoices. RecoverAI recovers that automatically.
         </p>
         <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
           <Button
@@ -98,7 +98,7 @@ const Landing: React.FC = () => {
             {demoLoading ? 'Loading demo...' : 'Try live demo'}
           </Button>
         </div>
-        <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">14 days free • No credit card required</p>
+        <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">3 weeks free • No credit card required</p>
         <p className="mt-6 text-xs text-gray-400 dark:text-gray-500 max-w-md mx-auto">
           We only access your read-only invoice and payment data to analyze and automate recovery.
           We never move, hold, or process payments. You remain in control of all automation settings.
@@ -126,10 +126,10 @@ const Landing: React.FC = () => {
       <section className="max-w-5xl mx-auto px-6 py-8">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
-            { value: '< 1 min', label: 'Time to cash position' },
-            { value: '4 channels', label: 'Recovery methods' },
+            { value: '20%', label: 'Faster invoice recovery' },
+            { value: '4 channels', label: 'Email • SMS • Voice • Plans' },
             { value: '2 integrations', label: 'Stripe • QuickBooks' },
-            { value: '14 days', label: 'Free pilot' },
+            { value: '3 weeks', label: 'Free trial' },
           ].map((s) => (
             <div key={s.label} className="text-center bg-gray-50 dark:bg-[#111113] rounded-xl p-5">
               <div className="text-2xl font-bold text-brand-600">{s.value}</div>
@@ -210,26 +210,26 @@ const Landing: React.FC = () => {
       {/* How it works */}
       <section className="max-w-5xl mx-auto px-6 py-14">
         <h2 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white text-center mb-10">
-          How RecoverAI works
+          Recover working capital in 3 steps
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {[
             {
               step: '1',
-              title: 'Connect your billing tool',
-              desc: 'Connect Stripe, QuickBooks, or Chargebee in under 60 seconds. We pull all unpaid invoices automatically.',
+              title: 'Connect Stripe (60 seconds)',
+              desc: 'Authorize RecoverAI to read your invoices and payment data. We never move or process payments.',
               color: 'bg-purple-100 dark:bg-purple-900/40 text-purple-600',
             },
             {
               step: '2',
-              title: 'See your cash position instantly',
-              desc: 'Cash runway, 30/60/90 day forecast, and leakage analysis calculated in real-time from your AR data.',
+              title: 'AI evaluates each invoice',
+              desc: 'Claude AI analyzes unpaid invoices, calculates risk, decides recovery strategy, and generates personalized dunning emails.',
               color: 'bg-blue-100 dark:bg-blue-900/40 text-brand-600',
             },
             {
               step: '3',
-              title: 'Agent recovers intelligently',
-              desc: 'RecoverAI sends personalized emails, offers payment plans, and tracks payments — with configurable automation and optional human review.',
+              title: 'Autonomous recovery starts',
+              desc: 'Automated emails, SMS escalation, payment plans — all managed by the AI agent 24/7. You monitor in the dashboard.',
               color: 'bg-green-100 dark:bg-green-900/40 text-green-600',
             },
           ].map((item) => (
@@ -248,9 +248,9 @@ const Landing: React.FC = () => {
       <section className="bg-gray-50 dark:bg-white/[0.02] py-14">
         <div className="max-w-5xl mx-auto px-6">
           <h2 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white text-center mb-3">
-            Your CFO command center
+            Working capital recovery, automated
           </h2>
-          <p className="text-center text-gray-500 dark:text-gray-400 mb-10">Cash visibility + autonomous recovery. Not a tool — an agent that does the work.</p>
+          <p className="text-center text-gray-500 dark:text-gray-400 mb-10">AI-powered platform that handles invoice recovery 24/7. You get paid faster without lifting a finger.</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             {[
               { icon: '💰', title: 'Cash Position Forecast', desc: '30/60/90 day projections based on AR aging and customer payment history.' },
@@ -273,24 +273,24 @@ const Landing: React.FC = () => {
         </div>
       </section>
 
-{/* Founding Customer CTA */}
+{/* Free Trial CTA */}
       <section className="bg-gray-50 dark:bg-white/[0.02] py-14">
         <div className="max-w-5xl mx-auto px-6 text-center">
-          <div className="inline-flex items-center gap-2 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-xs font-medium px-3 py-1.5 rounded-full mb-6">
-            <span className="w-2 h-2 rounded-full bg-green-500" />
-            First 5 customers get founding pricing
+          <div className="inline-flex items-center gap-2 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs font-medium px-3 py-1.5 rounded-full mb-6">
+            <span className="w-2 h-2 rounded-full bg-blue-500" />
+            Free for 3 weeks. See results. No credit card.
           </div>
           <h2 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mb-4">
-            Join our founding team
+            Start recovering your working capital today
           </h2>
           <p className="text-gray-500 dark:text-gray-400 mb-10 max-w-xl mx-auto">
-            Be one of our first customers. Get lifetime $99/month pricing, personal onboarding, and direct access to the founding team.
+            2-week free trial. Full access. I'll personally set everything up for you. See your first recovery in days, not weeks.
           </p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             {[
-              { icon: '🔒', title: '$99/month forever', desc: 'Lock in founding pricing. Regular pricing starts at $299/month after.' },
-              { icon: '🤝', title: 'Personal onboarding', desc: 'I set up your account and show you how to recover your first invoice.' },
-              { icon: '🗺️', title: 'Shape the product', desc: 'Your feedback directly influences what we build next.' },
+              { icon: '⚡', title: 'Fast setup', desc: 'Connect Stripe in 60 seconds. I handle the rest.' },
+              { icon: '🔍', title: 'See real results', desc: 'Most customers see first recovery within 7 days.' },
+              { icon: '💬', title: 'Personal support', desc: 'Direct access to me throughout your trial.' },
             ].map((item) => (
               <div key={item.title} className="bg-white dark:bg-[#111113] rounded-2xl border border-gray-200 dark:border-white/[0.06] p-6 text-left">
                 <div className="text-2xl mb-3">{item.icon}</div>
@@ -299,8 +299,8 @@ const Landing: React.FC = () => {
               </div>
             ))}
           </div>
-          <Button size="lg" className="px-8" onClick={() => navigate('/signup')}>Start 14-Day Free Trial</Button>
-          <p className="mt-3 text-xs text-gray-400">No credit card required. Full access for 14 days.</p>
+          <Button size="lg" className="px-8" onClick={() => navigate('/signup')}>Start free trial</Button>
+          <p className="mt-3 text-xs text-gray-400">No credit card required. No commitment. Cancel anytime.</p>
         </div>
       </section>
 
@@ -332,8 +332,8 @@ const Landing: React.FC = () => {
               a: 'Currently: Stripe, QuickBooks, Chargebee, and manual CSV upload. Xero, NetSuite, and Zuora are on the roadmap.',
             },
             {
-              q: 'How does outcome-based pricing work?',
-              a: 'You pay a base monthly fee for platform access + a success fee only on recovered invoices. This aligns our incentives with yours — we only profit when you do. Apply for our pilot program to get 14 days free and see results. Pricing is custom based on your company size and recovery. Contact sales for a quote tailored to you.',
+              q: 'What happens after the 2-week free trial?',
+              a: 'You\'ll see real results—how much we recovered, how many invoices we processed, how much time you saved. Then we discuss pricing that makes sense for your business. Most customers choose to keep using it.',
             },
           ].map((item) => (
             <details key={item.q} className="group bg-white dark:bg-[#111113] rounded-xl border border-gray-200 dark:border-white/[0.06] p-5">
@@ -355,7 +355,7 @@ const Landing: React.FC = () => {
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
             Stop losing money to unpaid invoices.
           </h2>
-          <p className="text-blue-50 dark:text-gray-300 mb-10 text-lg">Get your first AR recovery result in 14 days. No credit card required.</p>
+          <p className="text-blue-50 dark:text-gray-300 mb-10 text-lg">Get your first AR recovery result in 3 weeks. No credit card required.</p>
           <Button size="lg" className="bg-white !text-black hover:bg-gray-100 dark:bg-blue-600 dark:!text-white dark:hover:bg-blue-700 font-semibold px-12 py-3 shadow-lg" onClick={() => navigate('/signup')}>
             Start Free Trial
           </Button>

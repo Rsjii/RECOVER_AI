@@ -62,7 +62,7 @@ const Billing: React.FC = () => {
   const pilotEndsAt = company?.pilot_ends_at ? new Date(company.pilot_ends_at) : trialEndsAt;
   const now = new Date();
   const daysRemaining = pilotEndsAt ? Math.max(0, Math.ceil((pilotEndsAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))) : 0;
-  const totalPilotDays = 14;
+  const totalPilotDays = 21;
   const pilotProgress = Math.max(0, Math.min(100, ((totalPilotDays - daysRemaining) / totalPilotDays) * 100));
 
   useEffect(() => {

@@ -184,8 +184,8 @@ const DemoLaunch: React.FC = () => {
           </div>
 
           <p className="text-center text-xs text-gray-400 mt-6">
-            Beta pilot: $500 for 2 weeks · Full: $2,500/mo + 1% recovery ·{' '}
-            <a href="/pricing" className="underline hover:text-gray-600">See pricing</a>
+            Free 3-week trial · No credit card required ·{' '}
+            <a href="/pricing" className="underline hover:text-gray-600">How it works</a>
           </p>
         </div>
       </div>

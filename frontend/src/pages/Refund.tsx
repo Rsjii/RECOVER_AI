@@ -12,10 +12,10 @@ const Refund: React.FC = () => {
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Cancellation & Refund Policy</h1>
         <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Effective Date: March 1, 2026</p>
 
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-white mt-8 mb-3">Pilot Program (14 Days)</h2>
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-white mt-8 mb-3">Free Trial (3 Weeks)</h2>
         <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
-          RecoverAI pilots get a complimentary 14-day pilot program. During the pilot period, you have full
-          access to all features with no credit card required. If you decide to cancel during the pilot:
+          RecoverAI offers a complimentary 3-week free trial. During the trial period, you have full
+          access to all features with no credit card required. If you decide to cancel during the trial:
         </p>
         <ul className="list-disc list-inside space-y-2 text-sm text-gray-700 dark:text-gray-300 mt-3">
           <li><span className="font-medium">Full Refund:</span> If you cancel within 7 days of trial start</li>

@@ -120,8 +120,8 @@ const Signup: React.FC = () => {
           <div className="w-12 h-12 rounded-xl bg-brand-600 flex items-center justify-center mx-auto mb-4">
             <span className="text-white text-xl font-bold">R</span>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Start recovering revenue</h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">14-day pilot program, no credit card</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Recover your working capital</h1>
+          <p className="text-gray-500 dark:text-gray-400 mt-1">3 weeks free • No credit card required</p>
         </div>
 
         {/* Card */}

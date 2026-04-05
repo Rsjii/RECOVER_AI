@@ -226,7 +226,7 @@ const DemoPreview: React.FC = () => {
           </div>
 
           <p className="text-center text-xs text-gray-400 mt-6">
-            Pilot Program: 14 days free · Custom pricing after · Outcome-based model
+            Free 3-week trial · No credit card · See your results
           </p>
         </div>
       </div>
