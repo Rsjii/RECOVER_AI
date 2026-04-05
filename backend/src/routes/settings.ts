@@ -15,6 +15,7 @@ import {
   updatePauseDunning,
   updatePauseCustomer,
   updateAggressiveMode,
+  updateSmtpFallback,
   getDunningSenderName,
   updateDunningSenderName,
   disconnectStripe,
@@ -38,7 +39,7 @@ router.get('/costs', getApiCosts);
 router.put('/dunning', requireRole('admin'), updateDunningSettings);
 router.put('/slack', requireRole('admin'), updateSlackSettings);
 router.put('/general', requireRole('admin'), updateGeneralSettings);
-router.patch('/pilot-mode', requireRole('admin'), updatePilotMode);  // P0
+router.put('/pilot-mode', requireRole('admin'), updatePilotMode);  // P0
 router.patch('/manual-mode', requireRole('admin'), updateManualMode);  // P0
 
 // Phase 2: Dunning strategy controls (via Slack bot)
@@ -46,6 +47,7 @@ router.put('/dunning-tone', requireRole('admin'), updateDunningTone);
 router.put('/pause-dunning', requireRole('admin'), updatePauseDunning);
 router.put('/pause-customer', requireRole('admin'), updatePauseCustomer);
 router.put('/aggressive-mode', requireRole('admin'), updateAggressiveMode);
+router.put('/smtp-fallback', requireRole('admin'), updateSmtpFallback);
 router.get('/dunning-sender-name', getDunningSenderName);
 router.put('/dunning-sender-name', requireRole('admin'), updateDunningSenderName);
 

@@ -32,6 +32,11 @@ export const getSettings = async (req: Request, res: Response): Promise<void> =>
         pilotMode: (company as any).pilot_mode || 'auto',
         replyToEmail: (company as any).reply_to_email || null,
         manualMode: company.manual_mode ?? false,
+        smtpFallbackToResend: (company as any).smtp_fallback_to_resend || false,
+        dunningTone: (company as any).dunning_tone || 'standard',
+        pauseDunningUntil: (company as any).pause_dunning_until || null,
+        pausedCustomers: (company as any).paused_customers || [],
+        aggressiveEnabled: (company as any).aggressive_enabled || false,
         accountType: (company as any).account_type || 'paid',
         trialStatus: (company as any).trial_status || 'not_started',
         trialEndsAt: (company as any).trial_ends_at || null,
@@ -152,11 +157,12 @@ export const updateGeneralSettings = async (req: Request, res: Response): Promis
   const companyId = (req as any).companyId;
 
   try {
-    const { timezone, preferredCurrency } = req.body;
+    const { timezone, preferredCurrency, reply_to_email } = req.body;
     const updates: Record<string, string> = {};
 
     if (timezone) updates.timezone = timezone;
     if (preferredCurrency) updates.preferred_currency = preferredCurrency.toUpperCase();
+    if (reply_to_email !== undefined) updates.reply_to_email = reply_to_email || null;
 
     if (Object.keys(updates).length === 0) {
       sendErrorResponse(res, 400, 'No valid fields provided');
@@ -171,6 +177,7 @@ export const updateGeneralSettings = async (req: Request, res: Response): Promis
       data: {
         timezone: company.timezone,
         preferredCurrency: company.preferred_currency,
+        replyToEmail: (company as any).reply_to_email || null,
       },
     });
   } catch (error) {
@@ -190,20 +197,20 @@ export const updatePilotMode = async (req: Request, res: Response): Promise<void
   const companyId = (req as any).companyId;
 
   try {
-    const { mode } = req.body;
+    const { pilot_mode } = req.body;
 
-    if (!['shadow', 'auto', 'paused'].includes(mode)) {
-      sendErrorResponse(res, 400, 'mode must be shadow | auto | paused');
+    if (!['shadow', 'auto', 'paused'].includes(pilot_mode)) {
+      sendErrorResponse(res, 400, 'pilot_mode must be shadow | auto | paused');
       return;
     }
 
-    const company = await updateCompany(companyId, { pilot_mode: mode });
+    const company = await updateCompany(companyId, { pilot_mode });
 
-    logInfo(LOG_MODULE, handler, 'Pilot mode updated', { companyId, mode });
+    logInfo(LOG_MODULE, handler, 'Pilot mode updated', { companyId, pilot_mode });
 
     res.status(200).json({
       data: {
-        pilot_mode: company.pilot_mode || mode,
+        pilot_mode: company.pilot_mode || pilot_mode,
       },
     });
   } catch (error) {
@@ -336,21 +343,21 @@ export const updateDunningTone = async (req: Request, res: Response): Promise<vo
   const companyId = (req as any).companyId;
 
   try {
-    const { tone } = req.body;
+    const { dunning_tone } = req.body;
 
-    if (!['gentle', 'standard', 'aggressive'].includes(tone)) {
-      sendErrorResponse(res, 400, 'tone must be gentle, standard, or aggressive');
+    if (!['gentle', 'standard', 'aggressive'].includes(dunning_tone)) {
+      sendErrorResponse(res, 400, 'dunning_tone must be gentle, standard, or aggressive');
       return;
     }
 
-    const updated = await updateCompany(companyId, { dunning_tone: tone });
+    const updated = await updateCompany(companyId, { dunning_tone });
 
-    logInfo(LOG_MODULE, handler, 'Dunning tone updated', { companyId, tone });
+    logInfo(LOG_MODULE, handler, 'Dunning tone updated', { companyId, dunning_tone });
 
     res.status(200).json({
       data: {
         dunning_tone: updated.dunning_tone,
-        message: `Dunning tone set to ${tone}`,
+        message: `Dunning tone set to ${dunning_tone}`,
       },
     });
   } catch (error) {
@@ -369,30 +376,30 @@ export const updatePauseDunning = async (req: Request, res: Response): Promise<v
   const companyId = (req as any).companyId;
 
   try {
-    const { pauseUntil } = req.body;
+    const { pause_dunning_until } = req.body;
 
-    if (pauseUntil) {
-      const pauseDate = new Date(pauseUntil);
+    if (pause_dunning_until) {
+      const pauseDate = new Date(pause_dunning_until);
       if (isNaN(pauseDate.getTime())) {
-        sendErrorResponse(res, 400, 'pauseUntil must be a valid date');
+        sendErrorResponse(res, 400, 'pause_dunning_until must be a valid date');
         return;
       }
     }
 
     const updated = await updateCompany(companyId, {
-      pause_dunning_until: pauseUntil || null,
+      pause_dunning_until: pause_dunning_until || null,
     });
 
     logInfo(LOG_MODULE, handler, 'Pause dunning updated', {
       companyId,
-      pauseUntil: updated.pause_dunning_until,
+      pause_dunning_until: updated.pause_dunning_until,
     });
 
     res.status(200).json({
       data: {
         pause_dunning_until: updated.pause_dunning_until,
-        message: pauseUntil
-          ? `Dunning paused until ${new Date(pauseUntil).toISOString().split('T')[0]}`
+        message: pause_dunning_until
+          ? `Dunning paused until ${new Date(pause_dunning_until).toISOString().split('T')[0]}`
           : 'Dunning resumed',
       },
     });
@@ -412,49 +419,32 @@ export const updatePauseCustomer = async (req: Request, res: Response): Promise<
   const companyId = (req as any).companyId;
 
   try {
-    const { customerId, action } = req.body; // action: 'add' | 'remove'
+    const { paused_customers } = req.body;
 
-    if (!['add', 'remove'].includes(action)) {
-      sendErrorResponse(res, 400, 'action must be add or remove');
+    if (!Array.isArray(paused_customers)) {
+      sendErrorResponse(res, 400, 'paused_customers must be an array of email addresses');
       return;
-    }
-
-    // Fetch current paused customers
-    const company = await findCompanyById(companyId);
-    if (!company) {
-      sendErrorResponse(res, 404, 'Company not found');
-      return;
-    }
-
-    let pausedCustomers = (company as any).paused_customers || [];
-
-    if (action === 'add' && !pausedCustomers.includes(customerId)) {
-      pausedCustomers = [...pausedCustomers, customerId];
-    } else if (action === 'remove') {
-      pausedCustomers = pausedCustomers.filter((id: string) => id !== customerId);
     }
 
     const updated = await updateCompany(companyId, {
-      paused_customers: pausedCustomers,
+      paused_customers,
     });
 
-    logInfo(LOG_MODULE, handler, 'Paused customer updated', {
+    logInfo(LOG_MODULE, handler, 'Paused customers updated', {
       companyId,
-      customerId,
-      action,
       count: (updated as any).paused_customers?.length || 0,
     });
 
     res.status(200).json({
       data: {
         paused_customers: (updated as any).paused_customers || [],
-        message: action === 'add'
-          ? `Customer paused from dunning`
-          : `Customer resumed for dunning`,
+        message: paused_customers.length > 0
+          ? `${paused_customers.length} customer(s) paused from dunning`
+          : `All customers resumed for dunning`,
       },
     });
   } catch (error) {
-    logError(LOG_MODULE, handler, 'Failed to update pause customer', error);
+    logError(LOG_MODULE, handler, 'Failed to update paused customers', error);
     const { statusCode, message } = parseError(error);
     sendErrorResponse(res, statusCode, message);
   }
@@ -469,32 +459,72 @@ export const updateAggressiveMode = async (req: Request, res: Response): Promise
   const companyId = (req as any).companyId;
 
   try {
-    const { enabled } = req.body;
+    const { aggressive_enabled } = req.body;
 
-    if (typeof enabled !== 'boolean') {
-      sendErrorResponse(res, 400, 'enabled must be a boolean');
+    if (typeof aggressive_enabled !== 'boolean') {
+      sendErrorResponse(res, 400, 'aggressive_enabled must be a boolean');
       return;
     }
 
     const updated = await updateCompany(companyId, {
-      aggressive_enabled: enabled,
+      aggressive_enabled,
     });
 
     logInfo(LOG_MODULE, handler, 'Aggressive mode updated', {
       companyId,
-      enabled: (updated as any).aggressive_enabled,
+      aggressive_enabled: (updated as any).aggressive_enabled,
     });
 
     res.status(200).json({
       data: {
         aggressive_enabled: (updated as any).aggressive_enabled,
-        message: enabled
+        message: aggressive_enabled
           ? 'Aggressive mode enabled (Tier 3+ for all invoices)'
           : 'Aggressive mode disabled',
       },
     });
   } catch (error) {
     logError(LOG_MODULE, handler, 'Failed to update aggressive mode', error);
+    const { statusCode, message } = parseError(error);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
+
+/**
+ * PUT /api/settings/smtp-fallback
+ * Allow or disallow Resend as fallback if SMTP fails
+ */
+export const updateSmtpFallback = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'updateSmtpFallback';
+  const companyId = (req as any).companyId;
+
+  try {
+    const { smtp_fallback_to_resend } = req.body;
+
+    if (typeof smtp_fallback_to_resend !== 'boolean') {
+      sendErrorResponse(res, 400, 'smtp_fallback_to_resend must be a boolean');
+      return;
+    }
+
+    const updated = await updateCompany(companyId, {
+      smtp_fallback_to_resend,
+    });
+
+    logInfo(LOG_MODULE, handler, 'SMTP fallback setting updated', {
+      companyId,
+      enabled: (updated as any).smtp_fallback_to_resend,
+    });
+
+    res.status(200).json({
+      data: {
+        smtp_fallback_to_resend: (updated as any).smtp_fallback_to_resend,
+        message: smtp_fallback_to_resend
+          ? 'SMTP fallback enabled (Resend will be used if SMTP fails)'
+          : 'SMTP fallback disabled (SMTP failures will cause hard errors)',
+      },
+    });
+  } catch (error) {
+    logError(LOG_MODULE, handler, 'Failed to update SMTP fallback setting', error);
     const { statusCode, message } = parseError(error);
     sendErrorResponse(res, statusCode, message);
   }

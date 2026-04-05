@@ -236,7 +236,7 @@ export async function saveSMTPConfig(
     host: string;
     port: number;
     username: string;
-    password: string;
+    password: string | null;  // null = keep existing password
     fromEmail: string;
     fromName: string;
   }
@@ -246,22 +246,46 @@ export async function saveSMTPConfig(
   try {
     // Encrypt credentials
     const encryptedUsername = encryptValue(config.username, companyId);
-    const encryptedPassword = encryptValue(config.password, companyId);
 
-    // Save to DB (don't set verified=true yet, will be set by testSMTPConnection)
-    await pool.query(
-      `UPDATE companies
-       SET smtp_host = $1,
-           smtp_port = $2,
-           smtp_username_encrypted = $3,
-           smtp_password_encrypted = $4,
-           smtp_from_email = $5,
-           smtp_from_name = $6,
-           smtp_enabled = false,
-           smtp_verified = false,
-           smtp_error_message = 'Pending verification'
-       WHERE id = $7`,
-      [
+    // If password is null or empty, keep existing. Otherwise encrypt new one.
+    let query: string;
+    let params: any[];
+
+    if (!config.password || config.password.trim() === '') {
+      // Keep existing password - don't update password field
+      query = `UPDATE companies
+               SET smtp_host = $1,
+                   smtp_port = $2,
+                   smtp_username_encrypted = $3,
+                   smtp_from_email = $4,
+                   smtp_from_name = $5,
+                   smtp_enabled = false,
+                   smtp_verified = false,
+                   smtp_error_message = 'Pending verification'
+               WHERE id = $6`;
+      params = [
+        config.host,
+        config.port,
+        encryptedUsername,
+        config.fromEmail,
+        config.fromName,
+        companyId,
+      ];
+    } else {
+      // Update password
+      const encryptedPassword = encryptValue(config.password, companyId);
+      query = `UPDATE companies
+               SET smtp_host = $1,
+                   smtp_port = $2,
+                   smtp_username_encrypted = $3,
+                   smtp_password_encrypted = $4,
+                   smtp_from_email = $5,
+                   smtp_from_name = $6,
+                   smtp_enabled = false,
+                   smtp_verified = false,
+                   smtp_error_message = 'Pending verification'
+               WHERE id = $7`;
+      params = [
         config.host,
         config.port,
         encryptedUsername,
@@ -269,8 +293,11 @@ export async function saveSMTPConfig(
         config.fromEmail,
         config.fromName,
         companyId,
-      ]
-    );
+      ];
+    }
+
+    // Save to DB
+    await pool.query(query, params);
 
     // Clear cache
     transportCache.delete(companyId);
@@ -342,7 +369,7 @@ export async function getFullSMTPConfig(companyId: string): Promise<{
     const result = await pool.query(
       `SELECT
          smtp_host, smtp_port, smtp_username_encrypted, smtp_password_encrypted,
-         smtp_from_email, smtp_from_name, smtp_enabled
+         smtp_from_email, smtp_from_name, smtp_enabled, dunning_sender_name
        FROM companies
        WHERE id = $1`,
       [companyId]
@@ -357,13 +384,17 @@ export async function getFullSMTPConfig(companyId: string): Promise<{
     // Decrypt credentials
     const username = decryptValue(row.smtp_username_encrypted, companyId);
 
+    // Check if password is encrypted (exists)
+    const hasPassword = !!row.smtp_password_encrypted && row.smtp_password_encrypted.trim() !== '';
+
     return {
       host: row.smtp_host,
       port: row.smtp_port || 587,
       username,
-      password: '', // NEVER return password - user must re-enter
+      password: hasPassword ? '••••••••' : '', // Show dots if exists, empty if not
       fromEmail: row.smtp_from_email,
       fromName: row.smtp_from_name,
+      dunningSenderName: row.dunning_sender_name || '',
     };
   } catch (err) {
     logError(MODULE, 'getFullSMTPConfig', 'Failed to fetch full SMTP config', err);

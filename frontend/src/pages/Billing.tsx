@@ -5,6 +5,7 @@ import { API_ENDPOINTS } from '../lib/constants';
 import { Button } from '../components/ui/Button';
 import { Spinner } from '../components/ui/Spinner';
 import { useNotification } from '../hooks/useNotification';
+import TalkToSalesModal from '../components/modals/TalkToSalesModal';
 import type { BillingInvoice } from '../types';
 import { formatDate } from '../lib/utils';
 
@@ -32,6 +33,7 @@ const Billing: React.FC = () => {
   const [invoices, setInvoices] = useState<BillingInvoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [converting, setConverting] = useState(false);
+  const [showSalesModal, setShowSalesModal] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -168,8 +170,8 @@ const Billing: React.FC = () => {
                     )}
                   </div>
 
-                  {/* 2-col: Recovery + Pricing */}
-                  <div className="grid md:grid-cols-2 gap-4 mb-6">
+                  {/* 2-col: Recovery + (Pricing only after trial) */}
+                  <div className={`grid ${daysRemaining === 0 ? 'md:grid-cols-2' : 'md:grid-cols-1'} gap-4 mb-6`}>
                     <div className="p-4 bg-white dark:bg-white/5 rounded-xl border border-gray-100 dark:border-white/10">
                       <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Recovered So Far</p>
                       <p className="text-2xl font-bold text-green-600 dark:text-green-400">
@@ -179,43 +181,51 @@ const Billing: React.FC = () => {
                         {pilotRecovery > 0 ? 'recovered during trial' : 'during your trial period'}
                       </p>
                     </div>
-                    <div className="p-4 bg-white dark:bg-white/5 rounded-xl border border-gray-100 dark:border-white/10">
-                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">After Trial</p>
-                      <p className="text-2xl font-bold text-gray-900 dark:text-white">$2,500<span className="text-sm font-normal text-gray-500">/mo</span></p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">+ 1% of recoveries (outcome-based)</p>
-                    </div>
+                    {daysRemaining === 0 && (
+                      <div className="p-4 bg-white dark:bg-white/5 rounded-xl border border-gray-100 dark:border-white/10">
+                        <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Pricing</p>
+                        <p className="text-2xl font-bold text-gray-900 dark:text-white">$2,500<span className="text-sm font-normal text-gray-500">/mo</span></p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">+ 1% of recoveries (outcome-based)</p>
+                      </div>
+                    )}
                   </div>
 
-                  {/* What you get */}
-                  <div className="bg-white dark:bg-white/5 rounded-xl border border-gray-100 dark:border-white/10 p-4 mb-6">
-                    <p className="text-sm font-semibold text-gray-900 dark:text-white mb-3">What's included after upgrade:</p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-2 gap-x-4">
-                      {[
-                        'Autonomous AR agent',
-                        'AI-written dunning emails',
-                        'Payment plan automation',
-                        'Stripe + QuickBooks sync',
-                        'Cash forecast dashboard',
-                        'Decline code intelligence',
-                      ].map(item => (
-                        <div key={item} className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                          <span className="text-green-500 font-bold">✓</span> {item}
-                        </div>
-                      ))}
+                  {/* What you get - only show after trial ends or near end */}
+                  {daysRemaining <= 3 && (
+                    <div className="bg-white dark:bg-white/5 rounded-xl border border-gray-100 dark:border-white/10 p-4 mb-6">
+                      <p className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
+                        {daysRemaining === 0 ? "Your plan includes:" : "After trial, you'll get:"}
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-2 gap-x-4">
+                        {[
+                          'Autonomous AR agent',
+                          'AI-written dunning emails',
+                          'Payment plan automation',
+                          'Stripe + QuickBooks sync',
+                          'Cash forecast dashboard',
+                          'Decline code intelligence',
+                        ].map(item => (
+                          <div key={item} className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                            <span className="text-green-500 font-bold">✓</span> {item}
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   {/* CTAs */}
                   <div className="flex flex-wrap gap-3">
-                    <Button onClick={handleConvertToPaid} variant="primary" size="md" disabled={converting}>
-                      {converting ? 'Redirecting to checkout...' : 'Upgrade to Paid →'}
-                    </Button>
-                    <a
-                      href="mailto:sales@recoverai.com"
+                    {daysRemaining <= 3 && (
+                      <Button onClick={handleConvertToPaid} variant="primary" size="md" disabled={converting}>
+                        {converting ? 'Redirecting to checkout...' : daysRemaining === 0 ? 'Upgrade to Paid →' : `Upgrade Now (${daysRemaining}d left) →`}
+                      </Button>
+                    )}
+                    <button
+                      onClick={() => setShowSalesModal(true)}
                       className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 font-medium text-sm transition-colors"
                     >
                       Talk to Sales
-                    </a>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -273,12 +283,12 @@ const Billing: React.FC = () => {
 
                   {/* Contact Sales Button */}
                   <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
-                    <a
-                      href="mailto:sales@recoverai.com"
+                    <button
+                      onClick={() => setShowSalesModal(true)}
                       className="inline-flex items-center px-4 py-2.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-medium transition-colors"
                     >
                       Contact Sales for Plan Changes
-                    </a>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -362,6 +372,9 @@ const Billing: React.FC = () => {
           </>
         )}
       </div>
+
+      {/* Talk to Sales Modal */}
+      <TalkToSalesModal isOpen={showSalesModal} onClose={() => setShowSalesModal(false)} />
     </div>
   );
 };

@@ -5,9 +5,7 @@ import { useSettings } from '../components/settings/useSettings';
 import { useNotification } from '../hooks/useNotification';
 import { IntegrationSection } from '../components/settings/IntegrationSection';
 import { EmailSettingsSection } from '../components/settings/EmailSettingsSection';
-import { DunningSection } from '../components/settings/DunningSection';
 import { AccountSection } from '../components/settings/AccountSection';
-import { AutomationSection } from '../components/settings/AutomationSection';
 import type { SettingsTab } from '../components/settings/SettingsLayout';
 import { api } from '../lib/api';
 import { useAuth } from '../hooks/useAuth';
@@ -160,33 +158,9 @@ const Settings: React.FC = () => {
 
       {/* Email Settings Tab - Sender (with SMTP), Tone, Signature */}
       {activeTab === 'email' && (
-        <EmailSettingsSection
-          data={formData.email}
-          onChange={(field, value) => updateField('email', field, value)}
-          onSave={handleSave}
-          isSaving={isSaving}
-          isDirty={isDirty}
-        />
+        <EmailSettingsSection />
       )}
 
-      {/* Dunning Settings Tab - Email Timing, Auto-Pause, Payment Splits */}
-      {activeTab === 'dunning' && (
-        <DunningSection
-          data={formData.dunning}
-          onChange={(field, value) => updateField('dunning', field, value)}
-          onSave={handleSave}
-          isSaving={isSaving}
-          isDirty={isDirty}
-        />
-      )}
-
-      {/* Automation Tab - Agent Mode (Shadow/Auto/Paused) */}
-      {activeTab === 'automation' && (
-        <AutomationSection
-          pilotMode={formData.automation.pilotMode || 'auto'}
-          onPilotModeChange={(mode) => updateField('automation', 'pilotMode', mode)}
-        />
-      )}
 
       {/* Account Tab - Company Profile + Password Reset, Security, Sessions */}
       {activeTab === 'account' && (

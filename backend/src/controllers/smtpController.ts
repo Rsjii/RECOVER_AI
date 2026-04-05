@@ -44,8 +44,8 @@ export async function configureSmtpHandler(req: Request, res: Response): Promise
     const { host, port, username, password, fromEmail, fromName } = req.body;
 
     // Validate required fields
-    if (!host || !port || !username || !password || !fromEmail) {
-      res.status(400).json({ error: 'Missing required SMTP fields' });
+    if (!host || !port || !username || !fromEmail) {
+      res.status(400).json({ error: 'Missing required SMTP fields (Host, Port, Username, From Email)' });
       return;
     }
 
@@ -55,11 +55,12 @@ export async function configureSmtpHandler(req: Request, res: Response): Promise
       return;
     }
 
+    // Password: if blank, service will keep existing. If provided, service will update.
     const result = await saveSMTPConfig(companyId, {
       host,
       port,
       username,
-      password,
+      password: password || null,  // null = keep existing password
       fromEmail,
       fromName: fromName || 'Billing Team',
     });
@@ -94,8 +95,15 @@ export async function testSmtpHandler(req: Request, res: Response): Promise<void
     const { host, port, username, password, fromEmail, fromName } = req.body;
 
     // Validate required fields
-    if (!host || !port || !username || !password || !fromEmail) {
-      res.status(400).json({ error: 'Missing required SMTP fields' });
+    if (!host || !port || !username || !fromEmail) {
+      res.status(400).json({ error: 'Missing required SMTP fields (Host, Port, Username, From Email)' });
+      return;
+    }
+
+    // Password: if blank, will use empty string. Backend needs to fetch from DB.
+    // For testing, we need the actual password. If blank, error.
+    if (!password || password.trim() === '') {
+      res.status(400).json({ error: 'Password required for testing. Please enter SMTP password.' });
       return;
     }
 
