@@ -36,17 +36,10 @@ const Onboarding: React.FC = () => {
       }).catch(() => {});
   }, []);
 
-  const handleStripeConnect = async () => {
-    try {
-      // Call backend OAuth endpoint which constructs the correct redirect_uri
-      const response = await api.get(API_ENDPOINTS.stripe.oauth.authorize);
-      // Backend will redirect, but in case we get here, redirect manually
-      if ((response as any).authUrl) {
-        window.location.href = (response as any).authUrl;
-      }
-    } catch (err) {
-      addToast({ type: 'error', message: 'Failed to initiate Stripe OAuth' });
-    }
+  const handleStripeConnect = () => {
+    // Use full backend URL to ensure correct redirect_uri (matches Stripe OAuth settings)
+    const backendUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+    window.location.href = `${backendUrl}/api/stripe/oauth/authorize`;
   };
 
   const handleSyncAndNext = async () => {
