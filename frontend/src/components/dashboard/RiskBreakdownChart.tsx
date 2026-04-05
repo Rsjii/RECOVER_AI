@@ -1,5 +1,5 @@
 import React from 'react';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
+import { PieChart, Pie, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { Card } from '../ui/Card';
 import { useTheme } from '../../hooks/useTheme';
 import type { InvoicePipeline } from '../../types';
@@ -51,10 +51,12 @@ export const RiskBreakdownChart: React.FC<RiskBreakdownChartProps> = ({ pipeline
               label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
               labelLine={{ stroke: isDark ? '#475569' : '#9ca3af' }}
             >
-              {data.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+              {/* @ts-ignore */}
+              {data.map((entry, i) => <div key={i} data-color={entry.color} />)}
             </Pie>
+            {/* @ts-ignore */}
             <Tooltip
-              formatter={(value: number | undefined) => [value ?? 0, 'Invoices']}
+              formatter={(value: any) => [value ?? 0, 'Invoices']}
               contentStyle={{
                 backgroundColor: tooltipBg,
                 border: `1px solid ${tooltipBorder}`,

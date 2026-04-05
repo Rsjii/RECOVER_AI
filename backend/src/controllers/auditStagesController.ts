@@ -383,6 +383,7 @@ export const proceedFromStage4 = async (req: Request, res: Response) => {
 
         // Sync each invoice to local database
         let syncedCount = 0;
+        let skippedCount = 0;
 
         for (const stripeInv of invoices.data) {
           try {
@@ -393,6 +394,7 @@ export const proceedFromStage4 = async (req: Request, res: Response) => {
                 stripeInvoiceId: stripeInv.id,
                 customerId: stripeInv.customer,
               });
+              skippedCount++;
               continue;
             }
 
@@ -445,14 +447,19 @@ export const proceedFromStage4 = async (req: Request, res: Response) => {
         logInfo(MODULE, handler, 'Invoices synced from Stripe', {
           totalFetched: invoices.data.length,
           syncedCount,
+          skippedCount,
           companyId
         });
+
+        // Return summary for frontend toasts
+        var syncSummary = { imported: syncedCount, skipped: skippedCount };
       } catch (syncErr: any) {
         logError(MODULE, handler, 'Invoice sync failed (non-blocking)', {
           error: syncErr.message,
           details: syncErr.detail || syncErr.code
         });
-        // Continue anyway - user can still proceed to analysis
+        // Continue anyway - user can still proceed to dashboard
+        var syncSummary = { imported: 0, skipped: 0 };
       }
     } else {
       logInfo(MODULE, handler, 'Skipping sync - conditions not met', {
@@ -460,13 +467,14 @@ export const proceedFromStage4 = async (req: Request, res: Response) => {
         has_account_id: !!company.stripe_account_id,
         has_key: !!company.stripe_api_key_encrypted,
       });
+      var syncSummary = { imported: 0, skipped: 0 };
     }
 
     // ✅ CRITICAL: Set to trial_active so dashboard access is immediately unlocked
     // User goes directly to dashboard (no audit report page)
     await CompanyDB.updateCompany(companyId, { onboarding_stage: 'trial_active' });
 
-    return res.json({ success: true, next_stage: 'dashboard' });
+    return res.json({ success: true, next_stage: 'dashboard', syncSummary });
   } catch (err) {
     logError(MODULE, handler, 'Error proceeding to stage 5', err);
     return res.status(500).json({ error: 'Failed to proceed' });

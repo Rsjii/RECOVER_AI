@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '../ui/Button';
 import { ConfirmationModal } from '../ui/ConfirmationModal';
 import { useNotification } from '../../hooks/useNotification';
@@ -19,6 +20,7 @@ export const AccountSection: React.FC<AccountSectionProps> = ({
   sessions = [],
   onSessionsRefresh = async () => {}
 }) => {
+  const navigate = useNavigate();
   const { addToast } = useNotification();
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [isResettingPassword, setIsResettingPassword] = useState(false);
@@ -29,6 +31,14 @@ export const AccountSection: React.FC<AccountSectionProps> = ({
     newPassword: '',
     confirmPassword: '',
   });
+
+  const handleRestartTour = () => {
+    // Clear the "started" flag so tour will auto-play on dashboard
+    localStorage.removeItem('tour_main_onboarding_started');
+    localStorage.removeItem('tour_main_onboarding_completed');
+    // Navigate to dashboard - tour will auto-start
+    navigate('/dashboard');
+  };
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -183,6 +193,32 @@ export const AccountSection: React.FC<AccountSectionProps> = ({
       />
 
       <div className="space-y-8">
+      {/* Guided Tour Card - at top */}
+      <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-900/50 dark:to-gray-800/50 border border-blue-200 dark:border-gray-700 rounded-2xl p-6 sm:p-8 hover:border-blue-300 dark:hover:border-gray-600 hover:shadow-lg transition-all duration-300">
+        <div className="flex items-start gap-4 sm:gap-6">
+          <div className="flex-shrink-0">
+            <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-2xl sm:text-3xl">
+              🎓
+            </div>
+          </div>
+          <div className="flex-1">
+            <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mb-1">Dashboard Tour</h3>
+            <p className="text-gray-600 dark:text-gray-300 text-sm mb-4">
+              Learn RecoverAI with an interactive walkthrough. 7 steps, ~3 minutes.
+            </p>
+            <button
+              onClick={handleRestartTour}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 active:scale-95 transition-all"
+            >
+              Start Tour
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* Email Section */}
       <div className="border border-gray-200 dark:border-white/[0.06] rounded-lg p-4 sm:p-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Email Address</h3>

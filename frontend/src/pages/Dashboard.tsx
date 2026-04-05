@@ -22,6 +22,8 @@ import { AtRiskCustomersSection } from '../components/dashboard/AtRiskCustomersS
 import { AgentActivitySection } from '../components/dashboard/AgentActivitySection';
 import { BillingOptimizationSection } from '../components/dashboard/BillingOptimizationSection';
 import { TrialCountdown } from '../components/TrialCountdown';
+import { useCustomTour, mainDashboardTour } from '../hooks/useCustomTour';
+import { CustomTour } from '../components/dashboard/CustomTour';
 import type { DashboardStats, InvoicePipeline, CustomerRisk } from '../types';
 import type { WorkingCapitalFreed, DSOReduction, BillingAnomaly, EnhancedCashForecast } from '../types/invoice';
 
@@ -490,6 +492,33 @@ const Dashboard: React.FC = () => {
     }
   };
 
+  // Initialize custom tour (first-time only)
+  const { startTour, closeTour, completeTour, markTourStarted, isTourCompleted, isTourStarted, resetTour, isOpen, currentTour } = useCustomTour();
+
+  useEffect(() => {
+    // Check if tour should run on first visit
+    const tourCompleted = isTourCompleted('main_onboarding');
+    const tourStarted = isTourStarted('main_onboarding');
+    const shouldShowTour = !tourCompleted && !tourStarted;
+
+    if (shouldShowTour) {
+      // Auto-start after a short delay to let page settle
+      const timer = setTimeout(() => {
+        startTour(mainDashboardTour);
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [startTour, isTourCompleted, isTourStarted]);
+
+  // Debug: Allow manual tour reset via ?tour=reset in URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('tour') === 'reset') {
+      resetTour('main_onboarding');
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, [resetTour]);
+
   // Build customer options for WhatIf widget from risk list
   const whatIfCustomers = riskList.map(c => ({
     id: c.customerId,
@@ -517,21 +546,30 @@ const Dashboard: React.FC = () => {
       {/* TRIAL BANNER */}
       {isTrialMode && trialDaysRemaining >= 0 && (
         <div className="max-w-7xl mx-auto px-6 sm:px-8 mb-6">
-          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <h3 className="font-bold text-blue-900 dark:text-blue-100">🎯 14-Day Free Trial</h3>
-                <p className="text-sm text-blue-800 dark:text-blue-200">{trialDaysRemaining} days remaining</p>
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30 border border-blue-200 dark:border-blue-800 rounded-xl p-5">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex-1">
+                <h3 className="font-bold text-blue-900 dark:text-blue-100 mb-1">🎯 14-Day Free Trial</h3>
+                <p className="text-sm text-blue-800 dark:text-blue-200 mb-3">{trialDaysRemaining} days remaining</p>
+                <div className="w-full bg-blue-200 dark:bg-blue-800 h-2 rounded-full overflow-hidden">
+                  <div
+                    className="bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-500 dark:to-indigo-500 h-full transition-all"
+                    style={{ width: `${Math.round((14 - trialDaysRemaining) / 14 * 100)}%` }}
+                  />
+                </div>
               </div>
-              <div className="text-right">
-                <p className="text-lg font-bold text-blue-600 dark:text-blue-400">{Math.round((14 - trialDaysRemaining) / 14 * 100)}%</p>
+              <div className="flex items-center gap-3 flex-shrink-0">
+                <div className="text-right">
+                  <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{Math.round((14 - trialDaysRemaining) / 14 * 100)}%</p>
+                  <p className="text-xs text-blue-700 dark:text-blue-300">Complete</p>
+                </div>
+                <Button
+                  onClick={() => navigate('/pricing')}
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-lg whitespace-nowrap"
+                >
+                  Upgrade Now
+                </Button>
               </div>
-            </div>
-            <div className="w-full bg-blue-200 dark:bg-blue-800 h-2 rounded-full overflow-hidden">
-              <div
-                className="bg-blue-600 dark:bg-blue-400 h-full transition-all"
-                style={{ width: `${Math.round((14 - trialDaysRemaining) / 14 * 100)}%` }}
-              />
             </div>
           </div>
         </div>
@@ -681,6 +719,19 @@ const Dashboard: React.FC = () => {
               </Button>
             </div>
           )}
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              resetTour('main_onboarding');
+              startTour(mainDashboardTour);
+            }}
+          >
+            <svg className="w-4 h-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Tour
+          </Button>
 
           {/* Recovery Counter */}
           {!isDemo && recoveryToday && recoveryToday.amount > 0 && (
@@ -739,24 +790,26 @@ const Dashboard: React.FC = () => {
       {/* ════════════════════════════════════════════════════════════════ */}
       {/* TIER 1: EXECUTIVE SUMMARY — Always visible, above fold */}
       {/* ════════════════════════════════════════════════════════════════ */}
-      <KPIBanner
-        data={kpi && stats ? {
-          dso: kpi.dso,
-          collectionEfficiencyIndex: kpi.cei,
-          recoveryRate: kpi.recoveryRate,
-          overdueCount: kpi.atRiskCustomerCount,
-          totalInvoices: kpi.totalCustomers,
-          totalOwed: stats.totalOwed,
-          totalRecovered: stats.totalRecovered,
-        } : undefined}
-        aging={aging}
-        emailAnalytics={emailAnalytics}
-        plansSummary={plansSummary}
-        workingCapital={workingCapital}
-        dsoReduction={dsoReduction}
-        hoursSaved={hoursSaved}
-        loading={loading}
-      />
+      <div data-tour="kpi-banner">
+        <KPIBanner
+          data={kpi && stats ? {
+            dso: kpi.dso,
+            collectionEfficiencyIndex: kpi.cei,
+            recoveryRate: kpi.recoveryRate,
+            overdueCount: kpi.atRiskCustomerCount,
+            totalInvoices: kpi.totalCustomers,
+            totalOwed: stats.totalOwed,
+            totalRecovered: stats.totalRecovered,
+          } : undefined}
+          aging={aging}
+          emailAnalytics={emailAnalytics}
+          plansSummary={plansSummary}
+          workingCapital={workingCapital}
+          dsoReduction={dsoReduction}
+          hoursSaved={hoursSaved}
+          loading={loading}
+        />
+      </div>
 
       {/* ════════════════════════════════════════════════════════════════ */}
       {/* TIER 2: PRIMARY BUSINESS DRIVERS — Recovery funnel + impact grid */}
@@ -850,13 +903,15 @@ const Dashboard: React.FC = () => {
 
 
       {/* Agent Activity Preview */}
-      <AgentActivitySection
-        preview={agentPreview}
-        loading={loading}
-        isDemo={isDemo}
-        onTrigger={handleTriggerAgent}
-        triggeringAgent={triggeringAgent}
-      />
+      <div data-tour="activity-section">
+        <AgentActivitySection
+          preview={agentPreview}
+          loading={loading}
+          isDemo={isDemo}
+          onTrigger={handleTriggerAgent}
+          triggeringAgent={triggeringAgent}
+        />
+      </div>
 
       {/* Detailed Analytics Tables (Optional, Collapsible) */}
       <DashboardDetailTabs
@@ -928,6 +983,17 @@ const Dashboard: React.FC = () => {
           riskScore={selectedEmailForModal.riskScore}
           daysOverdue={selectedEmailForModal.daysOverdue}
           onClose={() => setSelectedEmailForModal(null)}
+        />
+      )}
+
+      {/* Custom Tour */}
+      {currentTour && (
+        <CustomTour
+          steps={currentTour.steps}
+          isOpen={isOpen}
+          onClose={closeTour}
+          onComplete={() => completeTour(currentTour.id)}
+          onBackdropClick={() => markTourStarted(currentTour.id)}
         />
       )}
     </div>

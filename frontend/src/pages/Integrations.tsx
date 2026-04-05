@@ -69,7 +69,24 @@ export const Integrations: React.FC = () => {
 
     setProceeding(true);
     try {
-      await api.post(`/api/audit-stages/stage/2/proceed`);
+      // Show sync progress
+      addToast({
+        type: 'info',
+        message: '⏳ Processing invoices from Stripe...',
+      });
+
+      const response: any = await api.post(`/api/audit-stages/stage/2/proceed`);
+
+      // Show sync summary (from response or defaults)
+      const syncSummary = response.syncSummary || { imported: 0, skipped: 0 };
+      addToast({
+        type: 'success',
+        message: `✅ Synced ${syncSummary.imported} invoices${syncSummary.skipped > 0 ? ` | ⏭️ Skipped ${syncSummary.skipped} (missing customer email)` : ''}`,
+      });
+
+      // Small delay for toast to show before navigation
+      await new Promise(resolve => setTimeout(resolve, 500));
+
       // Set flag BEFORE updating auth state — useEffect will navigate once state commits
       shouldNavigateToDashboard.current = true;
       const meData = await api.get('/api/auth/me');
@@ -79,6 +96,10 @@ export const Integrations: React.FC = () => {
     } catch (err: any) {
       shouldNavigateToDashboard.current = false;
       setError(err?.message || 'Failed to proceed');
+      addToast({
+        type: 'error',
+        message: 'Invoice sync failed. Please try again.',
+      });
       setProceeding(false);
     }
   };

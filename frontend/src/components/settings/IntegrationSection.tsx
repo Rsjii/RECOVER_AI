@@ -157,15 +157,31 @@ export const IntegrationSection: React.FC<IntegrationSectionProps> = ({ integrat
 
       if (response.ok) {
         const data = await response.json();
+        const created = data.result?.created || data.created || 0;
+        const updated = data.result?.updated || data.updated || 0;
+        const skipped = data.result?.skipped || data.skipped || 0;
+        const total = created + updated + skipped;
+
+        // Build notification message
+        const parts = [];
+        if (created > 0) parts.push(`${created} synced`);
+        if (updated > 0) parts.push(`${updated} updated`);
+        if (skipped > 0) parts.push(`${skipped} skipped`);
+
+        const message = parts.length > 0
+          ? `✅ ${type.charAt(0).toUpperCase() + type.slice(1)}: ${parts.join(', ')} (${total} total)`
+          : `✅ ${type.charAt(0).toUpperCase() + type.slice(1)}: All up to date`;
+
         addToast({
           type: 'success',
-          message: `${type.charAt(0).toUpperCase() + type.slice(1)} synced: ${data.result?.created || 0} new, ${data.result?.updated || 0} updated`,
+          message,
         });
         onRefetch?.();
       } else {
+        const error = await response.json().catch(() => ({}));
         addToast({
           type: 'error',
-          message: `Failed to sync ${type}`,
+          message: error.error || `Failed to sync ${type}`,
         });
       }
     } catch (err: any) {

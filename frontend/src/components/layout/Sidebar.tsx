@@ -265,6 +265,11 @@ export const Sidebar: React.FC = () => {
                     key={item.path}
                     to={item.path}
                     title={collapsed ? item.label : undefined}
+                    data-tour={
+                      item.path === '/invoices' ? 'sidebar-invoices' :
+                      item.path === '/customers' ? 'sidebar-customers' :
+                      item.path === '/settings' ? 'sidebar-settings' : undefined
+                    }
                     className={cn(
                       'relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group',
                       collapsed && 'justify-center px-2',
