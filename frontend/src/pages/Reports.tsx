@@ -93,6 +93,7 @@ const Reports: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>('Overview');
   const [months, setMonths] = useState(6);
   const [campaignPeriod, setCampaignPeriod] = useState(30);
+  const [agingPeriod, setAgingPeriod] = useState(180); // All time by default
 
   // Overview state
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -165,13 +166,15 @@ const Reports: React.FC = () => {
   const fetchAging = useCallback(async () => {
     setLoadingAging(true);
     try {
-      const res = await api.get<{ data: { buckets: AgingBucket[]; totalAr: number } }>('/api/reports/aging-detail');
+      const res = await api.get<{ data: { buckets: AgingBucket[]; totalAr: number } }>(
+        `/api/reports/aging-detail?days=${agingPeriod}`
+      );
       setAgingBuckets(res.data.buckets);
       setAgingTotal(res.data.totalAr);
     } catch { /* silent */ } finally {
       setLoadingAging(false);
     }
-  }, []);
+  }, [agingPeriod]);
 
   // const fetchPlans = useCallback(async () => {
   //   setLoadingPlans(true);
@@ -200,7 +203,7 @@ const Reports: React.FC = () => {
   //   }
   // }, []);
 
-  // Fetch on tab switch
+  // Fetch on tab switch or filter change
   useEffect(() => {
     if (activeTab === 'Overview') fetchOverview();
     if (activeTab === 'Campaigns') fetchCampaign();
@@ -211,32 +214,107 @@ const Reports: React.FC = () => {
 
   const downloadCsv = (rows: (string | number)[][], filename: string) => {
     const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(a.href);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    // Delay revoke so browser has time to start the download
+    setTimeout(() => {
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }, 1000);
   };
 
-  const handleExportCSV = () => {
-    if (!timeline.length) return;
-    const headers = ['Period', 'Recovered', 'Invoiced', 'Count Recovered', 'Count Total'];
-    const rows = timeline.map(r => [r.period.slice(0, 7), r.recovered_amount.toFixed(2), r.amount_created.toFixed(2), r.recovered_count, r.total_count]);
-    downloadCsv([headers, ...rows], `recoverai-overview-${new Date().toISOString().slice(0, 10)}.csv`);
+  const handleExportCSV = async () => {
+    setExportingCSV(true);
+
+    // Longer delay to ensure UI renders before blocking work
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    try {
+      if (!timeline || !timeline.length) {
+        alert('No data to export. Please wait for data to load.');
+        return;
+      }
+
+      const headers = ['Period', 'Recovered', 'Invoiced', 'Count Recovered', 'Count Total'];
+      const rows = timeline.map(r => [
+        r.period.slice(0, 7),
+        Number(r.recovered_amount || 0).toFixed(2),
+        Number(r.amount_created || 0).toFixed(2),
+        r.recovered_count || 0,
+        r.total_count || 0
+      ]);
+
+      downloadCsv([headers, ...rows], `recoverai-overview-${new Date().toISOString().slice(0, 10)}.csv`);
+    } catch (err) {
+      alert('Failed to export CSV. Please try again.');
+    } finally {
+      setExportingCSV(false);
+    }
   };
 
-  const handleExportCampaignCSV = () => {
-    if (!campaignByType.length) return;
-    const headers = ['Email Type', 'Sent', 'Opened', 'Clicked', 'Open Rate', 'CTR'];
-    const rows = campaignByType.map(r => [r.type, r.sent, r.opened, r.clicked, `${r.openRate.toFixed(1)}%`, `${r.ctr.toFixed(1)}%`]);
-    downloadCsv([headers, ...rows], `recoverai-campaigns-${new Date().toISOString().slice(0, 10)}.csv`);
+  const handleExportCampaignCSV = async () => {
+    setExportingCSV(true);
+
+    // Longer delay to ensure UI renders before blocking work
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    try {
+      if (!campaignByType || !campaignByType.length) {
+        alert('No campaign data to export. Please wait for data to load.');
+        return;
+      }
+
+      const headers = ['Email Type', 'Sent', 'Opened', 'Clicked', 'Open Rate', 'CTR'];
+      const rows = campaignByType.map(r => [
+        r.type || '',
+        r.sent || 0,
+        r.opened || 0,
+        r.clicked || 0,
+        r.openRate ? `${r.openRate.toFixed(1)}%` : '0%',
+        r.ctr ? `${r.ctr.toFixed(1)}%` : '0%'
+      ]);
+
+      downloadCsv([headers, ...rows], `recoverai-campaigns-${new Date().toISOString().slice(0, 10)}.csv`);
+    } catch (err) {
+      alert('Failed to export campaign CSV. Please try again.');
+    } finally {
+      setExportingCSV(false);
+    }
   };
 
-  const handleExportAgingCSV = () => {
-    if (!agingBuckets.length) return;
-    const headers = ['Bucket', 'Invoice Count', 'Total Amount', '% of Total', 'Avg Days Overdue'];
-    const rows = agingBuckets.map(r => [r.bucket, r.invoiceCount, r.totalAmount.toFixed(2), `${r.pctOfTotal.toFixed(1)}%`, r.avgDaysOverdue]);
-    downloadCsv([headers, ...rows], `recoverai-aging-${new Date().toISOString().slice(0, 10)}.csv`);
+  const handleExportAgingCSV = async () => {
+    setExportingCSV(true);
+
+    // Longer delay to ensure UI renders before blocking work
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    try {
+      if (!agingBuckets || !agingBuckets.length) {
+        alert('No aging data to export. Please wait for data to load.');
+        return;
+      }
+
+      const headers = ['Bucket', 'Invoice Count', 'Total Amount', '% of Total', 'Avg Days Overdue'];
+      const rows = agingBuckets.map(r => [
+        r.bucket || '',
+        r.invoiceCount || 0,
+        Number(r.totalAmount || 0).toFixed(2),
+        `${Number(r.pctOfTotal || 0).toFixed(1)}%`,
+        r.avgDaysOverdue || 0
+      ]);
+
+      downloadCsv([headers, ...rows], `recoverai-aging-${new Date().toISOString().slice(0, 10)}.csv`);
+    } catch (err) {
+      alert('Failed to export aging CSV. Please try again.');
+    } finally {
+      setExportingCSV(false);
+    }
   };
 
   // const handleExportPlansCSV = () => {
@@ -246,8 +324,224 @@ const Reports: React.FC = () => {
   //   downloadCsv([headers, ...rows], `recoverai-plans-${new Date().toISOString().slice(0, 10)}.csv`);
   // };
 
-  const handleExportPDF = () => {
-    window.print();
+  const [exportingPDF, setExportingPDF] = useState(false);
+  const [exportingCSV, setExportingCSV] = useState(false);
+
+  const handleExportPDF = async () => {
+    if (!stats) {
+      alert('No data available to export. Please wait for data to load.');
+      return;
+    }
+
+    setExportingPDF(true);
+    // Let React render the spinner before blocking work
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    try {
+      // Use jsPDF directly — bypasses html2canvas entirely
+      // html2canvas fails on Tailwind v4 oklch() color functions
+      const { jsPDF } = await import('jspdf');
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+      const pageW = doc.internal.pageSize.getWidth();
+      const margin = 15;
+      const colW = pageW - margin * 2;
+      let y = margin;
+
+      const today = new Date();
+      const monthsAgo = new Date(today);
+      monthsAgo.setMonth(monthsAgo.getMonth() - months);
+
+      const fmtCur = (v: number) =>
+        new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(v);
+
+      const addPageIfNeeded = (needed: number) => {
+        if (y + needed > doc.internal.pageSize.getHeight() - margin) {
+          doc.addPage();
+          y = margin;
+        }
+      };
+
+      // ── Header ───────────────────────────────────────────────────────────
+      doc.setFillColor(79, 70, 229); // indigo-600
+      doc.rect(margin, y, colW, 18, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(18);
+      doc.setFont('helvetica', 'bold');
+      doc.text('RecoverAI Reports', margin + 5, y + 7);
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.text('Accounts Receivable Recovery Dashboard', margin + 5, y + 13);
+      y += 22;
+
+      doc.setTextColor(107, 114, 128); // gray-500
+      doc.setFontSize(8);
+      const periodStr = `Report Period: ${format(monthsAgo, 'MMM dd, yyyy')} — ${format(today, 'MMM dd, yyyy')}`;
+      doc.text(periodStr, margin, y);
+      y += 10;
+
+      // ── Executive Summary ────────────────────────────────────────────────
+      doc.setTextColor(17, 24, 39);
+      doc.setFontSize(13);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Executive Summary', margin, y);
+      y += 6;
+
+      const kpiRows = [
+        ['Recovery Rate', `${stats?.recoveryRate ?? 0}%`, [5, 150, 105]],
+        ['Total Recovered (All Time)', fmtCur(stats?.totalRecovered ?? 0), [37, 99, 235]],
+        ['Days Sales Outstanding (DSO)', `${stats?.avgDaysToCollect ?? 0} days`, [79, 70, 229]],
+        ['Overdue Invoices', `${stats?.overdueCount ?? 0}`, [217, 119, 6]],
+        ['Target Recovery Rate', `${BENCHMARKS.recoveryRate.target}%`, [75, 85, 99]],
+      ] as [string, string, [number, number, number]][];
+
+      const rowH = 9;
+      kpiRows.forEach(([label, value, color], i) => {
+        addPageIfNeeded(rowH);
+        const bgColor = i % 2 === 0 ? [249, 250, 251] : [255, 255, 255];
+        doc.setFillColor(bgColor[0], bgColor[1], bgColor[2]);
+        doc.rect(margin, y, colW, rowH, 'F');
+        doc.setDrawColor(209, 213, 219);
+        doc.rect(margin, y, colW, rowH, 'S');
+
+        doc.setTextColor(55, 65, 81);
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'bold');
+        doc.text(label, margin + 3, y + 6);
+
+        doc.setTextColor(color[0], color[1], color[2]);
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'bold');
+        doc.text(value, pageW - margin - 3, y + 6.5, { align: 'right' });
+        y += rowH;
+      });
+      y += 8;
+
+      // ── Recovery Timeline ────────────────────────────────────────────────
+      if (timeline.length > 0) {
+        addPageIfNeeded(30);
+        doc.setTextColor(17, 24, 39);
+        doc.setFontSize(13);
+        doc.setFont('helvetica', 'bold');
+        doc.text(`Recovery Timeline (Last ${months} Months)`, margin, y);
+        y += 6;
+
+        const tCols = [28, 42, 42, 28, 28];
+        const tHeaders = ['Period', 'Recovered', 'Invoiced', 'Rec. #', 'Total #'];
+
+        doc.setFillColor(229, 231, 235);
+        doc.rect(margin, y, colW, 8, 'F');
+        doc.setDrawColor(209, 213, 219);
+        doc.rect(margin, y, colW, 8, 'S');
+        let cx = margin;
+        tHeaders.forEach((h, i) => {
+          doc.setTextColor(55, 65, 81);
+          doc.setFontSize(8);
+          doc.setFont('helvetica', 'bold');
+          const align = i > 0 ? 'right' : 'left';
+          doc.text(h, align === 'right' ? cx + tCols[i] - 2 : cx + 2, y + 5.5, { align });
+          cx += tCols[i];
+        });
+        y += 8;
+
+        timeline.forEach((row, idx) => {
+          addPageIfNeeded(8);
+          const bg = idx % 2 === 0 ? [255, 255, 255] : [249, 250, 251];
+          doc.setFillColor(bg[0], bg[1], bg[2]);
+          doc.rect(margin, y, colW, 8, 'F');
+          doc.setDrawColor(229, 231, 235);
+          doc.rect(margin, y, colW, 8, 'S');
+
+          const cells = [
+            row.period.slice(0, 7),
+            fmtCur(row.recovered_amount),
+            fmtCur(row.amount_created),
+            String(row.recovered_count),
+            String(row.total_count),
+          ];
+          cx = margin;
+          cells.forEach((cell, i) => {
+            doc.setTextColor(55, 65, 81);
+            doc.setFontSize(8);
+            doc.setFont('helvetica', i === 0 ? 'bold' : 'normal');
+            const align = i > 0 ? 'right' : 'left';
+            doc.text(cell, align === 'right' ? cx + tCols[i] - 2 : cx + 2, y + 5.5, { align });
+            cx += tCols[i];
+          });
+          y += 8;
+        });
+        y += 8;
+      }
+
+      // ── KPI Trends ───────────────────────────────────────────────────────
+      if (kpiTrends.length > 0) {
+        addPageIfNeeded(30);
+        doc.setTextColor(17, 24, 39);
+        doc.setFontSize(13);
+        doc.setFont('helvetica', 'bold');
+        doc.text('KPI Trends', margin, y);
+        y += 6;
+
+        const kCols = [40, 45, 45, 40];
+        const kHeaders = ['Month', 'Recovery Rate', 'Email Open Rate', 'Click Rate'];
+
+        doc.setFillColor(229, 231, 235);
+        doc.rect(margin, y, colW, 8, 'F');
+        doc.setDrawColor(209, 213, 219);
+        doc.rect(margin, y, colW, 8, 'S');
+        let kx = margin;
+        kHeaders.forEach((h, i) => {
+          doc.setTextColor(55, 65, 81);
+          doc.setFontSize(8);
+          doc.setFont('helvetica', 'bold');
+          const align = i > 0 ? 'right' : 'left';
+          doc.text(h, align === 'right' ? kx + kCols[i] - 2 : kx + 2, y + 5.5, { align });
+          kx += kCols[i];
+        });
+        y += 8;
+
+        kpiTrends.forEach((row, idx) => {
+          addPageIfNeeded(8);
+          const bg = idx % 2 === 0 ? [255, 255, 255] : [249, 250, 251];
+          doc.setFillColor(bg[0], bg[1], bg[2]);
+          doc.rect(margin, y, colW, 8, 'F');
+          doc.setDrawColor(229, 231, 235);
+          doc.rect(margin, y, colW, 8, 'S');
+
+          const cells = [row.month, `${row.recoveryRate.toFixed(1)}%`, `${row.openRate.toFixed(1)}%`, `${row.ctr.toFixed(1)}%`];
+          kx = margin;
+          cells.forEach((cell, i) => {
+            doc.setTextColor(55, 65, 81);
+            doc.setFontSize(8);
+            doc.setFont('helvetica', i === 0 ? 'bold' : 'normal');
+            const align = i > 0 ? 'right' : 'left';
+            doc.text(cell, align === 'right' ? kx + kCols[i] - 2 : kx + 2, y + 5.5, { align });
+            kx += kCols[i];
+          });
+          y += 8;
+        });
+        y += 8;
+      }
+
+      // ── Footer ───────────────────────────────────────────────────────────
+      addPageIfNeeded(14);
+      doc.setDrawColor(209, 213, 219);
+      doc.line(margin, y, pageW - margin, y);
+      y += 5;
+      doc.setTextColor(107, 114, 128);
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.text(
+        `Generated by RecoverAI on ${format(today, 'MMMM dd, yyyy')} at ${format(today, 'HH:mm:ss')}   •   Confidential — For authorized users only`,
+        pageW / 2, y + 4, { align: 'center' }
+      );
+
+      doc.save(`recoverai-overview-${today.toISOString().slice(0, 10)}.pdf`);
+    } catch (err) {
+      alert(`Failed to export PDF: ${(err as any)?.message || 'Unknown error'}`);
+    } finally {
+      setExportingPDF(false);
+    }
   };
 
   const formatMonth = (s: string) => { try { return format(parseISO(s + '-01'), 'MMM yy'); } catch { return s; } };
@@ -273,27 +567,52 @@ const Reports: React.FC = () => {
               </select>
               <button
                 onClick={handleExportCSV}
-                disabled={!timeline.length}
-                className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-white dark:bg-[#18181b] border border-gray-200 dark:border-white/10 rounded-lg text-xs sm:text-sm text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-white/[0.06] disabled:opacity-50 whitespace-nowrap"
+                disabled={exportingCSV || !timeline.length}
+                className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-white dark:bg-[#18181b] border border-gray-200 dark:border-white/10 rounded-lg text-xs sm:text-sm text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-white/[0.06] disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap transition-opacity"
               >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                <span className="hidden sm:inline">Export CSV</span>
-                <span className="sm:hidden">CSV</span>
+                {exportingCSV ? (
+                  <>
+                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    <span className="hidden sm:inline">Exporting...</span>
+                    <span className="sm:hidden">CSV</span>
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <span className="hidden sm:inline">Export CSV</span>
+                    <span className="sm:hidden">CSV</span>
+                  </>
+                )}
               </button>
             </>
           )}
           {activeTab === 'Overview' && (
             <button
               onClick={handleExportPDF}
-              className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-white dark:bg-[#18181b] border border-gray-200 dark:border-white/10 rounded-lg text-xs sm:text-sm text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-white/[0.06] no-print whitespace-nowrap"
+              disabled={exportingPDF || !stats || !timeline.length}
+              className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-white dark:bg-[#18181b] border border-gray-200 dark:border-white/10 rounded-lg text-xs sm:text-sm text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-white/[0.06] disabled:opacity-50 disabled:cursor-not-allowed no-print whitespace-nowrap transition-opacity"
             >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-              </svg>
-              <span className="hidden sm:inline">Export PDF</span>
-              <span className="sm:hidden">PDF</span>
+              {exportingPDF ? (
+                <>
+                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  <span className="hidden sm:inline">Generating...</span>
+                  <span className="sm:hidden">PDF</span>
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                  </svg>
+                  <span className="hidden sm:inline">Export PDF</span>
+                  <span className="sm:hidden">PDF</span>
+                </>
+              )}
             </button>
           )}
           {activeTab === 'Campaigns' && (
@@ -309,27 +628,61 @@ const Reports: React.FC = () => {
               </select>
               <button
                 onClick={handleExportCampaignCSV}
-                disabled={!campaignByType.length}
-                className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-[#18181b] border border-gray-200 dark:border-white/10 rounded-lg text-sm text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-white/[0.06] disabled:opacity-50"
+                disabled={exportingCSV || !campaignByType.length}
+                className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-[#18181b] border border-gray-200 dark:border-white/10 rounded-lg text-sm text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-white/[0.06] disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
               >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                Export CSV
+                {exportingCSV ? (
+                  <>
+                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Exporting...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Export CSV
+                  </>
+                )}
               </button>
             </>
           )}
           {activeTab === 'Aging' && (
-            <button
-              onClick={handleExportAgingCSV}
-              disabled={!agingBuckets.length}
-              className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-[#18181b] border border-gray-200 dark:border-white/10 rounded-lg text-sm text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-white/[0.06] disabled:opacity-50"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              Export CSV
-            </button>
+            <>
+              <select
+                value={agingPeriod}
+                onChange={e => setAgingPeriod(Number(e.target.value))}
+                className="text-sm border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 bg-white dark:bg-[#18181b] text-gray-700 dark:text-zinc-300"
+              >
+                <option value={30}>Last 30 days</option>
+                <option value={90}>Last 90 days</option>
+                <option value={180}>Last 180 days</option>
+                <option value={9999}>All time</option>
+              </select>
+              <button
+                onClick={handleExportAgingCSV}
+                disabled={exportingCSV || !agingBuckets.length}
+                className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-[#18181b] border border-gray-200 dark:border-white/10 rounded-lg text-sm text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-white/[0.06] disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
+              >
+                {exportingCSV ? (
+                  <>
+                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Exporting...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Export CSV
+                  </>
+                )}
+              </button>
+            </>
           )}
         </div>
       </div>

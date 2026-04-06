@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Button } from '../ui/Button';
+import { Popover } from '../ui/Popover';
 
 interface FilterPanelProps {
   status: string;
@@ -111,10 +112,132 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
       {/* Header: Filters + Sort + Search */}
       <div className="flex flex-col gap-3 lg:gap-2 lg:flex-row lg:items-center">
         <div className="flex gap-2 flex-wrap lg:flex-nowrap">
-          <FilterButton type="status" label="Status" />
-          <FilterButton type="age" label="Age" />
-          <FilterButton type="dunning" label="Dunning" />
-          <FilterButton type="sort" label="Sort" />
+          {/* Filter Popovers */}
+          <div className="flex gap-2 flex-wrap">
+            {/* Status Popover */}
+            <div className="w-full sm:w-auto">
+              <Popover
+                isOpen={expandedFilter === 'status'}
+                onClose={() => setExpandedFilter(null)}
+                trigger={<FilterButton type="status" label="Status" />}
+              >
+                <div className="p-4 min-w-64">
+                  <label className="block text-sm font-medium text-gray-900 dark:text-white mb-3">Select Status</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {statusOptions.map((o) => (
+                      <button
+                        key={o.value}
+                        onClick={() => {
+                          onStatusChange(o.value);
+                          setExpandedFilter(null);
+                        }}
+                        className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          status === o.value
+                            ? 'bg-indigo-600 text-white'
+                            : 'bg-gray-100 dark:bg-white/[0.06] text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/[0.1]'
+                        }`}
+                      >
+                        {o.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </Popover>
+            </div>
+
+            {/* Age Popover */}
+            <div className="w-full sm:w-auto">
+              <Popover
+                isOpen={expandedFilter === 'age'}
+                onClose={() => setExpandedFilter(null)}
+                trigger={<FilterButton type="age" label="Age" />}
+              >
+                <div className="p-4 min-w-64">
+                  <label className="block text-sm font-medium text-gray-900 dark:text-white mb-3">Select Age</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {agingBuckets.map((b) => (
+                      <button
+                        key={b.value}
+                        onClick={() => {
+                          onAgingBucketChange(b.value);
+                          setExpandedFilter(null);
+                        }}
+                        className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          agingBucket === b.value
+                            ? 'bg-indigo-600 text-white'
+                            : 'bg-gray-100 dark:bg-white/[0.06] text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/[0.1]'
+                        }`}
+                      >
+                        {b.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </Popover>
+            </div>
+
+            {/* Dunning Popover */}
+            <div className="w-full sm:w-auto">
+              <Popover
+                isOpen={expandedFilter === 'dunning'}
+                onClose={() => setExpandedFilter(null)}
+                trigger={<FilterButton type="dunning" label="Dunning" />}
+              >
+                <div className="p-4 min-w-80">
+                  <label className="block text-sm font-medium text-gray-900 dark:text-white mb-3">Select Dunning Stage</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {dunningStages.map((s) => (
+                      <button
+                        key={s.value}
+                        onClick={() => {
+                          onDunningStageChange(s.value);
+                          setExpandedFilter(null);
+                        }}
+                        className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          dunningStage === s.value
+                            ? 'bg-indigo-600 text-white'
+                            : 'bg-gray-100 dark:bg-white/[0.06] text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/[0.1]'
+                        }`}
+                      >
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </Popover>
+            </div>
+
+            {/* Sort Popover */}
+            <div className="w-full sm:w-auto">
+              <Popover
+                isOpen={expandedFilter === 'sort'}
+                onClose={() => setExpandedFilter(null)}
+                trigger={<FilterButton type="sort" label="Sort" />}
+              >
+                <div className="p-4 min-w-64">
+                  <label className="block text-sm font-medium text-gray-900 dark:text-white mb-3">Sort By</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {sortOptions.map((s) => (
+                      <button
+                        key={s.value}
+                        onClick={() => {
+                          onSortChange(s.value);
+                          setExpandedFilter(null);
+                        }}
+                        className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          sortBy === s.value
+                            ? 'bg-indigo-600 text-white'
+                            : 'bg-gray-100 dark:bg-white/[0.06] text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/[0.1]'
+                        }`}
+                      >
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </Popover>
+            </div>
+          </div>
 
           {activeFiltersCount > 0 && (
             <button
@@ -145,103 +268,6 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
           </Button>
         </div>
       </div>
-
-      {/* Expanded Filter Panels */}
-      {expandedFilter === 'status' && (
-        <div className="bg-white dark:bg-white/[0.03] border border-gray-200 dark:border-white/[0.08] rounded-lg p-4 animate-in fade-in duration-200">
-          <label className="block text-sm font-medium text-gray-900 dark:text-white mb-3">Select Status</label>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            {statusOptions.map((o) => (
-              <button
-                key={o.value}
-                onClick={() => {
-                  onStatusChange(o.value);
-                  setExpandedFilter(null);
-                }}
-                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  status === o.value
-                    ? 'bg-indigo-600 text-white'
-                    : 'bg-gray-100 dark:bg-white/[0.06] text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/[0.1]'
-                }`}
-              >
-                {o.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {expandedFilter === 'age' && (
-        <div className="bg-white dark:bg-white/[0.03] border border-gray-200 dark:border-white/[0.08] rounded-lg p-4 animate-in fade-in duration-200">
-          <label className="block text-sm font-medium text-gray-900 dark:text-white mb-3">Select Age</label>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            {agingBuckets.map((b) => (
-              <button
-                key={b.value}
-                onClick={() => {
-                  onAgingBucketChange(b.value);
-                  setExpandedFilter(null);
-                }}
-                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  agingBucket === b.value
-                    ? 'bg-indigo-600 text-white'
-                    : 'bg-gray-100 dark:bg-white/[0.06] text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/[0.1]'
-                }`}
-              >
-                {b.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {expandedFilter === 'dunning' && (
-        <div className="bg-white dark:bg-white/[0.03] border border-gray-200 dark:border-white/[0.08] rounded-lg p-4 animate-in fade-in duration-200">
-          <label className="block text-sm font-medium text-gray-900 dark:text-white mb-3">Select Dunning Stage</label>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {dunningStages.map((s) => (
-              <button
-                key={s.value}
-                onClick={() => {
-                  onDunningStageChange(s.value);
-                  setExpandedFilter(null);
-                }}
-                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  dunningStage === s.value
-                    ? 'bg-indigo-600 text-white'
-                    : 'bg-gray-100 dark:bg-white/[0.06] text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/[0.1]'
-                }`}
-              >
-                {s.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {expandedFilter === 'sort' && (
-        <div className="bg-white dark:bg-white/[0.03] border border-gray-200 dark:border-white/[0.08] rounded-lg p-4 animate-in fade-in duration-200">
-          <label className="block text-sm font-medium text-gray-900 dark:text-white mb-3">Sort By</label>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            {sortOptions.map((s) => (
-              <button
-                key={s.value}
-                onClick={() => {
-                  onSortChange(s.value);
-                  setExpandedFilter(null);
-                }}
-                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  sortBy === s.value
-                    ? 'bg-indigo-600 text-white'
-                    : 'bg-gray-100 dark:bg-white/[0.06] text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/[0.1]'
-                }`}
-              >
-                {s.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Active Filter Tags */}
       {(activeFiltersCount > 0 || hasActiveSearch) && (
