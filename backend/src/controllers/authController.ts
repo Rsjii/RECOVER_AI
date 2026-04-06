@@ -808,7 +808,7 @@ export const googleCallback = async (req: Request, res: Response) => {
 
   try {
     // Support both GET (from Google redirect) and POST (from frontend)
-    const code = req.body.code || req.query.code;
+    const code = req.body.code || (req.query?.code as string);
 
     if (!code) {
       logInfo(handler, 'Missing authorization code');
