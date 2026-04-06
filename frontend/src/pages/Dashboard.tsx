@@ -539,10 +539,6 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className="bg-white dark:bg-[#09090b] min-h-full">
-      <div className="max-w-7xl mx-auto px-6 sm:px-8 py-6">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
-      </div>
-
       {/* TRIAL BANNER */}
       {isTrialMode && trialDaysRemaining >= 0 && (
         <div className="max-w-7xl mx-auto px-6 sm:px-8 mb-6">
@@ -688,7 +684,7 @@ const Dashboard: React.FC = () => {
       {!isTrialMode && (
       <div className="max-w-7xl mx-auto px-6 sm:px-8 pb-6 flex flex-col space-y-6">
       <div className="flex items-center justify-between">
-        <div></div>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
         <div className="flex items-center gap-3">
           {agentMsg && (
             <p className="text-xs text-green-600 dark:text-green-400 max-w-xs text-right">{agentMsg}</p>

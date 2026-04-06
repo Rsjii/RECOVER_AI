@@ -47,18 +47,18 @@ interface AgingBucket {
   totalAmount: number; pctOfTotal: number; avgDaysOverdue: number;
 }
 
-interface PlanItem {
-  planId: string; customerName: string; customerEmail: string;
-  totalAmount: number; status: string;
-  installmentsTotal: number; installmentsPaid: number;
-  pctComplete: number; nextDueDate: string | null; createdAt: string;
-}
+// interface PlanItem {
+//   planId: string; customerName: string; customerEmail: string;
+//   totalAmount: number; status: string;
+//   installmentsTotal: number; installmentsPaid: number;
+//   pctComplete: number; nextDueDate: string | null; createdAt: string;
+// }
 
-interface PlansSummary {
-  activePlans: number; completedPlans: number; defaultedPlans: number;
-  totalOffered: number; acceptanceRate: number; completionRate: number;
-  totalValue: number; activeValue: number;
-}
+// interface PlansSummary {
+//   activePlans: number; completedPlans: number; defaultedPlans: number;
+//   totalOffered: number; acceptanceRate: number; completionRate: number;
+//   totalValue: number; activeValue: number;
+// }
 
 interface KpiTrendPoint {
   month: string; recoveryRate: number;
@@ -68,15 +68,18 @@ interface KpiTrendPoint {
 
 // ─── Sub-tabs ─────────────────────────────────────────────────────────────────
 
-const TABS = ['Overview', 'Campaigns', 'Aging', 'Payment Plans', 'Attribution'] as const;
-type Tab = typeof TABS[number];
+// FULL TABS (for type safety even though Payment Plans & Attribution are hidden)
+const ALL_TABS = ['Overview', 'Campaigns', 'Aging', 'Payment Plans', 'Attribution'] as const;
+type Tab = typeof ALL_TABS[number];
+// Filtered tabs for UI (Payment Plans & Attribution commented out for Month 2+)
+const TABS = ['Overview', 'Campaigns', 'Aging'] as const;
 
 const BUCKET_COLORS = ['#10b981', '#f59e0b', '#f97316', '#ef4444'];
-const STATUS_BADGE: Record<string, string> = {
-  active: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
-  completed: 'bg-blue-500/15 text-blue-600 dark:text-blue-400',
-  defaulted: 'bg-rose-500/15 text-rose-600 dark:text-rose-400',
-};
+// const STATUS_BADGE: Record<string, string> = {
+//   active: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
+//   completed: 'bg-blue-500/15 text-blue-600 dark:text-blue-400',
+//   defaulted: 'bg-rose-500/15 text-rose-600 dark:text-rose-400',
+// };
 
 const fmt = (v: number) => v >= 1000 ? `$${(v / 1000).toFixed(1)}K` : `$${v.toFixed(0)}`;
 
@@ -107,16 +110,16 @@ const Reports: React.FC = () => {
   const [agingTotal, setAgingTotal] = useState(0);
   const [loadingAging, setLoadingAging] = useState(false);
 
-  // Payment Plans state
-  const [plansSummary, setPlansSummary] = useState<PlansSummary | null>(null);
-  const [plans, setPlans] = useState<PlanItem[]>([]);
-  const [loadingPlans, setLoadingPlans] = useState(false);
+  // Payment Plans state (commented out for Month 2+)
+  // const [plansSummary, setPlansSummary] = useState<PlansSummary | null>(null);
+  // const [plans, setPlans] = useState<PlanItem[]>([]);
+  // const [loadingPlans, setLoadingPlans] = useState(false);
 
-  // Attribution state
-  const [attributionByStage, setAttributionByStage] = useState<any[]>([]);
-  const [attributionByAction, setAttributionByAction] = useState<any[]>([]);
-  const [roiData, setRoiData] = useState<any>(null);
-  const [loadingAttribution, setLoadingAttribution] = useState(false);
+  // Attribution state (commented out for Month 2-3+)
+  // const [attributionByStage, setAttributionByStage] = useState<any[]>([]);
+  // const [attributionByAction, setAttributionByAction] = useState<any[]>([]);
+  // const [roiData, setRoiData] = useState<any>(null);
+  // const [loadingAttribution, setLoadingAttribution] = useState(false);
 
   const chartColors = {
     grid: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.06)',
@@ -170,41 +173,41 @@ const Reports: React.FC = () => {
     }
   }, []);
 
-  const fetchPlans = useCallback(async () => {
-    setLoadingPlans(true);
-    try {
-      const res = await api.get<{ data: { summary: PlansSummary; plans: PlanItem[] } }>('/api/reports/payment-plans-detail');
-      setPlansSummary(res.data.summary);
-      setPlans(res.data.plans);
-    } catch { /* silent */ } finally {
-      setLoadingPlans(false);
-    }
-  }, []);
+  // const fetchPlans = useCallback(async () => {
+  //   setLoadingPlans(true);
+  //   try {
+  //     const res = await api.get<{ data: { summary: PlansSummary; plans: PlanItem[] } }>('/api/reports/payment-plans-detail');
+  //     setPlansSummary(res.data.summary);
+  //     setPlans(res.data.plans);
+  //   } catch { /* silent */ } finally {
+  //     setLoadingPlans(false);
+  //   }
+  // }, []);
 
-  const fetchAttribution = useCallback(async () => {
-    setLoadingAttribution(true);
-    try {
-      const [stageRes, actionRes, roiRes] = await Promise.all([
-        api.get<{ data: any }>('/api/attribution/by-stage?month=' + new Date().toISOString().slice(0, 7)),
-        api.get<{ data: any }>('/api/attribution/by-action?month=' + new Date().toISOString().slice(0, 7)),
-        api.get<{ data: any }>('/api/attribution/roi?days=30'),
-      ]);
-      setAttributionByStage(stageRes.data.breakdown || []);
-      setAttributionByAction(actionRes.data.breakdown || []);
-      setRoiData(roiRes.data);
-    } catch { /* silent */ } finally {
-      setLoadingAttribution(false);
-    }
-  }, []);
+  // const fetchAttribution = useCallback(async () => {
+  //   setLoadingAttribution(true);
+  //   try {
+  //     const [stageRes, actionRes, roiRes] = await Promise.all([
+  //       api.get<{ data: any }>('/api/attribution/by-stage?month=' + new Date().toISOString().slice(0, 7)),
+  //       api.get<{ data: any }>('/api/attribution/by-action?month=' + new Date().toISOString().slice(0, 7)),
+  //       api.get<{ data: any }>('/api/attribution/roi?days=30'),
+  //     ]);
+  //     setAttributionByStage(stageRes.data.breakdown || []);
+  //     setAttributionByAction(actionRes.data.breakdown || []);
+  //     setRoiData(roiRes.data);
+  //   } catch { /* silent */ } finally {
+  //     setLoadingAttribution(false);
+  //   }
+  // }, []);
 
   // Fetch on tab switch
   useEffect(() => {
     if (activeTab === 'Overview') fetchOverview();
     if (activeTab === 'Campaigns') fetchCampaign();
     if (activeTab === 'Aging') fetchAging();
-    if (activeTab === 'Payment Plans') fetchPlans();
-    if (activeTab === 'Attribution') fetchAttribution();
-  }, [activeTab, fetchOverview, fetchCampaign, fetchAging, fetchPlans, fetchAttribution]);
+    // if (activeTab === 'Payment Plans') fetchPlans();
+    // if (activeTab === 'Attribution') fetchAttribution();
+  }, [activeTab, fetchOverview, fetchCampaign, fetchAging]);
 
   const downloadCsv = (rows: (string | number)[][], filename: string) => {
     const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
@@ -236,12 +239,12 @@ const Reports: React.FC = () => {
     downloadCsv([headers, ...rows], `recoverai-aging-${new Date().toISOString().slice(0, 10)}.csv`);
   };
 
-  const handleExportPlansCSV = () => {
-    if (!plans.length) return;
-    const headers = ['Customer', 'Email', 'Total Amount', 'Status', 'Progress', 'Next Due Date', 'Created'];
-    const rows = plans.map(r => [r.customerName, r.customerEmail, r.totalAmount.toFixed(2), r.status, `${r.pctComplete}%`, r.nextDueDate ?? '—', r.createdAt.slice(0, 10)]);
-    downloadCsv([headers, ...rows], `recoverai-plans-${new Date().toISOString().slice(0, 10)}.csv`);
-  };
+  // const handleExportPlansCSV = () => {
+  //   if (!plans.length) return;
+  //   const headers = ['Customer', 'Email', 'Total Amount', 'Status', 'Progress', 'Next Due Date', 'Created'];
+  //   const rows = plans.map(r => [r.customerName, r.customerEmail, r.totalAmount.toFixed(2), r.status, `${r.pctComplete}%`, r.nextDueDate ?? '—', r.createdAt.slice(0, 10)]);
+  //   downloadCsv([headers, ...rows], `recoverai-plans-${new Date().toISOString().slice(0, 10)}.csv`);
+  // };
 
   const handleExportPDF = () => {
     window.print();
@@ -320,18 +323,6 @@ const Reports: React.FC = () => {
             <button
               onClick={handleExportAgingCSV}
               disabled={!agingBuckets.length}
-              className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-[#18181b] border border-gray-200 dark:border-white/10 rounded-lg text-sm text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-white/[0.06] disabled:opacity-50"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              Export CSV
-            </button>
-          )}
-          {activeTab === 'Payment Plans' && (
-            <button
-              onClick={handleExportPlansCSV}
-              disabled={!plans.length}
               className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-[#18181b] border border-gray-200 dark:border-white/10 rounded-lg text-sm text-gray-700 dark:text-zinc-300 hover:bg-gray-100 dark:hover:bg-white/[0.06] disabled:opacity-50"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -650,185 +641,17 @@ const Reports: React.FC = () => {
         </div>
       )}
 
-      {/* ── Payment Plans Tab ── */}
-      {activeTab === 'Payment Plans' && (
-        <div className="space-y-6">
-          {loadingPlans ? (
-            <div className="flex justify-center py-20"><Spinner size="lg" text="Loading payment plans..." /></div>
-          ) : !plansSummary || (plansSummary.activePlans + plansSummary.completedPlans + plansSummary.defaultedPlans === 0) ? (
-            <div className="bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] rounded-xl p-10 text-center">
-              <p className="text-gray-500 dark:text-zinc-500 text-sm">No payment plans created yet</p>
-            </div>
-          ) : (
-            <>
-              {/* Summary cards */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {[
-                  { label: 'Active Plans', value: plansSummary.activePlans, color: 'text-emerald-400' },
-                  { label: 'Acceptance Rate', value: `${plansSummary.acceptanceRate}%`, color: plansSummary.acceptanceRate >= BENCHMARKS.planAcceptance.target ? 'text-emerald-400' : 'text-amber-400' },
-                  { label: 'Completion Rate', value: `${plansSummary.completionRate}%`, color: plansSummary.completionRate >= BENCHMARKS.planCompletion.target ? 'text-emerald-400' : 'text-amber-400' },
-                  { label: 'Active Value', value: fmt(plansSummary.activeValue), color: 'text-gray-900 dark:text-white' },
-                ].map(({ label, value, color }) => (
-                  <div key={label} className="bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] rounded-xl p-4">
-                    <p className="text-[10px] text-gray-500 dark:text-zinc-500 uppercase tracking-wide">{label}</p>
-                    <p className={`text-xl font-bold mt-1 ${color}`}>{value}</p>
-                  </div>
-                ))}
-              </div>
+      {/* ── Payment Plans Tab ── COMMENTED OUT FOR MONTH 2+ ──
+         Premature for initial launch. Customers haven't decided if they want
+         complex payment plan features yet. Revisit after first 5 customers
+         provide feedback (Month 2+).
+       */}
 
-              {/* Status breakdown */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                {[
-                  { label: 'Active', count: plansSummary.activePlans, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
-                  { label: 'Completed', count: plansSummary.completedPlans, color: 'text-blue-400', bg: 'bg-blue-500/10' },
-                  { label: 'Defaulted', count: plansSummary.defaultedPlans, color: 'text-rose-400', bg: 'bg-rose-500/10' },
-                ].map(({ label, count, color, bg }) => (
-                  <div key={label} className={`${bg} border border-gray-200 dark:border-white/[0.06] rounded-xl p-4 text-center`}>
-                    <p className={`text-2xl font-bold ${color}`}>{count}</p>
-                    <p className="text-xs text-gray-600 dark:text-zinc-400 mt-1">{label}</p>
-                  </div>
-                ))}
-              </div>
-
-              {/* Plans table */}
-              {plans.length > 0 && (
-                <div className="bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] rounded-xl overflow-hidden">
-                  <div className="px-5 py-4 border-b border-gray-100 dark:border-white/[0.05]">
-                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white">All Payment Plans</h3>
-                  </div>
-                  <div className="overflow-x-auto sm:scrollbar-show">
-                    <table className="w-full text-xs">
-                      <thead>
-                        <tr className="text-gray-500 dark:text-zinc-500 border-b border-gray-100 dark:border-white/[0.05]">
-                          <th className="text-left px-5 py-3 font-medium">Customer</th>
-                          <th className="text-right px-5 py-3 font-medium">Amount</th>
-                          <th className="text-center px-5 py-3 font-medium">Status</th>
-                          <th className="text-right px-5 py-3 font-medium">Progress</th>
-                          <th className="text-right px-5 py-3 font-medium">Next Due</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {plans.map((p, i) => (
-                          <tr key={i} className="border-b border-gray-50 dark:border-white/[0.03] hover:bg-gray-50 dark:hover:bg-white/[0.02]">
-                            <td className="px-5 py-3">
-                              <p className="text-gray-900 dark:text-white font-medium">{p.customerName}</p>
-                              <p className="text-gray-500 dark:text-zinc-500 text-[10px]">{p.customerEmail}</p>
-                            </td>
-                            <td className="px-5 py-3 text-right text-gray-900 dark:text-white font-medium">{fmt(p.totalAmount)}</td>
-                            <td className="px-5 py-3 text-center">
-                              <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${STATUS_BADGE[p.status] ?? ''}`}>{p.status}</span>
-                            </td>
-                            <td className="px-5 py-3 text-right">
-                              <div className="flex items-center justify-end gap-2">
-                                <div className="w-16 h-1.5 bg-gray-200 dark:bg-white/10 rounded-full overflow-hidden">
-                                  <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${p.pctComplete}%` }} />
-                                </div>
-                                <span className="text-gray-600 dark:text-zinc-400 w-8 text-right">{p.pctComplete}%</span>
-                              </div>
-                            </td>
-                            <td className="px-5 py-3 text-right text-gray-600 dark:text-zinc-400">
-                              {p.nextDueDate ? new Date(p.nextDueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-        </div>
-      )}
-
-      {/* ── Attribution Tab ── */}
-      {activeTab === 'Attribution' && (
-        <div className="space-y-6 py-6">
-          {loadingAttribution ? (
-            <div className="flex justify-center py-20"><Spinner size="lg" text="Loading attribution..." /></div>
-          ) : (
-            <>
-              {/* ROI Summary Cards */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] rounded-lg p-4">
-                  <p className="text-xs text-gray-500 dark:text-zinc-500 uppercase tracking-wide">Recovered</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{fmt(roiData?.recovered_amount || 0)}</p>
-                </div>
-                <div className="bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] rounded-lg p-4">
-                  <p className="text-xs text-gray-500 dark:text-zinc-500 uppercase tracking-wide">Total Cost</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{fmt(roiData?.total_cost || 0)}</p>
-                </div>
-                <div className="bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] rounded-lg p-4">
-                  <p className="text-xs text-gray-500 dark:text-zinc-500 uppercase tracking-wide">Net Benefit</p>
-                  <p className={`text-2xl font-bold mt-1 ${roiData?.net_benefit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                    {fmt(roiData?.net_benefit || 0)}
-                  </p>
-                </div>
-                <div className="bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] rounded-lg p-4">
-                  <p className="text-xs text-gray-500 dark:text-zinc-500 uppercase tracking-wide">ROI</p>
-                  <p className={`text-2xl font-bold mt-1 ${roiData?.roi_percent >= 100 ? 'text-emerald-600' : 'text-amber-600'}`}>
-                    {roiData?.roi_percent || 0}%
-                  </p>
-                </div>
-              </div>
-
-              {/* Recovery by Stage */}
-              <div className="bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] rounded-lg p-6">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Recovery by Dunning Stage</h3>
-                <div className="overflow-x-auto sm:scrollbar-show">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-gray-200 dark:border-white/[0.06]">
-                        <th className="text-left px-4 py-2 font-medium text-gray-600 dark:text-zinc-400">Stage</th>
-                        <th className="text-right px-4 py-2 font-medium text-gray-600 dark:text-zinc-400">Invoices</th>
-                        <th className="text-right px-4 py-2 font-medium text-gray-600 dark:text-zinc-400">Amount Recovered</th>
-                        <th className="text-right px-4 py-2 font-medium text-gray-600 dark:text-zinc-400">% of Total</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {attributionByStage.map((stage, i) => (
-                        <tr key={i} className="border-b border-gray-100 dark:border-white/[0.02]">
-                          <td className="px-4 py-3 text-gray-900 dark:text-white">{stage.stage}</td>
-                          <td className="text-right px-4 py-3 text-gray-600 dark:text-zinc-400">{stage.invoices_count}</td>
-                          <td className="text-right px-4 py-3 text-gray-900 dark:text-white font-medium">{fmt(stage.amount_recovered)}</td>
-                          <td className="text-right px-4 py-3"><span className="bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300 px-2.5 py-0.5 rounded text-xs font-medium">{stage.percentage}%</span></td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Recovery by Action */}
-              <div className="bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] rounded-lg p-6">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Recovery by Action Type</h3>
-                <div className="overflow-x-auto sm:scrollbar-show">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-gray-200 dark:border-white/[0.06]">
-                        <th className="text-left px-4 py-2 font-medium text-gray-600 dark:text-zinc-400">Action</th>
-                        <th className="text-right px-4 py-2 font-medium text-gray-600 dark:text-zinc-400">Invoices</th>
-                        <th className="text-right px-4 py-2 font-medium text-gray-600 dark:text-zinc-400">Amount Recovered</th>
-                        <th className="text-right px-4 py-2 font-medium text-gray-600 dark:text-zinc-400">% of Total</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {attributionByAction.map((action, i) => (
-                        <tr key={i} className="border-b border-gray-100 dark:border-white/[0.02]">
-                          <td className="px-4 py-3 text-gray-900 dark:text-white capitalize">{action.action.replace(/_/g, ' ')}</td>
-                          <td className="text-right px-4 py-3 text-gray-600 dark:text-zinc-400">{action.invoices_count}</td>
-                          <td className="text-right px-4 py-3 text-gray-900 dark:text-white font-medium">{fmt(action.amount_recovered)}</td>
-                          <td className="text-right px-4 py-3"><span className="bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-300 px-2.5 py-0.5 rounded text-xs font-medium">{action.percentage}%</span></td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </>
-          )}
-        </div>
-      )}
+      {/* ── Attribution Tab ── COMMENTED OUT FOR MONTH 2-3+ ──
+         Requires more data and complex ML/analytics logic.
+         First customers don't care about attribution yet.
+         Revisit after Month 2-3 when we have customer patterns.
+       */}
     </div>
   );
 };
