@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import ProtectedRoute from './components/ProtectedRoute';
+import AdminOnlyRoute from './components/AdminOnlyRoute';
 import { Layout } from './components/layout/Layout';
 import { ToastContainer } from './components/ui/Toast';
 import { useNotification } from './hooks/useNotification';
@@ -41,6 +42,7 @@ const Reports = React.lazy(() => import('./pages/Reports'));
 const Activity = React.lazy(() => import('./pages/Activity'));
 const Billing = React.lazy(() => import('./pages/Billing'));
 const Admin = React.lazy(() => import('./pages/Admin'));
+const AdminCompanyDetail = React.lazy(() => import('./pages/AdminCompanyDetail'));
 
 /**
  * Root redirect handler
@@ -243,11 +245,21 @@ const App: React.FC = () => {
             <Route
               path="/admin"
               element={
-                <ProtectedRoute requireEmailVerification>
+                <AdminOnlyRoute>
                   <Layout>
                     <Admin />
                   </Layout>
-                </ProtectedRoute>
+                </AdminOnlyRoute>
+              }
+            />
+            <Route
+              path="/admin/companies/:id"
+              element={
+                <AdminOnlyRoute>
+                  <Layout>
+                    <AdminCompanyDetail />
+                  </Layout>
+                </AdminOnlyRoute>
               }
             />
 

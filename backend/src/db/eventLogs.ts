@@ -113,6 +113,49 @@ export async function getActivityLogs(companyId: string, options: {
 }
 
 /**
+ * Get all activity logs for platform admin (no company_id filter)
+ */
+export async function getAllActivityLogsAdmin(options: {
+  limit?: number;
+  offset?: number;
+  action?: string;
+  resourceType?: string;
+  companyId?: string;
+} = {}): Promise<{ logs: EventLogRow[]; total: number }> {
+  const limit = Math.min(options.limit || 50, 500);
+  const offset = options.offset || 0;
+
+  const params: unknown[] = [];
+  let where = 'WHERE 1=1';
+
+  if (options.companyId) {
+    params.push(options.companyId);
+    where += ` AND company_id = $${params.length}`;
+  }
+  if (options.action) {
+    params.push(options.action);
+    where += ` AND action ILIKE '%' || $${params.length} || '%'`;
+  }
+  if (options.resourceType) {
+    params.push(options.resourceType);
+    where += ` AND resource_type = $${params.length}`;
+  }
+
+  const countResult = await pool.query(
+    `SELECT COUNT(*)::int as count FROM event_logs ${where}`,
+    params
+  );
+  const total = countResult.rows[0]?.count || 0;
+
+  params.push(limit, offset);
+  const result = await pool.query(
+    `SELECT * FROM event_logs ${where} ORDER BY created_at DESC LIMIT $${params.length - 1} OFFSET $${params.length}`,
+    params
+  );
+  return { logs: result.rows, total };
+}
+
+/**
  * Get activity summary for admin dashboard
  */
 export async function getActivitySummary(companyId: string): Promise<{

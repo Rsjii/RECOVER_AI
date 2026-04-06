@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import api from '../lib/api';
+import { logError } from '../utils/logger';
 import { Button } from '../components/ui/Button';
 import { useNotification } from '../hooks/useNotification';
 import GoogleAuthButton from '../components/GoogleAuthButton';
@@ -63,7 +64,7 @@ export default function Onboard() {
       }
 
       if (!info?.company_name) {
-        console.error('Missing company_name in response:', { res, info });
+        logError('Component', 'handler', 'Missing company_name in response:', { res, info });
         setError('Invalid invite data received from server');
         setLoading(false);
         return;
@@ -80,7 +81,7 @@ export default function Onboard() {
       setCompanyName(info.company_name);
       setLoading(false);
     } catch (err: any) {
-      console.error('Token validation error:', err);
+      logError('Component', 'handler', 'Token validation error:', err);
       setError(err?.response?.data?.error || 'Invalid or expired invite link');
       setLoading(false);
     }

@@ -3,6 +3,7 @@ import { api } from '../../lib/api';
 import { Button } from '../ui/Button';
 import { useNotification } from '../../hooks/useNotification';
 import { Card } from '../ui/Card';
+import { logError } from '../../utils/logger';
 
 interface AuditRequest {
   id: string;
@@ -43,7 +44,7 @@ export const PublicAuditRequestsTab: React.FC = () => {
         setRequests(response.data.requests);
       }
     } catch (err: any) {
-      console.error('Failed to load requests:', err);
+      logError('PublicAuditRequests', 'loadRequests', 'Failed to load requests', err);
       addToast({
         type: 'error',
         message: 'Failed to load audit requests',

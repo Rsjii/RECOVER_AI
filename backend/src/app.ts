@@ -40,6 +40,7 @@ import auditStagesRoutes from './routes/auditStages';
 import pilotQueueRoutes from './routes/pilotQueue';
 // import slackRoutes from './routes/slack';  // ❌ DISABLED: see below
 import emailDashboardRoutes from './routes/emailDashboard';
+import logsRoutes from './routes/logs';
 import { getRequestContext, logError, logInfo, logWarn, withRequestContext } from './utils/logger';
 import { apiLimiter, authLimiter, authSlowDown, syncLimiter, aiLimiter, webhookLimiter, emailLimiter, auditOtpLimiter, publicFormLimiter } from './middleware/rateLimiter';
 import { demoBlocker } from './middleware/demoBlocker';
@@ -236,6 +237,7 @@ app.use('/api/pilot-queue', pilotQueueRoutes);  // ✅ EMAIL QUEUE: Sidebar > Op
 // re-enable only after implementing Slack signing-secret HMAC middleware (audit C1).
 // app.use('/api/slack', slackRoutes);
 app.use('/api/admin/email-dashboard', emailDashboardRoutes);  // Email dashboard for admins
+app.use('/api/logs', logsRoutes);  // ✅ PRODUCTION ERROR LOGGING: Frontend errors → Admin dashboard
 
 // Health check
 app.get('/health', (_req: Request, res: Response) => {

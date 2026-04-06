@@ -3,6 +3,7 @@ import { cn } from '../../lib/utils';
 import { useNotification } from '../../hooks/useNotification';
 import { api } from '../../lib/api';
 import { ConfirmationModal } from '../ui/ConfirmationModal';
+import { logError, logWarn } from '../../utils/logger';
 
 interface EmailSettingsFormData {
   senderEmail: string;
@@ -85,7 +86,7 @@ export const EmailSettingsSection: React.FC<EmailSettingsSectionProps> = () => {
       }
     } catch (err: any) {
       if (err.status !== 401) {
-        console.error('Failed to fetch dunning sender name:', err);
+        logError('EmailSettings', 'fetchDunningSenderName', 'Failed to fetch dunning sender name', err);
       }
     }
   }
@@ -106,7 +107,7 @@ export const EmailSettingsSection: React.FC<EmailSettingsSectionProps> = () => {
       }
     } catch (err: any) {
       if (err.status !== 401) {
-        console.error('Failed to fetch agent settings:', err);
+        logError('EmailSettings', 'fetchAgentSettings', 'Failed to fetch agent settings', err);
       }
     } finally {
       setIsLoadingAgentSettings(false);
@@ -131,7 +132,7 @@ export const EmailSettingsSection: React.FC<EmailSettingsSectionProps> = () => {
             dunningSenderName: fullConfig.dunningSenderName || '',
           });
         } catch (err) {
-          console.warn('Could not fetch full SMTP config, using status fallback');
+          logWarn('EmailSettings', 'useEffect', 'Could not fetch full SMTP config, using status fallback');
           setSMTPConfig({
             host: response.host || '',
             port: 587,
@@ -145,7 +146,7 @@ export const EmailSettingsSection: React.FC<EmailSettingsSectionProps> = () => {
       }
     } catch (err: any) {
       if (err.status !== 401) {
-        console.error('Failed to fetch SMTP status:', err);
+        logError('EmailSettings', 'fetchSMTPStatus', 'Failed to fetch SMTP status', err);
       }
     }
   }
@@ -174,7 +175,7 @@ export const EmailSettingsSection: React.FC<EmailSettingsSectionProps> = () => {
         try {
           await api.put('/api/settings/dunning-sender-name', { senderName: smtpConfig.dunningSenderName });
         } catch (err) {
-          console.error('Failed to save dunning sender name:', err);
+          logError('EmailSettings', 'handleSaveDunningSenderName', 'Failed to save dunning sender name', err);
         }
       }
 

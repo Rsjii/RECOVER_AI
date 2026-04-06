@@ -126,12 +126,10 @@ export const Sidebar: React.FC = () => {
   };
 
   useEffect(() => {
-    api.get('/api/admin/metrics')
-      .then(() => setIsAdmin(true))
-      .catch((err: any) => {
-        const status = err?.response?.status ?? err?.status;
-        if (status === 403) setIsAdmin(false);
-      });
+    // Check if user is admin (must be in ADMIN_EMAILS backend whitelist)
+    api.get<{ isAdmin: boolean }>('/api/admin/check')
+      .then((res: any) => setIsAdmin(res.data?.isAdmin ?? res.isAdmin ?? false))
+      .catch(() => setIsAdmin(false));
 
     api.get<{ data: any }>('/api/billing/subscription')
       .then((res: any) => {

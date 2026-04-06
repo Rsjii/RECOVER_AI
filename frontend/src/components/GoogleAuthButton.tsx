@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { logError, logWarn } from '../utils/logger';
 
 interface GoogleAuthButtonProps {
   onSuccess?: (credential: string) => void;
@@ -15,7 +16,7 @@ export default function GoogleAuthButton({ onSuccess, onError }: GoogleAuthButto
     if (!clientId) {
       setError('Google Sign-In not configured');
       setIsLoading(false);
-      console.warn('VITE_GOOGLE_CLIENT_ID is not set in .env');
+      logWarn('GoogleAuth', 'useEffect', 'VITE_GOOGLE_CLIENT_ID is not set in .env');
       return;
     }
 
@@ -45,7 +46,7 @@ export default function GoogleAuthButton({ onSuccess, onError }: GoogleAuthButto
           setIsLoading(false);
           setError(null);
         } catch (err) {
-          console.error('Failed to initialize Google Sign-In:', err);
+          logError('GoogleAuth', 'script.onload', 'Failed to initialize Google Sign-In', err);
           setError('Failed to load Google Sign-In');
           setIsLoading(false);
         }
@@ -53,7 +54,7 @@ export default function GoogleAuthButton({ onSuccess, onError }: GoogleAuthButto
     };
 
     script.onerror = () => {
-      console.error('Failed to load Google Sign-In script');
+      logError('GoogleAuth', 'script.onerror', 'Failed to load Google Sign-In script');
       setError('Failed to load Google Sign-In');
       setIsLoading(false);
     };
@@ -79,7 +80,7 @@ export default function GoogleAuthButton({ onSuccess, onError }: GoogleAuthButto
       // Redirect to backend to process token
       window.location.href = `/api/auth/oauth/google/callback?credential=${encodeURIComponent(token)}`;
     } else {
-      console.error('No credential in Google response');
+      logError('GoogleAuth', 'handleGoogleResponse', 'No credential in Google response', response);
       setError('Google Sign-In failed');
       if (onError) onError();
     }

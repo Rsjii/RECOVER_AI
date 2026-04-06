@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNotification } from '../../hooks/useNotification';
+import { logError } from '../../utils/logger';
 import { api } from '../../lib/api';
 import { ConfirmationModal } from '../ui/ConfirmationModal';
 
@@ -61,7 +62,7 @@ export const SMTPSection: React.FC = () => {
         });
       }
     } catch (err: any) {
-      console.error('Failed to fetch SMTP status:', err);
+      logError('Component', 'handler', 'Failed to fetch SMTP status:', err);
       // If 401, user will be redirected to login by the API interceptor
       // Don't show error toast for 401 as login redirect will handle it
       if (err.status !== 401) {

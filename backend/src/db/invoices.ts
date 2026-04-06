@@ -92,35 +92,65 @@ export async function listInvoices(
     params.push(filters.customerId);
   }
 
+  // FIX: Aging Bucket - now correctly filters OVERDUE invoices (not recent ones)
   if (filters.agingBucket) {
     switch (filters.agingBucket) {
       case '0-30':
-        conditions.push(`i.due_date >= NOW() - INTERVAL '30 days'`);
+        // Overdue 0-30 days: due_date is 0-30 days BEFORE today
+        conditions.push(`i.due_date <= CURRENT_DATE AND i.due_date > CURRENT_DATE - INTERVAL '30 days'`);
         break;
       case '31-60':
-        conditions.push(`i.due_date < NOW() - INTERVAL '30 days' AND i.due_date >= NOW() - INTERVAL '60 days'`);
+        // Overdue 31-60 days
+        conditions.push(`i.due_date <= CURRENT_DATE - INTERVAL '30 days' AND i.due_date > CURRENT_DATE - INTERVAL '60 days'`);
         break;
       case '61-90':
-        conditions.push(`i.due_date < NOW() - INTERVAL '60 days' AND i.due_date >= NOW() - INTERVAL '90 days'`);
+        // Overdue 61-90 days
+        conditions.push(`i.due_date <= CURRENT_DATE - INTERVAL '60 days' AND i.due_date > CURRENT_DATE - INTERVAL '90 days'`);
         break;
       case '90+':
-        conditions.push(`i.due_date < NOW() - INTERVAL '90 days'`);
+        // Overdue 90+ days
+        conditions.push(`i.due_date < CURRENT_DATE - INTERVAL '90 days'`);
         break;
+    }
+  }
+
+  // FIX: Dunning Filter - moved from app layer to DB layer for proper pagination
+  if (filters.dunningStage !== undefined) {
+    const stage = parseInt(filters.dunningStage);
+    if (stage === 0) {
+      // Not Started = no dunning emails sent yet
+      conditions.push(`
+        i.id NOT IN (
+          SELECT DISTINCT invoice_id FROM email_logs
+          WHERE company_id = $${paramIndex++}
+            AND email_type LIKE 'dunning_%'
+            AND status != 'failed'
+        )
+      `);
+      params.push(companyId);
+    } else {
+      // Stage 1-5 = exactly N dunning emails sent (counting unique email types)
+      conditions.push(`
+        (SELECT COUNT(DISTINCT email_type) FROM email_logs
+         WHERE invoice_id = i.id
+           AND company_id = $${paramIndex++}
+           AND email_type LIKE 'dunning_%'
+           AND status != 'failed') = $${paramIndex++}
+      `);
+      params.push(companyId, stage);
     }
   }
 
   const where = conditions.join(' AND ');
 
-  // Dynamic ORDER BY based on sort param
+  // Sort options - consolidated to amount + days_overdue (removed redundant due_date options)
   const ORDER_MAP: Record<string, string> = {
     'amount_asc': 'i.amount ASC',
     'amount_desc': 'i.amount DESC',
-    'due_date_asc': 'i.due_date ASC',
-    'due_date_desc': 'i.due_date DESC',
-    'days_overdue_asc': 'i.due_date ASC',
-    'days_overdue_desc': 'i.due_date DESC',
+    'days_overdue_asc': '(CURRENT_DATE - i.due_date) ASC NULLS LAST',
+    'days_overdue_desc': '(CURRENT_DATE - i.due_date) DESC NULLS LAST',
   };
-  const orderBy = (filters.sort && ORDER_MAP[filters.sort]) || 'i.due_date ASC';
+  const orderBy = (filters.sort && ORDER_MAP[filters.sort]) || '(CURRENT_DATE - i.due_date) DESC';
 
   const [data, count] = await Promise.all([
     pool.query(
@@ -312,20 +342,46 @@ export async function getAllInvoiceIds(
     params.push(`%${filters.search.toLowerCase()}%`);
   }
 
+  // FIX: Aging Bucket - now correctly filters OVERDUE invoices (not recent ones)
   if (filters.agingBucket) {
     switch (filters.agingBucket) {
       case '0-30':
-        conditions.push(`i.due_date >= NOW() - INTERVAL '30 days'`);
+        conditions.push(`i.due_date <= CURRENT_DATE AND i.due_date > CURRENT_DATE - INTERVAL '30 days'`);
         break;
       case '31-60':
-        conditions.push(`i.due_date < NOW() - INTERVAL '30 days' AND i.due_date >= NOW() - INTERVAL '60 days'`);
+        conditions.push(`i.due_date <= CURRENT_DATE - INTERVAL '30 days' AND i.due_date > CURRENT_DATE - INTERVAL '60 days'`);
         break;
       case '61-90':
-        conditions.push(`i.due_date < NOW() - INTERVAL '60 days' AND i.due_date >= NOW() - INTERVAL '90 days'`);
+        conditions.push(`i.due_date <= CURRENT_DATE - INTERVAL '60 days' AND i.due_date > CURRENT_DATE - INTERVAL '90 days'`);
         break;
       case '90+':
-        conditions.push(`i.due_date < NOW() - INTERVAL '90 days'`);
+        conditions.push(`i.due_date < CURRENT_DATE - INTERVAL '90 days'`);
         break;
+    }
+  }
+
+  // FIX: Dunning Filter - moved to DB layer for consistency
+  if (filters.dunningStage !== undefined) {
+    const stage = parseInt(filters.dunningStage);
+    if (stage === 0) {
+      conditions.push(`
+        i.id NOT IN (
+          SELECT DISTINCT invoice_id FROM email_logs
+          WHERE company_id = $${paramIndex++}
+            AND email_type LIKE 'dunning_%'
+            AND status != 'failed'
+        )
+      `);
+      params.push(companyId);
+    } else {
+      conditions.push(`
+        (SELECT COUNT(DISTINCT email_type) FROM email_logs
+         WHERE invoice_id = i.id
+           AND company_id = $${paramIndex++}
+           AND email_type LIKE 'dunning_%'
+           AND status != 'failed') = $${paramIndex++}
+      `);
+      params.push(companyId, stage);
     }
   }
 

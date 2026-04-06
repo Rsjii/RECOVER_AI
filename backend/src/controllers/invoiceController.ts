@@ -53,31 +53,33 @@ export const listInvoices = async (req: Request, res: Response) => {
 
     logInfo(handler, 'Request received', { companyId, status, customerId, agingBucket, dunningStage, sort, page: pageNum, limit: limitNum });
 
-    let { data, total } = await InvoiceDB.listInvoices(companyId, { status, customerId, agingBucket, sort }, limitNum, offset);
+    // FIX: Dunning filter now handled in DB layer, so no app-layer filtering needed
+    const { data, total } = await InvoiceDB.listInvoices(
+      companyId,
+      { status, customerId, agingBucket, dunningStage, sort },
+      limitNum,
+      offset
+    );
 
-    // Smart fetching: only load email logs if user explicitly filters by dunningStage
-    // Otherwise, compute dunning_stage based on invoice age (fast, no DB call)
+    // Fetch email logs to compute dunning_stage + next_action for display
     let emailTypesByInvoiceId: Record<string, string[]> = {};
+    const invoiceIds = data.map(d => d.id);
 
-    if (dunningStage !== undefined) {
-      // User filtered by dunning stage - need email logs to compute accurate stage
-      const invoiceIds = data.map(d => d.id);
-      if (invoiceIds.length > 0) {
-        const emailLogsResult = await pool.query(
-          `SELECT DISTINCT invoice_id, email_type FROM email_logs
-           WHERE invoice_id = ANY($1) AND company_id = $2 AND status != 'failed'`,
-          [invoiceIds, companyId]
-        );
-        for (const row of emailLogsResult.rows) {
-          if (!emailTypesByInvoiceId[row.invoice_id]) {
-            emailTypesByInvoiceId[row.invoice_id] = [];
-          }
-          emailTypesByInvoiceId[row.invoice_id].push(row.email_type);
+    if (invoiceIds.length > 0) {
+      const emailLogsResult = await pool.query(
+        `SELECT DISTINCT invoice_id, email_type FROM email_logs
+         WHERE invoice_id = ANY($1) AND company_id = $2 AND status != 'failed'`,
+        [invoiceIds, companyId]
+      );
+      for (const row of emailLogsResult.rows) {
+        if (!emailTypesByInvoiceId[row.invoice_id]) {
+          emailTypesByInvoiceId[row.invoice_id] = [];
         }
+        emailTypesByInvoiceId[row.invoice_id].push(row.email_type);
       }
     }
 
-    // Compute dunning_stage + next_action
+    // Enrich with dunning_stage + next_action for UI display
     const enriched = data.map(row => {
       const daysOverdue = Math.max(0, Math.floor((Date.now() - new Date(row.due_date).getTime()) / 86400000));
       const emailTypesSent = emailTypesByInvoiceId[row.id] ?? [];
@@ -85,19 +87,14 @@ export const listInvoices = async (req: Request, res: Response) => {
       return { ...row, dunning_stage, next_action };
     });
 
-    // App-layer dunningStage filter (0 = Not Started, 1-5 = Stage N)
-    const filtered = dunningStage !== undefined
-      ? enriched.filter(r => r.dunning_stage === parseInt(dunningStage))
-      : enriched;
-
-    logInfo(handler, `Completed in ${Date.now() - startTime}ms`, { total, returned: filtered.length });
+    logInfo(handler, `Completed in ${Date.now() - startTime}ms`, { total, returned: enriched.length });
 
     return res.status(200).json({
-      data: filtered,
-      total: dunningStage !== undefined ? filtered.length : total,
+      data: enriched,
+      total,
       page: pageNum,
       limit: limitNum,
-      totalPages: Math.ceil((dunningStage !== undefined ? filtered.length : total) / limitNum),
+      totalPages: Math.ceil(total / limitNum),
     });
   } catch (err: any) {
     logError(handler, `Failed after ${Date.now() - startTime}ms`, err);
@@ -116,11 +113,12 @@ export const exportInvoicesCSV = async (req: Request, res: Response) => {
 
     logInfo(handler, 'Export requested', { companyId, status, customerId, agingBucket, dunningStage });
 
-    const { data } = await InvoiceDB.listInvoices(companyId, { status, customerId, agingBucket }, 9999, 0);
+    // FIX: Now pass dunningStage to DB layer for proper filtering (no app-layer filtering)
+    const { data } = await InvoiceDB.listInvoices(companyId, { status, customerId, agingBucket, dunningStage }, 9999, 0);
 
-    // Smart fetching for export: only load email logs if dunning stage filter is active
+    // Fetch email logs for all invoices to compute dunning_stage + next_action
     let emailTypesByInvoiceId: Record<string, string[]> = {};
-    if (dunningStage !== undefined && data.length > 0) {
+    if (data.length > 0) {
       const invoiceIds = data.map(d => d.id);
       const emailLogsResult = await pool.query(
         `SELECT DISTINCT invoice_id, email_type FROM email_logs
@@ -142,12 +140,8 @@ export const exportInvoicesCSV = async (req: Request, res: Response) => {
       return { ...row, dunning_stage, next_action };
     });
 
-    const filtered = dunningStage !== undefined
-      ? enriched.filter(r => r.dunning_stage === parseInt(dunningStage))
-      : enriched;
-
     const header = ['Invoice #', 'Customer', 'Email', 'Amount', 'Currency', 'Due Date', 'Days Overdue', 'Status', 'Dunning Stage', 'Next Action'].join(',');
-    const rows = filtered.map(r => {
+    const rows = enriched.map(r => {
       // Handle due_date as Date or string
       const dueDateObj = (r.due_date as any) instanceof Date ? r.due_date : new Date(r.due_date);
       const dueDateStr = (dueDateObj as Date).toISOString().split('T')[0];
@@ -172,7 +166,7 @@ export const exportInvoicesCSV = async (req: Request, res: Response) => {
 
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', `attachment; filename="invoices-${date}.csv"`);
-    logInfo(handler, `Exported ${filtered.length} rows in ${Date.now() - startTime}ms`);
+    logInfo(handler, `Exported ${enriched.length} rows in ${Date.now() - startTime}ms`);
     return res.status(200).send(csv);
   } catch (err: any) {
     logError(handler, `Failed after ${Date.now() - startTime}ms`, err);

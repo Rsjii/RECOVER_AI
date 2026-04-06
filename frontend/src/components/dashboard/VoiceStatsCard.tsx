@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../../lib/api';
+import { logError } from '../../utils/logger';
 
 interface VoiceStats {
   calls_this_month: number;
@@ -37,7 +38,7 @@ export const VoiceStatsCard: React.FC = () => {
         setRecentCalls(response.data.recent_calls);
         setError(null);
       } catch (err) {
-        console.error('Failed to fetch voice stats:', err);
+        logError('Component', 'handler', 'Failed to fetch voice stats:', err);
         setError('Failed to load voice stats');
       } finally {
         setLoading(false);

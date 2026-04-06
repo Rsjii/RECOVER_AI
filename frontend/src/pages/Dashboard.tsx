@@ -21,6 +21,7 @@ import { RiskDriversSection } from '../components/dashboard/RiskDriversSection';
 import { AtRiskCustomersSection } from '../components/dashboard/AtRiskCustomersSection';
 import { AgentActivitySection } from '../components/dashboard/AgentActivitySection';
 import { BillingOptimizationSection } from '../components/dashboard/BillingOptimizationSection';
+import { CollapsibleSection } from '../components/dashboard/CollapsibleSection';
 import { TrialCountdown } from '../components/TrialCountdown';
 import { useCustomTour, mainDashboardTour } from '../hooks/useCustomTour';
 import { CustomTour } from '../components/dashboard/CustomTour';
@@ -811,7 +812,7 @@ const Dashboard: React.FC = () => {
       {/* TIER 2: PRIMARY BUSINESS DRIVERS — Recovery funnel + impact grid */}
       {/* ════════════════════════════════════════════════════════════════ */}
 
-      {/* Recovery Funnel - Now with CollapsibleSection */}
+      {/* Recovery Funnel - Collapsible */}
       {(() => {
         const invoicesAtRisk = kpi?.atRiskCustomerCount ?? 0;
         const emailsSent = emailAnalytics?.sent ?? 0;
@@ -819,26 +820,24 @@ const Dashboard: React.FC = () => {
         const recoveryRate = invoicesAtRisk > 0 ? Math.round((recovered / invoicesAtRisk) * 100) : 0;
 
         return (
-          <div className="bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] rounded-xl overflow-hidden">
-            <div className="px-4 py-3 md:px-5 md:py-4 border-b border-gray-200 dark:border-white/[0.06]">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-sm font-semibold text-gray-900 dark:text-white">Recovery Funnel</h2>
-                  <p className="text-xs text-gray-500 dark:text-zinc-500 mt-0.5">{invoicesAtRisk.toLocaleString()} at-risk → {recovered.toLocaleString()} recovered ({recoveryRate}%)</p>
-                </div>
-              </div>
-            </div>
-            <div className="p-4 md:p-5">
-              <RecoveryFunnelInteractive
-                invoicesAtRisk={invoicesAtRisk}
-                emailsSent={emailsSent}
-                emailsOpened={emailAnalytics?.opened ?? 0}
-                emailsClicked={emailAnalytics?.clicked ?? 0}
-                invoicesPaid={recovered}
-                loading={loading}
-              />
-            </div>
-          </div>
+          <CollapsibleSection
+            title="Recovery Funnel"
+            subtitle={`${invoicesAtRisk.toLocaleString()} at-risk → ${recovered.toLocaleString()} recovered (${recoveryRate}%)`}
+            icon={
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            }
+          >
+            <RecoveryFunnelInteractive
+              invoicesAtRisk={invoicesAtRisk}
+              emailsSent={emailsSent}
+              emailsOpened={emailAnalytics?.opened ?? 0}
+              emailsClicked={emailAnalytics?.clicked ?? 0}
+              invoicesPaid={recovered}
+              loading={loading}
+            />
+          </CollapsibleSection>
         );
       })()}
 

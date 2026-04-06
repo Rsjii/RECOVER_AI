@@ -48,10 +48,8 @@ const sortOptions = [
   { value: '', label: 'Default' },
   { value: 'amount_asc', label: 'Amount (Low to High)' },
   { value: 'amount_desc', label: 'Amount (High to Low)' },
-  { value: 'due_date_asc', label: 'Due Date (Earliest)' },
-  { value: 'due_date_desc', label: 'Due Date (Latest)' },
-  { value: 'days_overdue_asc', label: 'Days Overdue (Least)' },
   { value: 'days_overdue_desc', label: 'Days Overdue (Most)' },
+  { value: 'days_overdue_asc', label: 'Days Overdue (Least)' },
 ];
 
 export const FilterPanel: React.FC<FilterPanelProps> = ({

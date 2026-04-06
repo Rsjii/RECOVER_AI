@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { SettingsLayout } from '../components/settings/SettingsLayout';
+import { logError } from '../utils/logger';
 import { useSettings } from '../components/settings/useSettings';
 import { useNotification } from '../hooks/useNotification';
 import { IntegrationSection } from '../components/settings/IntegrationSection';
@@ -89,7 +90,7 @@ const Settings: React.FC = () => {
               refetchIntegrations(); // Refresh again after sync
             })
             .catch((err) => {
-              console.error('QB sync failed:', err);
+              logError('Component', 'handler', 'QB sync failed:', err);
               addToast({
                 type: 'error',
                 message: 'QB connected but sync failed. Try manual sync from dashboard.',

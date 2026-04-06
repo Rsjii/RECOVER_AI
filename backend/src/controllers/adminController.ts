@@ -12,7 +12,7 @@ import {
   getRedisCommandsHistory,
   getAllEmailLogsAdmin,
 } from '../db/adminStats';
-import { getActivityLogs, getActivitySummary } from '../db/eventLogs';
+import { getAllActivityLogsAdmin } from '../db/eventLogs';
 import { getBillingOverview, getRecentInvoices, getBillingByCompany } from '../db/adminBilling';
 import { getIntegrationStatus, getCompanyIntegrations, getWebhookDeliveryStats } from '../db/adminIntegrations';
 import { getSecurityOverview, getFailedLoginAttempts, getBlockedIPs, getSuspiciousActivity } from '../db/adminSecurity';
@@ -23,6 +23,29 @@ import { logError, logInfo } from '../utils/logger';
 import { sendErrorResponse, parseError } from '../utils/errorHandler';
 
 const LOG_MODULE = 'adminController';
+
+/**
+ * GET /api/admin/check
+ * Simple admin access check — frontend uses this to show/hide admin link
+ */
+export const checkAdminAccess = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'checkAdminAccess';
+  try {
+    const userEmail = ((req as any).email || '').toLowerCase();
+    const isAdmin = config.admin.emails.includes(userEmail);
+
+    if (!isAdmin) {
+      logInfo(LOG_MODULE, handler, 'Admin access denied', {
+        userEmail: userEmail ? userEmail.substring(0, 10) + '...' : 'UNKNOWN',
+      });
+    }
+
+    res.json({ isAdmin });
+  } catch (err) {
+    logError(LOG_MODULE, handler, 'Failed', err);
+    res.status(500).json({ error: 'Check failed' });
+  }
+};
 
 export const getMetrics = async (req: Request, res: Response): Promise<void> => {
   const handler = 'getMetrics';
@@ -284,14 +307,14 @@ export const getActivityLogsHandler = async (req: Request, res: Response): Promi
     const offset = parseInt(req.query.offset as string) || 0;
     const action = (req.query.action as string) || undefined;
     const resourceType = (req.query.resourceType as string) || undefined;
-    const userId = (req.query.userId as string) || undefined;
 
-    const { logs, total } = await getActivityLogs((req as any).companyId || '', {
+    const companyIdFilter = (req.query.companyId as string) || undefined;
+    const { logs, total } = await getAllActivityLogsAdmin({
       limit,
       offset,
       action,
       resourceType,
-      userId,
+      companyId: companyIdFilter,
     });
 
     logInfo(LOG_MODULE, handler, 'Activity logs retrieved', {

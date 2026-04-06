@@ -1,6 +1,7 @@
 import type { RiskLevel } from '../types/invoice';
 import { RISK_COLORS } from './constants';
 import { format, differenceInDays } from 'date-fns';
+import { logError } from '../utils/logger';
 
 export const formatCurrency = (value: number, currency: string = 'USD'): string => {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(value);
@@ -71,7 +72,7 @@ export const debounce = <T extends (...args: any[]) => any>(
 
 export const storage = {
   setItem: (key: string, value: any) => {
-    try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { console.error(e); }
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { logError('Storage', 'setItem', `Failed to set ${key}`, e); }
   },
   getItem: (key: string, defaultValue: any = null) => {
     try {
@@ -80,10 +81,10 @@ export const storage = {
     } catch { return defaultValue; }
   },
   removeItem: (key: string) => {
-    try { localStorage.removeItem(key); } catch (e) { console.error(e); }
+    try { localStorage.removeItem(key); } catch (e) { logError('Storage', 'removeItem', `Failed to remove ${key}`, e); }
   },
   clear: () => {
-    try { localStorage.clear(); } catch (e) { console.error(e); }
+    try { localStorage.clear(); } catch (e) { logError('Storage', 'clear', 'Failed to clear storage', e); }
   },
 };
 

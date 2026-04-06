@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import type { IntegrationStatus } from '../../types/settings';
+import { logError } from '../../utils/logger';
 import { Button } from '../ui/Button';
 import { useNotification } from '../../hooks/useNotification';
 import { CSVUploadModal } from '../invoices/CSVUploadModal';
@@ -147,7 +148,7 @@ export const IntegrationSection: React.FC<IntegrationSectionProps> = ({ integrat
         type: 'error',
         message: 'Failed to save Stripe credentials',
       });
-      console.error('Failed to save Stripe credentials:', err);
+      logError('Component', 'handler', 'Failed to save Stripe credentials:', err);
     }
   };
 
@@ -177,7 +178,7 @@ export const IntegrationSection: React.FC<IntegrationSectionProps> = ({ integrat
           }, 1500);
         }
       } catch (err: any) {
-        console.error('Failed to poll import status:', err);
+        logError('Component', 'handler', 'Failed to poll import status:', err);
       }
     }, 1000);
 

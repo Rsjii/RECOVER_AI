@@ -37,11 +37,12 @@ export const DunningFunnelSection: React.FC<DunningFunnelSectionProps> = ({
   agingBuckets = [],
   emailsSent,
   emailsDelivered,
-  plansOffered,
-  plansAccepted,
   paymentsReceived,
   paymentAmount,
-  recentPlans = [],
+  // PHASE 2: Uncomment for payment plans
+  // plansOffered,
+  // plansAccepted,
+  // recentPlans = [],
 }) => {
   const [expandedStage, setExpandedStage] = useState<string | null>(null);
 
@@ -70,30 +71,31 @@ export const DunningFunnelSection: React.FC<DunningFunnelSectionProps> = ({
       badgeBg: 'bg-cyan-100 dark:bg-cyan-900/40',
       description: 'Dunning emails sent via Resend',
     },
-    {
-      id: 'offered',
-      name: 'Plans Offered',
-      count: plansOffered,
-      amount: 0,
-      icon: '💰',
-      bgColor: 'bg-amber-50 dark:bg-amber-950/30',
-      borderColor: 'border-amber-200 dark:border-amber-800',
-      textColor: 'text-amber-700 dark:text-amber-300',
-      badgeBg: 'bg-amber-100 dark:bg-amber-900/40',
-      description: 'Flexible payment arrangements offered',
-    },
-    {
-      id: 'accepted',
-      name: 'Plans Accepted',
-      count: plansAccepted,
-      amount: 0,
-      icon: '✅',
-      bgColor: 'bg-emerald-50 dark:bg-emerald-950/30',
-      borderColor: 'border-emerald-200 dark:border-emerald-800',
-      textColor: 'text-emerald-700 dark:text-emerald-300',
-      badgeBg: 'bg-emerald-100 dark:bg-emerald-900/40',
-      description: 'Customers who agreed to payment plans',
-    },
+    // PHASE 2: Uncomment for payment plans feature
+    // {
+    //   id: 'offered',
+    //   name: 'Plans Offered',
+    //   count: plansOffered,
+    //   amount: 0,
+    //   icon: '💰',
+    //   bgColor: 'bg-amber-50 dark:bg-amber-950/30',
+    //   borderColor: 'border-amber-200 dark:border-amber-800',
+    //   textColor: 'text-amber-700 dark:text-amber-300',
+    //   badgeBg: 'bg-amber-100 dark:bg-amber-900/40',
+    //   description: 'Flexible payment arrangements offered',
+    // },
+    // {
+    //   id: 'accepted',
+    //   name: 'Plans Accepted',
+    //   count: plansAccepted,
+    //   amount: 0,
+    //   icon: '✅',
+    //   bgColor: 'bg-emerald-50 dark:bg-emerald-950/30',
+    //   borderColor: 'border-emerald-200 dark:border-emerald-800',
+    //   textColor: 'text-emerald-700 dark:text-emerald-300',
+    //   badgeBg: 'bg-emerald-100 dark:bg-emerald-900/40',
+    //   description: 'Customers who agreed to payment plans',
+    // },
     {
       id: 'paid',
       name: 'Recovered',
@@ -108,12 +110,14 @@ export const DunningFunnelSection: React.FC<DunningFunnelSectionProps> = ({
     },
   ];
 
-  // Calculate conversion rates between stages
+  // Calculate conversion rates between stages (Phase 1: 3-stage funnel)
   const conversions = [
     { from: 'eligible', to: 'contacted', rate: emailsSent > 0 ? Math.round((emailsSent / Math.max(stages[0].count, 1)) * 100) : 0 },
-    { from: 'contacted', to: 'offered', rate: plansOffered > 0 ? Math.round((plansOffered / Math.max(emailsSent, 1)) * 100) : 0 },
-    { from: 'offered', to: 'accepted', rate: plansAccepted > 0 ? Math.round((plansAccepted / Math.max(plansOffered, 1)) * 100) : 0 },
-    { from: 'accepted', to: 'paid', rate: paymentsReceived > 0 ? Math.round((paymentsReceived / Math.max(plansAccepted, 1)) * 100) : 0 },
+    { from: 'contacted', to: 'paid', rate: paymentsReceived > 0 ? Math.round((paymentsReceived / Math.max(emailsSent, 1)) * 100) : 0 },
+    // PHASE 2: Add these when payment plans are enabled
+    // { from: 'contacted', to: 'offered', rate: plansOffered > 0 ? Math.round((plansOffered / Math.max(emailsSent, 1)) * 100) : 0 },
+    // { from: 'offered', to: 'accepted', rate: plansAccepted > 0 ? Math.round((plansAccepted / Math.max(plansOffered, 1)) * 100) : 0 },
+    // { from: 'accepted', to: 'paid', rate: paymentsReceived > 0 ? Math.round((paymentsReceived / Math.max(plansAccepted, 1)) * 100) : 0 },
   ];
 
   return (
@@ -129,8 +133,8 @@ export const DunningFunnelSection: React.FC<DunningFunnelSectionProps> = ({
       <div className="space-y-6">
         {/* Horizontal flow visualization */}
         <div className="space-y-3">
-          {/* Stage boxes - vertical on mobile, horizontal on lg */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-2">
+          {/* Stage boxes - vertical on mobile, horizontal on lg (Phase 1: 3 stages) */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-3 gap-3 sm:gap-2">
             {stages.map((stage) => {
               const isExpanded = expandedStage === stage.id;
 
@@ -138,16 +142,20 @@ export const DunningFunnelSection: React.FC<DunningFunnelSectionProps> = ({
                 <button
                   key={stage.id}
                   onClick={() => setExpandedStage(isExpanded ? null : stage.id)}
-                  className={`relative group transition-all`}
+                  className={`relative group transition-all h-full`}
                 >
-                  {/* Card */}
-                  <div className={`${stage.bgColor} ${stage.borderColor} border rounded-lg p-4 sm:p-3 lg:p-4 transition-all ${isExpanded ? 'ring-2' : ''} hover:shadow-md`}>
-                    <div className="text-3xl sm:text-2xl mb-3 sm:mb-2">{stage.icon}</div>
-                    <p className={`text-xs sm:text-xs font-semibold mb-2 sm:mb-1 ${stage.textColor} leading-tight`}>{stage.name}</p>
-                    <p className={`text-xl sm:text-lg font-bold ${stage.textColor}`}>{stage.count.toLocaleString()}</p>
-                    {stage.amount > 0 && (
-                      <p className={`text-xs sm:text-xs mt-2 sm:mt-1 opacity-75 ${stage.textColor}`}>${stage.amount.toLocaleString()}</p>
-                    )}
+                  {/* Card - all cards same height (Phase 1: 3-stage funnel) */}
+                  <div className={`${stage.bgColor} ${stage.borderColor} border rounded-lg p-4 sm:p-3 lg:p-4 transition-all ${isExpanded ? 'ring-2' : ''} hover:shadow-md h-full flex flex-col justify-between`}>
+                    <div>
+                      <div className="text-3xl sm:text-2xl mb-3 sm:mb-2">{stage.icon}</div>
+                      <p className={`text-xs sm:text-xs font-semibold mb-2 sm:mb-1 ${stage.textColor} leading-tight`}>{stage.name}</p>
+                    </div>
+                    <div>
+                      <p className={`text-xl sm:text-lg font-bold ${stage.textColor}`}>{stage.count.toLocaleString()}</p>
+                      {stage.amount > 0 && (
+                        <p className={`text-xs sm:text-xs mt-2 sm:mt-1 opacity-75 ${stage.textColor}`}>${stage.amount.toLocaleString()}</p>
+                      )}
+                    </div>
                   </div>
 
                   {/* Conversion arrow to next stage */}
@@ -172,7 +180,7 @@ export const DunningFunnelSection: React.FC<DunningFunnelSectionProps> = ({
             })}
           </div>
 
-          {/* Mobile conversion rates */}
+          {/* Mobile conversion rates (Phase 1: 2 conversions) */}
           <div className="grid grid-cols-2 sm:hidden gap-2 text-xs text-center">
             {conversions.map((conv) => (
               <div key={`${conv.from}-${conv.to}`} className="py-2 text-gray-600 dark:text-gray-400 font-semibold bg-gray-50 dark:bg-white/[0.02] rounded">
@@ -221,49 +229,7 @@ export const DunningFunnelSection: React.FC<DunningFunnelSectionProps> = ({
               </div>
             )}
 
-            {expandedStage === 'offered' && (
-              <div>
-                <p className="font-semibold text-gray-900 dark:text-white mb-2 text-sm">Plan Offers</p>
-                <p className="text-sm text-gray-600 dark:text-gray-300">
-                  {plansOffered} payment plans offered to customers who received dunning emails
-                </p>
-              </div>
-            )}
-
-            {expandedStage === 'accepted' && recentPlans.length > 0 && (
-              <div>
-                <p className="font-semibold text-gray-900 dark:text-white mb-2 text-sm">Recent Plans</p>
-                <div className="space-y-2 max-h-48 overflow-y-auto">
-                  {recentPlans.slice(0, 5).map((plan) => (
-                    <div key={plan.planId} className="bg-white dark:bg-white/[0.03] p-2.5 rounded-lg border border-gray-100 dark:border-white/[0.05]">
-                      <div className="flex items-start justify-between mb-2">
-                        <div>
-                          <p className="text-sm font-medium text-gray-900 dark:text-white">{plan.customerName}</p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">${plan.totalAmount.toLocaleString()}</p>
-                        </div>
-                        <span className={`px-2 py-1 rounded text-xs font-medium ${
-                          plan.status === 'active' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
-                          plan.status === 'completed' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
-                          'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
-                        }`}>
-                          {plan.status}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between mb-1">
-                        <p className="text-xs text-gray-600 dark:text-gray-400">{plan.installmentsPaid}/{plan.installmentsTotal} paid</p>
-                        <p className="text-xs font-semibold text-gray-900 dark:text-white">{plan.pctComplete}%</p>
-                      </div>
-                      <div className="w-full bg-gray-200 dark:bg-white/[0.1] rounded-full h-2">
-                        <div
-                          className="h-2 bg-gradient-to-r from-emerald-500 to-green-500 rounded-full"
-                          style={{ width: `${plan.pctComplete}%` }}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+            {/* PHASE 2: Payment plans section - will be added when payment plan feature is enabled */}
 
             {expandedStage === 'paid' && (
               <div>
@@ -290,25 +256,28 @@ export const DunningFunnelSection: React.FC<DunningFunnelSectionProps> = ({
           </div>
         )}
 
-        {/* Summary cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 pt-2 border-t border-gray-200 dark:border-white/[0.05]">
-          <div className="bg-gray-100 dark:bg-white/[0.05] rounded-lg p-3 border border-gray-200 dark:border-white/[0.1]">
-            <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Recovery %</p>
-            <p className="text-xl font-bold text-gray-900 dark:text-white">
-              {totalAr > 0 ? Math.round((paymentAmount / totalAr) * 100) : 0}%
-            </p>
-          </div>
-          <div className="bg-gray-100 dark:bg-white/[0.05] rounded-lg p-3 border border-gray-200 dark:border-white/[0.1]">
-            <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Contacted</p>
-            <p className="text-xl font-bold text-gray-900 dark:text-white">
+        {/* Summary cards - Phase 1: 3-stage funnel */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-4 border-t border-gray-200 dark:border-white/[0.05]">
+          <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/20 dark:to-blue-900/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800/30">
+            <p className="text-xs font-semibold text-blue-700 dark:text-blue-300 mb-1 uppercase tracking-wide">Contacted</p>
+            <p className="text-3xl font-bold text-blue-900 dark:text-blue-200">
               {emailsSent > 0 ? Math.round((emailsSent / Math.max(stages[0].count, 1)) * 100) : 0}%
             </p>
+            <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">{emailsSent.toLocaleString()} / {stages[0].count.toLocaleString()}</p>
           </div>
-          <div className="bg-gray-100 dark:bg-white/[0.05] rounded-lg p-3 border border-gray-200 dark:border-white/[0.1]">
-            <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Recovered $</p>
-            <p className="text-lg font-bold text-gray-900 dark:text-white truncate">
+          <div className="bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-950/20 dark:to-emerald-900/20 rounded-lg p-4 border border-green-200 dark:border-green-800/30">
+            <p className="text-xs font-semibold text-green-700 dark:text-green-300 mb-1 uppercase tracking-wide">Recovery %</p>
+            <p className="text-3xl font-bold text-green-900 dark:text-green-200">
+              {totalAr > 0 ? Math.round((paymentAmount / totalAr) * 100) : 0}%
+            </p>
+            <p className="text-xs text-green-600 dark:text-green-400 mt-1">${paymentAmount.toLocaleString()} / ${totalAr.toLocaleString()}</p>
+          </div>
+          <div className="bg-gradient-to-br from-emerald-50 to-teal-100 dark:from-emerald-950/20 dark:to-teal-900/20 rounded-lg p-4 border border-emerald-200 dark:border-emerald-800/30">
+            <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-300 mb-1 uppercase tracking-wide">Recovered</p>
+            <p className="text-3xl font-bold text-emerald-900 dark:text-emerald-200">
               ${(paymentAmount / 1000).toFixed(1)}k
             </p>
+            <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">{paymentsReceived.toLocaleString()} payments</p>
           </div>
         </div>
       </div>

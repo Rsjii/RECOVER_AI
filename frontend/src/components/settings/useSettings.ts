@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { api } from '../../lib/api';
+import { logError } from '../../utils/logger';
 import { useNotification } from '../../hooks/useNotification';
 import type {
   SettingsFormData,
@@ -141,7 +142,7 @@ export const useSettings = () => {
         }
       } catch (err: any) {
         setError(err.message || 'Failed to load settings');
-        console.error('Error fetching settings:', err);
+        logError('Component', 'handler', 'Error fetching settings:', err);
       } finally {
         setIsLoading(false);
       }
@@ -271,7 +272,7 @@ export const useSettings = () => {
 
       setIntegrations(integrationsArray);
     } catch (err: any) {
-      console.error('Error refetching integrations:', err);
+      logError('Component', 'handler', 'Error refetching integrations:', err);
       addToast({
         type: 'error',
         message: 'Failed to refresh integrations',

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
+import { logError } from '../utils/logger';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { useNotification } from '../hooks/useNotification';
@@ -58,7 +59,7 @@ const AuditRequest: React.FC = () => {
       });
       setStep('verify');
     } catch (err: any) {
-      console.error('Form submission error:', err);
+      logError('Component', 'handler', 'Form submission error:', err);
       addToast({
         type: 'error',
         message: err?.message || 'Failed to submit form',
@@ -105,7 +106,7 @@ const AuditRequest: React.FC = () => {
       });
       setStep('success');
     } catch (err: any) {
-      console.error('OTP verification error:', err);
+      logError('Component', 'handler', 'OTP verification error:', err);
       addToast({
         type: 'error',
         message: err?.message || 'Invalid OTP',

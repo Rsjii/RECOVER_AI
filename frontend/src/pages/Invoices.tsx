@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { api } from '../lib/api';
+import { logError } from '../utils/logger';
 import { API_ENDPOINTS, PAGINATION_LIMIT } from '../lib/constants';
 import { useNotification } from '../hooks/useNotification';
 import { ConfirmationModal } from '../components/ui/ConfirmationModal';
@@ -75,7 +76,7 @@ const Invoices: React.FC = () => {
           }, 1500);
         }
       } catch (err: any) {
-        console.error('Failed to poll import status:', err);
+        logError('Component', 'handler', 'Failed to poll import status:', err);
       }
     }, 1000);
 
@@ -109,7 +110,7 @@ const Invoices: React.FC = () => {
           }, 1500);
         }
       } catch (err: any) {
-        console.error('Failed to poll delete status:', err);
+        logError('Component', 'handler', 'Failed to poll delete status:', err);
       }
     }, 1000);
 
