@@ -2,12 +2,14 @@ export interface User {
   id: string;
   email: string;
   company_id: string;
+  firstName?: string;
+  lastName?: string;
   role?: 'admin' | 'owner' | 'user';
   created_at: string;
   updated_at: string;
   last_login?: string;
   emailVerified?: boolean;
-  onboardingStatus?: 'onboarding' | 'company_form' | 'stripe_pending' | 'active';
+  onboardingStatus?: 'pending_profile' | 'onboarding' | 'company_form' | 'integrations_pending' | 'stripe_pending' | 'active';
   authProvider?: 'email' | 'google' | 'both';
 }
 

@@ -119,7 +119,7 @@ CREATE TABLE IF NOT EXISTS users (
 
   -- Onboarding flow
   signup_method VARCHAR(20),                     -- 'google_oauth' | 'email_password' | 'invite_token'
-  onboarding_status VARCHAR(20) DEFAULT 'onboarding',  -- 'onboarding' | 'company_form' | 'stripe_pending' | 'active'
+  onboarding_status VARCHAR(20) DEFAULT 'pending_profile',  -- 'pending_profile' | 'integrations_pending' | 'active'
   onboarding_completed_at TIMESTAMPTZ,
 
   created_at    TIMESTAMPTZ DEFAULT NOW(),
@@ -131,6 +131,14 @@ DO $$
 BEGIN
   ALTER TABLE companies ADD CONSTRAINT fk_companies_owner FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE SET NULL;
 EXCEPTION WHEN duplicate_object THEN
+  NULL;
+END $$;
+
+-- Update onboarding_status DEFAULT for existing databases (idempotent)
+DO $$
+BEGIN
+  ALTER TABLE users ALTER COLUMN onboarding_status SET DEFAULT 'pending_profile';
+EXCEPTION WHEN OTHERS THEN
   NULL;
 END $$;
 

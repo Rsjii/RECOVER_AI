@@ -16,7 +16,7 @@ interface IntegrationStatus {
 export const Integrations: React.FC = () => {
   const navigate = useNavigate();
   const { addToast } = useNotification();
-  const { setAuthState, company } = useAuth();
+  const { setAuthState, company, user } = useAuth();
 
   const [status, setStatus] = useState<IntegrationStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -27,6 +27,18 @@ export const Integrations: React.FC = () => {
   const [stripeApiKey, setStripeApiKey] = useState('');
   const [validatingKey, setValidatingKey] = useState(false);
   const shouldNavigateToDashboard = useRef(false);
+
+  // STRICT PIPELINE: Enforce integrations_pending status only (redirect if status changes)
+  useEffect(() => {
+    if (user?.onboardingStatus) {
+      if (user.onboardingStatus === 'pending_profile') {
+        navigate('/profile', { replace: true });
+      } else if (user.onboardingStatus === 'active') {
+        navigate('/dashboard', { replace: true });
+      }
+      // If integrations_pending, user is in correct place, allow
+    }
+  }, [user?.onboardingStatus, navigate]);
 
   // Watch for auth state update after proceed — navigate only after state is committed
   useEffect(() => {

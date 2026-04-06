@@ -28,6 +28,7 @@ import Unsubscribe from './pages/Unsubscribe';
 import BillingSuccess from './pages/BillingSuccess';
 // import EmailQueue from './pages/EmailQueue';  // ❌ REMOVED: Merged into Activity → Emails tab
 import Onboard from './pages/Onboard';
+import Profile from './pages/Profile';
 import { Integrations } from './pages/Integrations';
 import { AuditReport } from './pages/AuditReport';
 
@@ -111,6 +112,14 @@ const App: React.FC = () => {
             <Route path="/onboard" element={<Onboard />} />
 
             <Route path="/verify-email" element={<VerifyEmail />} />
+            <Route
+              path="/profile"
+              element={
+                <ProtectedRoute requireEmailVerification>
+                  <Profile />
+                </ProtectedRoute>
+              }
+            />
 
             {/* Audit Flow: Integrations → Audit Report */}
             <Route

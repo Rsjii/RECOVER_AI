@@ -2,6 +2,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { config } from '../config/env';
+import { pool } from '../config/database';
 import * as UserDB from '../db/users';
 import * as CompanyDB from '../db/companies';
 import * as AuditDB from '../db/auditLogs';
@@ -255,7 +256,7 @@ class AuthService {
       lastName: user.last_name,
       role: user.role,
       emailVerified: user.email_verified || false,
-      onboardingStatus: user.onboarding_status || 'active',
+      onboardingStatus: (user.onboarding_status as any) || 'pending_profile',
       authProvider: (user.auth_provider as any) || 'email',
       passwordHash: user.password_hash,
       company: {
@@ -355,18 +356,15 @@ async googleLogin(code: string): Promise<AuthResponse> {
   }
 
   const email = googleUser.email as string;
-  const name = (googleUser.name as string) || 'User';
-  const [firstName, ...lastNameParts] = name.split(' ');
-  const lastName = lastNameParts.join(' ') || 'User';
 
   // Find existing user with this email
   let user = await UserDB.findUserWithCompanyByEmail(email);
   const avatarUrl = (googleUser.picture as string) || undefined;
 
   if (!user) {
-    // New user - create company + user
+    // New user - create company + user (minimal data, details filled on /profile page)
     const company = await CompanyDB.createCompany({
-      name: `${firstName}'s Company`,
+      name: email, // Temporary - user updates on /profile
       email,
       timezone: 'UTC',
       preferredCurrency: 'USD',
@@ -376,13 +374,16 @@ async googleLogin(code: string): Promise<AuthResponse> {
       companyId: company.id,
       email,
       passwordHash: '', // No password for OAuth users
-      firstName,
-      lastName,
+      firstName: '', // Will be filled on /profile
+      lastName: '', // Will be filled on /profile
       role: 'owner',
       googleId: googleUser.sub as string,
       authProvider: 'google',
       avatarUrl,
     });
+
+    // Mark email as verified for OAuth users (Google already verified it)
+    await pool.query('UPDATE users SET email_verified = true WHERE id = $1', [newUser.id]);
 
     // Set company owner
     await CompanyDB.setCompanyOwner(company.id, newUser.id);
@@ -405,6 +406,9 @@ async googleLogin(code: string): Promise<AuthResponse> {
       resourceType: 'user',
       details: { email, method: 'google_oauth', role: 'owner' },
     });
+
+    // Set onboarding_status = 'pending_profile' (user must complete profile before proceeding)
+    await UserDB.updateOnboardingStatus(newUser.id, 'pending_profile');
 
     // Fetch with company info
     user = await UserDB.findUserWithCompany(newUser.id);

@@ -620,40 +620,50 @@ export interface HoursSavedData {
  * Formula: (emails_sent * 10 min) + (payment_plans_offered * 15 min) = total minutes ÷ 60
  */
 export async function getHoursSaved(companyId: string): Promise<HoursSavedData> {
-  const sevenDaysAgo = new Date();
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  try {
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-  const [emailRes, planRes] = await Promise.all([
-    pool.query<{ count: string }>(
-      `SELECT COUNT(*) as count
-       FROM email_logs
-       WHERE company_id = $1
-         AND created_at >= $2
-         AND status = 'sent'`,
-      [companyId, sevenDaysAgo]
-    ),
-    pool.query<{ count: string }>(
-      `SELECT COUNT(*) as count
-       FROM payment_plans
-       WHERE company_id = $1
-         AND created_at >= $2`,
-      [companyId, sevenDaysAgo]
-    ),
-  ]);
+    const [emailRes, planRes] = await Promise.all([
+      pool.query<{ count: string }>(
+        `SELECT COUNT(*) as count
+         FROM email_logs
+         WHERE company_id = $1
+           AND created_at >= $2
+           AND status = 'sent'`,
+        [companyId, sevenDaysAgo]
+      ),
+      pool.query<{ count: string }>(
+        `SELECT COUNT(*) as count
+         FROM payment_plans
+         WHERE company_id = $1
+           AND created_at >= $2`,
+        [companyId, sevenDaysAgo]
+      ),
+    ]);
 
-  const emailsSent = parseInt(emailRes.rows[0]?.count ?? '0', 10);
-  const paymentPlansOffered = parseInt(planRes.rows[0]?.count ?? '0', 10);
+    const emailsSent = parseInt(emailRes.rows[0]?.count ?? '0', 10);
+    const paymentPlansOffered = parseInt(planRes.rows[0]?.count ?? '0', 10);
 
-  // 10 min per email, 15 min per payment plan = total minutes
-  const totalMinutes = (emailsSent * 10) + (paymentPlansOffered * 15);
-  const hoursSaved = Math.round((totalMinutes / 60) * 10) / 10; // Round to 1 decimal
+    // 10 min per email, 15 min per payment plan = total minutes
+    const totalMinutes = (emailsSent * 10) + (paymentPlansOffered * 15);
+    const hoursSaved = Math.round((totalMinutes / 60) * 10) / 10; // Round to 1 decimal
 
-  return {
-    hoursSaved,
-    emailsSent,
-    paymentPlansOffered,
-    period: 'this week',
-  };
+    return {
+      hoursSaved,
+      emailsSent,
+      paymentPlansOffered,
+      period: 'this week',
+    };
+  } catch (err) {
+    // If query fails, return default (table might not exist in schema yet)
+    return {
+      hoursSaved: 0,
+      emailsSent: 0,
+      paymentPlansOffered: 0,
+      period: 'this week',
+    };
+  }
 }
 
 export interface BillingAnomalyRow {

@@ -470,12 +470,21 @@ export const proceedFromStage4 = async (req: Request, res: Response) => {
       var syncSummary = { imported: 0, skipped: 0 };
     }
 
-    // ✅ CRITICAL: Set to trial_active so dashboard access is immediately unlocked
-    // User goes directly to dashboard (no audit report page)
-    // Also activate the 21-day free trial
+    // ✅ CRITICAL: Pipeline complete
+    // Set user.onboarding_status = 'active' (onboarding pipeline done)
+    // Set company to trial_active + activate 21-day trial
     const trialEndsAt = new Date();
     trialEndsAt.setDate(trialEndsAt.getDate() + 21);
 
+    const userId = (req as any).userId;
+
+    // Update user onboarding status to 'active' (pipeline complete)
+    await pool.query(
+      'UPDATE users SET onboarding_status = $1, updated_at = NOW() WHERE id = $2',
+      ['active', userId]
+    );
+
+    // Update company to trial_active
     await CompanyDB.updateCompany(companyId, {
       onboarding_stage: 'trial_active',
       trial_status: 'active',

@@ -9,7 +9,7 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requireEmailVerification: _requireEmailVerification = false }) => {
-  const { isAuthenticated, isLoading, company, user } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
   const location = useLocation();
 
   if (isLoading) {
@@ -27,24 +27,27 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requireEmailV
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  // Enforce onboarding flow: block dashboard access if not completed
-  // Users must complete: signup → verify-email → integrations → dashboard
+  // Enforce strict onboarding pipeline using user.onboardingStatus
+  // Pipeline: pending_profile → integrations_pending → active
   if (_requireEmailVerification) {
-    const stage = company?.onboarding_stage;
-    // Platform admin (role='admin') skips onboarding entirely
-    // Owner must complete integrations first — stage check enforces this
+    const status = user?.onboardingStatus;
+    const currentPath = location.pathname;
+
+    // Admin users skip onboarding
     const isAdmin = user?.role === 'admin';
 
-    // Stages that still need to complete integrations
-    const needsIntegrations = !isAdmin && stage !== 'trial_active' && stage !== 'paid_active';
-
-    // If on /integrations route, allow create_account and integrations stages through
-    const isIntegrationsPage = location.pathname === '/integrations' || location.pathname === '/audit-report';
-
-    if (needsIntegrations && !isIntegrationsPage) {
-      // Not yet at dashboard stage — send to integrations
-      return <Navigate to="/integrations" replace />;
+    if (!isAdmin && status === 'pending_profile') {
+      // User MUST be on /profile — cannot access any other page
+      if (currentPath !== '/profile') {
+        return <Navigate to="/profile" replace />;
+      }
+    } else if (!isAdmin && status === 'integrations_pending') {
+      // User MUST be on /integrations or /audit-report — cannot access dashboard yet
+      if (currentPath !== '/integrations' && currentPath !== '/audit-report') {
+        return <Navigate to="/integrations" replace />;
+      }
     }
+    // If status === 'active', user can access all pages
   }
 
   return <>{children}</>;

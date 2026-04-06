@@ -20,19 +20,16 @@ const Signup: React.FC = () => {
     }
   }, [isAuthenticated, isLoading, navigate]);
 
+  // Track signup method: null (initial choice), 'email', or 'google'
+  const [signupMethod, setSignupMethod] = useState<'email' | 'google' | null>(null);
+
   const [form, setForm] = useState({
-    firstName: '',
-    lastName: '',
     email: '',
     password: '',
-    company_name: '',
   });
   const [errors, setErrors] = useState<{
-    firstName?: string;
-    lastName?: string;
     email?: string;
     password?: string;
-    company_name?: string;
   }>({});
   const [submitting, setSubmitting] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
@@ -46,9 +43,6 @@ const Signup: React.FC = () => {
 
   const validate = () => {
     const newErrors: typeof errors = {};
-    if (!form.firstName.trim()) newErrors.firstName = 'First name is required';
-    if (!form.lastName.trim()) newErrors.lastName = 'Last name is required';
-    if (!form.company_name.trim()) newErrors.company_name = 'Company name is required';
     if (!form.email) newErrors.email = 'Email is required';
     else if (!validateEmail(form.email)) newErrors.email = 'Enter a valid email';
     if (!form.password) newErrors.password = 'Password is required';
@@ -88,14 +82,10 @@ const Signup: React.FC = () => {
     setApiError(null);
     setSubmitting(true);
     try {
-      // POST /api/auth/signup
-      // Creates account immediately but user must verify email
+      // POST /api/auth/signup - only email + password (no names, no company)
       await api.post('/api/auth/signup', {
         email: form.email,
         password: form.password,
-        companyName: form.company_name,
-        firstName: form.firstName,
-        lastName: form.lastName,
       });
 
       addToast({ type: 'success', message: 'Verification code sent to your email!' });
@@ -129,175 +119,173 @@ const Signup: React.FC = () => {
 
         {/* Card */}
         <div className="bg-white dark:bg-[#111113] rounded-xl shadow-sm border border-gray-200 dark:border-white/[0.06] p-8">
-          <form onSubmit={handleSubmit} className="space-y-4">
-
-            {/* API Error Banner */}
-            {apiError && (
-              <div className="flex items-start gap-2.5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg px-4 py-3">
-                <svg className="w-4 h-4 text-red-500 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                </svg>
-                <p className="text-sm text-red-700 dark:text-red-400">{apiError}</p>
-              </div>
-            )}
-
-            {/* Name Row */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                  First name
-                </label>
-                <input
-                  type="text"
-                  value={form.firstName}
-                  onChange={(e) => handleChange('firstName', e.target.value)}
-                  placeholder="John"
-                  className={`w-full px-4 py-2.5 border rounded-lg text-gray-900 dark:text-white bg-white dark:bg-white/[0.03] focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors ${
-                    errors.firstName ? 'border-red-500' : 'border-gray-300 dark:border-white/[0.08]'
-                  }`}
-                />
-                {errors.firstName && <p className="mt-1 text-xs text-red-500">{errors.firstName}</p>}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                  Last name
-                </label>
-                <input
-                  type="text"
-                  value={form.lastName}
-                  onChange={(e) => handleChange('lastName', e.target.value)}
-                  placeholder="Smith"
-                  className={`w-full px-4 py-2.5 border rounded-lg text-gray-900 dark:text-white bg-white dark:bg-white/[0.03] focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors ${
-                    errors.lastName ? 'border-red-500' : 'border-gray-300 dark:border-white/[0.08]'
-                  }`}
-                />
-                {errors.lastName && <p className="mt-1 text-xs text-red-500">{errors.lastName}</p>}
-              </div>
-            </div>
-
-            {/* Company Name */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                Company name
-              </label>
-              <input
-                type="text"
-                value={form.company_name}
-                onChange={(e) => handleChange('company_name', e.target.value)}
-                placeholder="Acme Corp"
-                className={`w-full px-4 py-2.5 border rounded-lg text-gray-900 dark:text-white bg-white dark:bg-white/[0.03] focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors ${
-                  errors.company_name ? 'border-red-500' : 'border-gray-300 dark:border-white/[0.08]'
-                }`}
-              />
-              {errors.company_name && <p className="mt-1 text-xs text-red-500">{errors.company_name}</p>}
-            </div>
-
-            {/* Email */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                Work email
-              </label>
-              <input
-                type="email"
-                value={form.email}
-                onChange={(e) => handleChange('email', e.target.value)}
-                placeholder="john@company.com"
-                className={`w-full px-4 py-2.5 border rounded-lg text-gray-900 dark:text-white bg-white dark:bg-white/[0.03] focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors ${
-                  errors.email ? 'border-red-500' : 'border-gray-300 dark:border-white/[0.08]'
-                }`}
-              />
-              {errors.email && <p className="mt-1 text-xs text-red-500">{errors.email}</p>}
-            </div>
-
-            {/* Password */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                Password
-              </label>
-              <div className="relative">
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={form.password}
-                  onChange={(e) => handleChange('password', e.target.value)}
-                  placeholder="••••••••"
-                  className={`w-full px-4 py-2.5 pr-10 border rounded-lg text-gray-900 dark:text-white bg-white dark:bg-white/[0.03] focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors ${
-                    errors.password ? 'border-red-500' : 'border-gray-300 dark:border-white/[0.08]'
-                  }`}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 transition-colors"
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
-                >
-                  {showPassword ? (
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                      <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-                      <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
-                    </svg>
-                  ) : (
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M3.707 2.293a1 1 0 00-1.414 1.414l14 14a1 1 0 001.414-1.414l-1.473-1.473A10.014 10.014 0 0019.542 10C18.268 5.943 14.478 3 10 3a9.958 9.958 0 00-4.512 1.074l-1.78-1.781zm4.261 4.26l1.514 1.515a2.003 2.003 0 012.45 2.45l1.514 1.514a4 4 0 00-5.478-5.478z" clipRule="evenodd" />
-                      <path d="M15.171 13.576l1.414 1.414a1 1 0 00.707-.293 1 1 0 000-1.414l-1.414-1.414m2.121 2.121l1.414 1.414a1 1 0 001.414-1.414l-14-14a1 1 0 00-1.414 1.414l1.473 1.473A10.014 10.014 0 00.458 10C1.732 14.057 5.522 17 10 17a9.958 9.958 0 004.512-1.074l1.781 1.781z" />
-                    </svg>
-                  )}
-                </button>
-              </div>
-              {form.password.length > 0 && strength && (
-                <div className="mt-2">
-                  <div className="flex gap-1">
-                    {[0, 1, 2, 3].map((i) => (
-                      <div
-                        key={i}
-                        className={`h-1 flex-1 rounded-full ${
-                          i < strength.score ? strengthColors[strength.score - 1] : 'bg-gray-200 dark:bg-gray-600'
-                        }`}
-                      />
-                    ))}
-                  </div>
-                  <p className={`text-xs mt-1 ${errors.password ? 'text-red-500' : 'text-gray-500 dark:text-gray-400'}`}>
-                    {errors.password || strength.message}
-                  </p>
+          {/* STEP 1: Show initial choice OR STEP 2: Show email form based on signupMethod */}
+          {!signupMethod ? (
+            // Initial Choice View
+            <div className="space-y-4">
+              {apiError && (
+                <div className="flex items-start gap-2.5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg px-4 py-3">
+                  <svg className="w-4 h-4 text-red-500 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                  <p className="text-sm text-red-700 dark:text-red-400">{apiError}</p>
                 </div>
               )}
-            </div>
 
-            {/* Submit */}
-            <Button
-              type="submit"
-              variant="primary"
-              size="lg"
-              loading={submitting}
-              disabled={submitting}
-              className="w-full"
-            >
-              Create account
-            </Button>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white text-center mb-6">
+                How do you want to sign up?
+              </h2>
 
-            <div className="relative py-1">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-200 dark:border-white/[0.06]" />
+              <Button
+                type="button"
+                variant="primary"
+                size="lg"
+                onClick={() => setSignupMethod('email')}
+                className="w-full"
+              >
+                Email + Password
+              </Button>
+
+              <div className="relative py-1">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-200 dark:border-white/[0.06]" />
+                </div>
+                <div className="relative flex justify-center">
+                  <span className="px-2 text-xs text-gray-500 dark:text-gray-400 bg-white dark:bg-[#111113]">OR</span>
+                </div>
               </div>
-              <div className="relative flex justify-center">
-                <span className="px-2 text-xs text-gray-500 dark:text-gray-400 bg-white dark:bg-[#111113]">OR</span>
-              </div>
+
+              <Button
+                type="button"
+                variant="outline"
+                size="lg"
+                onClick={handleGoogleSignup}
+                className="w-full"
+              >
+                Continue with Google
+              </Button>
+
+              <p className="text-xs text-center text-gray-500 dark:text-gray-400 mt-4">
+                By signing up, you agree to our{' '}
+                <Link to="/terms" className="text-brand-600 hover:underline">Terms</Link> and{' '}
+                <Link to="/privacy" className="text-brand-600 hover:underline">Privacy Policy</Link>
+              </p>
             </div>
+          ) : (
+            // Email + Password Form
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="flex items-center gap-2 mb-6">
+                <button
+                  type="button"
+                  onClick={() => setSignupMethod(null)}
+                  className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                  aria-label="Go back"
+                >
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
+                  </svg>
+                </button>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Create your account</h2>
+              </div>
 
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full"
-              onClick={handleGoogleSignup}
-            >
-              Continue with Google
-            </Button>
+              {apiError && (
+                <div className="flex items-start gap-2.5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg px-4 py-3">
+                  <svg className="w-4 h-4 text-red-500 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                  <p className="text-sm text-red-700 dark:text-red-400">{apiError}</p>
+                </div>
+              )}
 
-            <p className="text-xs text-center text-gray-500 dark:text-gray-400">
-              By signing up, you agree to our{' '}
-              <Link to="/terms" className="text-brand-600 hover:underline">Terms</Link> and{' '}
-              <Link to="/privacy" className="text-brand-600 hover:underline">Privacy Policy</Link>
-            </p>
-          </form>
+              {/* Email */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                  Work email
+                </label>
+                <input
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => handleChange('email', e.target.value)}
+                  placeholder="john@company.com"
+                  className={`w-full px-4 py-2.5 border rounded-lg text-gray-900 dark:text-white bg-white dark:bg-white/[0.03] focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors ${
+                    errors.email ? 'border-red-500' : 'border-gray-300 dark:border-white/[0.08]'
+                  }`}
+                />
+                {errors.email && <p className="mt-1 text-xs text-red-500">{errors.email}</p>}
+              </div>
+
+              {/* Password */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                  Password
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={form.password}
+                    onChange={(e) => handleChange('password', e.target.value)}
+                    placeholder="••••••••"
+                    className={`w-full px-4 py-2.5 pr-10 border rounded-lg text-gray-900 dark:text-white bg-white dark:bg-white/[0.03] focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors ${
+                      errors.password ? 'border-red-500' : 'border-gray-300 dark:border-white/[0.08]'
+                    }`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 transition-colors"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? (
+                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+                        <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
+                      </svg>
+                    ) : (
+                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M3.707 2.293a1 1 0 00-1.414 1.414l14 14a1 1 0 001.414-1.414l-1.473-1.473A10.014 10.014 0 0019.542 10C18.268 5.943 14.478 3 10 3a9.958 9.958 0 00-4.512 1.074l-1.78-1.781zm4.261 4.26l1.514 1.515a2.003 2.003 0 012.45 2.45l1.514 1.514a4 4 0 00-5.478-5.478z" clipRule="evenodd" />
+                        <path d="M15.171 13.576l1.414 1.414a1 1 0 00.707-.293 1 1 0 000-1.414l-1.414-1.414m2.121 2.121l1.414 1.414a1 1 0 001.414-1.414l-14-14a1 1 0 00-1.414 1.414l1.473 1.473A10.014 10.014 0 00.458 10C1.732 14.057 5.522 17 10 17a9.958 9.958 0 004.512-1.074l1.781 1.781z" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+                {form.password.length > 0 && strength && (
+                  <div className="mt-2">
+                    <div className="flex gap-1">
+                      {[0, 1, 2, 3].map((i) => (
+                        <div
+                          key={i}
+                          className={`h-1 flex-1 rounded-full ${
+                            i < strength.score ? strengthColors[strength.score - 1] : 'bg-gray-200 dark:bg-gray-600'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                    <p className={`text-xs mt-1 ${errors.password ? 'text-red-500' : 'text-gray-500 dark:text-gray-400'}`}>
+                      {errors.password || strength.message}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Submit */}
+              <Button
+                type="submit"
+                variant="primary"
+                size="lg"
+                loading={submitting}
+                disabled={submitting}
+                className="w-full"
+              >
+                Continue
+              </Button>
+
+              <p className="text-xs text-center text-gray-500 dark:text-gray-400">
+                By signing up, you agree to our{' '}
+                <Link to="/terms" className="text-brand-600 hover:underline">Terms</Link> and{' '}
+                <Link to="/privacy" className="text-brand-600 hover:underline">Privacy Policy</Link>
+              </p>
+            </form>
+          )}
 
           <p className="mt-6 text-center text-sm text-gray-500 dark:text-gray-400">
             Already have an account?{' '}

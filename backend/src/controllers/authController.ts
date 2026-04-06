@@ -59,23 +59,24 @@ const clearCookies = (res: Response) => {
 // ============ Handlers ============
 
 /**
- * POST /api/auth/signup-otp
- * NEW FLOW: Simple signup with OTP verification
- * Input: email, password, firstName, lastName, companyName
+ * POST /api/auth/signup
+ * Step 1: Email + Password signup with OTP verification
+ * Input: email, password ONLY
  * Output: OTP sent, no account yet (data in Redis)
+ * Note: Company details collected later in /profile page
  */
 export const signupWithOTP = async (req: Request, res: Response) => {
   const handler = 'signupWithOTP';
   const startTime = Date.now();
 
   try {
-    const { email, password, companyName, firstName = '', lastName = '' } = req.body;
+    const { email, password } = req.body;
 
-    logInfo(handler, 'Signup request received', { email, companyName });
+    logInfo(handler, 'Signup request received', { email });
 
     // Validation
-    if (!email || !password || !companyName) {
-      return sendErrorResponse(res, 400, 'Missing required fields: email, password, companyName');
+    if (!email || !password) {
+      return sendErrorResponse(res, 400, 'Missing required fields: email, password');
     }
 
     if (password.length < 8) {
@@ -95,10 +96,11 @@ export const signupWithOTP = async (req: Request, res: Response) => {
     const isDev = config.nodeEnv !== 'production';
     const otp = isDev ? '123456' : String(Math.floor(100000 + Math.random() * 900000));
 
-    // Store pending data in Redis (15 min expiry)
+    // Store only email + password hash in Redis (15 min expiry)
+    // Profile details (firstName, lastName, companyName) will be collected after OTP verify
     await redisClient.set(
       `signup_pending:${email}`,
-      JSON.stringify({ email, passwordHash, companyName, firstName, lastName }),
+      JSON.stringify({ email, passwordHash }),
       { EX: 15 * 60 }
     );
     await redisClient.set(`signup_otp:${email}`, otp, { EX: 15 * 60 });
@@ -130,10 +132,11 @@ export const signupWithOTP = async (req: Request, res: Response) => {
 };
 
 /**
- * POST /api/auth/signup-verify-otp
- * Verify OTP and create account
+ * POST /api/auth/verify-email
+ * Verify OTP and create account (Step 2 of signup)
  * Input: email, otp
- * Output: Account created, auth cookies set
+ * Output: Account created with onboarding_status='pending_profile', cookies set, redirect to /profile
+ * Note: Company details NOT created yet - will be created in /profile page
  */
 export const signupVerifyOTP = async (req: Request, res: Response) => {
   const handler = 'signupVerifyOTP';
@@ -160,29 +163,32 @@ export const signupVerifyOTP = async (req: Request, res: Response) => {
       return sendErrorResponse(res, 400, 'Session expired, please start again');
     }
 
-    const { passwordHash, companyName, firstName, lastName } = JSON.parse(pendingStr);
+    const { passwordHash } = JSON.parse(pendingStr);
 
-    // Create company
+    // Create TEMPORARY company (will be updated in /profile page)
     const company = await CompanyDB.createCompany({
-      name: companyName,
+      name: 'Pending Company Name', // ← Will be updated in /profile page
       email,
-      timezone: 'UTC',
-      preferredCurrency: 'USD',
+      timezone: 'UTC', // ← Default, will be updated in /profile page
+      preferredCurrency: 'USD', // ← Default, will be updated in /profile page
     });
 
-    // Create user
+    // Create user with default names (will be updated in /profile page)
     const user = await UserDB.createUser({
       companyId: company.id,
       email,
       passwordHash,
-      firstName: firstName || email.split('@')[0],
-      lastName: lastName || 'User',
+      firstName: email.split('@')[0], // ← Temporary, will be updated in /profile page
+      lastName: 'User', // ← Temporary, will be updated in /profile page
       role: 'owner',
       authProvider: 'email',
     });
 
-    // Set onboarding stage
-    await CompanyDB.updateCompany(company.id, { onboarding_stage: 'create_account' });
+    // Set onboarding_status = 'pending_profile' (user must complete profile before proceeding)
+    await pool.query(
+      'UPDATE users SET onboarding_status = $1, updated_at = NOW() WHERE id = $2',
+      ['pending_profile', user.id]
+    );
 
     // Create session
     await SecurityDB.createSession({
@@ -207,7 +213,7 @@ export const signupVerifyOTP = async (req: Request, res: Response) => {
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     });
 
-    // Set cookies
+    // Set cookies (user is now authenticated)
     setCookies(res, tokens.accessToken, tokens.refreshToken);
 
     // Clean Redis
@@ -220,22 +226,20 @@ export const signupVerifyOTP = async (req: Request, res: Response) => {
       await resendService.sendEmail({
         to: email,
         subject: '🚀 Welcome to RecoverAI — Your 21-Day Free Trial Starts Now',
-        bodyText: `Welcome to RecoverAI! Your 21-day free trial is now active.\n\nNext steps:\n1. Connect Stripe (takes 30 seconds)\n2. Activate the Agent (AI sends emails every 6 hours)\n3. Track recovered payments\n\nGet started: ${frontendUrl}/integrations`,
+        bodyText: `Welcome to RecoverAI! Your 21-day free trial is now active.\n\nNext steps:\n1. Complete your profile\n2. Connect Stripe (takes 30 seconds)\n3. Activate the Agent\n\nGet started: ${frontendUrl}/profile`,
         bodyHtml: `
-          <p>Hi ${firstName},</p>
+          <p>Hi ${email.split('@')[0]},</p>
 
           <p>Welcome to <strong>RecoverAI</strong>! Your 21-day free trial is now active.</p>
 
           <h3>Here's what's next:</h3>
           <ul>
+            <li><strong>Complete your profile</strong> — Tell us about yourself and your company</li>
             <li><strong>Connect Stripe</strong> — Link your invoices (takes 30 seconds)</li>
-            <li><strong>Activate the Agent</strong> — Start autonomous dunning (AI sends emails every 6 hours)</li>
-            <li><strong>Track results</strong> — See recovered payments in real-time</li>
+            <li><strong>Activate the Agent</strong> — Start autonomous dunning</li>
           </ul>
 
-          <p><strong>🚀 First emails will be sent in the next 6 hours</strong> after you activate the agent.</p>
-
-          <p><a href="${frontendUrl}/integrations" style="background-color: #2563eb; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; display: inline-block;">Get Started Now</a></p>
+          <p><a href="${frontendUrl}/profile" style="background-color: #2563eb; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; display: inline-block;">Complete Profile</a></p>
 
           <p>Questions? Reply to this email anytime.</p>
 
@@ -250,13 +254,13 @@ export const signupVerifyOTP = async (req: Request, res: Response) => {
     }
 
     const elapsed = Date.now() - startTime;
-    logInfo(handler, `Account created in ${elapsed}ms`, { userId: user.id });
+    logInfo(handler, `Account created in ${elapsed}ms`, { userId: user.id, status: 'pending_profile' });
 
     return res.status(201).json({
       success: true,
-      message: 'Account created successfully',
-      user: { id: user.id, email: user.email, firstName, lastName },
-      company: { id: company.id, name: company.name },
+      message: 'Account created. Please complete your profile.',
+      user: { id: user.id, email: user.email },
+      company: { id: company.id },
     });
   } catch (err: any) {
     const elapsed = Date.now() - startTime;
@@ -266,18 +270,25 @@ export const signupVerifyOTP = async (req: Request, res: Response) => {
   }
 };
 
+/**
+ * POST /api/auth/signup
+ * Step 1: Email + Password signup with OTP
+ * Input: email, password ONLY
+ * Output: OTP sent, no account created yet
+ * Note: Profile details (name, company) collected later at /profile page
+ */
 export const signup = async (req: Request, res: Response) => {
   const handler = 'signup';
   const startTime = Date.now();
 
   try {
-    const { email, password, companyName, firstName = '', lastName = '' } = req.body;
+    const { email, password } = req.body;
 
-    logInfo(handler, 'Signup request - sending OTP', { email, companyName });
+    logInfo(handler, 'Signup request - sending OTP', { email });
 
     // Validation
-    if (!email || !password || !companyName) {
-      return sendErrorResponse(res, 400, 'Missing required fields: email, password, companyName');
+    if (!email || !password) {
+      return sendErrorResponse(res, 400, 'Missing required fields: email, password');
     }
 
     if (password.length < 8) {
@@ -296,11 +307,11 @@ export const signup = async (req: Request, res: Response) => {
       // Hash password
       const passwordHash = await bcrypt.hash(password, 12);
 
-      // Store pending signup data in Redis (15 min expiry)
-      // NO account created yet — just OTP sent
+      // Store ONLY email + passwordHash in Redis (15 min expiry)
+      // Profile details will be collected AFTER OTP verification in /profile page
       await redisClient.set(
         `signup_pending:${email}`,
-        JSON.stringify({ email, passwordHash, companyName, firstName, lastName }),
+        JSON.stringify({ email, passwordHash }),
         { EX: 15 * 60 }
       );
       await redisClient.set(`signup_otp:${email}`, otp, { EX: 15 * 60 });
@@ -323,7 +334,7 @@ export const signup = async (req: Request, res: Response) => {
     // If email exists, verify-otp step will silently fail to create account
     return res.status(200).json({
       success: true,
-      message: isDev ? 'Dev: OTP is 123456' : 'If this email is available, a verification code has been sent',
+      message: isDev ? 'Dev: OTP is 123456' : 'Verification code sent to your email',
       devOtp: isDev ? '123456' : undefined,
     });
   } catch (err: any) {
@@ -662,29 +673,31 @@ export const verifyEmail = async (req: Request, res: Response) => {
         return sendErrorResponse(res, 400, 'Session expired, please start again');
       }
 
-      const { passwordHash, companyName, firstName, lastName } = JSON.parse(pendingStr);
+      const { passwordHash } = JSON.parse(pendingStr);
 
-      // Create company
+      // Create company + user (minimal data, details filled on /profile page)
       const company = await CompanyDB.createCompany({
-        name: companyName,
+        name: email, // Temporary - user updates on /profile
         email,
         timezone: 'UTC',
         preferredCurrency: 'USD',
       });
 
-      // Create user
       const user = await UserDB.createUser({
         companyId: company.id,
         email,
         passwordHash,
-        firstName: firstName || email.split('@')[0],
-        lastName: lastName || 'User',
+        firstName: '',
+        lastName: '',
         role: 'owner',
         authProvider: 'email',
       });
 
       // Mark email as verified (OTP already verified)
       await pool.query('UPDATE users SET email_verified = true WHERE id = $1', [user.id]);
+
+      // Set onboarding status to pending_profile (must complete /profile next)
+      await UserDB.updateOnboardingStatus(user.id, 'pending_profile');
 
       // Set onboarding stage
       await CompanyDB.updateCompany(company.id, { onboarding_stage: 'create_account' });
@@ -841,13 +854,15 @@ export const googleCallback = async (req: Request, res: Response) => {
     setCookies(res, result.tokens.accessToken, result.tokens.refreshToken);
 
     const elapsed = Date.now() - startTime;
-    logInfo(handler, `Completed in ${elapsed}ms`, { userId: result.user.id });
+    logInfo(handler, `Completed in ${elapsed}ms`, { userId: result.user.id, onboardingStatus: result.user.onboardingStatus });
 
-    return res.status(200).json({
-      message: 'Google login successful',
-      user: result.user,
-      company: result.company,
-    });
+    // Redirect to /profile for new users to complete their profile
+    // Existing users can be redirected to their dashboard
+    const redirectUrl = result.user.onboardingStatus === 'pending_profile'
+      ? `${config.frontendUrl}/profile`
+      : `${config.frontendUrl}/dashboard`;
+
+    return res.redirect(redirectUrl);
   } catch (err: any) {
     const elapsed = Date.now() - startTime;
     logError(handler, `Failed after ${elapsed}ms`, err);
@@ -1162,11 +1177,14 @@ export const changePassword = async (req: Request, res: Response) => {
 };
 
 /**
- * Complete company form during onboarding
- * POST /api/onboard/company-info
+ * POST /api/auth/onboard/company-info
+ * Complete profile during onboarding (Step 2 of signup pipeline)
  *
- * Only accepts company_name (as per user requirement)
- * No revenue/employees fields
+ * Accepts:
+ * - firstName, lastName (update user)
+ * - company_name, timezone, preferred_currency (update company)
+ *
+ * Sets onboarding_status = 'integrations_pending' (user must do Stripe connect next)
  */
 export const completeCompanyForm = async (req: Request, res: Response) => {
   const handler = 'completeCompanyForm';
@@ -1175,46 +1193,64 @@ export const completeCompanyForm = async (req: Request, res: Response) => {
     const company_id = (req as any).companyId;
 
     if (!user_id || !company_id) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      return sendErrorResponse(res, 401, 'Unauthorized');
     }
 
-    const { company_name } = req.body;
+    const { firstName, lastName, company_name, timezone = 'UTC', preferred_currency = 'USD' } = req.body;
 
-    if (!company_name || typeof company_name !== 'string') {
-      return res.status(400).json({ error: 'company_name is required' });
+    // Allowed timezones
+    const ALLOWED_TIMEZONES = ['UTC', 'US/Eastern', 'US/Central', 'US/Mountain', 'US/Pacific', 'Europe/London', 'Europe/Paris', 'Asia/Tokyo', 'Australia/Sydney'];
+    // Allowed currencies
+    const ALLOWED_CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'JPY', 'INR'];
+
+    // Validation
+    if (!company_name || typeof company_name !== 'string' || company_name.trim().length === 0) {
+      return sendErrorResponse(res, 400, 'company_name is required');
     }
 
-    if (company_name.trim().length === 0) {
-      return res.status(400).json({ error: 'company_name cannot be empty' });
+    if (!firstName || typeof firstName !== 'string' || firstName.trim().length === 0) {
+      return sendErrorResponse(res, 400, 'firstName is required');
     }
 
-    // Update company name
+    if (!lastName || typeof lastName !== 'string' || lastName.trim().length === 0) {
+      return sendErrorResponse(res, 400, 'lastName is required');
+    }
+
+    if (!ALLOWED_TIMEZONES.includes(timezone)) {
+      return sendErrorResponse(res, 400, `Invalid timezone. Allowed: ${ALLOWED_TIMEZONES.join(', ')}`);
+    }
+
+    if (!ALLOWED_CURRENCIES.includes(preferred_currency)) {
+      return sendErrorResponse(res, 400, `Invalid currency. Allowed: ${ALLOWED_CURRENCIES.join(', ')}`);
+    }
+
+    // Update user (firstName, lastName, onboarding_status)
     await pool.query(
-      'UPDATE companies SET name = $1, updated_at = NOW() WHERE id = $2',
-      [company_name.trim(), company_id]
+      'UPDATE users SET first_name = $1, last_name = $2, onboarding_status = $3, updated_at = NOW() WHERE id = $4',
+      [firstName.trim(), lastName.trim(), 'integrations_pending', user_id]
     );
 
-    // Update user onboarding status
+    // Update company (name, timezone, currency, onboarding_stage)
     await pool.query(
-      'UPDATE users SET onboarding_status = $1, updated_at = NOW() WHERE id = $2',
-      [company_id === company_id ? 'stripe_pending' : 'stripe_pending', user_id]
+      'UPDATE companies SET name = $1, timezone = $2, preferred_currency = $3, onboarding_stage = $4, updated_at = NOW() WHERE id = $5',
+      [company_name.trim(), timezone, preferred_currency, 'stripe_pending', company_id]
     );
 
-    logInfo(handler, 'Company form completed', {
-      company: company_name,
-      companyId: company_id
+    logInfo(handler, 'Profile completed', {
+      user_id,
+      company_id,
+      company_name: company_name.trim(),
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
     });
 
     return res.json({
-      data: {
-        success: true,
-        company_name: company_name.trim(),
-        next_step: 'stripe_connection',
-        redirect: '/onboard/stripe'
-      }
+      success: true,
+      message: 'Profile updated successfully',
+      onboarding_status: 'integrations_pending',
     });
   } catch (err: any) {
-    logError(handler, 'Failed to complete company form', err);
+    logError(handler, 'Failed to complete profile', err);
     const { statusCode, message } = parseError(err);
     return sendErrorResponse(res, statusCode, message);
   }

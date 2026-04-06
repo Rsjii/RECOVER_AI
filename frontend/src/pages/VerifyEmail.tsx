@@ -61,7 +61,7 @@ export default function VerifyEmail() {
         email: signupEmail || undefined,
       });
 
-      addToast({ type: 'success', message: 'Email verified! Going to integrations...' });
+      addToast({ type: 'success', message: 'Email verified! Complete your profile...' });
 
       // Clear signup data from localStorage
       localStorage.removeItem('signup_email');
@@ -78,7 +78,8 @@ export default function VerifyEmail() {
         setUser(meData.user);
       }
 
-      navigate('/integrations', { replace: true });
+      // Redirect to /profile to complete profile details
+      navigate('/profile', { replace: true });
     } catch (err: any) {
       const msg = err.message || 'Invalid or expired OTP';
       const isExpired = msg.toLowerCase().includes('expired');

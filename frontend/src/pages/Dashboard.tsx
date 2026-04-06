@@ -5,7 +5,6 @@ import { useNotification } from '../hooks/useNotification';
 import { useAuth } from '../hooks/useAuth';
 import { API_ENDPOINTS } from '../lib/constants';
 import { formatCurrency } from '../lib/utils';
-import { DashboardSkeleton } from '../components/ui/Skeleton';
 import { Button } from '../components/ui/Button';
 import { RecoveryChart } from '../components/dashboard/RecoveryChart';
 import { TopCustomersTable } from '../components/dashboard/TopCustomersTable';
@@ -25,6 +24,7 @@ import { CollapsibleSection } from '../components/dashboard/CollapsibleSection';
 import { TrialCountdown } from '../components/TrialCountdown';
 import { useCustomTour, mainDashboardTour } from '../hooks/useCustomTour';
 import { CustomTour } from '../components/dashboard/CustomTour';
+import { ActivationCTA } from '../components/dashboard/ActivationCTA';
 import type { DashboardStats, InvoicePipeline, CustomerRisk } from '../types';
 import type { WorkingCapitalFreed, DSOReduction, BillingAnomaly, EnhancedCashForecast } from '../types/invoice';
 
@@ -494,22 +494,12 @@ const Dashboard: React.FC = () => {
   };
 
   // Initialize custom tour (first-time only)
-  const { startTour, closeTour, completeTour, markTourStarted, isTourCompleted, isTourStarted, resetTour, isOpen, currentTour } = useCustomTour();
+  const { startTour, closeTour, completeTour, markTourStarted, resetTour, isOpen, currentTour } = useCustomTour();
 
   useEffect(() => {
-    // Check if tour should run on first visit
-    const tourCompleted = isTourCompleted('main_onboarding');
-    const tourStarted = isTourStarted('main_onboarding');
-    const shouldShowTour = !tourCompleted && !tourStarted;
-
-    if (shouldShowTour) {
-      // Auto-start after a short delay to let page settle
-      const timer = setTimeout(() => {
-        startTour(mainDashboardTour);
-      }, 1500);
-      return () => clearTimeout(timer);
-    }
-  }, [startTour, isTourCompleted, isTourStarted]);
+    // Start tour immediately on first dashboard visit
+    startTour(mainDashboardTour);
+  }, []);
 
   // Debug: Allow manual tour reset via ?tour=reset in URL
   useEffect(() => {
@@ -527,7 +517,55 @@ const Dashboard: React.FC = () => {
     totalOwed: c.totalOwed,
   }));
 
-  if (loading) return <DashboardSkeleton />;
+  // Empty state: user has no invoices
+  if (!loading && stats && stats.totalOwed === 0 && pipeline?.unpaid === 0) {
+    return (
+      <div className="min-h-screen bg-white dark:bg-[#09090b] flex items-center justify-center px-4">
+        <div className="text-center max-w-md">
+          <div className="w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">👋 No invoices yet</h2>
+          <p className="text-gray-600 dark:text-gray-400 mb-6">
+            To get started, upload a CSV file or connect another Stripe account to load your invoices.
+          </p>
+          <div className="flex flex-col gap-3">
+            <Button
+              onClick={() => navigate('/invoices?tab=upload')}
+              className="w-full bg-blue-600 hover:bg-blue-700"
+            >
+              📤 Upload CSV
+            </Button>
+            <Button
+              onClick={() => navigate('/settings?tab=integrations')}
+              variant="secondary"
+              className="w-full"
+            >
+              🔗 Add Another Account
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-white dark:bg-[#09090b]">
+        <div className="max-w-7xl mx-auto px-6 sm:px-8 py-8">
+          <div className="flex items-center justify-center mb-12 py-12">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p className="text-gray-700 dark:text-gray-300 font-medium">⏳ Analyzing your AR data...</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">This may take a few seconds</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (error) {
     return (
@@ -805,6 +843,21 @@ const Dashboard: React.FC = () => {
           dsoReduction={dsoReduction}
           hoursSaved={hoursSaved}
           loading={loading}
+        />
+      </div>
+
+      {/* ════════════════════════════════════════════════════════════════ */}
+      {/* ACTIVATION CTA — Call to action for shadow mode users */}
+      {/* ════════════════════════════════════════════════════════════════ */}
+      <div className="max-w-7xl mx-auto px-6 sm:px-8">
+        <ActivationCTA
+          pilotMode={pilotMode}
+          totalAR={stats?.totalOwed ?? 0}
+          eligibleInvoices={aging?.buckets.reduce((sum, b) => sum + b.invoiceCount, 0) ?? 0}
+          onAgentActivated={() => {
+            // Refresh agent preview to show updated state
+            handlePreviewAgent();
+          }}
         />
       </div>
 

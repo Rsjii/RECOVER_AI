@@ -72,7 +72,7 @@ export async function setOnboardingActiveByCompanyId(companyId: string): Promise
   );
 }
 
-export async function updateOnboardingStatus(userId: string, status: 'company_form' | 'stripe_pending' | 'active'): Promise<void> {
+export async function updateOnboardingStatus(userId: string, status: 'pending_profile' | 'company_form' | 'stripe_pending' | 'active'): Promise<void> {
   await pool.query(
     'UPDATE users SET onboarding_status = $1, updated_at = NOW() WHERE id = $2',
     [status, userId]
