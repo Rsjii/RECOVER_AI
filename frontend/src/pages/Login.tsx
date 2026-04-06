@@ -35,7 +35,8 @@ const Login: React.FC = () => {
 
   const handleGoogleLogin = () => {
     const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-    const redirectUri = `${window.location.origin}/auth/google/callback`;
+    const backendUrl = import.meta.env.VITE_API_BASE_URL || '';
+    const redirectUri = `${backendUrl}/api/auth/oauth/google/callback`;
     const scope = 'openid email profile';
     const responseType = 'code';
     const state = Math.random().toString(36).substring(7);
