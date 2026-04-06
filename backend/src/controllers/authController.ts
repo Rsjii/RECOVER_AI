@@ -807,15 +807,26 @@ export const googleCallback = async (req: Request, res: Response) => {
   const startTime = Date.now();
 
   try {
-    // Support both GET (from Google redirect) and POST (from frontend)
-    const code = req.body.code || (req.query?.code as string);
+    // Google sends authorization code as GET query parameter
+    // Extract code from query string
+    const code = (req.query.code as string) || (req.body?.code as string);
+
+    logInfo(handler, 'Google callback received', {
+      method: req.method,
+      queryParams: Object.keys(req.query || {}),
+      hasCode: !!code,
+      codeLength: code?.length || 0,
+    });
 
     if (!code) {
-      logInfo(handler, 'Missing authorization code');
+      logInfo(handler, 'Missing authorization code', {
+        query: req.query,
+        body: req.body
+      });
       return sendErrorResponse(res, 400, 'Missing authorization code');
     }
 
-    logInfo(handler, 'Processing Google OAuth callback');
+    logInfo(handler, 'Processing Google OAuth callback', { codeLength: code.length });
 
     const result = await authService.googleLogin(code);
     await SecurityDB.createSession({

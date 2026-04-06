@@ -30,5 +30,12 @@ export async function verifyGoogleToken(token: string) {
 export async function exchangeCodeForToken(code: string) {
   const client = getGoogleClient();
   const { tokens } = await client.getToken(code);
+
+  // For OpenID Connect, id_token should be in tokens
+  // If missing, it might be because the authorization didn't request openid scope
+  if (!tokens.id_token) {
+    throw new Error('No ID token received from Google. Ensure "openid" scope is requested.');
+  }
+
   return tokens;
 }
