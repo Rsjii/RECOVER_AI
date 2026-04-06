@@ -214,6 +214,41 @@ export const signupVerifyOTP = async (req: Request, res: Response) => {
     await redisClient.del(`signup_otp:${email}`);
     await redisClient.del(`signup_pending:${email}`);
 
+    // Send welcome email (non-blocking)
+    try {
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+      await resendService.sendEmail({
+        to: email,
+        subject: '🚀 Welcome to RecoverAI — Your 21-Day Free Trial Starts Now',
+        bodyText: `Welcome to RecoverAI! Your 21-day free trial is now active.\n\nNext steps:\n1. Connect Stripe (takes 30 seconds)\n2. Activate the Agent (AI sends emails every 6 hours)\n3. Track recovered payments\n\nGet started: ${frontendUrl}/integrations`,
+        bodyHtml: `
+          <p>Hi ${firstName},</p>
+
+          <p>Welcome to <strong>RecoverAI</strong>! Your 21-day free trial is now active.</p>
+
+          <h3>Here's what's next:</h3>
+          <ul>
+            <li><strong>Connect Stripe</strong> — Link your invoices (takes 30 seconds)</li>
+            <li><strong>Activate the Agent</strong> — Start autonomous dunning (AI sends emails every 6 hours)</li>
+            <li><strong>Track results</strong> — See recovered payments in real-time</li>
+          </ul>
+
+          <p><strong>🚀 First emails will be sent in the next 6 hours</strong> after you activate the agent.</p>
+
+          <p><a href="${frontendUrl}/integrations" style="background-color: #2563eb; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; display: inline-block;">Get Started Now</a></p>
+
+          <p>Questions? Reply to this email anytime.</p>
+
+          <p>Best,<br>The RecoverAI Team</p>
+        `,
+        companyId: company.id,
+      });
+      logInfo(handler, 'Welcome email sent', { email });
+    } catch (emailErr: any) {
+      logError(handler, 'Failed to send welcome email (non-blocking)', emailErr);
+      // Don't throw — user signup is already complete
+    }
+
     const elapsed = Date.now() - startTime;
     logInfo(handler, `Account created in ${elapsed}ms`, { userId: user.id });
 
@@ -772,7 +807,8 @@ export const googleCallback = async (req: Request, res: Response) => {
   const startTime = Date.now();
 
   try {
-    const { code } = req.body;
+    // Support both GET (from Google redirect) and POST (from frontend)
+    const code = req.body.code || req.query.code;
 
     if (!code) {
       logInfo(handler, 'Missing authorization code');

@@ -47,6 +47,7 @@ router.post('/forgot-password', authLimiter, forgotPassword);
 router.post('/reset-password', authLimiter, resetPassword);
 router.post('/change-password', authMiddleware, demoBlocker, changePassword);
 router.post("/verify-email", publicFormLimiter, verifyEmail);
+router.get('/oauth/google/callback', googleCallback);
 router.post('/oauth/google/callback', googleCallback);
 
 // Public/Protected routes
