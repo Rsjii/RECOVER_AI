@@ -78,7 +78,8 @@ export default function GoogleAuthButton({ onSuccess, onError }: GoogleAuthButto
       }
 
       // Redirect to backend to process token
-      window.location.href = `/api/auth/oauth/google/callback?credential=${encodeURIComponent(token)}`;
+      const backendUrl = import.meta.env.VITE_API_BASE_URL || '';
+      window.location.href = `${backendUrl}/api/auth/oauth/google/callback?code=${encodeURIComponent(token)}`;
     } else {
       logError('GoogleAuth', 'handleGoogleResponse', 'No credential in Google response', response);
       setError('Google Sign-In failed');
