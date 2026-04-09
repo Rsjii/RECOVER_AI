@@ -14,8 +14,7 @@ const Profile: React.FC = () => {
     firstName: user?.firstName || '',
     lastName: user?.lastName || '',
     companyName: company?.name || '',
-    timezone: company?.timezone || 'UTC',
-    preferredCurrency: company?.preferred_currency || 'USD',
+    // PHASE 2: Timezone & Currency — currently hardcoded to UTC/USD globally
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -65,8 +64,9 @@ const Profile: React.FC = () => {
         firstName: form.firstName,
         lastName: form.lastName,
         company_name: form.companyName,
-        timezone: form.timezone,
-        preferred_currency: form.preferredCurrency,
+        // PHASE 2: Timezone & Currency — defaults to UTC/USD
+        // timezone: form.timezone,
+        // preferred_currency: form.preferredCurrency,
       });
 
       addToast({ type: 'success', message: 'Profile updated! Proceeding to integrations...' });
@@ -178,47 +178,8 @@ const Profile: React.FC = () => {
               {errors.companyName && <p className="mt-1 text-xs text-red-500">{errors.companyName}</p>}
             </div>
 
-            {/* Timezone & Currency Row */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                  Timezone
-                </label>
-                <select
-                  value={form.timezone}
-                  onChange={(e) => handleChange('timezone', e.target.value)}
-                  className="w-full px-4 py-2.5 border border-gray-300 dark:border-white/[0.08] rounded-lg text-gray-900 dark:text-white bg-white dark:bg-white/[0.03] focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors"
-                >
-                  <option value="UTC">UTC</option>
-                  <option value="US/Eastern">Eastern Time</option>
-                  <option value="US/Central">Central Time</option>
-                  <option value="US/Mountain">Mountain Time</option>
-                  <option value="US/Pacific">Pacific Time</option>
-                  <option value="Europe/London">London</option>
-                  <option value="Europe/Paris">Paris</option>
-                  <option value="Asia/Tokyo">Tokyo</option>
-                  <option value="Australia/Sydney">Sydney</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                  Currency
-                </label>
-                <select
-                  value={form.preferredCurrency}
-                  onChange={(e) => handleChange('preferredCurrency', e.target.value)}
-                  className="w-full px-4 py-2.5 border border-gray-300 dark:border-white/[0.08] rounded-lg text-gray-900 dark:text-white bg-white dark:bg-white/[0.03] focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors"
-                >
-                  <option value="USD">USD</option>
-                  <option value="EUR">EUR</option>
-                  <option value="GBP">GBP</option>
-                  <option value="CAD">CAD</option>
-                  <option value="AUD">AUD</option>
-                  <option value="JPY">JPY</option>
-                  <option value="INR">INR</option>
-                </select>
-              </div>
-            </div>
+            {/* PHASE 2: Timezone & Currency — Removed from Phase 1 (hardcoded to UTC/USD globally)
+                 Will be added back in Phase 2 when we support multi-currency and timezone-aware scheduling */}
 
             {/* Submit */}
             <Button

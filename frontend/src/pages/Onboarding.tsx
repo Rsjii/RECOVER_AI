@@ -39,7 +39,7 @@ const Onboarding: React.FC = () => {
   const handleStripeConnect = () => {
     // Use full backend URL to ensure correct redirect_uri (matches Stripe OAuth settings)
     const backendUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
-    window.location.href = `${backendUrl}/api/stripe/oauth/authorize`;
+    window.location.replace(`${backendUrl}/api/stripe/oauth/authorize`);
   };
 
   const handleSyncAndNext = async () => {

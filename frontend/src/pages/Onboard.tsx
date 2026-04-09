@@ -151,7 +151,7 @@ export default function Onboard() {
     // Redirect to backend Stripe OAuth authorize endpoint
     // Must use full backend URL, not relative path
     const backendUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
-    window.location.href = `${backendUrl}/api/stripe/oauth/authorize`;
+    window.location.replace(`${backendUrl}/api/stripe/oauth/authorize`);
   };
 
   if (loading && step === 'email') {

@@ -4,6 +4,8 @@ import { api } from '../lib/api';
 import { Button } from '../components/ui/Button';
 import { useNotification } from '../hooks/useNotification';
 import { useAuth } from '../hooks/useAuth';
+import { CSVUploadModal } from '../components/invoices/CSVUploadModal';
+import { logError } from '../utils/logger';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
 
@@ -27,6 +29,9 @@ export const Integrations: React.FC = () => {
   const [stripeApiKey, setStripeApiKey] = useState('');
   const [validatingKey, setValidatingKey] = useState(false);
   const shouldNavigateToDashboard = useRef(false);
+  const [showCSVModal, setShowCSVModal] = useState(false);
+  const [csvImportJobId, setCSVImportJobId] = useState<string | null>(null);
+  const [csvImportStatus, setCSVImportStatus] = useState<{ status: 'processing' | 'done' | 'error'; created: number; skipped: number; duplicates: number; total: number; error?: string } | null>(null);
 
   // STRICT PIPELINE: Enforce integrations_pending status only (redirect if status changes)
   useEffect(() => {
@@ -49,6 +54,42 @@ export const Integrations: React.FC = () => {
     }
   }, [company?.onboarding_stage, navigate]);
 
+  // Poll for CSV import status
+  useEffect(() => {
+    if (!csvImportJobId) return;
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const res = await api.get(`/api/invoices/csv-import-status/${csvImportJobId}`);
+        const status = res.data;
+        setCSVImportStatus(status);
+
+        if (status.status === 'done' || status.status === 'error') {
+          clearInterval(pollInterval);
+          if (status.status === 'done') {
+            addToast({
+              type: 'success',
+              message: `✅ Import complete: ${status.created} invoices imported${status.duplicates > 0 ? `, ${status.duplicates} duplicates skipped` : ''}`
+            });
+            // Mark that CSV import is now complete and user can proceed
+            setStatus(prev => prev ? { ...prev, stripe_connected: true } : null);
+          } else {
+            addToast({ type: 'error', message: `Import failed: ${status.error}` });
+          }
+          setTimeout(() => {
+            setCSVImportJobId(null);
+            setCSVImportStatus(null);
+            setShowCSVModal(false);
+          }, 1500);
+        }
+      } catch (err: any) {
+        logError('Component', 'handler', 'Failed to poll CSV import status:', err);
+      }
+    }, 1000);
+
+    return () => clearInterval(pollInterval);
+  }, [csvImportJobId, addToast]);
+
   useEffect(() => {
     const fetchStatus = async () => {
       try {
@@ -70,7 +111,8 @@ export const Integrations: React.FC = () => {
 
   const handleConnectStripe = () => {
     setConnecting('stripe');
-    window.location.href = `${API_BASE}/api/stripe/oauth/authorize`;
+    // Use replace() to prevent browser back button going to OAuth screen
+    window.location.replace(`${API_BASE}/api/stripe/oauth/authorize`);
   };
 
   const handleNext = async () => {
@@ -243,6 +285,51 @@ export const Integrations: React.FC = () => {
             )}
           </div>
 
+          {/* CSV Import Card */}
+          <div className="mb-6 p-6 border border-gray-200 dark:border-gray-700 rounded-lg">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-amber-50 dark:bg-amber-900/20 rounded-lg flex items-center justify-center">
+                <span className="text-lg">📊</span>
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900 dark:text-white">CSV Upload</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Import invoices from CSV file</p>
+              </div>
+            </div>
+
+            {csvImportStatus?.status === 'processing' ? (
+              <div className="flex items-center justify-center p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                  <span className="text-sm font-medium text-blue-700 dark:text-blue-400">
+                    Importing invoices... {csvImportStatus.created}/{csvImportStatus.total}
+                  </span>
+                </div>
+              </div>
+            ) : status?.stripe_connected && csvImportStatus?.status === 'done' ? (
+              <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                <span className="text-sm font-medium text-green-700 dark:text-green-400">✓ Imported</span>
+                <button
+                  onClick={() => {
+                    setCSVImportJobId(null);
+                    setCSVImportStatus(null);
+                  }}
+                  className="text-xs text-green-600 dark:text-green-400 hover:underline"
+                >
+                  Import again
+                </button>
+              </div>
+            ) : (
+              <Button
+                onClick={() => setShowCSVModal(true)}
+                variant="secondary"
+                className="w-full"
+              >
+                📤 Upload CSV File
+              </Button>
+            )}
+          </div>
+
           {/* Next Button */}
           <Button
             onClick={handleNext}
@@ -251,6 +338,13 @@ export const Integrations: React.FC = () => {
           >
             {proceeding ? 'Setting up...' : 'Go to Dashboard'}
           </Button>
+
+          {/* CSV Upload Modal */}
+          <CSVUploadModal
+            isOpen={showCSVModal}
+            onClose={() => setShowCSVModal(false)}
+            setImportJobId={setCSVImportJobId}
+          />
         </div>
       </div>
     </div>

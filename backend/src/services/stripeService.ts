@@ -333,7 +333,8 @@ class StripeService {
             if (apiKey) {
               const stripe = new Stripe(decryptField(apiKey));
               try {
-                event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret, 300);
+                // Verify webhook signature (no timeout - Stripe handles expiration)
+                event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
                 processedEventId = event.id;
                 logInfo('stripeService', method, 'Signature verified with company secret', {
                   companyId: company.id,
@@ -469,8 +470,15 @@ class StripeService {
           break;
         }
         case 'invoice.finalized': {
-          // This fires when invoice is finalized with actual amount (ready to send)
-          await this.handleInvoiceCreated(event.data.object as Stripe.Invoice, company.id);
+          const inv = event.data.object as Stripe.Invoice;
+          // Only process if amount_due > 0 (ignore drafts with $0)
+          if ((inv.amount_due || 0) > 0) {
+            await this.handleInvoiceCreated(inv, company.id);
+          } else {
+            logInfo('stripeService', method, 'Skipping finalized invoice with $0 amount', {
+              stripeInvoiceId: inv.id,
+            });
+          }
           break;
         }
         case 'invoice.paid': {

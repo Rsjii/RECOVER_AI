@@ -118,7 +118,7 @@ export const stripeOAuthAuthorize = async (req: Request, res: Response) => {
     const params = new URLSearchParams({
       client_id: STRIPE_CLIENT_ID,
       response_type: 'code',
-      scope: 'read_write',
+      scope: 'read_invoices read_customers',  // Minimal required permissions
       redirect_uri: `${BACKEND_URL}/api/stripe/oauth/callback`,
       state: companyId,
     });

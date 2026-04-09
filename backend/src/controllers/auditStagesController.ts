@@ -493,6 +493,27 @@ export const proceedFromStage4 = async (req: Request, res: Response) => {
       account_type: 'pilot',
     });
 
+    // Send dashboard welcome email (non-blocking)
+    try {
+      const user = await pool.query('SELECT email, first_name FROM users WHERE id = $1', [userId]);
+      if (user.rows.length > 0) {
+        const { email, first_name } = user.rows[0];
+        const company = await CompanyDB.findCompanyById(companyId);
+
+        // Import here to avoid circular deps
+        const resendService = (await import('../services/resendService')).default;
+        await resendService.sendDashboardWelcome({
+          email,
+          firstName: first_name || 'there',
+          companyName: company?.name || 'your company',
+        });
+        logInfo(MODULE, handler, 'Dashboard welcome email sent', { email, companyId });
+      }
+    } catch (emailErr) {
+      logError(MODULE, handler, 'Failed to send dashboard welcome email (non-blocking)', emailErr);
+      // Don't throw — onboarding is already complete
+    }
+
     return res.json({ success: true, next_stage: 'dashboard', syncSummary });
   } catch (err) {
     logError(MODULE, handler, 'Error proceeding to stage 5', err);
