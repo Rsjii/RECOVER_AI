@@ -18,6 +18,9 @@ interface CashPositionWidgetProps {
   cashBalanceInput: string;
   onBalanceChange: (value: string) => void;
   onBalanceSubmit: () => void;
+  burnRateInput: string;
+  onBurnRateChange: (value: string) => void;
+  onBurnRateSubmit: () => void;
   loading: boolean;
 }
 
@@ -28,6 +31,9 @@ export const CashPositionWidget: React.FC<CashPositionWidgetProps> = ({
   cashBalanceInput,
   onBalanceChange,
   onBalanceSubmit,
+  burnRateInput,
+  onBurnRateChange,
+  onBurnRateSubmit,
   loading,
 }) => {
   if (loading) {
@@ -53,28 +59,49 @@ export const CashPositionWidget: React.FC<CashPositionWidgetProps> = ({
         <span className="text-xs text-gray-400 dark:text-gray-500">{cashPosition.invoiceCount} open invoices</span>
       </div>
 
-      {/* Editable current balance */}
-      <div className="mb-4 flex items-center gap-2 flex-wrap">
-        <label className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">Current balance:</label>
-        <div className="relative">
-          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
-          <input
-            type="text"
-            value={cashBalanceInput}
-            onChange={(e) => {
-              const raw = e.target.value.replace(/[^0-9.]/g, '');
-              // Prevent multiple dots
-              const parts = raw.split('.');
-              const sanitized = parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : raw;
-              onBalanceChange(sanitized);
-            }}
-            onBlur={onBalanceSubmit}
-            onKeyDown={(e) => e.key === 'Enter' && onBalanceSubmit()}
-            className="w-36 pl-5 pr-2 py-1 text-sm border border-gray-200 dark:border-white/[0.1] rounded bg-gray-50 dark:bg-white/[0.03] text-gray-900 dark:text-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none"
-          />
+      {/* Editable current balance + monthly burn rate */}
+      <div className="mb-4 flex flex-wrap gap-x-6 gap-y-2">
+        <div className="flex items-center gap-2">
+          <label className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">Current balance:</label>
+          <div className="relative">
+            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+            <input
+              type="text"
+              value={cashBalanceInput}
+              onChange={(e) => {
+                const raw = e.target.value.replace(/[^0-9.]/g, '');
+                const parts = raw.split('.');
+                const sanitized = parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : raw;
+                onBalanceChange(sanitized);
+              }}
+              onBlur={onBalanceSubmit}
+              onKeyDown={(e) => e.key === 'Enter' && onBalanceSubmit()}
+              className="w-36 pl-5 pr-2 py-1 text-sm border border-gray-200 dark:border-white/[0.1] rounded bg-gray-50 dark:bg-white/[0.03] text-gray-900 dark:text-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none"
+            />
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <label className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">Monthly expenses:</label>
+          <div className="relative">
+            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+            <input
+              type="text"
+              value={burnRateInput}
+              placeholder="0"
+              onChange={(e) => {
+                const raw = e.target.value.replace(/[^0-9.]/g, '');
+                const parts = raw.split('.');
+                const sanitized = parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : raw;
+                onBurnRateChange(sanitized);
+              }}
+              onBlur={onBurnRateSubmit}
+              onKeyDown={(e) => e.key === 'Enter' && onBurnRateSubmit()}
+              className="w-36 pl-5 pr-2 py-1 text-sm border border-gray-200 dark:border-white/[0.1] rounded bg-gray-50 dark:bg-white/[0.03] text-gray-900 dark:text-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none"
+            />
+          </div>
         </div>
         {cashPosition.asOfDate && (
-          <span className="text-xs text-gray-400 dark:text-gray-500">
+          <span className="text-xs text-gray-400 dark:text-gray-500 self-center">
             Updated {new Date(cashPosition.asOfDate).toLocaleDateString()}
           </span>
         )}
@@ -92,7 +119,7 @@ export const CashPositionWidget: React.FC<CashPositionWidgetProps> = ({
       </div>
 
       <p className="text-xs text-gray-400 dark:text-gray-500 mt-3">
-        Based on AR aging x payment history. Excludes operating expenses.
+        Based on AR aging × payment history. Set monthly expenses above to factor into forecast.
       </p>
     </Card>
   );

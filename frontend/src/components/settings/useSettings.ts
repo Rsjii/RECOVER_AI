@@ -113,7 +113,14 @@ export const useSettings = () => {
             status: 'connected',
             details: { accountName: 'Stripe' },
             lastSynced: integrationStatus.stripeLastSyncedAt,
-            hasWebhookSecret: integrationStatus.stripeHasWebhookSecret || false,  // New: pass webhook secret flag
+            hasWebhookSecret: integrationStatus.stripeHasWebhookSecret || false,
+          });
+        }
+        if (integrationStatus.csv) {
+          integrationsArray.push({
+            type: 'csv',
+            status: 'connected',
+            details: { accountName: 'CSV Upload' },
           });
         }
         if (integrationStatus.slack) {
@@ -267,6 +274,14 @@ export const useSettings = () => {
           type: 'quickbooks',
           status: 'connected',
           details: { accountName: 'QuickBooks' },
+        });
+      }
+
+      if (integrations.csv) {
+        integrationsArray.push({
+          type: 'csv',
+          status: 'connected',
+          details: { accountName: 'CSV Upload' },
         });
       }
 

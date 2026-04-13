@@ -99,14 +99,12 @@ backend/test/reports/
 backend/test/suites/
 
 # Scratch folders
-z_companies/
 z_test_data/
 AI_FINAL_MODEL/
 z_guides/
 
 # Dev files
 .env.example
-z_doubts.txt
 
 # Project documentation (analysis, planning, notes — kept locally only)
 CASH_FLOW_CONTROL_ENGINE_COMPLETE.md
@@ -119,8 +117,10 @@ FINAL_STRATEGY.md
 FINALBRIEF_STRATEGY.md
 INVESTOR_PITCH.md
 STRATEGIC_PLAN/
-test_results/
 z_extras/
 z_z_CASHOPS/
 backups/
-z_z_FINAL/
+z_LinkedIn_Data/
+DOC/
+
+# Note: z_z_FINAL/ is excluded via .git/info/exclude (local only, not committed)

@@ -54,6 +54,32 @@ async function applySchemaAlterations(): Promise<void> {
     } else {
       logInfo('migrate', 'applySchemaAlterations', 'Already applied: customers.email nullable');
     }
+
+    // Alteration 2: Add payment_insights JSONB to customers (per-client behavioral profile)
+    const insightsColumn = await client.query(`
+      SELECT column_name FROM information_schema.columns
+      WHERE table_name='customers' AND column_name='payment_insights'
+    `);
+    if (insightsColumn.rows.length === 0) {
+      logInfo('migrate', 'applySchemaAlterations', 'Applying: customers.payment_insights');
+      await client.query(`ALTER TABLE customers ADD COLUMN payment_insights JSONB DEFAULT NULL`);
+      logInfo('migrate', 'applySchemaAlterations', 'Applied: customers.payment_insights');
+    } else {
+      logInfo('migrate', 'applySchemaAlterations', 'Already applied: customers.payment_insights');
+    }
+
+    // Alteration 3: Add monthly_burn_rate_usd to companies
+    const burnRateColumn = await client.query(`
+      SELECT column_name FROM information_schema.columns
+      WHERE table_name='companies' AND column_name='monthly_burn_rate_usd'
+    `);
+    if (burnRateColumn.rows.length === 0) {
+      logInfo('migrate', 'applySchemaAlterations', 'Applying: companies.monthly_burn_rate_usd');
+      await client.query(`ALTER TABLE companies ADD COLUMN monthly_burn_rate_usd NUMERIC(12,2) DEFAULT 0`);
+      logInfo('migrate', 'applySchemaAlterations', 'Applied: companies.monthly_burn_rate_usd');
+    } else {
+      logInfo('migrate', 'applySchemaAlterations', 'Already applied: companies.monthly_burn_rate_usd');
+    }
   } catch (err: any) {
     logError('migrate', 'applySchemaAlterations', 'Schema alteration failed', err);
     throw err;

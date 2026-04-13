@@ -166,6 +166,34 @@ export const updateCashBalanceHandler = async (req: Request, res: Response): Pro
 };
 
 /**
+ * PUT /api/dashboard/burn-rate
+ * Update the company's monthly operating expense burn rate (used in cash forecast)
+ */
+export const updateBurnRateHandler = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'updateBurnRate';
+  const companyId = (req as any).companyId;
+  const { burnRateUsd } = req.body;
+
+  if (typeof burnRateUsd !== 'number' || burnRateUsd < 0) {
+    sendErrorResponse(res, 400, 'burnRateUsd must be a non-negative number');
+    return;
+  }
+
+  try {
+    await pool.query(
+      'UPDATE companies SET monthly_burn_rate_usd = $1 WHERE id = $2',
+      [burnRateUsd, companyId]
+    );
+    logInfo(LOG_MODULE, handler, 'Burn rate updated', { companyId, burnRateUsd });
+    res.status(200).json({ data: { burnRateUsd } });
+  } catch (error) {
+    logError(LOG_MODULE, handler, 'Failed to update burn rate', error);
+    const { statusCode, message } = parseError(error);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
+
+/**
  * POST /api/dashboard/cash-whatif
  * Calculate a what-if scenario against current cash position
  */

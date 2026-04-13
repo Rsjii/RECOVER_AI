@@ -85,6 +85,11 @@ export async function listInvoices(
   if (filters.status) {
     conditions.push(`i.status = $${paramIndex++}`);
     params.push(filters.status);
+    // Paid invoices: limit display to last 24 months (updated_at ≈ when marked paid)
+    // Unpaid: show ALL regardless of age — even old invoice = money still owed
+    if (filters.status === 'paid') {
+      conditions.push(`i.updated_at >= NOW() - INTERVAL '24 months'`);
+    }
   }
 
   if (filters.customerId) {

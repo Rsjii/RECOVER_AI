@@ -43,11 +43,20 @@ export const getSettings = async (req: Request, res: Response): Promise<void> =>
         integrations: {
           stripe: !!company.stripe_api_key_encrypted,
           stripeLastSyncedAt: (company as any).stripe_last_synced_at || null,
-          stripeHasWebhookSecret: !!company.stripe_webhook_secret_encrypted,  // New: flag for webhook secret
+          stripeHasWebhookSecret: !!company.stripe_webhook_secret_encrypted,
           slack: !!company.slack_webhook_url_encrypted,
           quickbooks: !!(company.quickbooks_realm_id && (company as any).quickbooks_access_token_encrypted),
           chargebee: !!(company.chargebee_site && (company as any).chargebee_api_key_encrypted),
           twilioConfigured: !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_PHONE_NUMBER),
+          csv: await (async () => {
+            try {
+              const r = await pool.query(
+                `SELECT COUNT(*) AS cnt FROM invoices WHERE company_id = $1 AND source = 'manual'`,
+                [companyId]
+              );
+              return parseInt(r.rows[0]?.cnt || '0') > 0;
+            } catch { return false; }
+          })(),
         },
       },
     });

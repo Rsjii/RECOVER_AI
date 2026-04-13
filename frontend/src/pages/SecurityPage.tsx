@@ -1,10 +1,11 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { PublicHeader } from '../components/layout/PublicHeader';
+import { useSEO } from '../hooks/useSEO';
+import { getPageSEO } from '../lib/seoConfig';
 
 const SecurityPage: React.FC = () => {
-  useEffect(() => {
-    document.title = 'Security — RecoverAI';
-  }, []);
+  // SEO configuration
+  useSEO(getPageSEO('security'));
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-[#09090b]">

@@ -310,37 +310,48 @@ export const EmailSettingsSection: React.FC<EmailSettingsSectionProps> = () => {
   return (
     <div className="space-y-8">
       {/* ===== SECTION 1: CONSOLIDATED EMAIL CONFIGURATION (TOP LEVEL) ===== */}
-      <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/10 dark:to-indigo-900/10 border border-blue-200 dark:border-blue-800/30 rounded-2xl p-4 sm:p-6">
+
+      {/* Setup Required Banner — shown when SMTP not verified */}
+      {!smtpStatus?.verified && (
+        <div className="flex items-start gap-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700/50 rounded-xl px-4 py-3">
+          <span className="text-amber-500 text-lg flex-shrink-0">⚠️</span>
+          <div>
+            <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">Email not configured</p>
+            <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
+              Dunning emails will not be sent until you configure your email settings below. Click <strong>Configure</strong> to set up your sending domain.
+            </p>
+          </div>
+        </div>
+      )}
+
+      <div className={`bg-gradient-to-br border rounded-2xl p-4 sm:p-6 ${
+        smtpStatus?.verified
+          ? 'from-green-50 to-emerald-50 dark:from-green-900/10 dark:to-emerald-900/10 border-green-200 dark:border-green-800/30'
+          : 'from-gray-50 to-gray-100 dark:from-white/[0.02] dark:to-white/[0.04] border-gray-200 dark:border-white/[0.06]'
+      }`}>
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 sm:gap-6">
           <div className="flex-1 min-w-0">
             <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
               📧 Email Configuration
             </h3>
             <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-4 line-clamp-2 break-words">
-              {useOwnDomain && smtpStatus?.verified
-                ? `Sending from your domain • ${smtpStatus.fromName ? smtpStatus.fromName : 'Billing'} <${smtpStatus.fromEmail}> • Reply-to: ${replyToEmail || 'not set'}`
-                : useOwnDomain
-                ? 'Your Domain setup pending'
-                : `Sending from RecoverAI • noreply@recoverai.com • Reply-to: ${replyToEmail || 'not set'}`
+              {smtpStatus?.verified
+                ? `Sending from your domain • ${smtpStatus.fromName || 'Billing'} <${smtpStatus.fromEmail}> • Reply-to: ${replyToEmail || 'not set'}`
+                : 'Not configured — set up your email to start sending dunning emails'
               }
             </p>
 
             {/* Status Badge */}
             <div className="flex items-center gap-2 mb-4">
-              {useOwnDomain && smtpStatus?.verified ? (
+              {smtpStatus?.verified ? (
                 <>
                   <div className="w-2 h-2 rounded-full bg-green-500"></div>
                   <span className="text-xs font-medium text-green-700 dark:text-green-400">Connected & Verified</span>
                 </>
-              ) : useOwnDomain ? (
-                <>
-                  <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
-                  <span className="text-xs font-medium text-yellow-700 dark:text-yellow-400">Pending Configuration</span>
-                </>
               ) : (
                 <>
-                  <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                  <span className="text-xs font-medium text-blue-700 dark:text-blue-400">Active</span>
+                  <div className="w-2 h-2 rounded-full bg-amber-500"></div>
+                  <span className="text-xs font-medium text-amber-700 dark:text-amber-400">Setup Required</span>
                 </>
               )}
             </div>
@@ -349,9 +360,13 @@ export const EmailSettingsSection: React.FC<EmailSettingsSectionProps> = () => {
           {/* Configure Button */}
           <button
             onClick={() => setShowSMTPModal(true)}
-            className="w-full sm:w-auto px-5 sm:px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm sm:text-base transition-all shadow-lg hover:shadow-xl flex-shrink-0"
+            className={`w-full sm:w-auto px-5 sm:px-6 py-3 rounded-xl font-semibold text-sm sm:text-base transition-all shadow-lg hover:shadow-xl flex-shrink-0 text-white ${
+              smtpStatus?.verified
+                ? 'bg-green-600 hover:bg-green-700'
+                : 'bg-blue-600 hover:bg-blue-700'
+            }`}
           >
-            Configure
+            {smtpStatus?.verified ? 'Update' : 'Configure Email'}
           </button>
         </div>
       </div>
@@ -417,10 +432,13 @@ export const EmailSettingsSection: React.FC<EmailSettingsSectionProps> = () => {
                       <div className="flex-1">
                         <p className="text-sm font-bold text-gray-900 dark:text-white">RecoverAI Domain</p>
                         <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                          Instant setup, no config needed
+                          Emails sent from RecoverAI's domain
                         </p>
                         <p className="text-xs font-mono text-gray-500 dark:text-gray-400 mt-2 bg-gray-100 dark:bg-white/[0.05] px-2 py-1 rounded inline-block">
                           noreply@recoverai.com
+                        </p>
+                        <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
+                          Lower deliverability — your domain recommended
                         </p>
                       </div>
                     </div>

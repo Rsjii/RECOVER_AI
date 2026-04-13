@@ -85,6 +85,7 @@ CREATE TABLE IF NOT EXISTS companies (
   subscription_tier          VARCHAR(20) DEFAULT 'free',    -- 'free' | 'startup' | 'growth' | 'enterprise'
   subscription_status        VARCHAR(20) DEFAULT 'trial',   -- 'trial' | 'active' | 'paused' | 'cancelled'
   dunning_sender_name        VARCHAR(255),                  -- e.g., "Acme Corp Finance Team" (who the dunning emails come from)
+  monthly_burn_rate_usd      NUMERIC(12,2) DEFAULT 0,       -- monthly operating expenses (set by user, used in cash forecast)
 
   created_at                 TIMESTAMPTZ DEFAULT NOW(),
   updated_at                 TIMESTAMPTZ DEFAULT NOW()
@@ -163,6 +164,7 @@ CREATE TABLE IF NOT EXISTS customers (
   risk_tier_updated_at TIMESTAMPTZ,
   customer_risk_score INT DEFAULT 0,           -- calculated payment risk (0-100), updated daily
   customer_risk_score_updated_at TIMESTAMPTZ,  -- when risk score was last calculated
+  payment_insights    JSONB DEFAULT NULL,       -- per-client behavioral profile (reliability, DSO trend, avg emails before payment)
   created_at      TIMESTAMPTZ DEFAULT NOW(),
   updated_at      TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(company_id, email)  -- NULL values don't violate unique constraint in PostgreSQL

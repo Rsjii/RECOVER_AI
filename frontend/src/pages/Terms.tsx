@@ -1,9 +1,11 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
 import { PublicHeader } from '../components/layout/PublicHeader';
+import { useSEO } from '../hooks/useSEO';
+import { getPageSEO } from '../lib/seoConfig';
 
 const Terms: React.FC = () => {
-  useEffect(() => { document.title = 'Terms of Service — RecoverAI'; }, []);
+  useSEO(getPageSEO('terms'));
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-[#09090b]">

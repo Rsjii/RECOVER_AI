@@ -184,6 +184,7 @@ const Dashboard: React.FC = () => {
   const [atRisk, setAtRisk] = useState<AtRiskCustomer[]>([]);
   const [cashPosition, setCashPosition] = useState<CashPosition | null>(null);
   const [cashBalanceInput, setCashBalanceInput] = useState<string>('');
+  const [burnRateInput, setBurnRateInput] = useState<string>('');
   const [runway, setRunway] = useState<RunwayData | null>(null);
   const [leakage, setLeakage] = useState<CashLeakageData | null>(null);
   // New analytics state
@@ -205,6 +206,7 @@ const Dashboard: React.FC = () => {
   const [isTrialMode, setIsTrialMode] = useState(false);
   const [trialAnalysis, setTrialAnalysis] = useState<any>(null);
   const [trialDaysRemaining, setTrialDaysRemaining] = useState(0);
+  const [dismissEmailWarning, setDismissEmailWarning] = useState(false);
 
   useEffect(() => {
     document.title = 'Dashboard — RecoverAI';
@@ -418,6 +420,18 @@ const Dashboard: React.FC = () => {
     }
   };
 
+  const handleBurnRateSubmit = async () => {
+    const val = parseFloat(burnRateInput);
+    if (!isNaN(val) && val >= 0) {
+      try {
+        await api.put('/api/dashboard/burn-rate', { burnRateUsd: val });
+        // Refresh forecast so chart updates with new burn rate
+        const fcRes = await api.get<{ data: any }>('/api/dashboard/cash-forecast').catch(() => null);
+        if (fcRes?.data) setCashForecast(fcRes.data);
+      } catch { /* non-critical */ }
+    }
+  };
+
   const handleConfirmAnomaly = async (id: string) => {
     try {
       await api.patch(`/api/billing-optimization/${id}`, { status: 'confirmed' });
@@ -494,12 +508,14 @@ const Dashboard: React.FC = () => {
   };
 
   // Initialize custom tour (first-time only)
-  const { startTour, closeTour, completeTour, markTourStarted, resetTour, isOpen, currentTour } = useCustomTour();
+  const { startTour, closeTour, completeTour, markTourStarted, resetTour, isOpen, currentTour, isTourStarted } = useCustomTour();
 
   useEffect(() => {
-    // Start tour immediately on first dashboard visit
-    startTour(mainDashboardTour);
-  }, []);
+    // Start tour only on first dashboard visit (never again)
+    if (!isTourStarted('main_onboarding')) {
+      startTour(mainDashboardTour);
+    }
+  }, [startTour, isTourStarted]);
 
   // Debug: Allow manual tour reset via ?tour=reset in URL
   useEffect(() => {
@@ -578,6 +594,62 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className="bg-white dark:bg-[#09090b] min-h-full">
+      {/* STRIPE NOT CONNECTED WARNING */}
+      {!company?.stripe_account_id && (
+        <div className="max-w-7xl mx-auto px-6 sm:px-8 mt-6 mb-6">
+          <div className="p-4 bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 rounded-lg">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex-1">
+                <h3 className="font-semibold text-red-900 dark:text-red-400">
+                  ⚠️ Stripe Not Connected
+                </h3>
+                <p className="text-sm text-red-800 dark:text-red-300 mt-1">
+                  Your autonomous agent is paused. Connect Stripe or import CSV to start recovering invoices.
+                </p>
+              </div>
+              <Button
+                size="sm"
+                className="bg-red-600 hover:bg-red-700 text-white flex-shrink-0"
+                onClick={() => navigate('/settings?tab=integrations')}
+              >
+                Connect Now
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* EMAIL SETUP INFO CARD */}
+      {!dismissEmailWarning && !company?.smtp_verified && (
+        <div className="max-w-7xl mx-auto px-6 sm:px-8 mb-6">
+          <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500 rounded-lg">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex-1">
+                <h3 className="font-semibold text-blue-900 dark:text-blue-400">
+                  ℹ️ Email Configuration
+                </h3>
+                <p className="text-sm text-blue-800 dark:text-blue-300 mt-1">
+                  Emails currently sent via RecoverAI domain.
+                  <button
+                    type="button"
+                    onClick={() => navigate('/settings?tab=email')}
+                    className="text-blue-600 dark:text-blue-400 hover:underline font-medium inline ml-1"
+                  >
+                    Setup custom email →
+                  </button>
+                </p>
+              </div>
+              <button
+                onClick={() => setDismissEmailWarning(true)}
+                className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 flex-shrink-0"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* TRIAL BANNER */}
       {isTrialMode && trialDaysRemaining >= 0 && (
         <div className="max-w-7xl mx-auto px-6 sm:px-8 mb-6">
@@ -931,6 +1003,9 @@ const Dashboard: React.FC = () => {
         cashBalanceInput={cashBalanceInput}
         onBalanceChange={setCashBalanceInput}
         onBalanceSubmit={handleCashBalanceSubmit}
+        burnRateInput={burnRateInput}
+        onBurnRateChange={setBurnRateInput}
+        onBurnRateSubmit={handleBurnRateSubmit}
         onWhatIf={handleWhatIf}
         forecast={cashForecast}
         loading={loading}

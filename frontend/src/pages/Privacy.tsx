@@ -1,9 +1,11 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
 import { PublicHeader } from '../components/layout/PublicHeader';
+import { useSEO } from '../hooks/useSEO';
+import { getPageSEO } from '../lib/seoConfig';
 
 const Privacy: React.FC = () => {
-  useEffect(() => { document.title = 'Privacy Policy — RecoverAI'; }, []);
+  useSEO(getPageSEO('privacy'));
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-[#09090b]">

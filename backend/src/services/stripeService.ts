@@ -269,6 +269,22 @@ class StripeService {
         },
       }).catch((err) => logError('stripeService', method, 'Failed to log integration sync', err));
 
+      // Trigger billing anomaly scan after sync (non-blocking)
+      try {
+        const { runBillingOptimization } = await import('./billingOptimizationService');
+        await runBillingOptimization(companyId);
+      } catch (err) {
+        logError('stripeService', method, 'Billing optimization scan failed (non-critical)', err);
+      }
+
+      // Build per-client behavioral insights from historical data (non-blocking)
+      try {
+        const { buildClientInsights } = await import('./clientInsightsService');
+        await buildClientInsights(companyId);
+      } catch (err) {
+        logError('stripeService', method, 'Client insights build failed (non-critical)', err);
+      }
+
       return result;
     } catch (error) {
       logError('stripeService', method, 'Stripe sync failed', error, {
@@ -583,10 +599,18 @@ class StripeService {
     // Recalculate customer risk score (event-driven, not daily job)
     try {
       const { scoreCustomerRisk } = await import('./riskScoringService');
-      await scoreCustomerRisk(invoice.customer_id, invoice.company_id);
+      await scoreCustomerRisk(invoice.company_id, invoice.customer_id); // Fixed: was reversed
       logInfo('stripeService', method, 'Customer risk score recalculated after payment', { customerId: invoice.customer_id });
     } catch (err) {
       logError('stripeService', method, 'Failed to recalculate risk score (non-blocking)', err);
+    }
+
+    // Update email insights incrementally after payment (builds avg_emails_before_payment over time)
+    try {
+      const { updateEmailInsightsAfterPayment } = await import('./clientInsightsService');
+      await updateEmailInsightsAfterPayment(invoice.company_id, invoice.customer_id, invoice.id);
+    } catch (err) {
+      logError('stripeService', method, 'Email insights update failed (non-blocking)', err);
     }
 
     // Send Slack notification (non-blocking)

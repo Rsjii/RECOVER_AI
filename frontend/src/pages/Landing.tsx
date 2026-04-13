@@ -4,6 +4,8 @@ import { Button } from '../components/ui/Button';
 import { ThemeToggle } from '../components/ui/ThemeToggle';
 import { useAuth } from '../hooks/useAuth';
 import { useNotification } from '../hooks/useNotification';
+import { useSEO } from '../hooks/useSEO';
+import { getPageSEO } from '../lib/seoConfig';
 import { api } from '../lib/api';
 
 const Landing: React.FC = () => {
@@ -12,8 +14,10 @@ const Landing: React.FC = () => {
   const { addToast } = useNotification();
   const [demoLoading, setDemoLoading] = useState(false);
 
+  // SEO configuration
+  useSEO(getPageSEO('landing'));
+
   useEffect(() => {
-    document.title = 'RecoverAI — Autonomous AR Recovery for B2B SaaS';
     // Auto-redirect authenticated users to dashboard
     if (isAuthenticated) {
       navigate('/dashboard', { replace: true });
@@ -71,14 +75,14 @@ const Landing: React.FC = () => {
       <main className="max-w-6xl mx-auto px-6 pt-20 pb-16 text-center">
         <div className="inline-flex items-center gap-2 bg-brand-50 dark:bg-blue-900/30 text-brand-700 dark:text-blue-300 text-xs font-medium px-3 py-1.5 rounded-full mb-8">
           <span className="w-2 h-2 rounded-full bg-brand-500 animate-pulse" />
-          Recover working capital trapped in unpaid invoices
+          Get paid 15-25 days faster. Eliminate 20 hours/month of ops work.
         </div>
         <h1 className="text-5xl md:text-7xl font-bold text-gray-900 dark:text-white max-w-5xl mx-auto leading-tight">
-          Get Paid<br />
-          <span className="bg-gradient-to-r from-brand-600 to-brand-500 bg-clip-text text-transparent">20% Faster Without Manual Work</span>
+          Your AR on<br />
+          <span className="bg-gradient-to-r from-brand-600 to-brand-500 bg-clip-text text-transparent">Autopilot</span>
         </h1>
         <p className="mt-8 text-lg md:text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto leading-relaxed">
-          AI-powered working capital recovery platform. Automatically handles invoice collection, payment tracking, and cash forecasting. Most SaaS founders lose $100K+/year to unpaid invoices. RecoverAI recovers that automatically.
+          Service agencies spend 20+ hours/month sending dunning emails and managing unpaid invoices. RecoverAI automates it all — reducing days to payment by 15-25 days and freeing up your ops person for higher-impact work.
         </p>
         <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
           <Button
@@ -98,7 +102,7 @@ const Landing: React.FC = () => {
             {demoLoading ? 'Loading demo...' : 'Try live demo'}
           </Button>
         </div>
-        <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">3 weeks free • No credit card required</p>
+        <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">21-day free trial • No credit card required</p>
         <p className="mt-6 text-xs text-gray-400 dark:text-gray-500 max-w-md mx-auto">
           We only access your read-only invoice and payment data to analyze and automate recovery.
           We never move, hold, or process payments. You remain in control of all automation settings.
@@ -126,10 +130,10 @@ const Landing: React.FC = () => {
       <section className="max-w-5xl mx-auto px-6 py-8">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
-            { value: '20%', label: 'Faster invoice recovery' },
-            { value: '4 channels', label: 'Email • SMS • Voice • Plans' },
-            { value: '2 integrations', label: 'Stripe • QuickBooks' },
-            { value: '3 weeks', label: 'Free trial' },
+            { value: '15-25 days', label: 'Faster DSO (Days to Payment)' },
+            { value: '20 hrs/month', label: 'Ops labor saved' },
+            { value: '$50-100K', label: 'Working capital freed (avg)' },
+            { value: '21 days', label: 'Free trial' },
           ].map((s) => (
             <div key={s.label} className="text-center bg-gray-50 dark:bg-[#111113] rounded-xl p-5">
               <div className="text-2xl font-bold text-brand-600">{s.value}</div>
@@ -210,26 +214,26 @@ const Landing: React.FC = () => {
       {/* How it works */}
       <section className="max-w-5xl mx-auto px-6 py-14">
         <h2 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white text-center mb-10">
-          Recover working capital in 3 steps
+          Optimize your AR in 3 steps
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {[
             {
               step: '1',
-              title: 'Connect Stripe (60 seconds)',
+              title: 'Connect Stripe or CSV (60 seconds)',
               desc: 'Authorize RecoverAI to read your invoices and payment data. We never move or process payments.',
               color: 'bg-purple-100 dark:bg-purple-900/40 text-purple-600',
             },
             {
               step: '2',
-              title: 'AI evaluates each invoice',
-              desc: 'Claude AI analyzes unpaid invoices, calculates risk, decides recovery strategy, and generates personalized dunning emails.',
+              title: 'AI analyzes payment timing',
+              desc: 'Claude AI evaluates which customers to follow up with, when to send emails, and what tone works best for each customer.',
               color: 'bg-blue-100 dark:bg-blue-900/40 text-brand-600',
             },
             {
               step: '3',
-              title: 'Autonomous recovery starts',
-              desc: 'Automated emails, SMS escalation, payment plans — all managed by the AI agent 24/7. You monitor in the dashboard.',
+              title: 'Autonomous dunning starts',
+              desc: 'Personalized emails sent automatically based on customer behavior. Ops team freed up. DSO drops 15-25 days.',
               color: 'bg-green-100 dark:bg-green-900/40 text-green-600',
             },
           ].map((item) => (
@@ -248,20 +252,20 @@ const Landing: React.FC = () => {
       <section className="bg-gray-50 dark:bg-white/[0.02] py-14">
         <div className="max-w-5xl mx-auto px-6">
           <h2 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white text-center mb-3">
-            Working capital recovery, automated
+            AR optimization meets automation
           </h2>
-          <p className="text-center text-gray-500 dark:text-gray-400 mb-10">AI-powered platform that handles invoice recovery 24/7. You get paid faster without lifting a finger.</p>
+          <p className="text-center text-gray-500 dark:text-gray-400 mb-10">AI-powered platform that reduces DSO and eliminates ops work. Get paid faster. Save your team 20+ hours/month.</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             {[
-              { icon: '💰', title: 'Cash Position Forecast', desc: '30/60/90 day projections based on AR aging and customer payment history.' },
-              { icon: '📅', title: 'Cash Runway Calculator', desc: 'Know exactly when you run out of cash. Color-coded alerts for critical thresholds.' },
-              { icon: '🔮', title: 'What-If Scenarios', desc: 'Model "what if we lose Customer X?" or "what if we accelerate dunning?" in real-time.' },
-              { icon: '📉', title: 'Cash Leakage Analysis', desc: 'See where money is bleeding: failed payments, delays, and customer churn breakdown.' },
-              { icon: '📊', title: 'AI Risk Scoring', desc: '5-signal risk scoring (0-100) per customer. Identifies at-risk payments before they fail.' },
-              { icon: '🤖', title: 'Autonomous Agent', desc: 'Automates payment follow-ups via email and SMS, with flexible controls and optional review.' },
-              { icon: '✉️', title: '5-Email Dunning + SMS', desc: 'From friendly reminder to formal escalation. SMS fallback for higher response rates.' },
-              { icon: '💳', title: 'Payment Plans', desc: 'Auto-offer installment plans based on risk. Customer clicks, Stripe charges automatically.' },
-              { icon: '🔗', title: 'Multi-source Sync', desc: 'Stripe + QuickBooks. All invoices, payments, and customer data in one place.' },
+              { icon: '📊', title: 'DSO Tracking', desc: 'Measure days to payment in real-time. Watch it drop 15-25 days from automation.' },
+              { icon: '⏱️', title: 'Hours Saved Metric', desc: 'See exactly how many hours your ops team freed up each week.' },
+              { icon: '🤖', title: 'Autonomous Dunning', desc: 'AI sends personalized emails based on customer behavior. No ops approval needed.' },
+              { icon: '📈', title: 'Customer Insights', desc: 'Which customers pay fast? Which need reminders? Data-driven decisions.' },
+              { icon: '✉️', title: 'Smart Email Timing', desc: 'AI decides when to email each customer for best response. Not random schedules.' },
+              { icon: '💬', title: 'Tone Optimization', desc: 'Generate friendly, neutral, or aggressive emails based on customer history.' },
+              { icon: '💳', title: 'Payment Plans', desc: 'Offer installments to customers who can\'t pay in full. Improve outcomes.' },
+              { icon: '🔗', title: 'Multi-source Sync', desc: 'Stripe + CSV + QuickBooks. All invoice data in one place.' },
+              { icon: '⚙️', title: 'Full Controls', desc: 'Pause agent, review before send, set tone preference. You\'re always in control.' },
             ].map((f) => (
               <div key={f.title} className="bg-white dark:bg-[#111113] rounded-xl border border-gray-200 dark:border-white/[0.06] p-5">
                 <div className="text-2xl mb-3">{f.icon}</div>
@@ -278,19 +282,19 @@ const Landing: React.FC = () => {
         <div className="max-w-5xl mx-auto px-6 text-center">
           <div className="inline-flex items-center gap-2 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs font-medium px-3 py-1.5 rounded-full mb-6">
             <span className="w-2 h-2 rounded-full bg-blue-500" />
-            Free for 3 weeks. See results. No credit card.
+            21-day free trial. See DSO drop. No credit card.
           </div>
           <h2 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mb-4">
-            Start recovering your working capital today
+            See 15-25 day DSO improvement in 21 days
           </h2>
           <p className="text-gray-500 dark:text-gray-400 mb-10 max-w-xl mx-auto">
-            2-week free trial. Full access. I'll personally set everything up for you. See your first recovery in days, not weeks.
+            21-day free trial. Full access. Watch your team's AR workload drop by 20+ hours/month. Measure DSO improvement. Day 21, decide if it's worth it.
           </p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             {[
-              { icon: '⚡', title: 'Fast setup', desc: 'Connect Stripe in 60 seconds. I handle the rest.' },
-              { icon: '🔍', title: 'See real results', desc: 'Most customers see first recovery within 7 days.' },
-              { icon: '💬', title: 'Personal support', desc: 'Direct access to me throughout your trial.' },
+              { icon: '⚡', title: 'Fast setup', desc: 'Connect Stripe or upload CSV in 60 seconds.' },
+              { icon: '📈', title: 'See real metrics', desc: 'Watch DSO drop. Track hours saved. Daily reports.' },
+              { icon: '💬', title: 'Personal support', desc: 'I set everything up and monitor your results.' },
             ].map((item) => (
               <div key={item.title} className="bg-white dark:bg-[#111113] rounded-2xl border border-gray-200 dark:border-white/[0.06] p-6 text-left">
                 <div className="text-2xl mb-3">{item.icon}</div>
@@ -312,28 +316,28 @@ const Landing: React.FC = () => {
         <div className="space-y-4">
           {[
             {
-              q: 'How does RecoverAI send emails on my behalf?',
-              a: 'After you connect your account, RecoverAI uses your company name and branding in all outreach. Customers see emails from your company, not from us. You can review all sent emails in the Activity tab.',
+              q: 'How does RecoverAI measure DSO improvement?',
+              a: 'We track days from invoice date to payment received. Day 1 baseline = your current DSO. Day 21 = new DSO with agent running. Most customers see 15-25 day improvement.',
             },
             {
-              q: 'What if a customer disputes an invoice?',
-              a: 'The agent detects dispute signals and flags the invoice for human review instead of continuing dunning. You get a Slack alert and can handle it manually from the dashboard.',
+              q: 'How much time does my team actually save?',
+              a: 'Agent sends personalized dunning emails automatically. Your ops team no longer spends time writing/sending follow-ups. Track time saved in your dashboard. Most teams save 15-20 hours/month.',
             },
             {
               q: 'Is my data safe? Where is it stored?',
               a: 'All credentials are encrypted with AES-256-GCM before storage. We never store plaintext API keys. Data is stored in US-based PostgreSQL. SOC 2 certification is in progress. See our Security page for details.',
             },
             {
-              q: 'Can I review emails before they are sent?',
+              q: 'Can I review emails before the agent sends them?',
               a: 'By default, the agent sends autonomously (that\'s the value). You can enable "Approval Mode" in Settings to review and approve each email before sending.',
             },
             {
               q: 'What integrations do you support?',
-              a: 'Currently: Stripe, QuickBooks, Chargebee, and manual CSV upload. Xero, NetSuite, and Zuora are on the roadmap.',
+              a: 'Currently: Stripe, CSV import, and QuickBooks. Agent analyzes all invoice data and sends emails automatically from your account.',
             },
             {
-              q: 'What happens after the 2-week free trial?',
-              a: 'You\'ll see real results—how much we recovered, how many invoices we processed, how much time you saved. Then we discuss pricing that makes sense for your business. Most customers choose to keep using it.',
+              q: 'What happens after the 21-day free trial?',
+              a: 'You\'ll see real metrics—DSO improvement, hours saved, customer behavior insights. Then we discuss custom pricing based on your results and company size. No forced upgrades.',
             },
           ].map((item) => (
             <details key={item.q} className="group bg-white dark:bg-[#111113] rounded-xl border border-gray-200 dark:border-white/[0.06] p-5">
@@ -353,9 +357,9 @@ const Landing: React.FC = () => {
       <section className="bg-gradient-to-r from-blue-600 to-blue-800 dark:from-gray-900 dark:to-gray-950 dark:border-t dark:border-white/[0.06] py-16">
         <div className="max-w-3xl mx-auto px-6 text-center">
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
-            Stop losing money to unpaid invoices.
+            Free your ops team. Get paid faster.
           </h2>
-          <p className="text-blue-50 dark:text-gray-300 mb-10 text-lg">Get your first AR recovery result in 3 weeks. No credit card required.</p>
+          <p className="text-blue-50 dark:text-gray-300 mb-10 text-lg">21-day free trial. See 15-25 day DSO improvement. Save 20+ hours/month of ops work. No credit card required.</p>
           <Button size="lg" className="bg-white !text-black hover:bg-gray-100 dark:bg-blue-600 dark:!text-white dark:hover:bg-blue-700 font-semibold px-12 py-3 shadow-lg" onClick={() => navigate('/signup')}>
             Start Free Trial
           </Button>

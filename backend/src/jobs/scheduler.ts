@@ -157,7 +157,18 @@ export function initScheduler() {
 
   cron.schedule('0 2 * * 0', async () => {
     await executeJob('billingOptimization', async () => {
-      logInfo(LOG_MODULE, 'billingOptimization', 'Would detect anomalies here');
+      const { runBillingOptimization } = await import('../services/billingOptimizationService');
+      const companies = await pool.query<{ id: string }>(
+        `SELECT id FROM companies WHERE subscription_status IN ('trialing', 'active') ORDER BY created_at ASC`
+      );
+      for (const { id } of companies.rows) {
+        try {
+          await runBillingOptimization(id);
+        } catch (err) {
+          logError(LOG_MODULE, 'billingOptimization', 'Company scan failed', err, { companyId: id });
+        }
+      }
+      logInfo(LOG_MODULE, 'billingOptimization', 'Weekly scan complete', { companiesScanned: companies.rows.length });
     });
   });
 

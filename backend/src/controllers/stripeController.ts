@@ -47,6 +47,11 @@ export const connectStripe = async (req: Request, res: Response) => {
       logError(handler, 'Failed to set onboarding active (non-blocking)', err);
     }
 
+    // Auto-sync invoices immediately after connect (non-blocking — don't delay response)
+    stripeService.syncInvoices(companyId).catch((err) => {
+      logError(handler, 'Auto-sync after connect failed (non-blocking)', err);
+    });
+
     const elapsed = Date.now() - startTime;
     logInfo(handler, `Completed in ${elapsed}ms`, { companyId });
 
@@ -154,6 +159,11 @@ export const stripeOAuthExchange = async (req: Request, res: Response) => {
     logInfo(handler, 'Exchanging OAuth code', { companyId });
     await stripeService.connectViaOAuth(companyId, userId, code);
 
+    // Auto-sync invoices immediately after OAuth connect (non-blocking — don't delay response)
+    stripeService.syncInvoices(companyId).catch((err) => {
+      logError(handler, 'Auto-sync after OAuth exchange failed (non-blocking)', err);
+    });
+
     logInfo(handler, `OAuth exchange completed in ${Date.now() - startTime}ms`, { companyId });
     return res.status(200).json({ message: 'Stripe connected successfully' });
   } catch (err: any) {
@@ -189,6 +199,11 @@ export const stripeOAuthCallback = async (req: Request, res: Response) => {
     logInfo(handler, 'Processing OAuth code', { companyId });
 
     await stripeService.connectViaOAuth(companyId, userId, code as string);
+
+    // Auto-sync invoices immediately after OAuth callback (non-blocking — redirect happens immediately)
+    stripeService.syncInvoices(companyId).catch((err) => {
+      logError(handler, 'Auto-sync after OAuth callback failed (non-blocking)', err);
+    });
 
     // Mark all users in this company as fully onboarded
     try {

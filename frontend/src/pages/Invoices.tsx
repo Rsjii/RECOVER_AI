@@ -26,13 +26,13 @@ const Invoices: React.FC = () => {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [status, setStatus] = useState('');
+  const [status, setStatus] = useState('unpaid');
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selected, setSelected] = useState<Invoice | null>(null);
   const [agingBucket, setAgingBucket] = useState('');
   const [dunningStageFilter, setDunningStageFilter] = useState('');
-  const [sortBy, setSortBy] = useState('');
+  const [sortBy, setSortBy] = useState('days_overdue_desc');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [syncing, setSyncing] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);

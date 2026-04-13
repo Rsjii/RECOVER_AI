@@ -291,6 +291,25 @@ export async function processCsvImportJob(companyId: string, invoices: CSVImport
     logInfo(LOG_MODULE, 'processCsvImportJob', `Done in ${elapsed}ms`, { created, duplicates, skipped });
 
     jobResults.set(jobId, { status: 'done', created, skipped, duplicates, total: invoices.length });
+
+    // Trigger billing anomaly scan after import (non-blocking)
+    try {
+      const { runBillingOptimization } = await import('../services/billingOptimizationService');
+      await runBillingOptimization(companyId);
+      logInfo(LOG_MODULE, 'processCsvImportJob', 'Billing anomaly scan complete post-import');
+    } catch (err) {
+      logError(LOG_MODULE, 'processCsvImportJob', 'Billing optimization scan failed (non-critical)', err);
+    }
+
+    // Build per-client behavioral insights from historical data (non-blocking)
+    try {
+      const { buildClientInsights } = await import('../services/clientInsightsService');
+      await buildClientInsights(companyId);
+      logInfo(LOG_MODULE, 'processCsvImportJob', 'Client insights built post-import');
+    } catch (err) {
+      logError(LOG_MODULE, 'processCsvImportJob', 'Client insights build failed (non-critical)', err);
+    }
+
     setTimeout(() => jobResults.delete(jobId), 10 * 60 * 1000);
   } catch (err: any) {
     logError(LOG_MODULE, 'processCsvImportJob', 'Failed', err);

@@ -310,8 +310,19 @@ export const getStage4Status = async (req: Request, res: Response) => {
       await CompanyDB.updateCompany(companyId, { onboarding_stage: 'integrations' });
     }
 
+    // Check CSV: has any manually imported invoices
+    let csv_connected = false;
+    try {
+      const csvResult = await pool.query(
+        `SELECT COUNT(*) AS cnt FROM invoices WHERE company_id = $1 AND source = 'manual'`,
+        [companyId]
+      );
+      csv_connected = parseInt(csvResult.rows[0]?.cnt || '0') > 0;
+    } catch { /* non-blocking */ }
+
     return res.json({
-      stripe_connected: !!company.stripe_account_id,
+      stripe_connected: !!company.stripe_account_id || !!company.stripe_api_key_encrypted,
+      csv_connected,
       qb_connected: !!company.quickbooks_realm_id,
       company_name: company.name,
     });

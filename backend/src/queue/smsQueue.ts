@@ -10,7 +10,7 @@ import { logError, logInfo, logWarn } from '../utils/logger';
 const LOG_MODULE = 'smsQueue';
 const QUEUE_NAME = 'sms-messages';
 const WORKER_IDLE_TIMEOUT_MS = 60000; // Close worker if idle for 1 minute
-const SMS_FEATURE_ENABLED = false; // PAUSED: Will enable in Phase 2
+const SMS_FEATURE_ENABLED = true; // ENABLED: Phase 1 Multi-channel Orchestration
 
 let smsWorkerCleanupTimer: NodeJS.Timeout | null = null;
 

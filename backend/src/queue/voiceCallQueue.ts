@@ -7,7 +7,7 @@ import { pool } from '../config/database';
 
 const MODULE = 'voiceCallQueue';
 const WORKER_IDLE_TIMEOUT_MS = 60000; // Close worker if idle for 1 minute
-const VOICE_FEATURE_ENABLED = false; // PAUSED: Will enable in Phase 2
+const VOICE_FEATURE_ENABLED = true; // ENABLED: Phase 1 Multi-channel Orchestration
 
 let voiceCallWorker: any = null;
 let voiceWorkerCleanupTimer: NodeJS.Timeout | null = null;

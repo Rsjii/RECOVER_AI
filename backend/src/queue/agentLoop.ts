@@ -58,6 +58,7 @@ async function getOverdueInvoicesForProcessing(): Promise<Array<{
   pause_dunning_until: string | null;
   paused_customers: string[] | null;
   aggressive_enabled: boolean;
+  payment_insights: { avg_emails_before_payment: number | null; reliability_pct: number | null; dso_trend: string | null } | null;
 }>> {
   const result = await pool.query(`
     SELECT
@@ -81,6 +82,7 @@ async function getOverdueInvoicesForProcessing(): Promise<Array<{
       co.pause_dunning_until,
       co.paused_customers,
       COALESCE(co.aggressive_enabled, false) AS aggressive_enabled,
+      c.payment_insights,
       COUNT(DISTINCT el.id) FILTER (
         WHERE el.email_type LIKE 'dunning_%' AND el.status NOT IN ('failed', 'skipped')
       )::int AS dunning_emails_sent,
@@ -104,7 +106,8 @@ async function getOverdueInvoicesForProcessing(): Promise<Array<{
     GROUP BY i.id, i.company_id, i.customer_id, i.amount, i.due_date, c.customer_risk_score,
              i.dunning_paused_until, i.dunning_stopped, i.sms_count,
              c.email, c.name, c.phone, c.phone_opt_in, c.risk_tier, co.name, co.pilot_mode,
-             co.dunning_tone, co.pause_dunning_until, co.paused_customers, co.aggressive_enabled
+             co.dunning_tone, co.pause_dunning_until, co.paused_customers, co.aggressive_enabled,
+             c.payment_insights
     ORDER BY i.due_date ASC
   `);
 
@@ -247,6 +250,26 @@ async function runDecisionEngine(): Promise<{
       }
 
       const activeDunningTree = TIER_DUNNING_TREES[tier] ?? DUNNING_DECISION_TREE;
+
+      // ── Historical insights: smarter email sequencing ──
+      // If customer historically needs 2.5+ emails before paying, bump tier aggression
+      // If customer historically self-corrects with ≤1 email, stay gentle
+      const avgEmailsNeeded = invoice.payment_insights?.avg_emails_before_payment ?? null;
+      if (avgEmailsNeeded !== null) {
+        if (avgEmailsNeeded > 2.5 && tier < 3) {
+          // Customer historically needs pushing — escalate faster
+          tier = Math.min(tier + 1, 4) as 1 | 2 | 3 | 4;
+          logInfo(LOG_MODULE, method, 'Tier bumped by payment_insights (slow historical payer)', {
+            invoiceId: invoice.id, avgEmailsNeeded, newTier: tier,
+          });
+        } else if (avgEmailsNeeded <= 1.2 && tier > 1 && invoice.dunning_emails_sent === 0) {
+          // Self-payer — start gentle even if risk score says otherwise
+          tier = Math.max(tier - 1, 1) as 1 | 2 | 3 | 4;
+          logInfo(LOG_MODULE, method, 'Tier reduced by payment_insights (historical self-payer)', {
+            invoiceId: invoice.id, avgEmailsNeeded, newTier: tier,
+          });
+        }
+      }
 
       let nextStep: { dayOffset: number; emailType: DunningEmailType } | null = null;
       for (const step of activeDunningTree) {

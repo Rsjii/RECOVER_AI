@@ -561,8 +561,12 @@ export async function getEnhancedCashForecast(companyId: string): Promise<Enhanc
       else trend = 'stable';
     }
 
-    // 5. Estimate monthly burn from runway data (daily amount outstanding - daily recovery)
-    const dailyBurn = 0; // conservative: assume net-zero operating burn for forecast purposes
+    // 5. Fetch monthly burn rate from company settings (set by user in dashboard)
+    const burnResult = await pool.query<{ burn: string }>(
+      `SELECT COALESCE(monthly_burn_rate_usd, 0) AS burn FROM companies WHERE id = $1`,
+      [companyId]
+    );
+    const dailyBurn = Number(burnResult.rows[0]?.burn ?? 0) / 30;
 
     // 6. Build day-by-day forecast
     const forecastDays: ForecastDay[] = [];

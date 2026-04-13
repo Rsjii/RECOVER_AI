@@ -29,6 +29,10 @@ const EmailQueue: React.FC = () => {
   const [previewEmail, setPreviewEmail] = useState<QueuedEmail | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [preview, setPreview] = useState<{ subject: string; body: string } | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedSubject, setEditedSubject] = useState('');
+  const [editedBody, setEditedBody] = useState('');
+  const [savingEdit, setSavingEdit] = useState(false);
 
   useEffect(() => {
     document.title = 'Email Queue — RecoverAI';
@@ -119,6 +123,9 @@ const EmailQueue: React.FC = () => {
         `/api/email/preview?invoiceId=${email.invoice_id}&emailType=${email.email_type}`
       );
       setPreview(res.data);
+      setEditedSubject(res.data.subject);
+      setEditedBody(res.data.body);
+      setIsEditing(false);
     } catch (err: any) {
       addToast({
         type: 'error',
@@ -126,6 +133,23 @@ const EmailQueue: React.FC = () => {
       });
     } finally {
       setPreviewLoading(false);
+    }
+  };
+
+  const handleSaveEdit = async () => {
+    if (!previewEmail) return;
+    setSavingEdit(true);
+    try {
+      await api.put(`/api/pilot-queue/${previewEmail.id}`, {
+        subject: editedSubject,
+        body: editedBody,
+      });
+      setIsEditing(false);
+      addToast({ type: 'success', message: 'Email saved — edits will be used when sent' });
+    } catch (err: any) {
+      addToast({ type: 'error', message: err.message || 'Failed to save edits' });
+    } finally {
+      setSavingEdit(false);
     }
   };
 
@@ -318,17 +342,34 @@ const EmailQueue: React.FC = () => {
                     <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 uppercase tracking-wide">
                       Subject
                     </label>
-                    <div className="bg-white dark:bg-white/[0.05] rounded px-3 py-2 text-sm text-gray-900 dark:text-white font-medium">
-                      {preview.subject}
-                    </div>
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        value={editedSubject}
+                        onChange={(e) => setEditedSubject(e.target.value)}
+                        className="w-full bg-white dark:bg-white/[0.05] rounded px-3 py-2 text-sm text-gray-900 dark:text-white font-medium border border-indigo-300 dark:border-indigo-600 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      />
+                    ) : (
+                      <div className="bg-white dark:bg-white/[0.05] rounded px-3 py-2 text-sm text-gray-900 dark:text-white font-medium">
+                        {editedSubject || preview.subject}
+                      </div>
+                    )}
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 uppercase tracking-wide">
                       Body
                     </label>
-                    <div className="bg-white dark:bg-white/[0.05] rounded px-3 py-2 text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed max-h-96 overflow-y-auto">
-                      {preview.body}
-                    </div>
+                    {isEditing ? (
+                      <textarea
+                        value={editedBody}
+                        onChange={(e) => setEditedBody(e.target.value)}
+                        className="w-full bg-white dark:bg-white/[0.05] rounded px-3 py-2 text-sm text-gray-700 dark:text-gray-300 leading-relaxed h-96 resize-none border border-indigo-300 dark:border-indigo-600 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      />
+                    ) : (
+                      <div className="bg-white dark:bg-white/[0.05] rounded px-3 py-2 text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed max-h-96 overflow-y-auto">
+                        {editedBody || preview.body}
+                      </div>
+                    )}
                   </div>
                 </div>
               ) : null}
@@ -340,11 +381,29 @@ const EmailQueue: React.FC = () => {
                 onClick={() => {
                   setPreviewEmail(null);
                   setPreview(null);
+                  setIsEditing(false);
                 }}
               >
                 Close
               </Button>
-              {preview && (
+              {preview && !isEditing && (
+                <Button
+                  variant="secondary"
+                  onClick={() => setIsEditing(true)}
+                >
+                  Edit Email
+                </Button>
+              )}
+              {preview && isEditing && (
+                <Button
+                  variant="secondary"
+                  onClick={handleSaveEdit}
+                  loading={savingEdit}
+                >
+                  Save Edits
+                </Button>
+              )}
+              {preview && !isEditing && (
                 <Button
                   variant="primary"
                   onClick={() => {

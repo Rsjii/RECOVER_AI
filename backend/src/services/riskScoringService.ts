@@ -138,8 +138,63 @@ export async function scoreCustomerRisk(
       });
     }
 
+    // ── Historical insights signals (from payment_insights JSONB) ──
+    // These are predictive: built from actual payment behavior over time
+    try {
+      const insightsResult = await pool.query<{ payment_insights: any }>(
+        `SELECT payment_insights FROM customers WHERE id = $1 AND company_id = $2`,
+        [customerId, companyId]
+      );
+      const insights = insightsResult.rows[0]?.payment_insights;
+
+      if (insights) {
+        const reliability = insights.reliability_pct;
+        const dsoTrend = insights.dso_trend;
+        const avgEmails = insights.avg_emails_before_payment;
+
+        // Signal: Poor historical reliability (< 50% paid on time)
+        if (reliability !== null && reliability < 50) {
+          signals.push({
+            type: 'payment_failure_history',
+            description: `Low historical reliability: only ${reliability}% of invoices paid`,
+            weight: 15,
+          });
+        }
+
+        // Signal: Reward reliable self-payers (> 90% on time, avg < 1.5 emails to pay)
+        // Reduce score — they will likely pay without heavy dunning
+        if (reliability !== null && reliability > 90 && (avgEmails === null || avgEmails < 1.5)) {
+          signals.push({
+            type: 'inactivity',
+            description: `Strong payment history: ${reliability}% reliability, self-corrects quickly`,
+            weight: -10, // Negative weight = lower risk
+          });
+        }
+
+        // Signal: DSO worsening trend
+        if (dsoTrend === 'worsening') {
+          signals.push({
+            type: 'invoice_aging',
+            description: 'Payment timing getting worse over last 6 months (DSO trend: worsening)',
+            weight: 10,
+          });
+        }
+
+        // Signal: Needs many emails before paying (historically slow responder)
+        if (avgEmails !== null && avgEmails > 3) {
+          signals.push({
+            type: 'multiple_hard_declines',
+            description: `Historically requires ${avgEmails} emails before payment`,
+            weight: 10,
+          });
+        }
+      }
+    } catch (_err) {
+      // payment_insights might not exist yet — skip silently
+    }
+
     // Cap score at 100 (max 7 signals × 20 = 140, but we cap at 100)
-    const score = Math.min(signals.reduce((sum, s) => sum + s.weight, 0), 100);
+    const score = Math.min(Math.max(signals.reduce((sum, s) => sum + s.weight, 0), 0), 100);
 
     // ✅ SAVE to database immediately (event-driven)
     try {

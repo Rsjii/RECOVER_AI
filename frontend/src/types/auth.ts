@@ -36,6 +36,9 @@ export interface Company {
   trial_status?: 'not_started' | 'active' | 'expired' | 'converted_to_paid' | null;
   trial_starts_at?: string | null;
   trial_ends_at?: string | null;
+  // Email setup
+  smtp_verified?: boolean;
+  smtp_enabled?: boolean;
 }
 
 export interface AuthState {

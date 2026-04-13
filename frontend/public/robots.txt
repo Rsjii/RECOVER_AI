@@ -1,0 +1,25 @@
+# RecoverAI SEO Configuration
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /api/
+Disallow: /login
+Disallow: /signup
+Disallow: /dashboard
+Disallow: /settings
+Disallow: /profile
+Disallow: /integrations
+Disallow: /activity
+Disallow: /email-queue
+Disallow: /reports
+Disallow: /billing
+Disallow: /stripe-callback
+Disallow: /google-callback
+Disallow: /*.json$
+Disallow: /*.tsx$
+
+# Crawl-delay for respectful crawling
+Crawl-delay: 1
+
+# Sitemap location
+Sitemap: https://recoverai.com/sitemap.xml

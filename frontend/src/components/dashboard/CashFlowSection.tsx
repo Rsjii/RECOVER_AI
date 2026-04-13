@@ -43,6 +43,9 @@ interface CashFlowSectionProps {
   cashBalanceInput: string;
   onBalanceChange: (value: string) => void;
   onBalanceSubmit: () => void;
+  burnRateInput: string;
+  onBurnRateChange: (value: string) => void;
+  onBurnRateSubmit: () => void;
   onWhatIf: (scenario: any) => Promise<any>;
   forecast?: EnhancedCashForecast | null;
   loading?: boolean;
@@ -56,6 +59,9 @@ export const CashFlowSection: React.FC<CashFlowSectionProps> = ({
   cashBalanceInput,
   onBalanceChange,
   onBalanceSubmit,
+  burnRateInput,
+  onBurnRateChange,
+  onBurnRateSubmit,
   onWhatIf,
   forecast,
   loading = false,
@@ -181,6 +187,9 @@ export const CashFlowSection: React.FC<CashFlowSectionProps> = ({
               cashBalanceInput={cashBalanceInput}
               onBalanceChange={onBalanceChange}
               onBalanceSubmit={onBalanceSubmit}
+              burnRateInput={burnRateInput}
+              onBurnRateChange={onBurnRateChange}
+              onBurnRateSubmit={onBurnRateSubmit}
               loading={loading}
             />
           )}
