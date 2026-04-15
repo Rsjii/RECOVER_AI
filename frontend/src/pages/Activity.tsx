@@ -188,9 +188,9 @@ const Activity: React.FC = () => {
     if (!selectedEmail) return;
     setUpdatingEmail(true);
     try {
-      // Pending emails: update in pilot_queued_emails
-      // Sent emails: update in email_logs
-      const isPending = selectedEmail.status === 'pending';
+      // Check if email is from pending queue or sent logs
+      // Pending emails have attempt_number field, or status='pending'
+      const isPending = queuedEmails.some(e => e.id === selectedEmail.id) || selectedEmail.status === 'pending';
 
       if (isPending) {
         // Update pending email via pilot-queue endpoint
@@ -198,21 +198,17 @@ const Activity: React.FC = () => {
           subject: editSubject,
           body: editBody,
         });
+        addToast({ type: 'success', message: 'Email updated successfully' });
+        setShowEditModal(false);
+        fetchQueuedEmails();
       } else {
         // Update sent email via email-logs endpoint
         await api.put(`/api/email-logs/${selectedEmail.id}`, {
           subject: editSubject,
           email_body: editBody,
         });
-      }
-
-      addToast({ type: 'success', message: 'Email updated successfully' });
-      setShowEditModal(false);
-
-      // Refresh the appropriate data
-      if (isPending) {
-        fetchQueuedEmails();
-      } else {
+        addToast({ type: 'success', message: 'Email updated successfully' });
+        setShowEditModal(false);
         fetchEmails();
       }
     } catch (err: any) {
