@@ -564,6 +564,21 @@ export const uploadCSVFile = async (req: Request, res: Response): Promise<void> 
       // Return final result immediately
       const result = getCSVImportStatus(jobId);
 
+      // AUTO-TRIGGER: Run agent immediately after CSV import (don't wait 6 hours) ✅
+      if ((result?.created || 0) > 0) {
+        try {
+          const { runDecisionEngineNow } = await import('../queue/agentLoop');
+          logInfo(handler, 'Auto-triggering agent loop after CSV import', { companyId, created: result?.created });
+          // Fire and forget — don't block response
+          runDecisionEngineNow().catch(err => {
+            logError(handler, 'Auto-trigger agent loop failed (non-critical)', err);
+          });
+        } catch (err) {
+          logError(handler, 'Failed to auto-trigger agent loop', err);
+          // Continue anyway — CSV import succeeded
+        }
+      }
+
       res.status(200).json({
         data: {
           jobId,
@@ -717,6 +732,22 @@ export const uploadCSV = async (req: Request, res: Response): Promise<void> => {
     }
 
     logInfo(handler, `CSV upload complete in ${Date.now() - startTime}ms`, { companyId, created, skipped });
+
+    // AUTO-TRIGGER: Run agent immediately after CSV import (don't wait 6 hours) ✅
+    if (created > 0) {
+      try {
+        const { runDecisionEngineNow } = await import('../queue/agentLoop');
+        logInfo(handler, 'Auto-triggering agent loop after CSV import', { companyId, created });
+        // Fire and forget — don't block response
+        runDecisionEngineNow().catch(err => {
+          logError(handler, 'Auto-trigger agent loop failed (non-critical)', err);
+        });
+      } catch (err) {
+        logError(handler, 'Failed to auto-trigger agent loop', err);
+        // Continue anyway — CSV import succeeded
+      }
+    }
+
     res.status(200).json({ message: 'Upload complete', created, skipped });
   } catch (error: any) {
     logError(handler, `CSV upload failed after ${Date.now() - startTime}ms`, error);

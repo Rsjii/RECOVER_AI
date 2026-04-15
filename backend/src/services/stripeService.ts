@@ -285,6 +285,25 @@ class StripeService {
         logError('stripeService', method, 'Client insights build failed (non-critical)', err);
       }
 
+      // AUTO-TRIGGER: Run agent immediately after Stripe sync (don't wait 6 hours) ✅
+      if (result.created > 0 || result.updated > 0) {
+        try {
+          const { runDecisionEngineNow } = await import('../queue/agentLoop');
+          logInfo('stripeService', method, 'Auto-triggering agent loop after Stripe sync', {
+            companyId,
+            created: result.created,
+            updated: result.updated
+          });
+          // Fire and forget — don't block response
+          runDecisionEngineNow().catch((err: any) => {
+            logError('stripeService', method, 'Auto-trigger agent loop failed (non-critical)', err);
+          });
+        } catch (err: any) {
+          logError('stripeService', method, 'Failed to auto-trigger agent loop', err);
+          // Continue anyway — Stripe sync succeeded
+        }
+      }
+
       return result;
     } catch (error) {
       logError('stripeService', method, 'Stripe sync failed', error, {
@@ -780,6 +799,23 @@ class StripeService {
         await scoreCustomerRisk(customer.id, companyId);
       } catch (err) {
         logError('stripeService', method, 'Failed to calculate risk score (non-blocking)', err);
+      }
+
+      // AUTO-TRIGGER: Run agent immediately after Stripe webhook creates invoice (don't wait 6 hours) ✅
+      try {
+        const { runDecisionEngineNow } = await import('../queue/agentLoop');
+        logInfo('stripeService', method, 'Auto-triggering agent loop after Stripe webhook invoice creation', {
+          companyId,
+          invoiceId: createdInvoice.id,
+          stripeId: inv.id
+        });
+        // Fire and forget — don't block webhook response
+        runDecisionEngineNow().catch((err: any) => {
+          logError('stripeService', method, 'Auto-trigger agent loop failed (non-critical)', err);
+        });
+      } catch (err: any) {
+        logError('stripeService', method, 'Failed to auto-trigger agent loop', err);
+        // Continue anyway — invoice creation succeeded
       }
     } catch (error) {
       logError('stripeService', method, 'Failed to handle invoice.created webhook', error, {
