@@ -826,6 +826,207 @@ export const getDunningStatus = async (req: Request, res: Response): Promise<voi
   }
 };
 
+/**
+ * GET /api/invoices/:id/workflow-timeline
+ * Returns merged timeline of actual (email/SMS) + planned future dunning events
+ */
+export const getWorkflowTimeline = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'getWorkflowTimeline';
+  try {
+    const companyId = (req as any).companyId;
+    const id = req.params.id as string;
+
+    const invoice = await InvoiceDB.findInvoiceById(id, companyId);
+    if (!invoice) { sendErrorResponse(res, 404, 'Invoice not found'); return; }
+
+    const dueDate = new Date(invoice.due_date).getTime();
+    const daysOverdue = Math.max(0, Math.floor((Date.now() - dueDate) / 86400000));
+
+    // --- Actual email events ---
+    const emailLogs = await listEmailLogs(companyId, id);
+    const sentEmailTypes = new Set(emailLogs.map((l: any) => l.email_type as string));
+
+    const emailEvents = emailLogs.map((log: any) => ({
+      id: log.id,
+      date: log.sent_at,
+      type: 'email',
+      channel: 'Email',
+      title: emailTypeLabel(log.email_type),
+      subtitle: log.subject,
+      status: 'done',
+      detail: log.opened_at ? `Opened ${log.clicked_at ? '+ clicked' : ''}` : 'Delivered',
+    }));
+
+    // --- Actual SMS events ---
+    const smsResult = await pool.query(
+      `SELECT id, phone, content, sent_at, delivered_at, status
+       FROM sms_logs WHERE invoice_id = $1 AND company_id = $2 ORDER BY sent_at ASC`,
+      [id, companyId]
+    );
+    const smsEvents = smsResult.rows.map((sms: any) => ({
+      id: sms.id,
+      date: sms.sent_at,
+      type: 'sms',
+      channel: 'SMS',
+      title: 'SMS Reminder sent',
+      subtitle: sms.phone,
+      status: 'done',
+      detail: sms.content?.substring(0, 80),
+    }));
+
+    // --- Actual payments ---
+    const paymentsResult = await pool.query(
+      `SELECT id, amount, paid_at, status FROM payments
+       WHERE invoice_id = $1 AND company_id = $2 AND status = 'succeeded' ORDER BY paid_at ASC`,
+      [id, companyId]
+    );
+    const paymentEvents = paymentsResult.rows.map((p: any) => ({
+      id: p.id,
+      date: p.paid_at,
+      type: 'payment',
+      channel: 'Payment',
+      title: `Payment received — $${parseFloat(p.amount).toLocaleString()}`,
+      subtitle: 'Invoice paid',
+      status: 'done',
+    }));
+
+    // --- Planned future email events (from DUNNING_DECISION_TREE) ---
+    const plannedEvents = DUNNING_DECISION_TREE
+      .filter(step => !sentEmailTypes.has(step.emailType))
+      .map(step => {
+        const plannedDate = new Date(dueDate + step.dayOffset * 86400000);
+        const isNext = daysOverdue >= step.dayOffset;
+        return {
+          id: `planned-${step.emailType}`,
+          date: plannedDate.toISOString(),
+          type: 'email',
+          channel: 'Email',
+          title: emailTypeLabel(step.emailType),
+          subtitle: `Day ${step.dayOffset} — ${isNext ? 'will be queued on next agent run' : `in ${step.dayOffset - daysOverdue}d`}`,
+          status: isNext ? 'pending' : 'planned',
+        };
+      });
+
+    // --- Merge & sort all events ---
+    const allEvents = [
+      ...emailEvents,
+      ...smsEvents,
+      ...paymentEvents,
+      ...plannedEvents,
+    ].sort((a, b) => {
+      if (!a.date) return 1;
+      if (!b.date) return -1;
+      return new Date(a.date).getTime() - new Date(b.date).getTime();
+    });
+
+    logInfo(handler, 'Timeline built', { invoiceId: id, eventCount: allEvents.length });
+    res.json({ data: { events: allEvents, daysOverdue } });
+  } catch (err) {
+    logError(handler, 'Failed', err);
+    const { statusCode, message } = parseError(err);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
+
+function emailTypeLabel(emailType: string): string {
+  const labels: Record<string, string> = {
+    dunning_1: 'Friendly Reminder sent',
+    dunning_2: 'Follow-up sent',
+    dunning_3: 'Escalation email sent',
+    dunning_4: 'Urgent notice sent',
+    dunning_5: 'Final notice sent',
+    payment_plan_offer: 'Payment plan offered',
+  };
+  return labels[emailType] ?? emailType;
+}
+
+/**
+ * GET /api/invoices/:id/payment-link
+ * Generates a Stripe checkout session URL for the customer to pay
+ */
+export const getPaymentLink = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'getPaymentLink';
+  try {
+    const companyId = (req as any).companyId;
+    const id = req.params.id as string;
+
+    const invoice = await InvoiceDB.findInvoiceById(id, companyId);
+    if (!invoice) { sendErrorResponse(res, 404, 'Invoice not found'); return; }
+    if (invoice.status === 'paid') { sendErrorResponse(res, 400, 'Invoice is already paid'); return; }
+
+    // Get company Stripe credentials
+    const companyResult = await pool.query(
+      'SELECT stripe_api_key_encrypted, name FROM companies WHERE id = $1',
+      [companyId]
+    );
+    const company = companyResult.rows[0];
+
+    if (!company?.stripe_api_key_encrypted) {
+      sendErrorResponse(res, 400, 'Stripe not connected — connect Stripe in Settings first');
+      return;
+    }
+
+    const { decryptField } = await import('../lib/encryption');
+    const stripeKey = decryptField(company.stripe_api_key_encrypted);
+
+    const Stripe = (await import('stripe')).default;
+    const stripe = new Stripe(stripeKey);
+
+    const amountCents = Math.round(parseFloat(String(invoice.amount)) * 100);
+    const currency = (invoice.currency || 'USD').toLowerCase();
+
+    // Build customer name from customer table
+    const customerResult = await pool.query(
+      'SELECT name, email FROM customers WHERE id = $1',
+      [invoice.customer_id]
+    );
+    const customer = customerResult.rows[0];
+    const customerName = customer?.name ?? 'Customer';
+    const customerEmail = customer?.email;
+
+    // Create Stripe Checkout Session (expires in 24h)
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      mode: 'payment',
+      line_items: [{
+        price_data: {
+          currency,
+          unit_amount: amountCents,
+          product_data: {
+            name: `Invoice Payment — ${company.name}`,
+            description: `Invoice #${invoice.source_id ?? id.slice(0, 8).toUpperCase()} · Due ${new Date(invoice.due_date).toLocaleDateString()}`,
+          },
+        },
+        quantity: 1,
+      }],
+      customer_email: customerEmail,
+      metadata: {
+        invoice_id: id,
+        company_id: companyId,
+      },
+      success_url: `${process.env.FRONTEND_URL || 'https://app.recoverai.com'}/pay/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${process.env.FRONTEND_URL || 'https://app.recoverai.com'}/pay/cancelled`,
+      expires_at: Math.floor(Date.now() / 1000) + 86400, // 24 hours
+    });
+
+    logInfo(handler, 'Payment link created', { invoiceId: id, sessionId: session.id });
+    res.json({
+      data: {
+        url: session.url,
+        sessionId: session.id,
+        expiresAt: new Date((session.expires_at ?? 0) * 1000).toISOString(),
+        amount: invoice.amount,
+        currency: invoice.currency,
+        customerName,
+      },
+    });
+  } catch (err: any) {
+    logError(handler, 'Failed', err);
+    const { statusCode, message } = parseError(err);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
+
 export const getAllInvoiceIds = async (req: Request, res: Response): Promise<void> => {
   const handler = 'getAllInvoiceIds';
   try {

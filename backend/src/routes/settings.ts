@@ -19,6 +19,12 @@ import {
   getDunningSenderName,
   updateDunningSenderName,
   disconnectStripe,
+  getSMSSettings,
+  updateSMSSettings,
+  getTwilioConfig,
+  configureTwilio,
+  testTwilio,
+  disconnectTwilio,
 } from '../controllers/settingsController';
 import {
   getSMTPStatusHandler,
@@ -57,6 +63,16 @@ router.get('/smtp/config', requireRole('admin'), getSMTPConfigHandler);
 router.post('/smtp/configure', requireRole('admin'), configureSmtpHandler);
 router.post('/smtp/test', requireRole('admin'), testSmtpHandler);
 router.post('/smtp/disable', requireRole('admin'), disableSmtpHandler);
+
+// SMS Settings
+router.get('/sms', getSMSSettings);
+router.patch('/sms', requireRole('admin'), updateSMSSettings);
+
+// Twilio SMS Configuration (Customer's own account)
+router.get('/twilio', getTwilioConfig);
+router.post('/twilio/configure', requireRole('admin'), configureTwilio);
+router.post('/twilio/test', requireRole('admin'), testTwilio);
+router.post('/twilio/disconnect', requireRole('admin'), disconnectTwilio);
 
 // Integrations disconnect endpoints
 router.post('/integrations/stripe/disconnect', requireRole('admin'), disconnectStripe);

@@ -12,7 +12,6 @@ import type { RunwayData } from '../components/dashboard/RunwayWidget';
 import type { CashLeakageData } from '../components/dashboard/CashLeakageWidget';
 import { EmailPreviewModal } from '../components/invoices/EmailPreviewModal';
 import DashboardDetailTabs from '../components/dashboard/DashboardDetailTabs';
-import { KPIBanner } from '../components/dashboard/KPIBanner';
 import { DunningFunnelSection } from '../components/dashboard/DunningFunnelSection';
 import { RecoveryFunnelInteractive } from '../components/dashboard/RecoveryFunnelInteractive';
 import { CashFlowSection } from '../components/dashboard/CashFlowSection';
@@ -125,7 +124,7 @@ interface PaymentPlansSummaryData {
 
 interface AgentPreview {
   emailsWouldQueue: number;
-  plansWouldOffer: number;
+  // plansWouldOffer: number; // 🔴 DISABLED — Payment plans awaiting client decision
   invoicesScanned: number;
   estimatedRecoveryUsd: number;
   previews: Array<{
@@ -158,7 +157,7 @@ interface DashCache {
   timeline: any[];
   workingCapital: WorkingCapitalFreed | null;
   dsoReduction: DSOReduction | null;
-  hoursSaved: { hoursSaved: number; emailsSent: number; paymentPlansOffered: number; period: string } | null;
+  hoursSaved: { hoursSaved: number; emailsSent: number; /* paymentPlansOffered: number; */ period: string } | null; // 🔴 DISABLED
   billingAnomalies: BillingAnomaly[];
   cashForecast: EnhancedCashForecast | null;
   ts: number;
@@ -192,21 +191,23 @@ const Dashboard: React.FC = () => {
   const [aging, setAging] = useState<AgingAnalysis | null>(null);
   const [emailAnalytics, setEmailAnalytics] = useState<EmailAnalytics | null>(null);
   const [riskDrivers, setRiskDrivers] = useState<RiskDrivers | null>(null);
-  const [plansSummary, setPlansSummary] = useState<PaymentPlansSummaryData | null>(null);
-  const [workingCapital, setWorkingCapital] = useState<WorkingCapitalFreed | null>(null);
-  const [dsoReduction, setDsoReduction] = useState<DSOReduction | null>(null);
-  const [hoursSaved, setHoursSaved] = useState<{ hoursSaved: number; emailsSent: number; paymentPlansOffered: number; period: string } | null>(null);
+  // 🔴 DISABLED: Payment plans, working capital, DSO reduction (Phase 2 features)
+  const [_plansSummary, _setPlansSummary] = useState<PaymentPlansSummaryData | null>(null);
+  const [_workingCapital, _setWorkingCapital] = useState<WorkingCapitalFreed | null>(null);
+  const [_dsoReduction, _setDsoReduction] = useState<DSOReduction | null>(null);
+  const [hoursSaved, setHoursSaved] = useState<{ hoursSaved: number; emailsSent: number; /* paymentPlansOffered: number; */ period: string } | null>(null); // 🔴 DISABLED
   const [billingAnomalies, setBillingAnomalies] = useState<BillingAnomaly[]>([]);
   const [cashForecast, setCashForecast] = useState<EnhancedCashForecast | null>(null);
   // Pilot controls
   const [pilotMode, setPilotMode] = useState<string | null>(null);
+  // 🔴 REMOVED: dismissEmailWarning state moved to Sidebar Alert Center
   const [recoveryToday, setRecoveryToday] = useState<{ amount: number; count: number } | null>(null);
   const [pausingAgent, setPausingAgent] = useState(false);
   // Trial mode
   const [isTrialMode, setIsTrialMode] = useState(false);
   const [trialAnalysis, setTrialAnalysis] = useState<any>(null);
   const [trialDaysRemaining, setTrialDaysRemaining] = useState(0);
-  const [dismissEmailWarning, setDismissEmailWarning] = useState(false);
+  // 🔴 REMOVED: dismissEmailWarning moved to Sidebar Alert Center
 
   useEffect(() => {
     document.title = 'Dashboard — RecoverAI';
@@ -247,9 +248,9 @@ const Dashboard: React.FC = () => {
       setAging(dashCache.aging);
       setEmailAnalytics(dashCache.emailAnalytics);
       setRiskDrivers(dashCache.riskDrivers);
-      setPlansSummary(dashCache.plansSummary);
-      setWorkingCapital(dashCache.workingCapital);
-      setDsoReduction(dashCache.dsoReduction);
+      // setPlansSummary(dashCache.plansSummary); // 🔴 DISABLED
+      // setWorkingCapital(dashCache.workingCapital); // 🔴 DISABLED
+      // setDsoReduction(dashCache.dsoReduction); // 🔴 DISABLED
       setHoursSaved(dashCache.hoursSaved);
       setBillingAnomalies(dashCache.billingAnomalies);
       setCashForecast(dashCache.cashForecast);
@@ -329,9 +330,9 @@ const Dashboard: React.FC = () => {
         setAging(agingData);
         setEmailAnalytics(emailAnalyticsData);
         setRiskDrivers(riskDriversData);
-        setPlansSummary(plansSummaryData);
-        setWorkingCapital(workingCapitalData);
-        setDsoReduction(dsoReductionData);
+        // setPlansSummary(plansSummaryData); // 🔴 DISABLED
+        // setWorkingCapital(workingCapitalData); // 🔴 DISABLED
+        // setDsoReduction(dsoReductionData); // 🔴 DISABLED
         setHoursSaved(hoursSavedData);
         setBillingAnomalies(billingAnomaliesData);
         setCashForecast(cashForecastData);
@@ -360,14 +361,14 @@ const Dashboard: React.FC = () => {
     setAgentMsg(null);
     setAgentPreview(null);
     try {
-      const res = await api.post<{ emailsQueued: number; plansOffered: number; invoicesScanned: number; skipped: number }>('/api/dashboard/agent/trigger');
-      const { emailsQueued, plansOffered, invoicesScanned } = res;
-      if (emailsQueued === 0 && plansOffered === 0) {
+      const res = await api.post<{ emailsQueued: number; /* plansOffered: number; */ invoicesScanned: number; skipped: number }>('/api/dashboard/agent/trigger'); // 🔴 DISABLED plansOffered
+      const { emailsQueued, /* plansOffered, */ invoicesScanned } = res;
+      if (emailsQueued === 0) { // 🔴 Removed plansOffered check
         setAgentMsg(`Scanned ${invoicesScanned} invoices — all up to date.`);
       } else {
         const parts = [];
         if (emailsQueued > 0) parts.push(`${emailsQueued} email${emailsQueued !== 1 ? 's' : ''} queued`);
-        if (plansOffered > 0) parts.push(`${plansOffered} plan offer${plansOffered !== 1 ? 's' : ''} sent`);
+        // if (plansOffered > 0) parts.push(`${plansOffered} plan offer${plansOffered !== 1 ? 's' : ''} sent`); // 🔴 DISABLED
         setAgentMsg(`Agent run complete: ${parts.join(', ')} (${invoicesScanned} invoices scanned).`);
       }
     } catch (err: any) {
@@ -437,8 +438,8 @@ const Dashboard: React.FC = () => {
       await api.patch(`/api/billing-optimization/${id}`, { status: 'confirmed' });
       setBillingAnomalies(prev => prev.map(a => a.id === id ? { ...a, status: 'confirmed' as const } : a));
       // Refresh working capital since confirming an anomaly may affect it
-      const wcRes = await api.get<{ data: WorkingCapitalFreed }>('/api/dashboard/working-capital-freed').catch(() => null);
-      if (wcRes?.data) setWorkingCapital(wcRes.data);
+      // const wcRes = await api.get<{ data: WorkingCapitalFreed }>('/api/dashboard/working-capital-freed').catch(() => null);
+      // if (wcRes?.data) _setWorkingCapital(wcRes.data); // 🔴 DISABLED
     } catch { /* non-critical */ }
   };
 
@@ -594,61 +595,7 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className="bg-white dark:bg-[#09090b] min-h-full">
-      {/* STRIPE NOT CONNECTED WARNING */}
-      {!company?.stripe_account_id && (
-        <div className="max-w-7xl mx-auto px-6 sm:px-8 mt-6 mb-6">
-          <div className="p-4 bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 rounded-lg">
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex-1">
-                <h3 className="font-semibold text-red-900 dark:text-red-400">
-                  ⚠️ Stripe Not Connected
-                </h3>
-                <p className="text-sm text-red-800 dark:text-red-300 mt-1">
-                  Your autonomous agent is paused. Connect Stripe or import CSV to start recovering invoices.
-                </p>
-              </div>
-              <Button
-                size="sm"
-                className="bg-red-600 hover:bg-red-700 text-white flex-shrink-0"
-                onClick={() => navigate('/settings?tab=integrations')}
-              >
-                Connect Now
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* EMAIL SETUP INFO CARD */}
-      {!dismissEmailWarning && !company?.smtp_verified && (
-        <div className="max-w-7xl mx-auto px-6 sm:px-8 mb-6">
-          <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500 rounded-lg">
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex-1">
-                <h3 className="font-semibold text-blue-900 dark:text-blue-400">
-                  ℹ️ Email Configuration
-                </h3>
-                <p className="text-sm text-blue-800 dark:text-blue-300 mt-1">
-                  Emails currently sent via RecoverAI domain.
-                  <button
-                    type="button"
-                    onClick={() => navigate('/settings?tab=email')}
-                    className="text-blue-600 dark:text-blue-400 hover:underline font-medium inline ml-1"
-                  >
-                    Setup custom email →
-                  </button>
-                </p>
-              </div>
-              <button
-                onClick={() => setDismissEmailWarning(true)}
-                className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 flex-shrink-0"
-              >
-                ✕
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* 🔴 REMOVED: Inline alerts moved to Sidebar Alert Center */}
 
       {/* TRIAL BANNER */}
       {isTrialMode && trialDaysRemaining >= 0 && (
@@ -894,28 +841,226 @@ const Dashboard: React.FC = () => {
         />
       )}
 
+      {/* 🔴 REMOVED: ROIImpactSection — Duplicate metrics, confusing hierarchy */}
+
       {/* ════════════════════════════════════════════════════════════════ */}
-      {/* TIER 1: EXECUTIVE SUMMARY — Always visible, above fold */}
+      {/* TIER 1: YOUR TURN — Premium, modern, always visible */}
       {/* ════════════════════════════════════════════════════════════════ */}
-      <div data-tour="kpi-banner">
-        <KPIBanner
-          data={kpi && stats ? {
-            dso: kpi.dso,
-            collectionEfficiencyIndex: kpi.cei,
-            recoveryRate: kpi.recoveryRate,
-            overdueCount: kpi.atRiskCustomerCount,
-            totalInvoices: kpi.totalCustomers,
-            totalOwed: stats.totalOwed,
-            totalRecovered: stats.totalRecovered,
-          } : undefined}
-          aging={aging}
-          emailAnalytics={emailAnalytics}
-          plansSummary={plansSummary}
-          workingCapital={workingCapital}
-          dsoReduction={dsoReduction}
-          hoursSaved={hoursSaved}
-          loading={loading}
-        />
+      <div className="space-y-6">
+        {/* Section Header */}
+        <div>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Your Turn</h2>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">AI recommends these actions. Click to execute.</p>
+        </div>
+
+        {/* Actions Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          {/* Action 1: Critical */}
+          <div className="group relative bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] rounded-xl p-6 hover:border-red-300 dark:hover:border-red-700/40 hover:shadow-lg transition-all cursor-pointer">
+            {/* Accent bar */}
+            <div className="absolute top-0 left-0 w-1 h-12 bg-gradient-to-b from-red-500 to-red-400 rounded-l-xl" />
+
+            <div className="space-y-4">
+              {/* Priority badge */}
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300">
+                  🔴 CRITICAL
+                </span>
+                <span className="text-xs text-gray-500 dark:text-gray-400">Now</span>
+              </div>
+
+              {/* Title */}
+              <div>
+                <p className="font-semibold text-gray-900 dark:text-white">Send SMS to Acme Corp</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">$45,000 overdue • 45 days old</p>
+              </div>
+
+              {/* Metrics */}
+              <div className="grid grid-cols-3 gap-2 py-3 border-y border-gray-200 dark:border-white/[0.06]">
+                <div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Risk</p>
+                  <p className="text-lg font-bold text-red-600 dark:text-red-400">85%</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Pay Prob</p>
+                  <p className="text-lg font-bold text-green-600 dark:text-green-400">90%</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Response</p>
+                  <p className="text-lg font-bold text-blue-600 dark:text-blue-400">2-4h</p>
+                </div>
+              </div>
+
+              {/* AI Reasoning */}
+              <p className="text-xs text-gray-600 dark:text-gray-400 italic">AI: Send SMS at 2pm Wed (peak engagement time for this customer profile)</p>
+
+              {/* Button */}
+              <button
+                onClick={() => addToast({ type: 'success', message: 'SMS to Acme Corp queued for 2pm Wednesday' })}
+                className="w-full py-2 px-3 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-lg transition-colors"
+              >
+                Send SMS
+              </button>
+            </div>
+          </div>
+
+          {/* Action 2: High */}
+          <div className="group relative bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] rounded-xl p-6 hover:border-orange-300 dark:hover:border-orange-700/40 hover:shadow-lg transition-all cursor-pointer">
+            {/* Accent bar */}
+            <div className="absolute top-0 left-0 w-1 h-12 bg-gradient-to-b from-orange-500 to-orange-400 rounded-l-xl" />
+
+            <div className="space-y-4">
+              {/* Priority badge */}
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300">
+                  🟠 HIGH
+                </span>
+                <span className="text-xs text-gray-500 dark:text-gray-400">Today</span>
+              </div>
+
+              {/* Title */}
+              <div>
+                <p className="font-semibold text-gray-900 dark:text-white">Follow up TechStart Inc</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">$28,500 overdue • 21 days old</p>
+              </div>
+
+              {/* Metrics */}
+              <div className="grid grid-cols-3 gap-2 py-3 border-y border-gray-200 dark:border-white/[0.06]">
+                <div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Risk</p>
+                  <p className="text-lg font-bold text-orange-600 dark:text-orange-400">62%</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Pay Prob</p>
+                  <p className="text-lg font-bold text-green-600 dark:text-green-400">78%</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Attempts</p>
+                  <p className="text-lg font-bold text-gray-600 dark:text-gray-400">1/5</p>
+                </div>
+              </div>
+
+              {/* AI Reasoning */}
+              <p className="text-xs text-gray-600 dark:text-gray-400 italic">AI: Personal email with payment link (higher conversion than generic reminders)</p>
+
+              {/* Button */}
+              <button
+                onClick={() => addToast({ type: 'success', message: 'Personal email to TechStart Inc queued' })}
+                className="w-full py-2 px-3 bg-orange-600 hover:bg-orange-700 text-white text-sm font-semibold rounded-lg transition-colors"
+              >
+                Send Email
+              </button>
+            </div>
+          </div>
+
+          {/* Action 3: Medium */}
+          <div className="group relative bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] rounded-xl p-6 hover:border-amber-300 dark:hover:border-amber-700/40 hover:shadow-lg transition-all cursor-pointer">
+            {/* Accent bar */}
+            <div className="absolute top-0 left-0 w-1 h-12 bg-gradient-to-b from-amber-500 to-amber-400 rounded-l-xl" />
+
+            <div className="space-y-4">
+              {/* Priority badge */}
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300">
+                  🟡 MEDIUM
+                </span>
+                <span className="text-xs text-gray-500 dark:text-gray-400">Tomorrow</span>
+              </div>
+
+              {/* Title */}
+              <div>
+                <p className="font-semibold text-gray-900 dark:text-white">Monitor Startup Labs</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">$12,300 • Due today</p>
+              </div>
+
+              {/* Metrics */}
+              <div className="grid grid-cols-3 gap-2 py-3 border-y border-gray-200 dark:border-white/[0.06]">
+                <div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Risk</p>
+                  <p className="text-lg font-bold text-amber-600 dark:text-amber-400">28%</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Reliability</p>
+                  <p className="text-lg font-bold text-green-600 dark:text-green-400">88%</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Days Due</p>
+                  <p className="text-lg font-bold text-gray-600 dark:text-gray-400">0d</p>
+                </div>
+              </div>
+
+              {/* AI Reasoning */}
+              <p className="text-xs text-gray-600 dark:text-gray-400 italic">AI: Wait until tomorrow (historically pays same-day, no action needed yet)</p>
+
+              {/* Button */}
+              <button
+                onClick={() => addToast({ type: 'info', message: 'Reminder set for tomorrow at 2pm' })}
+                className="w-full py-2 px-3 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold rounded-lg transition-colors"
+              >
+                Set Reminder
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ════════════════════════════════════════════════════════════════ */}
+      {/* TIER 2: METRICS — Clean, premium, Linear/Stripe style */}
+      {/* ════════════════════════════════════════════════════════════════ */}
+      <div data-tour="kpi-banner" className="space-y-8">
+        {/* Spacer */}
+        <div className="pt-4" />
+
+        {/* Metrics Grid — Premium style */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          {/* Metric 1: Total AR at Risk */}
+          <div className="bg-white dark:bg-[#111113] border border-gray-200/50 dark:border-white/[0.05] rounded-xl p-6 hover:border-gray-300 dark:hover:border-white/[0.08] transition-colors">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Total AR at Risk</p>
+                <p className="text-3xl font-bold text-gray-900 dark:text-white">${aging?.totalAr ? (aging.totalAr / 1000).toFixed(0) : '0'}k</p>
+              </div>
+              <div className="text-2xl opacity-30">📊</div>
+            </div>
+            <p className="text-xs text-gray-600 dark:text-gray-400">{aging?.buckets.reduce((sum, b) => sum + b.invoiceCount, 0) ?? 0} unpaid invoices</p>
+          </div>
+
+          {/* Metric 2: Recovery Rate */}
+          <div className="bg-white dark:bg-[#111113] border border-gray-200/50 dark:border-white/[0.05] rounded-xl p-6 hover:border-gray-300 dark:hover:border-white/[0.08] transition-colors">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Recovery Rate</p>
+                <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">{aging && stats?.totalRecovered ? Math.round((stats.totalRecovered / aging.totalAr) * 100) : 0}%</p>
+              </div>
+              <div className="text-2xl opacity-30">📈</div>
+            </div>
+            <p className="text-xs text-gray-600 dark:text-gray-400">${stats?.totalRecovered ? Math.round(stats.totalRecovered / 1000) : 0}k recovered this month</p>
+          </div>
+
+          {/* Metric 3: Hours Saved */}
+          <div className="bg-white dark:bg-[#111113] border border-gray-200/50 dark:border-white/[0.05] rounded-xl p-6 hover:border-gray-300 dark:hover:border-white/[0.08] transition-colors">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Hours Saved</p>
+                <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">{hoursSaved?.hoursSaved ?? 0}h</p>
+              </div>
+              <div className="text-2xl opacity-30">⚡</div>
+            </div>
+            <p className="text-xs text-gray-600 dark:text-gray-400">{hoursSaved?.emailsSent ?? 0} automated emails</p>
+          </div>
+
+          {/* Metric 4: Eligible Invoices */}
+          <div className="bg-white dark:bg-[#111113] border border-gray-200/50 dark:border-white/[0.05] rounded-xl p-6 hover:border-gray-300 dark:hover:border-white/[0.08] transition-colors">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Eligible Invoices</p>
+                <p className="text-3xl font-bold text-gray-900 dark:text-white">{aging?.buckets.reduce((sum, b) => sum + b.invoiceCount, 0) ?? 0}</p>
+              </div>
+              <div className="text-2xl opacity-30">📋</div>
+            </div>
+            <p className="text-xs text-gray-600 dark:text-gray-400">0-90+ days overdue</p>
+          </div>
+        </div>
       </div>
 
       {/* ════════════════════════════════════════════════════════════════ */}
@@ -966,20 +1111,44 @@ const Dashboard: React.FC = () => {
         );
       })()}
 
-      {/* Integrated Dunning Funnel - A/R Aging + Campaign + Payment Plans */}
+      {/* Dunning Funnel - Starts COLLAPSED (user can expand for details) */}
       {aging && (
-        <DunningFunnelSection
-          totalAr={aging.totalAr}
-          agingBuckets={aging.buckets}
-          emailsSent={emailAnalytics?.sent ?? 0}
-          emailsDelivered={emailAnalytics?.sent ?? 0}
-          plansOffered={plansSummary?.totalOffered ?? 0}
-          plansAccepted={plansSummary?.completedPlans ?? 0}
-          paymentsReceived={stats?.totalRecovered ? Math.round(stats.totalRecovered) : 0}
-          paymentAmount={stats?.totalRecovered ?? 0}
-          recentPlans={plansSummary?.recentPlans ?? []}
-          loading={loading}
-        />
+        <div className="border border-gray-200 dark:border-white/[0.06] rounded-xl overflow-hidden">
+          <button
+            onClick={() => {
+              const section = document.getElementById('dunning-funnel-content');
+              if (section) {
+                section.classList.toggle('hidden');
+              }
+            }}
+            className="w-full flex items-center justify-between p-6 bg-white dark:bg-[#111113] hover:bg-gray-50 dark:hover:bg-white/[0.02] transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <svg className="w-5 h-5 text-gray-600 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+              <div className="text-left">
+                <h2 className="text-lg font-bold text-gray-900 dark:text-white">📊 Dunning Funnel</h2>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-0.5">${aging.totalAr.toLocaleString()} eligible → ${(stats?.totalRecovered ?? 0).toLocaleString()} recovered ({aging.totalAr > 0 ? Math.round(((stats?.totalRecovered ?? 0) / aging.totalAr) * 100) : 0}%)</p>
+              </div>
+            </div>
+            <svg className="w-5 h-5 text-gray-600 dark:text-gray-400 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+            </svg>
+          </button>
+
+          <div id="dunning-funnel-content" className="hidden bg-white dark:bg-[#111113] border-t border-gray-200 dark:border-white/[0.06] p-6">
+            <DunningFunnelSection
+              totalAr={aging.totalAr}
+              agingBuckets={aging.buckets}
+              emailsSent={emailAnalytics?.sent ?? 0}
+              emailsDelivered={emailAnalytics?.sent ?? 0}
+              paymentsReceived={stats?.totalRecovered ? Math.round(stats.totalRecovered) : 0}
+              paymentAmount={stats?.totalRecovered ?? 0}
+              loading={loading}
+            />
+          </div>
+        </div>
       )}
 
       {/* ════════════════════════════════════════════════════════════════ */}

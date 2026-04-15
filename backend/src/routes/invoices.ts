@@ -20,6 +20,8 @@ import {
   getAllInvoiceIds,
   batchDeleteInvoices,
   getBatchDeleteStatus,
+  getWorkflowTimeline,
+  getPaymentLink,
 } from '../controllers/invoiceController';
 
 const router = Router();
@@ -35,6 +37,8 @@ router.get('/csv-import-status/:jobId', getCSVImportStatusHandler);
 router.get('/batch-delete-status/:jobId', getBatchDeleteStatus);
 router.get('/:id/detail', getInvoiceDetail);
 router.get('/:id/dunning-status', getDunningStatus);
+router.get('/:id/workflow-timeline', getWorkflowTimeline);
+router.get('/:id/payment-link', getPaymentLink);
 router.get('/:id', getInvoice);
 router.post('/manual', createManualInvoice);
 router.post('/csv-upload', uploadCSVFile);

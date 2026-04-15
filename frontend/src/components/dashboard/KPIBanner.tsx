@@ -87,7 +87,7 @@ interface KPIBannerProps {
   plansSummary?: any;
   workingCapital?: WorkingCapitalFreed | null;
   dsoReduction?: DSOReduction | null;
-  hoursSaved?: { hoursSaved: number; emailsSent: number; paymentPlansOffered: number; period: string } | null;
+  hoursSaved?: { hoursSaved: number; emailsSent: number; /* paymentPlansOffered: number; */ period: string } | null; // 🔴 DISABLED
   loading?: boolean;
 }
 

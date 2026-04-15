@@ -87,6 +87,18 @@ CREATE TABLE IF NOT EXISTS companies (
   dunning_sender_name        VARCHAR(255),                  -- e.g., "Acme Corp Finance Team" (who the dunning emails come from)
   monthly_burn_rate_usd      NUMERIC(12,2) DEFAULT 0,       -- monthly operating expenses (set by user, used in cash forecast)
 
+  -- SMS Settings (Phase 1 Multi-Channel)
+  sms_enabled                BOOLEAN DEFAULT true,          -- toggle SMS dunning on/off
+  sms_tone                   VARCHAR(20) DEFAULT 'professional',  -- friendly | professional | stern
+  sms_day_threshold          INT DEFAULT 7,                 -- day to send SMS (default: day 7+)
+
+  -- Twilio SMS Configuration (Customer's own account - "Bring Your Own")
+  twilio_account_sid_encrypted TEXT,                        -- Customer's Twilio Account SID (encrypted)
+  twilio_auth_token_encrypted TEXT,                         -- Customer's Twilio Auth Token (encrypted)
+  twilio_phone_number        VARCHAR(20),                   -- Customer's Twilio phone number (+1-XXX-XXX-XXXX)
+  twilio_configured          BOOLEAN DEFAULT false,         -- true = customer has set up their own Twilio
+  twilio_last_verified_at    TIMESTAMPTZ,                   -- when Twilio config was last tested
+
   created_at                 TIMESTAMPTZ DEFAULT NOW(),
   updated_at                 TIMESTAMPTZ DEFAULT NOW()
 );
@@ -225,6 +237,31 @@ CREATE TABLE IF NOT EXISTS email_logs (
   status              VARCHAR(20) DEFAULT 'sent',  -- sent | delivered | opened | clicked | bounced | failed
   sendgrid_message_id VARCHAR
 );
+
+-- ============================================================
+-- SMS LOGS (every SMS sent by agent)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS sms_logs (
+  id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  invoice_id            UUID NOT NULL REFERENCES invoices(id) ON DELETE CASCADE,
+  company_id            UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  customer_id           UUID NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+  phone                 VARCHAR(20) NOT NULL,
+  content               TEXT NOT NULL,
+  twilio_message_sid    VARCHAR(100) UNIQUE,
+  sent_at               TIMESTAMPTZ DEFAULT NOW(),
+  delivered_at          TIMESTAMPTZ,
+  failed_at             TIMESTAMPTZ,
+  status                VARCHAR(20) DEFAULT 'sent',  -- sent | delivered | failed | undelivered
+  failure_reason        TEXT,
+  created_at            TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_sms_logs_invoice ON sms_logs(invoice_id);
+CREATE INDEX IF NOT EXISTS idx_sms_logs_company ON sms_logs(company_id, sent_at DESC);
+CREATE INDEX IF NOT EXISTS idx_sms_logs_status ON sms_logs(status);
+CREATE INDEX IF NOT EXISTS idx_sms_logs_phone ON sms_logs(phone);
+CREATE INDEX IF NOT EXISTS idx_sms_logs_twilio_sid ON sms_logs(twilio_message_sid);
 
 -- ============================================================
 -- PAYMENTS (money received)
@@ -664,6 +701,13 @@ CREATE POLICY invoices_tenant_isolation ON invoices
 
 DROP POLICY IF EXISTS email_logs_tenant_isolation ON email_logs;
 CREATE POLICY email_logs_tenant_isolation ON email_logs
+  USING (company_id = app.current_company_id())
+  WITH CHECK (company_id = app.current_company_id());
+
+ALTER TABLE sms_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE sms_logs FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS sms_logs_tenant_isolation ON sms_logs;
+CREATE POLICY sms_logs_tenant_isolation ON sms_logs
   USING (company_id = app.current_company_id())
   WITH CHECK (company_id = app.current_company_id());
 

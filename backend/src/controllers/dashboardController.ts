@@ -623,3 +623,71 @@ export const getTrialAnalysis = async (req: Request, res: Response): Promise<voi
     sendErrorResponse(res, statusCode, message);
   }
 };
+
+/**
+ * GET /api/dashboard/sms-metrics
+ * SMS engagement metrics: sent, delivered, conversion rate, etc
+ */
+export const getSmsMetrics = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'getSmsMetrics';
+  const companyId = (req as any).companyId;
+
+  try {
+    const result = await pool.query(`
+      SELECT
+        COUNT(*) as sms_sent,
+        COUNT(*) FILTER (WHERE status = 'delivered') as sms_delivered,
+        COUNT(*) FILTER (WHERE status = 'failed') as sms_failed,
+        ROUND(COUNT(*) FILTER (WHERE status = 'delivered') * 100.0 / NULLIF(COUNT(*), 0), 2) as delivery_rate,
+        COUNT(DISTINCT invoice_id) as unique_invoices_sms
+      FROM sms_logs
+      WHERE company_id = $1
+        AND sent_at >= NOW() - INTERVAL '30 days'
+    `, [companyId]);
+
+    const row = result.rows[0];
+
+    // Get SMS-to-payment conversion rate
+    const conversionResult = await pool.query(`
+      SELECT
+        COUNT(DISTINCT sl.invoice_id) as paid_after_sms,
+        COUNT(DISTINCT sl.invoice_id) FILTER (
+          WHERE i.updated_at <= sl.sent_at + INTERVAL '24 hours'
+        ) as paid_within_24h
+      FROM sms_logs sl
+      JOIN invoices i ON sl.invoice_id = i.id
+      WHERE sl.company_id = $1
+        AND i.status = 'paid'
+        AND sl.sent_at >= NOW() - INTERVAL '30 days'
+    `, [companyId]);
+
+    const conversionRow = conversionResult.rows[0];
+
+    const response = {
+      data: {
+        sms_sent: parseInt(row.sms_sent, 10) || 0,
+        sms_delivered: parseInt(row.sms_delivered, 10) || 0,
+        sms_failed: parseInt(row.sms_failed, 10) || 0,
+        delivery_rate: parseFloat(row.delivery_rate) || 0,
+        unique_invoices_sms: parseInt(row.unique_invoices_sms, 10) || 0,
+        paid_after_sms: parseInt(conversionRow.paid_after_sms, 10) || 0,
+        conversion_rate_24h: row.sms_sent > 0
+          ? Math.round((conversionRow.paid_within_24h / row.sms_sent) * 100)
+          : 0,
+        period_days: 30
+      }
+    };
+
+    logInfo(LOG_MODULE, handler, 'SMS metrics fetched', {
+      companyId,
+      sms_sent: response.data.sms_sent,
+      delivery_rate: response.data.delivery_rate
+    });
+
+    res.status(200).json(response);
+  } catch (error) {
+    logError(LOG_MODULE, handler, 'Failed to get SMS metrics', error);
+    const { statusCode, message } = parseError(error);
+    sendErrorResponse(res, statusCode, message);
+  }
+};

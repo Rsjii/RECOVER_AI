@@ -130,6 +130,17 @@ export const CustomerModal: React.FC<CustomerModalProps> = ({ customer, isOpen, 
 
   if (!customer) return null;
 
+  // Determine risk color based on score
+  const getRiskColor = (score: number) => {
+    if (score >= 70) return { bg: 'bg-red-100 dark:bg-red-900/30', text: 'text-red-700 dark:text-red-300', label: 'Critical' };
+    if (score >= 50) return { bg: 'bg-orange-100 dark:bg-orange-900/30', text: 'text-orange-700 dark:text-orange-300', label: 'High' };
+    if (score >= 30) return { bg: 'bg-amber-100 dark:bg-amber-900/30', text: 'text-amber-700 dark:text-amber-300', label: 'Medium' };
+    if (score > 0) return { bg: 'bg-yellow-100 dark:bg-yellow-900/30', text: 'text-yellow-700 dark:text-yellow-300', label: 'Low' };
+    return { bg: 'bg-green-100 dark:bg-green-900/30', text: 'text-green-700 dark:text-green-300', label: 'None' };
+  };
+
+  const riskColor = getRiskColor(stats.riskScore);
+
   return (
     <Modal
       isOpen={isOpen}
@@ -243,9 +254,10 @@ export const CustomerModal: React.FC<CustomerModalProps> = ({ customer, isOpen, 
                 <label className="text-xs text-gray-500 dark:text-gray-400">Avg Days Late</label>
                 <p className="text-sm text-gray-900 dark:text-white">{stats.avgDaysLate}d</p>
               </div>
-              <div>
-                <label className="text-xs text-gray-500 dark:text-gray-400">Risk Score</label>
-                <p className="text-sm font-medium text-gray-900 dark:text-white">{stats.riskScore} / 100</p>
+              <div className={`rounded-lg p-3 ${riskColor.bg}`}>
+                <label className={`text-xs font-semibold ${riskColor.text}`}>Risk Score</label>
+                <p className={`text-lg font-bold ${riskColor.text}`}>{stats.riskScore} / 100</p>
+                <p className={`text-xs mt-1 ${riskColor.text}`}>{riskColor.label} Risk</p>
               </div>
             </div>
           )}

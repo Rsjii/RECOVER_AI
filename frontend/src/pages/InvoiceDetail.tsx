@@ -9,6 +9,9 @@ import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { DetailPageSkeleton } from '../components/ui/Skeleton';
 import { EmailPreviewModal } from '../components/invoices/EmailPreviewModal';
+import { DunningTimeline } from '../components/invoices/DunningTimeline';
+import type { TimelineEvent } from '../components/invoices/DunningTimeline';
+import { RiskScoreBadge } from '../components/ui/RiskScoreBadge';
 import type { Invoice, InvoiceDetail as InvoiceDetailType, InvoiceStatus, DunningStatus } from '../types';
 
 const InvoiceDetail: React.FC = () => {
@@ -20,11 +23,12 @@ const InvoiceDetail: React.FC = () => {
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [detail, setDetail] = useState<InvoiceDetailType | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<'details' | 'payments' | 'emails' | 'plan' | 'dunning'>('details');
+  const [tab, setTab] = useState<'details' | 'payments' | 'emails' | 'plan' | 'dunning' | 'workflow'>('details');
   const [updating, setUpdating] = useState(false);
-  const [creatingPlan, setCreatingPlan] = useState(false);
-  const [planInstallments, setPlanInstallments] = useState(3);
-  const [planSubmitting, setPlanSubmitting] = useState(false);
+  // 🔴 PAYMENT PLANS DISABLED — Awaiting client decision
+  // const [creatingPlan, setCreatingPlan] = useState(false);
+  // const [planInstallments, setPlanInstallments] = useState(3);
+  // const [planSubmitting, setPlanSubmitting] = useState(false);
   const [showEmailPreview, setShowEmailPreview] = useState(false);
   const [dunningStatus, setDunningStatus] = useState<DunningStatus | null>(null);
   const [pauseDays, setPauseDays] = useState(7);
@@ -36,6 +40,9 @@ const InvoiceDetail: React.FC = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [selectedEmailType, setSelectedEmailType] = useState<string>('dunning_1');
   const [sendingEmail, setSendingEmail] = useState(false);
+  const [workflow, setWorkflow] = useState<{ events: TimelineEvent[]; daysOverdue: number } | null>(null);
+  const [workflowLoading, setWorkflowLoading] = useState(false);
+  // const [gettingPaymentLink, setGettingPaymentLink] = useState(false); // 🔴 DISABLED
 
   useEffect(() => {
     if (!id) return;
@@ -105,26 +112,52 @@ const InvoiceDetail: React.FC = () => {
     }
   };
 
-  const handleCreatePlan = async () => {
-    if (!invoice) return;
-    setPlanSubmitting(true);
-    try {
-      await api.post(API_ENDPOINTS.paymentPlans.create, {
-        invoiceId: invoice.id,
-        numberOfInstallments: planInstallments,
-      });
-      addToast({ type: 'success', message: `Payment plan created (${planInstallments} installments)` });
-      setCreatingPlan(false);
-      const res: any = await api.get(API_ENDPOINTS.invoices.detailFull(invoice.id));
-      setDetail(res.data || res);
-    } catch (err: any) {
-      addToast({ type: 'error', message: err.message || 'Failed to create plan' });
-    } finally { setPlanSubmitting(false); }
-  };
+  // 🔴 PAYMENT PLANS DISABLED — Awaiting client decision
+  // const handleCreatePlan = async () => {
+  //   if (!invoice) return;
+  //   setPlanSubmitting(true);
+  //   try {
+  //     await api.post(API_ENDPOINTS.paymentPlans.create, {
+  //       invoiceId: invoice.id,
+  //       numberOfInstallments: planInstallments,
+  //     });
+  //     addToast({ type: 'success', message: `Payment plan created (${planInstallments} installments)` });
+  //     setCreatingPlan(false);
+  //     const res: any = await api.get(API_ENDPOINTS.invoices.detailFull(invoice.id));
+  //     setDetail(res.data || res);
+  //   } catch (err: any) {
+  //     addToast({ type: 'error', message: err.message || 'Failed to create plan' });
+  //   } finally { setPlanSubmitting(false); }
+  // };
 
   useEffect(() => {
     if (tab === 'dunning' && id) fetchDunningStatus();
+    if (tab === 'workflow' && id && !workflow) fetchWorkflow();
   }, [tab]);
+
+  const fetchWorkflow = async () => {
+    if (!id) return;
+    setWorkflowLoading(true);
+    try {
+      const res: any = await api.get(`/api/invoices/${id}/workflow-timeline`);
+      setWorkflow(res.data || res);
+    } catch { /* silently fail */ }
+    finally { setWorkflowLoading(false); }
+  };
+
+  // 🔴 PAYMENT LINK DISABLED — Awaiting client decision on payment strategy
+  // const handleGetPaymentLink = async () => {
+  //   if (!invoice) return;
+  //   setGettingPaymentLink(true);
+  //   try {
+  //     const res: any = await api.get(`/api/invoices/${invoice.id}/payment-link`);
+  //     const { url } = res.data || res;
+  //     await navigator.clipboard.writeText(url);
+  //     addToast({ type: 'success', message: 'Payment link copied to clipboard!' });
+  //   } catch (err: any) {
+  //     addToast({ type: 'error', message: err.message || 'Failed to generate payment link — Stripe not connected?' });
+  //   } finally { setGettingPaymentLink(false); }
+  // };
 
   const fetchDunningStatus = async () => {
     if (!id) return;
@@ -225,8 +258,9 @@ const InvoiceDetail: React.FC = () => {
     { id: 'details' as const, label: 'Details' },
     { id: 'payments' as const, label: `Payments (${detail?.payments.length || 0})` },
     { id: 'emails' as const, label: `Emails (${detail?.emailLogs.length || 0})` },
-    { id: 'plan' as const, label: 'Plan' },
+    // { id: 'plan' as const, label: 'Plan' }, // 🔴 DISABLED: Awaiting client decision on payment plan business logic (see PAYMENT_PLANS_CLIENT_DECISION_2026_04_14.md)
     { id: 'dunning' as const, label: 'Dunning' },
+    { id: 'workflow' as const, label: 'Workflow' },
   ];
 
   return (
@@ -267,9 +301,14 @@ const InvoiceDetail: React.FC = () => {
           </svg>
         </button>
         <div className="flex-1">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            {invoice.customer_name || 'Unknown Customer'}
-          </h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+              {invoice.customer_name || 'Unknown Customer'}
+            </h1>
+            {(invoice as any).risk_score != null && (
+              <RiskScoreBadge score={(invoice as any).risk_score} size="sm" />
+            )}
+          </div>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
             {invoice.customer_email} · {invoice.source} invoice
           </p>
@@ -429,6 +468,22 @@ const InvoiceDetail: React.FC = () => {
               {invoice.status !== 'uncollectable' && invoice.status !== 'paid' && (
                 <Button size="sm" variant="danger" onClick={() => updateStatus('uncollectable')} disabled={isDemo} loading={updating}>Write Off</Button>
               )}
+              {/* 🔴 PAYMENT LINK DISABLED — Awaiting client decision on payment strategy */}
+              {/* {invoice.status !== 'paid' && invoice.status !== 'uncollectable' && (
+                <div title="Generate a Stripe Checkout link and copy to clipboard">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={handleGetPaymentLink}
+                    loading={gettingPaymentLink}
+                  >
+                    <svg className="w-3.5 h-3.5 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                    Copy Payment Link
+                  </Button>
+                </div>
+              )} */}
             </div>
           </div>
         )}
@@ -535,74 +590,10 @@ const InvoiceDetail: React.FC = () => {
           </div>
         )}
 
-        {/* Plan */}
-        {tab === 'plan' && (
+        {/* 🔴 PAYMENT PLANS DISABLED — Awaiting client decision (see PAYMENT_PLANS_CLIENT_DECISION_2026_04_14.md) */}
+        {false && tab === 'plan' && (
           <div className="space-y-4">
-            {detail?.paymentPlan ? (
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-gray-900 dark:text-white">Status:</span>
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${
-                    detail.paymentPlan.status === 'active' ? 'bg-blue-100 text-blue-700' :
-                    detail.paymentPlan.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                    {detail.paymentPlan.status}
-                  </span>
-                </div>
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-50 dark:bg-white/[0.04]">
-                    <tr>
-                      <th className="px-4 py-2 text-left">#</th>
-                      <th className="px-4 py-2 text-right">Amount</th>
-                      <th className="px-4 py-2 text-left">Due</th>
-                      <th className="px-4 py-2 text-center">Paid</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {detail.paymentPlan.installments.map((inst, i) => (
-                      <tr key={i} className="border-t border-gray-100 dark:border-white/[0.06]">
-                        <td className="px-4 py-2 text-gray-600 dark:text-gray-300">{i + 1}</td>
-                        <td className="px-4 py-2 text-right font-medium">{formatCurrency(inst.amount)}</td>
-                        <td className="px-4 py-2 text-gray-600 dark:text-gray-300">{formatDate(inst.due_date)}</td>
-                        <td className="px-4 py-2 text-center">{inst.paid ? '✅' : '⏳'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : creatingPlan ? (
-              <div className="space-y-4 p-4 border border-gray-200 dark:border-white/[0.06] rounded-lg">
-                <h4 className="text-sm font-semibold text-gray-900 dark:text-white">Create Payment Plan</h4>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                    Number of installments
-                  </label>
-                  <select
-                    value={planInstallments}
-                    onChange={(e) => setPlanInstallments(Number(e.target.value))}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-white/[0.08] rounded-lg text-sm text-gray-900 dark:text-white bg-white dark:bg-white/[0.03] focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    {[2, 3, 4, 6, 9, 12].map(n => (
-                      <option key={n} value={n}>
-                        {n} payments of {formatCurrency(Number(invoice.amount) / n)} each
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="flex gap-2">
-                  <Button size="sm" onClick={handleCreatePlan} loading={planSubmitting}>Create Plan</Button>
-                  <Button size="sm" variant="ghost" onClick={() => setCreatingPlan(false)}>Cancel</Button>
-                </div>
-              </div>
-            ) : (
-              <div className="text-center py-8 space-y-3">
-                <p className="text-gray-500 dark:text-gray-400">No payment plan created yet</p>
-                {invoice.status !== 'paid' && invoice.status !== 'uncollectable' && (
-                  <Button variant="secondary" onClick={() => setCreatingPlan(true)}>
-                    Create Payment Plan
-                  </Button>
-                )}
-              </div>
-            )}
+            {/* Plan content hidden */}
           </div>
         )}
 
@@ -690,6 +681,32 @@ const InvoiceDetail: React.FC = () => {
                 </table>
               )}
             </div>
+          </div>
+        )}
+        {/* Workflow */}
+        {tab === 'workflow' && (
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Recovery Timeline</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                  All dunning actions — sent, scheduled, and planned
+                </p>
+              </div>
+              {workflow && (
+                <button
+                  onClick={() => { setWorkflow(null); fetchWorkflow(); }}
+                  className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                >
+                  Refresh
+                </button>
+              )}
+            </div>
+            <DunningTimeline
+              events={workflow?.events ?? []}
+              loading={workflowLoading}
+              daysOverdue={workflow?.daysOverdue ?? invoice.days_overdue ?? 0}
+            />
           </div>
         )}
       </Card>

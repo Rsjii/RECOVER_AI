@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { SettingsLayout } from '../components/settings/SettingsLayout';
 import { logError } from '../utils/logger';
 import { useSettings } from '../components/settings/useSettings';
 import { useNotification } from '../hooks/useNotification';
 import { IntegrationSection } from '../components/settings/IntegrationSection';
 import { EmailSettingsSection } from '../components/settings/EmailSettingsSection';
+import { SMSSettingsSection } from '../components/settings/SMSSettingsSection';
 import { AccountSection } from '../components/settings/AccountSection';
 import type { SettingsTab } from '../components/settings/SettingsLayout';
 import { api } from '../lib/api';
@@ -13,7 +14,11 @@ import { useAuth } from '../hooks/useAuth';
 
 const Settings: React.FC = () => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<SettingsTab>('integrations');
+  const [searchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState<SettingsTab>(() => {
+    const tab = searchParams.get('tab');
+    return (tab as SettingsTab) || 'integrations';
+  });
   const { addToast } = useNotification();
   const { user } = useAuth();
   const {
@@ -36,6 +41,14 @@ const Settings: React.FC = () => {
       navigate('/dashboard', { replace: true });
     }
   }, [navigate, addToast]);
+
+  // Sync activeTab with URL query parameter
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab) {
+      setActiveTab(tab as SettingsTab);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     document.title = 'Settings — RecoverAI';
@@ -162,6 +175,10 @@ const Settings: React.FC = () => {
         <EmailSettingsSection />
       )}
 
+      {/* SMS Settings Tab - Enable, Tone, Day Threshold */}
+      {activeTab === 'sms' && (
+        <SMSSettingsSection />
+      )}
 
       {/* Account Tab - Company Profile + Password Reset, Security, Sessions */}
       {activeTab === 'account' && (

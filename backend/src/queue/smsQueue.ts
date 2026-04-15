@@ -162,29 +162,43 @@ export function startSMSWorker(): void {
         daysOverdue: data.daysOverdue,
       });
 
-      // 3. Send SMS
+      // 3. Fetch company's Twilio config
+      const companyResult = await pool.query(
+        `SELECT twilio_account_sid_encrypted, twilio_auth_token_encrypted, twilio_phone_number, twilio_configured
+         FROM companies WHERE id = $1`,
+        [data.companyId]
+      );
+
+      const company = companyResult.rows[0];
+      const companyTwilioConfigured = company?.twilio_configured || false;
+
+      // 4. Send SMS (with customer's Twilio if configured)
       const result = await sendSMS({
         to: data.phoneNumber,
         message,
         invoiceId: data.invoiceId,
         customerId: data.customerId,
         companyId: data.companyId,
+        companyTwilioAccountSid: companyTwilioConfigured ? company?.twilio_account_sid_encrypted : undefined,
+        companyTwilioAuthToken: companyTwilioConfigured ? company?.twilio_auth_token_encrypted : undefined,
+        companyTwilioPhoneNumber: companyTwilioConfigured ? company?.twilio_phone_number : undefined,
       });
 
       if (!result.success) {
         throw new Error(`SMS send failed: ${result.error}`);
       }
 
-      // 4. Log to email_logs (reuse existing table, email_type = 'sms')
+      // 5. Log to sms_logs table
       await logSMSSent({
         invoiceId: data.invoiceId,
         companyId: data.companyId,
+        customerId: data.customerId,
         phoneNumber: data.phoneNumber,
         message,
         twilioSid: result.messageId!,
       });
 
-      // 5. Increment sms_count on invoice
+      // 6. Increment sms_count on invoice
       await pool.query(
         `UPDATE invoices SET sms_count = COALESCE(sms_count, 0) + 1, last_sms_sent_at = NOW() WHERE id = $1`,
         [data.invoiceId]
@@ -227,11 +241,8 @@ export function startSMSWorker(): void {
 async function getSMSCountLast30Days(customerId: string): Promise<number> {
   try {
     const result = await pool.query(
-      `SELECT COUNT(*) FROM email_logs
-       WHERE recipient_email IN (
-         SELECT phone FROM customers WHERE id = $1
-       )
-       AND email_type = 'sms'
+      `SELECT COUNT(*) FROM sms_logs
+       WHERE customer_id = $1
        AND sent_at > NOW() - INTERVAL '30 days'`,
       [customerId]
     );
@@ -244,18 +255,19 @@ async function getSMSCountLast30Days(customerId: string): Promise<number> {
 async function logSMSSent(params: {
   invoiceId: string;
   companyId: string;
+  customerId: string;
   phoneNumber: string;
   message: string;
   twilioSid: string;
 }): Promise<void> {
   try {
     await pool.query(
-      `INSERT INTO email_logs
-         (invoice_id, company_id, email_type, recipient_email, subject, body, status, sendgrid_message_id)
-       VALUES ($1, $2, 'sms', $3, 'SMS', $4, 'sent', $5)`,
-      [params.invoiceId, params.companyId, params.phoneNumber, params.message, params.twilioSid]
+      `INSERT INTO sms_logs
+         (invoice_id, company_id, customer_id, phone, content, twilio_message_sid, status)
+       VALUES ($1, $2, $3, $4, $5, $6, 'sent')`,
+      [params.invoiceId, params.companyId, params.customerId, params.phoneNumber, params.message, params.twilioSid]
     );
   } catch (err) {
-    logError(LOG_MODULE, 'logSMSSent', 'Failed to log SMS', err);
+    logError(LOG_MODULE, 'logSMSSent', 'Failed to log SMS to sms_logs', err);
   }
 }

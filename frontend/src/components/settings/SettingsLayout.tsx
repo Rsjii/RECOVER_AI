@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { cn } from '../../lib/utils';
 import { ConfirmationModal } from '../ui/ConfirmationModal';
 
-export type SettingsTab = 'integrations' | 'email' | 'account';
+export type SettingsTab = 'integrations' | 'email' | 'sms' | 'account';
 
 interface SettingsLayoutProps {
   activeTab: SettingsTab;
@@ -51,6 +51,20 @@ export const SettingsLayout: React.FC<SettingsLayoutProps> = ({
             strokeLinejoin="round"
             strokeWidth={1.5}
             d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+          />
+        </svg>
+      ),
+    },
+    {
+      id: 'sms',
+      label: 'SMS Settings',
+      icon: (
+        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={1.5}
+            d="M8 16h8m-4-4h4m-8 8h12a2 2 0 002-2V6a2 2 0 00-2-2H4a2 2 0 00-2 2v12a2 2 0 002 2z"
           />
         </svg>
       ),

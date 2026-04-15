@@ -7,7 +7,7 @@ export interface AgentDecisionLog {
   companyId: string;
   invoiceId?: string;
   customerId?: string;
-  decisionType: 'email_queued' | 'email_sent' | 'skipped' | 'paused' | 'plan_created';
+  decisionType: 'email_queued' | 'email_sent' | 'skipped' | 'paused' | 'plan_created' | 'sms_queued';
   emailType?: string;
   pilotMode?: string;
   daysOverdue?: number;

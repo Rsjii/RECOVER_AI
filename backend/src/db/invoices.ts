@@ -159,7 +159,7 @@ export async function listInvoices(
 
   const [data, count] = await Promise.all([
     pool.query(
-      `SELECT i.*, c.name as customer_name, c.email as customer_email
+      `SELECT i.*, c.name as customer_name, c.email as customer_email, c.customer_risk_score as risk_score
        FROM invoices i
        JOIN customers c ON i.customer_id = c.id
        WHERE ${where}
@@ -175,7 +175,7 @@ export async function listInvoices(
 
 export async function findInvoiceById(id: string, companyId: string): Promise<InvoiceRow | null> {
   const result = await pool.query(
-    `SELECT i.*, c.name as customer_name, c.email as customer_email
+    `SELECT i.*, c.name as customer_name, c.email as customer_email, c.customer_risk_score as risk_score
      FROM invoices i
      JOIN customers c ON i.customer_id = c.id
      WHERE i.id = $1 AND i.company_id = $2`,
