@@ -188,13 +188,33 @@ const Activity: React.FC = () => {
     if (!selectedEmail) return;
     setUpdatingEmail(true);
     try {
-      await api.put(`/api/email-logs/${selectedEmail.id}`, {
-        subject: editSubject,
-        email_body: editBody,
-      });
+      // Pending emails: update in pilot_queued_emails
+      // Sent emails: update in email_logs
+      const isPending = selectedEmail.status === 'pending';
+
+      if (isPending) {
+        // Update pending email via pilot-queue endpoint
+        await api.put(`/api/pilot-queue/${selectedEmail.id}`, {
+          subject: editSubject,
+          body: editBody,
+        });
+      } else {
+        // Update sent email via email-logs endpoint
+        await api.put(`/api/email-logs/${selectedEmail.id}`, {
+          subject: editSubject,
+          email_body: editBody,
+        });
+      }
+
       addToast({ type: 'success', message: 'Email updated successfully' });
       setShowEditModal(false);
-      fetchEmails();
+
+      // Refresh the appropriate data
+      if (isPending) {
+        fetchQueuedEmails();
+      } else {
+        fetchEmails();
+      }
     } catch (err: any) {
       addToast({ type: 'error', message: err.message || 'Failed to update email' });
     } finally {
