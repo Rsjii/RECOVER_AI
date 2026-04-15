@@ -55,6 +55,14 @@ function groupByDate<T extends { sent_at?: string; paid_at?: string; created_at?
   return Array.from(groups.entries()).map(([dateLabel, items]) => ({ dateLabel, items }));
 }
 
+// Strip HTML tags for plain text display
+function stripHtml(html: string): string {
+  if (!html) return '';
+  const tmp = document.createElement('DIV');
+  tmp.innerHTML = html;
+  return tmp.textContent || tmp.innerText || '';
+}
+
 const Activity: React.FC = () => {
   useEffect(() => { document.title = 'Activity — RecoverAI'; }, []);
 
@@ -70,8 +78,18 @@ const Activity: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>('all'); // all | sent | opened | clicked | bounced | failed
   const [searchCustomer, setSearchCustomer] = useState<string>('');
 
-  // Queued emails (pending approval)
+  // Filters for Pending Approval section
+  const [pendingEmailTypeFilter, setPendingEmailTypeFilter] = useState<string>('all');
+  const [pendingDaysOverdueFilter, setPendingDaysOverdueFilter] = useState<string>('all'); // all | 0-30 | 30-60 | 60+
+
+  // Multi-select for bulk operations
+  const [selectedPendingIds, setSelectedPendingIds] = useState<Set<string>>(new Set());
+  const [selectedRejectedIds, setSelectedRejectedIds] = useState<Set<string>>(new Set());
+  const [bulkOperating, setBulkOperating] = useState(false);
+
+  // Queued emails (pending approval & rejected)
   const [queuedEmails, setQueuedEmails] = useState<any[]>([]);
+  const [rejectedEmails, setRejectedEmails] = useState<any[]>([]);
   const [approvingQueue, setApprovingQueue] = useState<string | null>(null);
   const [approvingAllQueue, setApprovingAllQueue] = useState(false);
   const [previewQueueEmail, setPreviewQueueEmail] = useState<any>(null);
@@ -101,8 +119,12 @@ const Activity: React.FC = () => {
 
   const fetchQueuedEmails = useCallback(async () => {
     try {
-      const res = await api.get<{ data: any[] }>('/api/pilot-queue');
-      setQueuedEmails(res.data || []);
+      const [pendingRes, rejectedRes] = await Promise.all([
+        api.get<{ data: any[] }>('/api/pilot-queue'),
+        api.get<{ data: any[] }>('/api/pilot-queue?status=rejected').catch(() => ({ data: [] })),
+      ]);
+      setQueuedEmails(pendingRes.data || []);
+      setRejectedEmails(rejectedRes.data || []);
     } catch (err: any) {
       addToast({
         type: 'error',
@@ -266,22 +288,79 @@ const Activity: React.FC = () => {
     }
   };
 
+  const handleBulkApproveSelected = async () => {
+    if (selectedPendingIds.size === 0) return;
+    setBulkOperating(true);
+    let approved = 0;
+    let failed = 0;
+    try {
+      for (const id of selectedPendingIds) {
+        try {
+          await api.post(`/api/pilot-queue/${id}/approve`);
+          approved++;
+        } catch {
+          failed++;
+        }
+      }
+      addToast({
+        type: 'success',
+        message: `${approved} emails approved${failed > 0 ? `, ${failed} failed` : ''}`,
+      });
+      setSelectedPendingIds(new Set());
+      fetchQueuedEmails();
+    } finally {
+      setBulkOperating(false);
+    }
+  };
+
+  const handleBulkRejectSelected = async () => {
+    if (selectedPendingIds.size === 0) return;
+    setBulkOperating(true);
+    let rejected = 0;
+    let failed = 0;
+    try {
+      for (const id of selectedPendingIds) {
+        try {
+          await api.post(`/api/pilot-queue/${id}/reject`);
+          rejected++;
+        } catch {
+          failed++;
+        }
+      }
+      addToast({
+        type: 'success',
+        message: `${rejected} emails rejected${failed > 0 ? `, ${failed} failed` : ''}`,
+      });
+      setSelectedPendingIds(new Set());
+      fetchQueuedEmails();
+    } finally {
+      setBulkOperating(false);
+    }
+  };
+
   const handlePreviewQueuedEmail = async (email: any) => {
     setPreviewQueueEmail(email);
-    setPreviewQueueLoading(true);
-    setPreviewQueueData(null);
-    try {
-      const res = await api.get<{ data: { subject: string; body: string } }>(
-        `/api/email/preview?invoiceId=${email.invoice_id}&emailType=${email.email_type}`
-      );
-      setPreviewQueueData(res.data);
-    } catch (err: any) {
-      addToast({
-        type: 'error',
-        message: err.message || 'Failed to load email preview',
-      });
-    } finally {
+    // Use stored subject/body from queue (no API call needed)
+    if (email.subject && email.body) {
+      setPreviewQueueData({ subject: email.subject, body: email.body });
       setPreviewQueueLoading(false);
+    } else {
+      // Fallback: fetch from API if not stored (shouldn't happen)
+      setPreviewQueueLoading(true);
+      setPreviewQueueData(null);
+      try {
+        const res = await api.get<{ data: { subject: string; body: string } }>(
+          `/api/email/preview?invoiceId=${email.invoice_id}&emailType=${email.email_type}`
+        );
+        setPreviewQueueData(res.data);
+      } catch (err: any) {
+        addToast({
+          type: 'error',
+          message: err.message || 'Failed to load email preview',
+        });
+      } finally {
+        setPreviewQueueLoading(false);
+      }
     }
   };
 
@@ -351,25 +430,99 @@ const Activity: React.FC = () => {
                   <p className="text-gray-500 text-center py-8">No emails awaiting approval. All emails have been reviewed or sent.</p>
                 ) : (
                   <div className="space-y-3">
-                    {/* Approve All Button */}
-                    {queuedEmails.length > 0 && (
-                      <div className="flex gap-2 mb-4">
-                        <Button
-                          variant="primary"
-                          size="sm"
-                          onClick={handleApproveAllQueued}
-                          loading={approvingAllQueue}
+                    {/* Filters for Pending Approval */}
+                    <div className="mb-4 flex flex-col sm:flex-row gap-3">
+                      <div className="flex-1">
+                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Email Type</label>
+                        <select
+                          value={pendingEmailTypeFilter}
+                          onChange={(e) => setPendingEmailTypeFilter(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-sm text-gray-900 dark:text-white"
                         >
-                          Approve All ({queuedEmails.length})
-                        </Button>
+                          <option value="all">All Types</option>
+                          <option value="dunning_1">Dunning 1</option>
+                          <option value="dunning_2">Dunning 2</option>
+                          <option value="dunning_3">Dunning 3</option>
+                          <option value="dunning_4">Dunning 4</option>
+                          <option value="dunning_5">Dunning 5</option>
+                          <option value="payment_plan_offer">Payment Plan Offer</option>
+                        </select>
                       </div>
-                    )}
+                      <div className="flex-1">
+                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Days Overdue</label>
+                        <select
+                          value={pendingDaysOverdueFilter}
+                          onChange={(e) => setPendingDaysOverdueFilter(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-sm text-gray-900 dark:text-white"
+                        >
+                          <option value="all">All Ages</option>
+                          <option value="0-30">0-30 days</option>
+                          <option value="30-60">30-60 days</option>
+                          <option value="60+">60+ days</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Bulk Action Buttons */}
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={handleApproveAllQueued}
+                        loading={approvingAllQueue}
+                      >
+                        Approve All ({queuedEmails.length})
+                      </Button>
+                      {selectedPendingIds.size > 0 && (
+                        <>
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            onClick={handleBulkApproveSelected}
+                            loading={bulkOperating}
+                          >
+                            ✓ Approve Selected ({selectedPendingIds.size})
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={handleBulkRejectSelected}
+                            loading={bulkOperating}
+                            disabled={bulkOperating}
+                          >
+                            ✕ Reject Selected ({selectedPendingIds.size})
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => setSelectedPendingIds(new Set())}
+                            disabled={bulkOperating}
+                          >
+                            Clear Selection
+                          </Button>
+                        </>
+                      )}
+                    </div>
 
                     {/* Queue Table */}
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm">
                         <thead className="border-b border-gray-200 dark:border-white/[0.06] bg-gray-50 dark:bg-white/[0.02]">
                           <tr>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300">
+                              <input
+                                type="checkbox"
+                                checked={selectedPendingIds.size === queuedEmails.length && queuedEmails.length > 0}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedPendingIds(new Set(queuedEmails.map((email: any) => email.id)));
+                                  } else {
+                                    setSelectedPendingIds(new Set());
+                                  }
+                                }}
+                                className="rounded"
+                              />
+                            </th>
                             <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300">Customer</th>
                             <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300">Amount</th>
                             <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300">Days Overdue</th>
@@ -378,8 +531,38 @@ const Activity: React.FC = () => {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200 dark:divide-white/[0.06]">
-                          {queuedEmails.map((email: any) => (
+                          {queuedEmails
+                            .filter((email: any) => {
+                              // Filter by email type
+                              if (pendingEmailTypeFilter !== 'all' && email.email_type !== pendingEmailTypeFilter) {
+                                return false;
+                              }
+                              // Filter by days overdue
+                              if (pendingDaysOverdueFilter !== 'all') {
+                                if (pendingDaysOverdueFilter === '0-30' && email.days_overdue > 30) return false;
+                                if (pendingDaysOverdueFilter === '30-60' && (email.days_overdue < 30 || email.days_overdue > 60)) return false;
+                                if (pendingDaysOverdueFilter === '60+' && email.days_overdue < 60) return false;
+                              }
+                              return true;
+                            })
+                            .map((email: any) => (
                             <tr key={email.id} className="hover:bg-gray-50 dark:hover:bg-white/[0.02] transition-colors">
+                              <td className="px-4 py-3">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedPendingIds.has(email.id)}
+                                  onChange={(e) => {
+                                    const newSelected = new Set(selectedPendingIds);
+                                    if (e.target.checked) {
+                                      newSelected.add(email.id);
+                                    } else {
+                                      newSelected.delete(email.id);
+                                    }
+                                    setSelectedPendingIds(newSelected);
+                                  }}
+                                  className="rounded"
+                                />
+                              </td>
                               <td className="px-4 py-3">
                                 <div>
                                   <p className="font-medium text-gray-900 dark:text-white text-sm">{email.customer_name}</p>
@@ -398,12 +581,23 @@ const Activity: React.FC = () => {
                                 </span>
                               </td>
                               <td className="px-4 py-3">
-                                <div className="flex items-center justify-end gap-2">
+                                <div className="flex items-center justify-end gap-2 flex-wrap">
                                   <button
                                     onClick={() => handlePreviewQueuedEmail(email)}
                                     className="text-xs px-2.5 py-1 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors"
                                   >
                                     👁 Preview
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setSelectedEmail(email);
+                                      setEditSubject(email.subject || '');
+                                      setEditBody(email.body || '');
+                                      setShowEditModal(true);
+                                    }}
+                                    className="text-xs px-2.5 py-1 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900/50 transition-colors"
+                                  >
+                                    ✏️ Edit
                                   </button>
                                   <Button
                                     variant="primary"
@@ -433,6 +627,149 @@ const Activity: React.FC = () => {
                   </div>
                 )}
               </Card>
+
+              {/* SECTION 1B: REJECTED EMAILS */}
+              {rejectedEmails.length > 0 && (
+                <Card>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-base font-semibold text-gray-900 dark:text-white">⚠️ Rejected Emails</h3>
+                    <div className="bg-red-100 dark:bg-red-500/20 text-red-900 dark:text-red-200 px-3 py-1 rounded-full font-medium text-sm">
+                      {rejectedEmails.length} rejected
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">These emails were rejected and won't be queued again for 7 days. You can approve them below to send immediately.</p>
+
+                    {/* Bulk Actions for Rejected */}
+                    {selectedRejectedIds.size > 0 && (
+                      <div className="flex flex-wrap gap-2 mb-4">
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          onClick={async () => {
+                            setBulkOperating(true);
+                            let approved = 0;
+                            try {
+                              for (const id of selectedRejectedIds) {
+                                try {
+                                  await api.post(`/api/pilot-queue/${id}/approve`);
+                                  approved++;
+                                } catch {
+                                  // Continue with next
+                                }
+                              }
+                              addToast({ type: 'success', message: `${approved} emails approved` });
+                              setSelectedRejectedIds(new Set());
+                              fetchQueuedEmails();
+                            } finally {
+                              setBulkOperating(false);
+                            }
+                          }}
+                          loading={bulkOperating}
+                        >
+                          ✓ Approve Selected ({selectedRejectedIds.size})
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => setSelectedRejectedIds(new Set())}
+                          disabled={bulkOperating}
+                        >
+                          Clear Selection
+                        </Button>
+                      </div>
+                    )}
+
+                    {/* Rejected Emails Table */}
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead className="border-b border-gray-200 dark:border-white/[0.06] bg-gray-50 dark:bg-white/[0.02]">
+                          <tr>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300">
+                              <input
+                                type="checkbox"
+                                checked={selectedRejectedIds.size === rejectedEmails.length && rejectedEmails.length > 0}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedRejectedIds(new Set(rejectedEmails.map((email: any) => email.id)));
+                                  } else {
+                                    setSelectedRejectedIds(new Set());
+                                  }
+                                }}
+                                className="rounded"
+                              />
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300">Customer</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300">Amount</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300">Days Overdue</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300">Email Type</th>
+                            <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 dark:text-gray-300">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200 dark:divide-white/[0.06]">
+                          {rejectedEmails.map((email: any) => (
+                            <tr key={email.id} className="hover:bg-gray-50 dark:hover:bg-white/[0.02] transition-colors">
+                              <td className="px-4 py-3">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedRejectedIds.has(email.id)}
+                                  onChange={(e) => {
+                                    const newSelected = new Set(selectedRejectedIds);
+                                    if (e.target.checked) {
+                                      newSelected.add(email.id);
+                                    } else {
+                                      newSelected.delete(email.id);
+                                    }
+                                    setSelectedRejectedIds(newSelected);
+                                  }}
+                                  className="rounded"
+                                />
+                              </td>
+                              <td className="px-4 py-3">
+                                <div>
+                                  <p className="font-medium text-gray-900 dark:text-white text-sm">{email.customer_name}</p>
+                                  <p className="text-xs text-gray-500 dark:text-gray-400">{email.recipient_email}</p>
+                                </div>
+                              </td>
+                              <td className="px-4 py-3">
+                                <p className="font-medium text-gray-900 dark:text-white text-sm">${email.invoice_amount.toLocaleString()}</p>
+                              </td>
+                              <td className="px-4 py-3">
+                                <p className="text-gray-700 dark:text-gray-300 text-sm">{email.days_overdue}d</p>
+                              </td>
+                              <td className="px-4 py-3">
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-300">
+                                  {email.email_type.replace(/_/g, ' ')}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3">
+                                <div className="flex items-center justify-end gap-2">
+                                  <button
+                                    onClick={() => handlePreviewQueuedEmail(email)}
+                                    className="text-xs px-2.5 py-1 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors"
+                                  >
+                                    👁 Preview
+                                  </button>
+                                  <Button
+                                    variant="primary"
+                                    size="sm"
+                                    onClick={() => handleApproveQueuedEmail(email.id)}
+                                    loading={approvingQueue === email.id}
+                                    disabled={approvingQueue !== null}
+                                  >
+                                    ✓ Approve
+                                  </Button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </Card>
+              )}
 
               {/* SECTION 2: SENT & TRACKED EMAILS */}
               <Card>
@@ -514,18 +851,16 @@ const Activity: React.FC = () => {
 
                                   {/* Action Buttons */}
                                   <div className="flex gap-2 mt-3 flex-wrap">
-                                    {/* Preview: Show only for shadow/pending emails (not sent) */}
-                                    {log.status !== 'sent' && (
-                                      <button
-                                        onClick={() => {
-                                          setSelectedEmail(log);
-                                          setShowPreview(true);
-                                        }}
-                                        className="text-xs px-2.5 py-1 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors"
-                                      >
-                                        👁️ Preview
-                                      </button>
-                                    )}
+                                    {/* Preview: Show for all emails */}
+                                    <button
+                                      onClick={() => {
+                                        setSelectedEmail(log);
+                                        setShowPreview(true);
+                                      }}
+                                      className="text-xs px-2.5 py-1 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors"
+                                    >
+                                      👁️ Preview
+                                    </button>
                                     {/* Edit: Show only for shadow/pending emails (not sent) */}
                                     {log.status !== 'sent' && (
                                       <button
@@ -720,7 +1055,7 @@ const Activity: React.FC = () => {
                 <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Message:</label>
                 <div className="mt-3 p-4 bg-gray-50 dark:bg-white/[0.03] rounded-lg border border-gray-200 dark:border-white/[0.06]">
                   <div className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
-                    {selectedEmail.body || selectedEmail.email_body || '(No message content)'}
+                    {stripHtml(selectedEmail.body || selectedEmail.email_body || '(No message content)')}
                   </div>
                 </div>
               </div>
@@ -839,7 +1174,7 @@ const Activity: React.FC = () => {
                       Body
                     </label>
                     <div className="bg-white dark:bg-white/[0.05] rounded px-3 py-2 text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed max-h-96 overflow-y-auto">
-                      {previewQueueData.body}
+                      {stripHtml(previewQueueData.body)}
                     </div>
                   </div>
                 </div>

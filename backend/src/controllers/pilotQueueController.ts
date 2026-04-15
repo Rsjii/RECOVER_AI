@@ -11,12 +11,17 @@ const MODULE = 'pilotQueueController';
  */
 export const listQueuedEmails = async (req: Request, res: Response) => {
   const companyId = (req as any).companyId;
+  const statusParam = (req.query.status as string | undefined) || 'pending';
 
   if (!companyId) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
   try {
+    // Validate status parameter
+    const validStatuses = ['pending', 'rejected', 'sent', 'failed'];
+    const status = validStatuses.includes(statusParam) ? statusParam : 'pending';
+
     const result = await pool.query(
       `SELECT
         id,
@@ -29,15 +34,18 @@ export const listQueuedEmails = async (req: Request, res: Response) => {
         email_type,
         attempt_number,
         queued_at,
-        status
+        status,
+        subject,
+        body,
+        user_rejected_at
        FROM pilot_queued_emails
-       WHERE company_id = $1 AND status = 'pending'
+       WHERE company_id = $1 AND status = $2
        ORDER BY queued_at DESC
        LIMIT 50`,
-      [companyId]
+      [companyId, status]
     );
 
-    logInfo(MODULE, 'listQueuedEmails', `Retrieved ${result.rows.length} queued emails`);
+    logInfo(MODULE, 'listQueuedEmails', `Retrieved ${result.rows.length} queued emails`, { status });
 
     return res.json({
       data: result.rows,
