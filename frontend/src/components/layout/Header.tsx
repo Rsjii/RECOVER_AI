@@ -4,6 +4,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useNotification } from '../../hooks/useNotification';
 import { getInitials } from '../../lib/utils';
 import { ThemeToggle } from '../ui/ThemeToggle';
+import { NotificationCenter } from './NotificationCenter';
 
 interface HeaderProps {
   onMenuClick?: () => void;
@@ -55,8 +56,9 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
           </h2>
         </div>
 
-        {/* Right: Theme toggle + User */}
-        <div className="flex items-center gap-2">
+        {/* Right: Notifications + Theme toggle + User */}
+        <div className="flex items-center gap-1">
+          <NotificationCenter />
           <ThemeToggle />
 
           {/* User Menu */}

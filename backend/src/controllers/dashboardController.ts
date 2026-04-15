@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { getRecoveryStats, getInvoicePipeline, getCustomerRiskList, getDashboardKpi, getAgingAnalysis, getEmailAnalytics, getRiskDrivers, getPaymentPlansSummary, getWorkingCapitalFreed, getDSOReduction, getHoursSaved } from '../db/dashboard';
+import { getRecoveryStats, getInvoicePipeline, getCustomerRiskList, getDashboardKpi, getAgingAnalysis, getEmailAnalytics, getRiskDrivers, getPaymentPlansSummary, getWorkingCapitalFreed, getDSOReduction, getHoursSaved, getRecommendedActions } from '../db/dashboard';
 import { listPaymentsByCompany } from '../db/payments';
 import { pool } from '../config/database';
 import { logError, logInfo } from '../utils/logger';
@@ -7,6 +7,7 @@ import { sendErrorResponse, parseError } from '../utils/errorHandler';
 import { getAtRiskCustomers } from '../services/riskScoringService';
 import { getVoiceCallStats, getRecentVoiceCalls } from '../services/twilioService';
 import { getCashPosition, updateCashBalance, calculateWhatIf, calculateRunway, getCashLeakage, getEnhancedCashForecast } from '../services/cashPositionService';
+import { checkAndNotifySystemHealth } from '../services/systemHealthService';
 import type { WhatIfScenario } from '../services/cashPositionService';
 
 const LOG_MODULE = 'dashboardController';
@@ -21,6 +22,12 @@ export const getStats = async (req: Request, res: Response): Promise<void> => {
 
   try {
     const startedAt = Date.now();
+
+    // Check system health and log alerts if needed (non-blocking, run in background)
+    checkAndNotifySystemHealth(companyId).catch((err) => {
+      logError(LOG_MODULE, handler, 'System health check failed (non-blocking)', err);
+    });
+
     const stats = await getRecoveryStats(companyId);
     logInfo(LOG_MODULE, handler, 'Stats fetched', { elapsedMs: Date.now() - startedAt });
     res.status(200).json({ data: stats });
@@ -687,6 +694,32 @@ export const getSmsMetrics = async (req: Request, res: Response): Promise<void> 
     res.status(200).json(response);
   } catch (error) {
     logError(LOG_MODULE, handler, 'Failed to get SMS metrics', error);
+    const { statusCode, message } = parseError(error);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
+
+/**
+ * GET /api/dashboard/recommended-actions
+ * Returns top 3 high-risk invoices with AI-recommended actions
+ * Used for "Your Turn" section on dashboard
+ */
+export const getRecommendedActionsHandler = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'getRecommendedActionsHandler';
+  const companyId = (req as any).companyId;
+
+  try {
+    const limit = Math.min(parseInt(req.query.limit as string) || 3, 10);
+    const actions = await getRecommendedActions(companyId, limit);
+
+    logInfo(LOG_MODULE, handler, 'Recommended actions fetched', {
+      companyId,
+      count: actions.length,
+    });
+
+    res.status(200).json({ data: actions });
+  } catch (error) {
+    logError(LOG_MODULE, handler, 'Failed to get recommended actions', error);
     const { statusCode, message } = parseError(error);
     sendErrorResponse(res, statusCode, message);
   }

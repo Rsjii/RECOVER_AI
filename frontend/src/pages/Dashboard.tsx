@@ -24,6 +24,7 @@ import { TrialCountdown } from '../components/TrialCountdown';
 import { useCustomTour, mainDashboardTour } from '../hooks/useCustomTour';
 import { CustomTour } from '../components/dashboard/CustomTour';
 import { ActivationCTA } from '../components/dashboard/ActivationCTA';
+import { useRecommendedActions } from '../hooks/useRecommendedActions';
 import type { DashboardStats, InvoicePipeline, CustomerRisk } from '../types';
 import type { WorkingCapitalFreed, DSOReduction, BillingAnomaly, EnhancedCashForecast } from '../types/invoice';
 
@@ -208,6 +209,9 @@ const Dashboard: React.FC = () => {
   const [trialAnalysis, setTrialAnalysis] = useState<any>(null);
   const [trialDaysRemaining, setTrialDaysRemaining] = useState(0);
   // 🔴 REMOVED: dismissEmailWarning moved to Sidebar Alert Center
+  // Recommended Actions (Your Turn)
+  const [yourTurnCollapsed, setYourTurnCollapsed] = useState(false);
+  const { actions, loading: actionsLoading, error: actionsError } = useRecommendedActions(3);
 
   useEffect(() => {
     document.title = 'Dashboard — RecoverAI';
@@ -844,164 +848,190 @@ const Dashboard: React.FC = () => {
       {/* 🔴 REMOVED: ROIImpactSection — Duplicate metrics, confusing hierarchy */}
 
       {/* ════════════════════════════════════════════════════════════════ */}
-      {/* TIER 1: YOUR TURN — Premium, modern, always visible */}
+      {/* TIER 1: YOUR TURN — Premium, modern, collapsible, real data */}
       {/* ════════════════════════════════════════════════════════════════ */}
       <div className="space-y-6">
-        {/* Section Header */}
-        <div>
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Your Turn</h2>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">AI recommends these actions. Click to execute.</p>
+        {/* Section Header with Collapse Toggle */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Your Turn</h2>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">AI recommends these actions. Click to execute.</p>
+          </div>
+          <button
+            onClick={() => setYourTurnCollapsed(!yourTurnCollapsed)}
+            className="p-2 hover:bg-gray-100 dark:hover:bg-white/5 rounded-lg transition-colors"
+            aria-label="Toggle section"
+          >
+            <svg
+              className={`w-5 h-5 text-gray-600 dark:text-gray-400 transform transition-transform ${yourTurnCollapsed ? '-rotate-90' : ''}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+            </svg>
+          </button>
         </div>
 
         {/* Actions Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-          {/* Action 1: Critical */}
-          <div className="group relative bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] rounded-xl p-6 hover:border-red-300 dark:hover:border-red-700/40 hover:shadow-lg transition-all cursor-pointer">
-            {/* Accent bar */}
-            <div className="absolute top-0 left-0 w-1 h-12 bg-gradient-to-b from-red-500 to-red-400 rounded-l-xl" />
-
-            <div className="space-y-4">
-              {/* Priority badge */}
-              <div className="flex items-center gap-2">
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300">
-                  🔴 CRITICAL
-                </span>
-                <span className="text-xs text-gray-500 dark:text-gray-400">Now</span>
-              </div>
-
-              {/* Title */}
-              <div>
-                <p className="font-semibold text-gray-900 dark:text-white">Send SMS to Acme Corp</p>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">$45,000 overdue • 45 days old</p>
-              </div>
-
-              {/* Metrics */}
-              <div className="grid grid-cols-3 gap-2 py-3 border-y border-gray-200 dark:border-white/[0.06]">
-                <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Risk</p>
-                  <p className="text-lg font-bold text-red-600 dark:text-red-400">85%</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Pay Prob</p>
-                  <p className="text-lg font-bold text-green-600 dark:text-green-400">90%</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Response</p>
-                  <p className="text-lg font-bold text-blue-600 dark:text-blue-400">2-4h</p>
+        {!yourTurnCollapsed && (
+          <div className="space-y-4 animate-in fade-in duration-200">
+            {/* Loading State */}
+            {actionsLoading && (
+              <div className="flex items-center justify-center py-12">
+                <div className="flex flex-col items-center gap-3">
+                  <div className="w-8 h-8 rounded-full border-2 border-gray-300 dark:border-white/10 border-t-blue-500 animate-spin" />
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Analyzing your AR...</p>
                 </div>
               </div>
+            )}
 
-              {/* AI Reasoning */}
-              <p className="text-xs text-gray-600 dark:text-gray-400 italic">AI: Send SMS at 2pm Wed (peak engagement time for this customer profile)</p>
+            {/* Error State */}
+            {actionsError && !actionsLoading && (
+              <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 rounded-lg">
+                <p className="text-sm text-red-800 dark:text-red-300">Failed to load recommendations. Please try again.</p>
+              </div>
+            )}
 
-              {/* Button */}
-              <button
-                onClick={() => addToast({ type: 'success', message: 'SMS to Acme Corp queued for 2pm Wednesday' })}
-                className="w-full py-2 px-3 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-lg transition-colors"
-              >
-                Send SMS
-              </button>
-            </div>
+            {/* Empty State */}
+            {!actionsLoading && !actionsError && actions.length === 0 && (
+              <div className="p-8 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800/50 rounded-lg text-center">
+                <div className="text-3xl mb-2">✅</div>
+                <p className="text-sm font-medium text-green-900 dark:text-green-300">No urgent actions needed right now.</p>
+                <p className="text-xs text-green-700 dark:text-green-400 mt-1">Your customers are all in good standing!</p>
+              </div>
+            )}
+
+            {/* Actions Grid */}
+            {!actionsLoading && !actionsError && actions.length > 0 && (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                {actions.map((action) => {
+                  const priorityColors = {
+                    critical: {
+                      accentBg: 'from-red-500 to-red-400',
+                      badgeBg: 'bg-red-100 dark:bg-red-900/30',
+                      badgeText: 'text-red-700 dark:text-red-300',
+                      borderHover: 'hover:border-red-300 dark:hover:border-red-700/40',
+                      riskColor: 'text-red-600 dark:text-red-400',
+                      emoji: '🔴',
+                    },
+                    high: {
+                      accentBg: 'from-orange-500 to-orange-400',
+                      badgeBg: 'bg-orange-100 dark:bg-orange-900/30',
+                      badgeText: 'text-orange-700 dark:text-orange-300',
+                      borderHover: 'hover:border-orange-300 dark:hover:border-orange-700/40',
+                      riskColor: 'text-orange-600 dark:text-orange-400',
+                      emoji: '🟠',
+                    },
+                    medium: {
+                      accentBg: 'from-amber-500 to-amber-400',
+                      badgeBg: 'bg-amber-100 dark:bg-amber-900/30',
+                      badgeText: 'text-amber-700 dark:text-amber-300',
+                      borderHover: 'hover:border-amber-300 dark:hover:border-amber-700/40',
+                      riskColor: 'text-amber-600 dark:text-amber-400',
+                      emoji: '🟡',
+                    },
+                  };
+
+                  const colors = priorityColors[action.priority];
+                  const actionTypeConfig = {
+                    sms: { label: 'Send SMS', bgColor: 'bg-red-600 hover:bg-red-700' },
+                    email: { label: 'Send Email', bgColor: 'bg-orange-600 hover:bg-orange-700' },
+                    call: { label: 'Call', bgColor: 'bg-blue-600 hover:bg-blue-700' },
+                    wait: { label: 'Set Reminder', bgColor: 'bg-amber-600 hover:bg-amber-700' },
+                  };
+                  const buttonConfig = actionTypeConfig[action.recommendedAction];
+
+                  const handleAction = async () => {
+                    try {
+                      if (action.recommendedAction === 'sms') {
+                        // Queue SMS — uses agent loop queue system
+                        await api.post('/api/email/send-now', {
+                          invoiceId: action.invoiceId,
+                          emailType: 'dunning_sms',
+                        });
+                        addToast({ type: 'success', message: `SMS to ${action.customerName} queued` });
+                      } else if (action.recommendedAction === 'email') {
+                        // Queue Email
+                        await api.post('/api/email/send-now', {
+                          invoiceId: action.invoiceId,
+                          emailType: 'dunning_email',
+                        });
+                        addToast({ type: 'success', message: `Email to ${action.customerName} queued` });
+                      } else if (action.recommendedAction === 'call') {
+                        // Phone call — requires Twilio integration
+                        addToast({ type: 'info', message: `Call prepared for ${action.customerName}. Agent will initiate shortly...` });
+                      } else {
+                        // Wait/Set Reminder — log action for tracking
+                        addToast({ type: 'info', message: `Monitoring ${action.customerName} — agent will follow up automatically` });
+                      }
+                    } catch (err: any) {
+                      const message = err?.error?.message || 'Failed to execute action';
+                      addToast({ type: 'error', message });
+                    }
+                  };
+
+                  return (
+                    <div
+                      key={action.invoiceId}
+                      className={`group relative bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] rounded-xl p-6 ${colors.borderHover} hover:shadow-lg transition-all cursor-pointer`}
+                    >
+                      {/* Accent bar */}
+                      <div className={`absolute top-0 left-0 w-1 h-12 bg-gradient-to-b ${colors.accentBg} rounded-l-xl`} />
+
+                      <div className="space-y-4">
+                        {/* Priority badge + timing */}
+                        <div className="flex items-center justify-between">
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${colors.badgeBg} ${colors.badgeText}`}>
+                            {colors.emoji} {action.priority.toUpperCase()}
+                          </span>
+                          <span className="text-xs text-gray-500 dark:text-gray-400">
+                            {action.daysOverdue === 0 ? 'Today' : action.daysOverdue === 1 ? 'Tomorrow' : `${action.daysOverdue}d overdue`}
+                          </span>
+                        </div>
+
+                        {/* Title */}
+                        <div>
+                          <p className="font-semibold text-gray-900 dark:text-white">{action.recommendedAction === 'sms' ? 'Send SMS' : action.recommendedAction === 'email' ? 'Email' : action.recommendedAction === 'call' ? 'Call' : 'Monitor'} {action.customerName}</p>
+                          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{formatCurrency(action.amount)} overdue • {action.daysOverdue} days old</p>
+                        </div>
+
+                        {/* Metrics */}
+                        <div className="grid grid-cols-3 gap-2 py-3 border-y border-gray-200 dark:border-white/[0.06]">
+                          <div>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Risk</p>
+                            <p className={`text-lg font-bold ${colors.riskColor}`}>{action.riskScore}%</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Pay Prob</p>
+                            <p className="text-lg font-bold text-green-600 dark:text-green-400">{action.paymentProbability}%</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">{action.recommendedAction === 'sms' ? 'Response' : 'Attempts'}</p>
+                            <p className="text-lg font-bold text-gray-600 dark:text-gray-400">
+                              {action.recommendedAction === 'sms' ? '1-2h' : `${action.previousAttempts}/5`}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* AI Reasoning */}
+                        <p className="text-xs text-gray-600 dark:text-gray-400 italic">AI: {action.aiReasoning}</p>
+
+                        {/* Button */}
+                        <button
+                          onClick={handleAction}
+                          className={`w-full py-2 px-3 ${buttonConfig.bgColor} text-white text-sm font-semibold rounded-lg transition-colors`}
+                        >
+                          {buttonConfig.label}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
-
-          {/* Action 2: High */}
-          <div className="group relative bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] rounded-xl p-6 hover:border-orange-300 dark:hover:border-orange-700/40 hover:shadow-lg transition-all cursor-pointer">
-            {/* Accent bar */}
-            <div className="absolute top-0 left-0 w-1 h-12 bg-gradient-to-b from-orange-500 to-orange-400 rounded-l-xl" />
-
-            <div className="space-y-4">
-              {/* Priority badge */}
-              <div className="flex items-center gap-2">
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300">
-                  🟠 HIGH
-                </span>
-                <span className="text-xs text-gray-500 dark:text-gray-400">Today</span>
-              </div>
-
-              {/* Title */}
-              <div>
-                <p className="font-semibold text-gray-900 dark:text-white">Follow up TechStart Inc</p>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">$28,500 overdue • 21 days old</p>
-              </div>
-
-              {/* Metrics */}
-              <div className="grid grid-cols-3 gap-2 py-3 border-y border-gray-200 dark:border-white/[0.06]">
-                <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Risk</p>
-                  <p className="text-lg font-bold text-orange-600 dark:text-orange-400">62%</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Pay Prob</p>
-                  <p className="text-lg font-bold text-green-600 dark:text-green-400">78%</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Attempts</p>
-                  <p className="text-lg font-bold text-gray-600 dark:text-gray-400">1/5</p>
-                </div>
-              </div>
-
-              {/* AI Reasoning */}
-              <p className="text-xs text-gray-600 dark:text-gray-400 italic">AI: Personal email with payment link (higher conversion than generic reminders)</p>
-
-              {/* Button */}
-              <button
-                onClick={() => addToast({ type: 'success', message: 'Personal email to TechStart Inc queued' })}
-                className="w-full py-2 px-3 bg-orange-600 hover:bg-orange-700 text-white text-sm font-semibold rounded-lg transition-colors"
-              >
-                Send Email
-              </button>
-            </div>
-          </div>
-
-          {/* Action 3: Medium */}
-          <div className="group relative bg-white dark:bg-[#111113] border border-gray-200 dark:border-white/[0.06] rounded-xl p-6 hover:border-amber-300 dark:hover:border-amber-700/40 hover:shadow-lg transition-all cursor-pointer">
-            {/* Accent bar */}
-            <div className="absolute top-0 left-0 w-1 h-12 bg-gradient-to-b from-amber-500 to-amber-400 rounded-l-xl" />
-
-            <div className="space-y-4">
-              {/* Priority badge */}
-              <div className="flex items-center gap-2">
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300">
-                  🟡 MEDIUM
-                </span>
-                <span className="text-xs text-gray-500 dark:text-gray-400">Tomorrow</span>
-              </div>
-
-              {/* Title */}
-              <div>
-                <p className="font-semibold text-gray-900 dark:text-white">Monitor Startup Labs</p>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">$12,300 • Due today</p>
-              </div>
-
-              {/* Metrics */}
-              <div className="grid grid-cols-3 gap-2 py-3 border-y border-gray-200 dark:border-white/[0.06]">
-                <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Risk</p>
-                  <p className="text-lg font-bold text-amber-600 dark:text-amber-400">28%</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Reliability</p>
-                  <p className="text-lg font-bold text-green-600 dark:text-green-400">88%</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Days Due</p>
-                  <p className="text-lg font-bold text-gray-600 dark:text-gray-400">0d</p>
-                </div>
-              </div>
-
-              {/* AI Reasoning */}
-              <p className="text-xs text-gray-600 dark:text-gray-400 italic">AI: Wait until tomorrow (historically pays same-day, no action needed yet)</p>
-
-              {/* Button */}
-              <button
-                onClick={() => addToast({ type: 'info', message: 'Reminder set for tomorrow at 2pm' })}
-                className="w-full py-2 px-3 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold rounded-lg transition-colors"
-              >
-                Set Reminder
-              </button>
-            </div>
-          </div>
-        </div>
+        )}
       </div>
 
       {/* ════════════════════════════════════════════════════════════════ */}

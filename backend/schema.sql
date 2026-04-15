@@ -1289,6 +1289,96 @@ CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_status ON webhook_deliveries(s
 CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_created ON webhook_deliveries(created_at DESC);
 
 -- ============================================================
+-- NOTIFICATION PREFERENCES (User notification settings)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS notification_preferences (
+  id                         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id                 UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+
+  -- System Alerts (Required - always on)
+  system_alerts              BOOLEAN DEFAULT true,
+
+  -- Daily Actions (AI-recommended actions)
+  daily_actions              BOOLEAN DEFAULT true,
+  daily_actions_email        BOOLEAN DEFAULT true,
+  daily_actions_time         VARCHAR(5) DEFAULT '09:00',    -- HH:MM format
+
+  -- Agent Activity (emails sent, payments, dunning changes)
+  agent_activity             BOOLEAN DEFAULT true,
+  agent_activity_email       BOOLEAN DEFAULT false,
+  payment_received           BOOLEAN DEFAULT true,
+  payment_received_email     BOOLEAN DEFAULT true,
+
+  -- Weekly & Monthly Insights
+  weekly_digest              BOOLEAN DEFAULT true,
+  weekly_digest_day          VARCHAR(20) DEFAULT 'Monday',   -- Monday-Friday
+  weekly_digest_time         VARCHAR(5) DEFAULT '09:00',     -- HH:MM format
+  monthly_report             BOOLEAN DEFAULT true,
+
+  -- Quiet Hours (don't send emails during these hours)
+  quiet_hours_enabled        BOOLEAN DEFAULT false,
+  quiet_hours_start          VARCHAR(5) DEFAULT '21:00',     -- HH:MM format (9pm)
+  quiet_hours_end            VARCHAR(5) DEFAULT '06:00',     -- HH:MM format (6am)
+
+  -- Metadata
+  created_at                 TIMESTAMPTZ DEFAULT NOW(),
+  updated_at                 TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_notification_preferences_company_id ON notification_preferences(company_id);
+
+-- ============================================================
+-- NOTIFICATION EVENTS (Individual notifications for bell/in-app)
+-- Stores all notifications: system alerts, payments, agent actions, etc
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS notification_events (
+  id                         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id                 UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+
+  -- Event classification
+  event_type                 VARCHAR NOT NULL,  -- system_alert | payment_received | email_bounced | agent_action | trial_warning | actions_available | agent_paused
+
+  -- Display details
+  title                      VARCHAR NOT NULL,   -- "Stripe not connected"
+  message                    TEXT,               -- "Your agent is paused. Reconnect to resume."
+  icon                       VARCHAR,            -- emoji: 🔴, 💰, 📧, etc
+
+  -- Priority for grouping/coloring
+  priority                   VARCHAR DEFAULT 'info',  -- critical | warning | info
+
+  -- Read status (null = unread)
+  read_at                    TIMESTAMPTZ,
+
+  -- Navigation context
+  action_url                 VARCHAR,            -- "/settings?tab=integrations", "/invoices/123", etc
+  action_label               VARCHAR,            -- "Fix Stripe", "View Invoice", etc
+
+  -- Store related IDs/data for filtering/context
+  metadata                   JSONB,              -- { invoice_id, customer_id, customer_name, amount, payment_date, reason, etc }
+
+  -- Timestamps
+  created_at                 TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Indexes for efficient queries
+CREATE INDEX IF NOT EXISTS idx_notification_events_company_id
+  ON notification_events(company_id);
+
+CREATE INDEX IF NOT EXISTS idx_notification_events_created_at
+  ON notification_events(created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_notification_events_read_at
+  ON notification_events(read_at);
+
+CREATE INDEX IF NOT EXISTS idx_notification_events_unread
+  ON notification_events(company_id, read_at)
+  WHERE read_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_notification_events_type
+  ON notification_events(company_id, event_type, created_at DESC);
+
+-- ============================================================
 -- SCHEMA ALTERATIONS (for existing databases)
 -- ============================================================
 

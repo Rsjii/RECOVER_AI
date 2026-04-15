@@ -1,142 +1,305 @@
 import React, { useState, useEffect } from 'react';
-import { Button } from '../ui/Button';
 import { useNotification } from '../../hooks/useNotification';
+import { api } from '../../lib/api';
 
-interface NotificationPreferences {
-  email_payment_received?: boolean;
-  email_invoice_overdue?: boolean;
-  email_agent_action?: boolean;
-  email_weekly_summary?: boolean;
-  slack_payment_received?: boolean;
-  slack_invoice_overdue?: boolean;
-  slack_agent_action?: boolean;
+interface NotificationPrefs {
+  id: string;
+  company_id: string;
+  system_alerts: boolean;
+  daily_actions: boolean;
+  daily_actions_email: boolean;
+  daily_actions_time: string;
+  agent_activity: boolean;
+  agent_activity_email: boolean;
+  payment_received: boolean;
+  payment_received_email: boolean;
+  weekly_digest: boolean;
+  weekly_digest_day: string;
+  weekly_digest_time: string;
+  monthly_report: boolean;
+  quiet_hours_enabled: boolean;
+  quiet_hours_start: string;
+  quiet_hours_end: string;
+  created_at: string;
+  updated_at: string;
 }
 
-interface NotificationsSectionProps {
-  slackConnected?: boolean;
-  onUpdated?: () => void;
-}
-
-export const NotificationsSection: React.FC<NotificationsSectionProps> = ({ slackConnected = false, onUpdated }) => {
+export const NotificationsSection: React.FC = () => {
   const { addToast } = useNotification();
-  const [loading, setLoading] = useState(false);
-  const [prefs, setPrefs] = useState<NotificationPreferences>({
-    email_payment_received: true,
-    email_invoice_overdue: true,
-    email_agent_action: true,
-    email_weekly_summary: false,
-    slack_payment_received: false,
-    slack_invoice_overdue: false,
-    slack_agent_action: false,
-  });
+  const [prefs, setPrefs] = useState<NotificationPrefs | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
 
+  // Load preferences on mount
   useEffect(() => {
-    // Load from localStorage or API in future
-    const stored = localStorage.getItem('notificationPrefs');
-    if (stored) {
+    const loadPreferences = async () => {
       try {
-        setPrefs(JSON.parse(stored));
-      } catch {}
-    }
-  }, []);
+        setLoading(true);
+        const response = await api.get('/api/settings/notifications');
+        setPrefs(response.data);
+      } catch (err: any) {
+        console.error('Failed to load preferences:', err);
+        addToast({ type: 'error', message: 'Failed to load preferences' });
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const handleToggle = (key: keyof NotificationPreferences) => {
-    setPrefs(prev => ({ ...prev, [key]: !prev[key] }));
-  };
+    loadPreferences();
+  }, [addToast]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
+  const handleSave = async () => {
+    if (!prefs) return;
+
+    setSaving(true);
     try {
-      // Save to API endpoint (will be added to backend)
-      localStorage.setItem('notificationPrefs', JSON.stringify(prefs));
-      addToast({ type: 'success', message: 'Notification preferences saved' });
-      onUpdated?.();
+      const response = await api.patch('/api/settings/notifications', prefs);
+      setPrefs(response.data);
+      addToast({ type: 'success', message: 'Notification preferences saved!' });
     } catch (err: any) {
+      console.error('Failed to save preferences:', err);
       addToast({ type: 'error', message: 'Failed to save preferences' });
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
+  const handleToggle = (key: keyof NotificationPrefs) => {
+    if (!prefs) return;
+    setPrefs(prev => prev ? { ...prev, [key]: !prev[key] } : null);
+  };
+
+  const handleChange = (key: keyof NotificationPrefs, value: string) => {
+    if (!prefs) return;
+    setPrefs(prev => prev ? { ...prev, [key]: value } : null);
+  };
+
+  if (loading || !prefs) {
+    return (
+      <div className="space-y-8 animate-pulse">
+        <div className="h-8 bg-gray-200 dark:bg-white/[0.08] rounded w-1/3" />
+        <div className="space-y-4">
+          {[...Array(5)].map((_, i) => (
+            <div key={i} className="h-16 bg-gray-200 dark:bg-white/[0.08] rounded" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="bg-white dark:bg-[#111113] rounded-xl border border-gray-200 dark:border-white/[0.06] p-6">
-      <div className="mb-6">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Notifications</h2>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Choose how you want to receive updates</p>
+    <div className="space-y-8">
+      <div>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+          Notification Preferences
+        </h3>
+        <p className="text-sm text-gray-600 dark:text-gray-400">
+          Control what notifications you receive and how often
+        </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Email Notifications */}
-        <div>
-          <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">Email notifications</h3>
-          <div className="space-y-3">
-            {[
-              { key: 'email_payment_received', label: 'Payment received', desc: 'When a customer pays an invoice' },
-              { key: 'email_invoice_overdue', label: 'Invoice overdue alert', desc: 'When invoices reach overdue thresholds' },
-              { key: 'email_agent_action', label: 'Agent actions', desc: 'When RecoverAI sends emails or offers payment plans' },
-              { key: 'email_weekly_summary', label: 'Weekly summary', desc: 'Every Monday at 9am with recovery stats' },
-            ].map(({ key, label, desc }) => (
-              <label key={key} className="flex items-start gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={prefs[key as keyof NotificationPreferences] || false}
-                  onChange={() => handleToggle(key as keyof NotificationPreferences)}
-                  className="w-5 h-5 mt-0.5 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
-                />
-                <div>
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">{label}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{desc}</p>
-                </div>
-              </label>
-            ))}
+      {/* System Alerts */}
+      <div className="border border-gray-200 dark:border-white/[0.08] rounded-xl p-6">
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <h4 className="font-semibold text-gray-900 dark:text-white">System Alerts</h4>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+              Critical alerts (Stripe, Email, Trial). <span className="text-red-600 dark:text-red-400">Cannot disable</span>
+            </p>
           </div>
+          <span className="px-2.5 py-1 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 text-xs font-medium rounded-full">
+            Always On
+          </span>
+        </div>
+      </div>
+
+      {/* Daily Actions */}
+      <div className="border border-gray-200 dark:border-white/[0.08] rounded-xl p-6">
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <h4 className="font-semibold text-gray-900 dark:text-white">Daily Actions</h4>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+              Get your recommended "Your Turn" actions daily
+            </p>
+          </div>
+          <label className="flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              checked={prefs.daily_actions}
+              onChange={() => handleToggle('daily_actions')}
+              className="w-5 h-5 rounded border-gray-300 text-blue-600 cursor-pointer"
+            />
+          </label>
         </div>
 
-        {/* Slack Notifications */}
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-medium text-gray-900 dark:text-white">Slack notifications</h3>
-            {!slackConnected && (
-              <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-white/[0.06] px-2 py-1 rounded">
-                Configure Slack integration first
-              </span>
-            )}
-          </div>
-          <div className="space-y-3 opacity-50 pointer-events-none" style={{ opacity: slackConnected ? 1 : 0.5, pointerEvents: slackConnected ? 'auto' : 'none' }}>
-            {[
-              { key: 'slack_payment_received', label: 'Payment received', desc: 'Slack notification when a customer pays' },
-              { key: 'slack_invoice_overdue', label: 'Invoice overdue alert', desc: 'Slack notification for overdue invoices' },
-              { key: 'slack_agent_action', label: 'Agent actions', desc: 'Slack notification when RecoverAI takes action' },
-            ].map(({ key, label, desc }) => (
-              <label key={key} className="flex items-start gap-3 cursor-pointer">
+        {prefs.daily_actions && (
+          <div className="space-y-4 mt-4 pt-4 border-t border-gray-200 dark:border-white/[0.06]">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={prefs.daily_actions_email}
+                onChange={() => handleToggle('daily_actions_email')}
+                className="w-5 h-5 rounded border-gray-300 text-blue-600 cursor-pointer"
+              />
+              <span className="text-sm text-gray-700 dark:text-gray-300">Send email daily at</span>
+              {prefs.daily_actions_email && (
                 <input
-                  type="checkbox"
-                  checked={prefs[key as keyof NotificationPreferences] || false}
-                  onChange={() => handleToggle(key as keyof NotificationPreferences)}
-                  disabled={!slackConnected}
-                  className="w-5 h-5 mt-0.5 rounded border-gray-300 text-brand-600 focus:ring-brand-500 disabled:opacity-50"
+                  type="time"
+                  value={prefs.daily_actions_time}
+                  onChange={(e) => handleChange('daily_actions_time', e.target.value)}
+                  className="px-3 py-1.5 border border-gray-300 dark:border-white/[0.12] rounded-lg bg-white dark:bg-white/[0.05] text-sm text-gray-900 dark:text-white"
                 />
-                <div>
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">{label}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{desc}</p>
-                </div>
-              </label>
-            ))}
+              )}
+            </label>
           </div>
+        )}
+      </div>
+
+      {/* Agent Activity */}
+      <div className="border border-gray-200 dark:border-white/[0.08] rounded-xl p-6">
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <h4 className="font-semibold text-gray-900 dark:text-white">Agent Activity</h4>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+              Emails sent, payments received, dunning changes
+            </p>
+          </div>
+          <label className="flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              checked={prefs.agent_activity}
+              onChange={() => handleToggle('agent_activity')}
+              className="w-5 h-5 rounded border-gray-300 text-blue-600 cursor-pointer"
+            />
+          </label>
         </div>
 
-        <div className="pt-4">
-          <Button
-            type="submit"
-            variant="primary"
-            disabled={loading}
-            loading={loading}
-          >
-            Save preferences
-          </Button>
+        {prefs.agent_activity && (
+          <div className="space-y-3 mt-4 pt-4 border-t border-gray-200 dark:border-white/[0.06]">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={prefs.agent_activity_email}
+                onChange={() => handleToggle('agent_activity_email')}
+                className="w-5 h-5 rounded border-gray-300 text-blue-600 cursor-pointer"
+              />
+              <span className="text-sm text-gray-700 dark:text-gray-300">Email when agent sends dunning</span>
+            </label>
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={prefs.payment_received_email}
+                onChange={() => handleToggle('payment_received_email')}
+                className="w-5 h-5 rounded border-gray-300 text-blue-600 cursor-pointer"
+              />
+              <span className="text-sm text-gray-700 dark:text-gray-300">Email when payment received</span>
+            </label>
+          </div>
+        )}
+      </div>
+
+      {/* Weekly & Monthly */}
+      <div className="border border-gray-200 dark:border-white/[0.08] rounded-xl p-6">
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <h4 className="font-semibold text-gray-900 dark:text-white">Weekly & Monthly Insights</h4>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+              Recovery summary, DSO trend, metrics
+            </p>
+          </div>
+          <label className="flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              checked={prefs.weekly_digest}
+              onChange={() => handleToggle('weekly_digest')}
+              className="w-5 h-5 rounded border-gray-300 text-blue-600 cursor-pointer"
+            />
+          </label>
         </div>
-      </form>
+
+        {prefs.weekly_digest && (
+          <div className="space-y-4 mt-4 pt-4 border-t border-gray-200 dark:border-white/[0.06]">
+            <div className="flex items-center gap-3">
+              <label className="text-sm text-gray-700 dark:text-gray-300">Weekly summary every</label>
+              <select
+                value={prefs.weekly_digest_day}
+                onChange={(e) => handleChange('weekly_digest_day', e.target.value)}
+                className="px-3 py-1.5 border border-gray-300 dark:border-white/[0.12] rounded-lg bg-white dark:bg-white/[0.05] text-sm text-gray-900 dark:text-white"
+              >
+                {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map(day => (
+                  <option key={day}>{day}</option>
+                ))}
+              </select>
+              <label className="text-sm text-gray-700 dark:text-gray-300">at</label>
+              <input
+                type="time"
+                value={prefs.weekly_digest_time}
+                onChange={(e) => handleChange('weekly_digest_time', e.target.value)}
+                className="px-3 py-1.5 border border-gray-300 dark:border-white/[0.12] rounded-lg bg-white dark:bg-white/[0.05] text-sm text-gray-900 dark:text-white"
+              />
+            </div>
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={prefs.monthly_report}
+                onChange={() => handleToggle('monthly_report')}
+                className="w-5 h-5 rounded border-gray-300 text-blue-600 cursor-pointer"
+              />
+              <span className="text-sm text-gray-700 dark:text-gray-300">Monthly deep-dive report (1st Monday)</span>
+            </label>
+          </div>
+        )}
+      </div>
+
+      {/* Quiet Hours */}
+      <div className="border border-gray-200 dark:border-white/[0.08] rounded-xl p-6">
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <h4 className="font-semibold text-gray-900 dark:text-white">Quiet Hours</h4>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+              Don't send emails during these hours
+            </p>
+          </div>
+          <label className="flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              checked={prefs.quiet_hours_enabled}
+              onChange={() => handleToggle('quiet_hours_enabled')}
+              className="w-5 h-5 rounded border-gray-300 text-blue-600 cursor-pointer"
+            />
+          </label>
+        </div>
+
+        {prefs.quiet_hours_enabled && (
+          <div className="flex items-center gap-3 mt-4 pt-4 border-t border-gray-200 dark:border-white/[0.06]">
+            <label className="text-sm text-gray-700 dark:text-gray-300">Don't email between</label>
+            <input
+              type="time"
+              value={prefs.quiet_hours_start}
+              onChange={(e) => handleChange('quiet_hours_start', e.target.value)}
+              className="px-3 py-1.5 border border-gray-300 dark:border-white/[0.12] rounded-lg bg-white dark:bg-white/[0.05] text-sm text-gray-900 dark:text-white"
+            />
+            <label className="text-sm text-gray-700 dark:text-gray-300">and</label>
+            <input
+              type="time"
+              value={prefs.quiet_hours_end}
+              onChange={(e) => handleChange('quiet_hours_end', e.target.value)}
+              className="px-3 py-1.5 border border-gray-300 dark:border-white/[0.12] rounded-lg bg-white dark:bg-white/[0.05] text-sm text-gray-900 dark:text-white"
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Save Button */}
+      <div className="flex justify-end">
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {saving ? 'Saving...' : 'Save Preferences'}
+        </button>
+      </div>
     </div>
   );
 };

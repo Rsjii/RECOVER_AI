@@ -18,6 +18,7 @@ import { getOptimalRetryTime } from './paymentBehaviorService';
 import { addRetryJob } from '../queue/retryQueue';
 import { logIntegrationSync } from '../db/integrationLogs';
 import resendService from './resendService';
+import { logPaymentReceivedNotification } from '../utils/notificationLogger';
 
 function getStripeClient(apiKey: string): Stripe {
   return new Stripe(apiKey);
@@ -588,6 +589,21 @@ class StripeService {
       stripeChargeId: typeof (inv as any).charge === 'string' ? (inv as any).charge : (inv as any).charge?.id,
       status: 'succeeded',
     });
+
+    // Log payment received notification (non-blocking)
+    try {
+      const customer = await CustomerDB.findCustomerById(invoice.customer_id, invoice.company_id);
+      const customerName = customer?.name || 'Unknown Customer';
+      await logPaymentReceivedNotification(
+        invoice.company_id,
+        customerName,
+        amountPaid,
+        (inv.currency || 'usd').toUpperCase()
+      );
+      logInfo('stripeService', method, 'Payment notification logged', { companyId: invoice.company_id, customerName, amount: amountPaid });
+    } catch (err) {
+      logError('stripeService', method, 'Failed to log payment notification (non-blocking)', err);
+    }
 
     // Update customer payment history
     try {

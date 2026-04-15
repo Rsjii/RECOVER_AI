@@ -8,6 +8,7 @@ import { IntegrationSection } from '../components/settings/IntegrationSection';
 import { EmailSettingsSection } from '../components/settings/EmailSettingsSection';
 import { SMSSettingsSection } from '../components/settings/SMSSettingsSection';
 import { AccountSection } from '../components/settings/AccountSection';
+import { NotificationsSection } from '../components/settings/NotificationsSection';
 import type { SettingsTab } from '../components/settings/SettingsLayout';
 import { api } from '../lib/api';
 import { useAuth } from '../hooks/useAuth';
@@ -194,6 +195,11 @@ const Settings: React.FC = () => {
           sessions={sessions}
           onSessionsRefresh={handleSessionsRefresh}
         />
+      )}
+
+      {/* Notifications Tab - Email preferences, quiet hours, digest settings */}
+      {activeTab === 'notifications' && (
+        <NotificationsSection />
       )}
     </SettingsLayout>
   );

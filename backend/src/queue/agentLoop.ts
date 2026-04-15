@@ -9,6 +9,7 @@ import { normalizePhone } from '../services/smsService';
 import { scoreCustomerRisk } from '../services/riskScoringService';
 import { createPlanForInvoice } from '../services/paymentPlanService';
 import { logAgentDecision } from '../db/agentDecisions';
+import { logDailyActionsAvailableNotification } from '../utils/notificationLogger';
 import type { DunningEmailType } from '../types/email';
 
 // SMS thresholds: send SMS when email alone isn't working
@@ -153,6 +154,7 @@ async function runDecisionEngine(): Promise<{
 
   let emailsQueued = 0;
   let planOffersQueued = 0;
+  const companyActionCounts = new Map<string, { emailsQueued: number; planOffersQueued: number }>();
 
   for (const invoice of invoices) {
     try {
@@ -295,6 +297,9 @@ async function runDecisionEngine(): Promise<{
           pilotMode: invoice.company_pilot_mode as any,  // Pass config to avoid DB lookup
         });
         emailsQueued++;
+        const count = companyActionCounts.get(invoice.company_id) || { emailsQueued: 0, planOffersQueued: 0 };
+        count.emailsQueued++;
+        companyActionCounts.set(invoice.company_id, count);
         logInfo(LOG_MODULE, method, 'Dunning email queued', {
           invoiceId: invoice.id,
           daysOverdue,
@@ -366,6 +371,9 @@ async function runDecisionEngine(): Promise<{
           pilotMode: invoice.company_pilot_mode as any,  // Pass config to avoid DB lookup
         });
         planOffersQueued++;
+        const count = companyActionCounts.get(invoice.company_id) || { emailsQueued: 0, planOffersQueued: 0 };
+        count.planOffersQueued++;
+        companyActionCounts.set(invoice.company_id, count);
         logInfo(LOG_MODULE, method, 'Payment plan offer queued', {
           invoiceId: invoice.id,
           daysOverdue,
@@ -521,6 +529,18 @@ async function runDecisionEngine(): Promise<{
       }
     } catch (err) {
       logError(LOG_MODULE, method, 'Error processing invoice', err, { invoiceId: invoice.id });
+    }
+  }
+
+  // Send notifications for companies with pending actions
+  for (const [companyId, counts] of companyActionCounts.entries()) {
+    if (counts.emailsQueued > 0 || counts.planOffersQueued > 0) {
+      try {
+        const totalActions = counts.emailsQueued + counts.planOffersQueued;
+        await logDailyActionsAvailableNotification(companyId, totalActions);
+      } catch (err) {
+        logError(LOG_MODULE, method, 'Failed to log daily actions notification (non-blocking)', err, { companyId });
+      }
     }
   }
 

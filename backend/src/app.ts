@@ -26,6 +26,7 @@ import featureFlagsRoutes from './routes/featureFlags';
 import demoRoutes from './routes/demo';
 import adminRoutes from './routes/admin';
 import reportsRoutes from './routes/reports';
+import notificationsRoutes from './routes/notifications';
 import billingOptimizationRoutes from './routes/billingOptimization';
 import declineCodeRoutes from './routes/declineCodes';
 import retryRoutes from './routes/retry';
@@ -235,6 +236,7 @@ app.use('/api/segmentation', segmentationRoutes);
 // app.use('/api/audits', auditRoutes);  // ❌ DISABLED
 app.use('/api/audit-stages', auditStagesRoutes);  // ✅ SIGNUP FLOW: /signup → /verify-email → /integrations
 app.use('/api/pilot-queue', pilotQueueRoutes);  // ✅ EMAIL QUEUE: Sidebar > Operations > Email Queue
+app.use('/api/notifications', notificationsRoutes);  // ✅ NOTIFICATION EVENTS: Bell + activity stream
 // ❌ DISABLED: Slack bot not in use yet. Routes have no signature verification —
 // re-enable only after implementing Slack signing-secret HMAC middleware (audit C1).
 // app.use('/api/slack', slackRoutes);

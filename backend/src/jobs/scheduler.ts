@@ -14,6 +14,7 @@ import { fetchSmartARData, sendSmartARReport } from '../services/slackService';
 import { pool } from '../config/database'; // Used in smartARReport job
 import { stripeService } from '../services/stripeService';
 import * as CompanyDB from '../db/companies';
+import { logTrialEndingNotification, logTrialExpiredNotification } from '../utils/notificationLogger';
 
 const LOG_MODULE = 'scheduler';
 const activeJobs = new Map<string, boolean>();
@@ -145,7 +146,59 @@ export function initScheduler() {
 
   cron.schedule('0 5 * * *', async () => {
     await executeJob('trialExpiry', async () => {
-      logInfo(LOG_MODULE, 'trialExpiry', 'Would check trial expiry here');
+      try {
+        // Check for trials ending soon (7 days or less)
+        const endingSoon = await pool.query(`
+          SELECT id, name FROM companies
+          WHERE subscription_status = 'trialing'
+            AND trial_status = 'active'
+            AND trial_expires_at IS NOT NULL
+            AND trial_expires_at > NOW()
+            AND trial_expires_at <= NOW() + INTERVAL '7 days'
+        `);
+
+        for (const company of endingSoon.rows) {
+          try {
+            const daysRemaining = Math.ceil(
+              (new Date(company.trial_expires_at).getTime() - Date.now()) / (24 * 60 * 60 * 1000)
+            );
+            if (daysRemaining > 0) {
+              await logTrialEndingNotification(company.id, daysRemaining);
+            }
+          } catch (err) {
+            logError(LOG_MODULE, 'trialExpiry', 'Failed to log trial ending notification', err, { companyId: company.id });
+          }
+        }
+
+        // Check for expired trials
+        const expired = await pool.query(`
+          SELECT id, name FROM companies
+          WHERE subscription_status = 'trialing'
+            AND trial_status = 'active'
+            AND trial_expires_at IS NOT NULL
+            AND trial_expires_at <= NOW()
+        `);
+
+        for (const company of expired.rows) {
+          try {
+            await logTrialExpiredNotification(company.id);
+            // Optionally pause the agent when trial expires
+            await pool.query(
+              `UPDATE companies SET trial_status = 'expired', pilot_mode = 'paused' WHERE id = $1`,
+              [company.id]
+            );
+          } catch (err) {
+            logError(LOG_MODULE, 'trialExpiry', 'Failed to handle expired trial', err, { companyId: company.id });
+          }
+        }
+
+        logInfo(LOG_MODULE, 'trialExpiry', 'Trial expiry check complete', {
+          endingSoonCount: endingSoon.rows.length,
+          expiredCount: expired.rows.length,
+        });
+      } catch (err) {
+        logError(LOG_MODULE, 'trialExpiry', 'Trial expiry job failed', err);
+      }
     });
   });
 

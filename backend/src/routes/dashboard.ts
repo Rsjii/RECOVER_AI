@@ -3,7 +3,7 @@ import { authMiddleware } from '../middleware/auth';
 import { requireActiveSubscription } from '../middleware/subscriptionGate';
 import { checkTrialStatus, requireNotTrial } from '../middleware/trialGating';
 import { demoBlocker } from '../middleware/demoBlocker';
-import { getStats, getPipeline, getRiskList, getRecoveryTimeline, getAtRisk, getCashPositionHandler, updateCashBalanceHandler, updateBurnRateHandler, getWhatIfHandler, getRunwayHandler, getCashLeakageHandler, getKpi, getAgingAnalysisHandler, getEmailAnalyticsHandler, getRiskDriversHandler, getPaymentPlansSummaryHandler, getPaymentEvents, getSmsActivity, getWorkingCapitalFreedHandler, getDSOReductionHandler, getHoursSavedHandler, getCashForecastHandler, getVoiceStatsHandler, getRecoveryToday, getTrialAnalysis, getSmsMetrics } from '../controllers/dashboardController';
+import { getStats, getPipeline, getRiskList, getRecoveryTimeline, getAtRisk, getCashPositionHandler, updateCashBalanceHandler, updateBurnRateHandler, getWhatIfHandler, getRunwayHandler, getCashLeakageHandler, getKpi, getAgingAnalysisHandler, getEmailAnalyticsHandler, getRiskDriversHandler, getPaymentPlansSummaryHandler, getPaymentEvents, getSmsActivity, getWorkingCapitalFreedHandler, getDSOReductionHandler, getHoursSavedHandler, getCashForecastHandler, getVoiceStatsHandler, getRecoveryToday, getTrialAnalysis, getSmsMetrics, getRecommendedActionsHandler } from '../controllers/dashboardController';
 import { runDecisionEngineNow, runDecisionEngineDryRun } from '../queue/agentLoop';
 import { findInvoiceById } from '../db/invoices';
 import { findCompanyById } from '../db/companies';
@@ -71,6 +71,7 @@ router.get('/cash-forecast', getCashForecastHandler);
 router.get('/voice-stats', getVoiceStatsHandler);
 router.get('/recovery-today', getRecoveryToday);
 router.get('/trial-analysis', getTrialAnalysis);
+router.get('/recommended-actions', getRecommendedActionsHandler);
 
 /**
  * POST /api/dashboard/agent/trigger
