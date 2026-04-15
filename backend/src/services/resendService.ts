@@ -161,8 +161,8 @@ export class ResendService {
               .card-title { font-size: 16px; font-weight: 600; color: #1f2937; margin: 0 0 12px 0; }
               .card-text { font-size: 14px; color: #4b5563; margin: 0; }
               .steps { margin: 32px 0; }
-              .step { display: flex; margin-bottom: 20px; }
-              .step-number { width: 32px; height: 32px; background: #2563eb; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; margin-right: 16px; flex-shrink: 0; }
+              .step { display: flex; margin-bottom: 24px; align-items: flex-start; }
+              .step-icon { font-size: 32px; margin-right: 16px; flex-shrink: 0; }
               .step-content { flex: 1; }
               .step-title { font-weight: 600; color: #1f2937; margin: 0 0 4px 0; }
               .step-desc { font-size: 14px; color: #6b7280; margin: 0; }
@@ -195,21 +195,21 @@ export class ResendService {
 
               <div class="steps">
                 <div class="step">
-                  <div class="step-number">1</div>
+                  <div class="step-icon">📊</div>
                   <div class="step-content">
                     <p class="step-title">Check Your Dashboard</p>
                     <p class="step-desc">See your AR at risk, eligible invoices, and recovery progress in real-time.</p>
                   </div>
                 </div>
                 <div class="step">
-                  <div class="step-number">2</div>
+                  <div class="step-icon">🤖</div>
                   <div class="step-content">
                     <p class="step-title">Watch the Agent Work</p>
                     <p class="step-desc">Over the next 21 days, the AI will send personalized recovery emails automatically.</p>
                   </div>
                 </div>
                 <div class="step">
-                  <div class="step-number">3</div>
+                  <div class="step-icon">💰</div>
                   <div class="step-content">
                     <p class="step-title">Track Real Results</p>
                     <p class="step-desc">Every payment detected, every email opened, every dollar recovered — all tracked live.</p>

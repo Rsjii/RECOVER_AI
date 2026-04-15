@@ -77,7 +77,7 @@ async function getOverdueInvoicesForProcessing(): Promise<Array<{
       COALESCE(c.phone_opt_in, false) AS customer_phone_opt_in,
       COALESCE(c.risk_tier, 2)::int AS risk_tier,
       co.name           AS company_name,
-      COALESCE(co.pilot_mode, 'auto') AS company_pilot_mode,
+      COALESCE(co.pilot_mode, 'shadow') AS company_pilot_mode,
       COALESCE(co.dunning_tone, 'standard') AS dunning_tone,
       co.pause_dunning_until,
       co.paused_customers,

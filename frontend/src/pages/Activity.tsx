@@ -467,21 +467,27 @@ const Activity: React.FC = () => {
 
                                   {/* Action Buttons */}
                                   <div className="flex gap-2 mt-3 flex-wrap">
-                                    <button
-                                      onClick={() => {
-                                        setSelectedEmail(log);
-                                        setShowPreview(true);
-                                      }}
-                                      className="text-xs px-2.5 py-1 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors"
-                                    >
-                                      👁️ Preview
-                                    </button>
-                                    <button
-                                      onClick={() => handleEditEmail(log)}
-                                      className="text-xs px-2.5 py-1 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900/50 transition-colors"
-                                    >
-                                      ✏️ Edit
-                                    </button>
+                                    {/* Preview: Show only for shadow/pending emails (not sent) */}
+                                    {log.status !== 'sent' && (
+                                      <button
+                                        onClick={() => {
+                                          setSelectedEmail(log);
+                                          setShowPreview(true);
+                                        }}
+                                        className="text-xs px-2.5 py-1 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors"
+                                      >
+                                        👁️ Preview
+                                      </button>
+                                    )}
+                                    {/* Edit: Show only for shadow/pending emails (not sent) */}
+                                    {log.status !== 'sent' && (
+                                      <button
+                                        onClick={() => handleEditEmail(log)}
+                                        className="text-xs px-2.5 py-1 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900/50 transition-colors"
+                                      >
+                                        ✏️ Edit
+                                      </button>
+                                    )}
                                     {['draft', 'failed'].includes(log.status) && (
                                       <button
                                         onClick={() => resendEmail(log)}
@@ -667,7 +673,7 @@ const Activity: React.FC = () => {
                 <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Message:</label>
                 <div className="mt-3 p-4 bg-gray-50 dark:bg-white/[0.03] rounded-lg border border-gray-200 dark:border-white/[0.06]">
                   <div className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
-                    {selectedEmail.email_body}
+                    {selectedEmail.body || selectedEmail.email_body || '(No message content)'}
                   </div>
                 </div>
               </div>
