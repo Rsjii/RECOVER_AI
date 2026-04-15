@@ -638,3 +638,176 @@ export const disconnectStripe = async (req: Request, res: Response): Promise<voi
     sendErrorResponse(res, statusCode, message);
   }
 };
+
+/**
+ * GET /api/settings/email-mode
+ * Get current email mode (shadow|auto) and pending email count
+ */
+export const getEmailMode = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'getEmailMode';
+  const companyId = (req as any).companyId;
+
+  try {
+    const company = await findCompanyById(companyId);
+    if (!company) {
+      sendErrorResponse(res, 404, 'Company not found');
+      return;
+    }
+
+    // Count pending emails
+    const pendingResult = await pool.query(
+      `SELECT COUNT(*) as count FROM pilot_queued_emails
+       WHERE company_id = $1 AND status = 'pending'`,
+      [companyId]
+    );
+
+    const pendingCount = parseInt(pendingResult.rows[0]?.count || '0');
+
+    logInfo(LOG_MODULE, handler, 'Email mode retrieved', {
+      companyId,
+      mode: company.pilot_mode || 'shadow',
+      pendingCount,
+    });
+
+    res.status(200).json({
+      data: {
+        mode: company.pilot_mode || 'shadow',
+        pendingCount,
+      },
+    });
+  } catch (error) {
+    logError(LOG_MODULE, handler, 'Failed to get email mode', error);
+    const { statusCode, message } = parseError(error);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
+
+/**
+ * POST /api/settings/email-mode
+ * Switch email mode (shadow↔auto) with pending email action
+ * pendingAction: 'approve' | 'reject' | 'delete'
+ */
+export const switchEmailMode = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'switchEmailMode';
+  const companyId = (req as any).companyId;
+  const { newMode, pendingAction } = req.body;
+
+  try {
+    // Validate inputs
+    if (!['shadow', 'auto'].includes(newMode)) {
+      sendErrorResponse(res, 400, 'newMode must be shadow or auto');
+      return;
+    }
+
+    if (!['approve', 'reject', 'delete'].includes(pendingAction)) {
+      sendErrorResponse(res, 400, 'pendingAction must be approve, reject, or delete');
+      return;
+    }
+
+    const { getPendingEmails, rejectAllPending } = await import('../db/pilotQueuedEmails');
+    const { insertRejectionTracking } = await import('../db/rejectionTracking');
+
+    // Get all pending emails
+    const pendingEmails = await getPendingEmails(companyId);
+
+    let affectedCount = 0;
+
+    // Handle pending emails based on action
+    if (pendingAction === 'approve') {
+      // Send all pending emails immediately
+      const emailService = (await import('../services/emailService')).default;
+      const { createEmailLog } = await import('../db/emailLogs');
+
+      for (const email of pendingEmails) {
+        try {
+          const sendResult = await emailService.sendDunningEmail({
+            companyId,
+            invoiceId: email.invoice_id,
+            customerId: email.customer_id,
+            recipientEmail: email.recipient_email,
+            customerName: email.customer_name,
+            invoiceAmount: email.invoice_amount,
+            dueDate: new Date(email.created_at).toISOString(),
+            daysOverdue: email.days_overdue,
+            emailType: email.email_type as 'dunning_1' | 'dunning_2' | 'dunning_3' | 'dunning_4' | 'dunning_5' | 'payment_plan_offer',
+            attemptNumber: 1,
+          });
+
+          if (sendResult.success) {
+            await createEmailLog({
+              companyId,
+              invoiceId: email.invoice_id,
+              recipientEmail: email.recipient_email,
+              subject: email.subject || '',
+              body: email.body || '',
+              emailType: email.email_type as any,
+              sendgridMessageId: sendResult.sendgridMessageId,
+            });
+
+            await pool.query(
+              `UPDATE pilot_queued_emails
+               SET status = 'sent', sent_at = NOW(), resend_message_id = $1
+               WHERE id = $2`,
+              [sendResult.sendgridMessageId, email.id]
+            );
+
+            affectedCount++;
+          }
+        } catch (err) {
+          logError(LOG_MODULE, handler, 'Failed to send email during mode switch', err);
+        }
+      }
+    } else if (pendingAction === 'reject' || pendingAction === 'delete') {
+      // Mark all pending as rejected + add to rejection_tracking (7-day block)
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7);
+
+      for (const email of pendingEmails) {
+        try {
+          // Update status to rejected
+          await pool.query(
+            `UPDATE pilot_queued_emails SET status = 'rejected' WHERE id = $1`,
+            [email.id]
+          );
+
+          // Insert into rejection_tracking (7-day block)
+          await insertRejectionTracking({
+            companyId,
+            invoiceId: email.invoice_id,
+            emailType: email.email_type,
+            rejectedBy: 'system_mode_switch',
+            reason: `Rejected during mode switch to ${newMode}`,
+            expiresDays: 7,
+          });
+
+          affectedCount++;
+        } catch (err) {
+          logError(LOG_MODULE, handler, 'Failed to reject email during mode switch', err);
+        }
+      }
+    }
+
+    // Update company mode
+    const updated = await updateCompany(companyId, { pilot_mode: newMode });
+
+    logInfo(LOG_MODULE, handler, 'Email mode switched', {
+      companyId,
+      newMode,
+      pendingAction,
+      affectedCount,
+    });
+
+    res.status(200).json({
+      data: {
+        success: true,
+        mode: newMode,
+        affectedCount,
+        message: `Switched to ${newMode} mode, handled ${affectedCount} pending emails (${pendingAction})`,
+      },
+    });
+  } catch (error) {
+    logError(LOG_MODULE, handler, 'Failed to switch email mode', error);
+    const { statusCode, message } = parseError(error);
+    sendErrorResponse(res, statusCode, message);
+  }
+};

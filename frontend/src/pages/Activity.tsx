@@ -154,7 +154,7 @@ const Activity: React.FC = () => {
   const handleEditEmail = (email: any) => {
     setSelectedEmail(email);
     setEditSubject(email.subject || '');
-    setEditBody(email.email_body || '');
+    setEditBody(email.body || email.email_body || '');
     setShowEditModal(true);
   };
 

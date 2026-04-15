@@ -3,6 +3,7 @@ import { cn } from '../../lib/utils';
 import { useNotification } from '../../hooks/useNotification';
 import { api } from '../../lib/api';
 import { ConfirmationModal } from '../ui/ConfirmationModal';
+import { ModeSwitchDialog } from '../ModeSwitchDialog';
 import { logError, logWarn } from '../../utils/logger';
 
 interface EmailSettingsFormData {
@@ -50,7 +51,8 @@ export const EmailSettingsSection: React.FC<EmailSettingsSectionProps> = () => {
   const [isDisablingSmtp, setIsDisablingSmtp] = useState(false);
 
   // NEW: Agent & Dunning Control states
-  const [pilotMode, setPilotMode] = useState<string>('auto');
+  const [pilotMode, setPilotMode] = useState<string>('shadow');
+  const [showModeDialog, setShowModeDialog] = useState(false);
   const [replyToEmail, setReplyToEmail] = useState<string>('');
   const [smtpFallbackToResend, setSmtpFallbackToResend] = useState<boolean>(false);
   const [dunnTone, setDunningTone] = useState<string>('standard');
@@ -97,7 +99,7 @@ export const EmailSettingsSection: React.FC<EmailSettingsSectionProps> = () => {
       setIsLoadingAgentSettings(true);
       const response = await api.get('/api/settings');
       if (response) {
-        setPilotMode(response.pilotMode || 'auto');
+        setPilotMode(response.pilotMode || 'shadow');
         setDunningTone(response.dunningTone || 'standard');
         setReplyToEmail(response.replyToEmail || '');
         setSmtpFallbackToResend(response.smtpFallbackToResend || false);
@@ -228,13 +230,28 @@ export const EmailSettingsSection: React.FC<EmailSettingsSectionProps> = () => {
   }
 
   // NEW: API handlers for agent settings
-  async function handlePilotModeChange(mode: string) {
+  function handlePilotModeClick(mode: string) {
+    if (mode === pilotMode) return; // No change
+    setShowModeDialog(true);
+  }
+
+  async function handleModeSwitch(newMode: 'shadow' | 'auto', action: 'approve' | 'reject' | 'delete') {
     try {
-      await api.put('/api/settings/pilot-mode', { pilot_mode: mode });
-      setPilotMode(mode);
-      addToast({ type: 'success', message: `Pilot mode changed to ${mode}` });
+      await api.post('/api/settings/email-mode', {
+        newMode,
+        pendingAction: action,
+      });
+      setPilotMode(newMode);
+      setShowModeDialog(false);
+      addToast({
+        type: 'success',
+        message: `Agent mode changed to ${newMode === 'shadow' ? '🔍 Shadow (Review)' : '✨ Auto (Autonomous)'}`,
+      });
     } catch (err: any) {
-      addToast({ type: 'error', message: 'Failed to update pilot mode' });
+      addToast({
+        type: 'error',
+        message: err.message || 'Failed to change mode',
+      });
     }
   }
 
@@ -791,7 +808,7 @@ export const EmailSettingsSection: React.FC<EmailSettingsSectionProps> = () => {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {[
             {
               id: 'auto',
@@ -809,14 +826,6 @@ export const EmailSettingsSection: React.FC<EmailSettingsSectionProps> = () => {
               detail: 'Queue for approval',
               color: 'from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 border-blue-200 dark:border-blue-700'
             },
-            {
-              id: 'paused',
-              icon: '⏸️',
-              label: 'Paused',
-              desc: 'All actions paused',
-              detail: 'No emails sent',
-              color: 'from-gray-50 to-slate-50 dark:from-gray-800/20 dark:to-slate-800/20 border-gray-300 dark:border-gray-600'
-            },
           ].map((mode) => (
             <label
               key={mode.id}
@@ -827,7 +836,7 @@ export const EmailSettingsSection: React.FC<EmailSettingsSectionProps> = () => {
                 name="pilotMode"
                 value={mode.id}
                 checked={pilotMode === mode.id}
-                onChange={(e) => handlePilotModeChange(e.target.value)}
+                onChange={(e) => handlePilotModeClick(e.target.value)}
                 className="absolute opacity-0"
               />
               <div className="text-center">
@@ -995,6 +1004,15 @@ export const EmailSettingsSection: React.FC<EmailSettingsSectionProps> = () => {
       - Future: Implement in Month 2 based on customer requests
       - Status: Not in DB, no backend implementation yet.
       */}
+
+      {/* Mode Switch Dialog */}
+      {showModeDialog && (
+        <ModeSwitchDialog
+          currentMode={pilotMode as 'shadow' | 'auto'}
+          onClose={() => setShowModeDialog(false)}
+          onSwitch={handleModeSwitch}
+        />
+      )}
 
       {/* Disable SMTP Confirmation Modal */}
       <ConfirmationModal

@@ -25,6 +25,12 @@ router.get('/stats', authMiddleware, demoBlocker, pilotQueueController.getQueueS
 router.post('/approve-all', authMiddleware, demoBlocker, pilotQueueController.approveAllQueuedEmails);
 
 /**
+ * POST /api/pilot-queue/:id/preview
+ * Preview a queued email (requires auth)
+ */
+router.post('/:id/preview', authMiddleware, demoBlocker, pilotQueueController.previewQueuedEmail);
+
+/**
  * POST /api/pilot-queue/:id/approve
  * Approve and send a queued email (requires auth)
  */
@@ -35,6 +41,12 @@ router.post('/:id/approve', authMiddleware, demoBlocker, pilotQueueController.ap
  * Reject a queued email (requires auth)
  */
 router.post('/:id/reject', authMiddleware, demoBlocker, pilotQueueController.rejectQueuedEmail);
+
+/**
+ * POST /api/pilot-queue/:id/retry
+ * Manually retry a failed email (requires auth)
+ */
+router.post('/:id/retry', authMiddleware, demoBlocker, pilotQueueController.retryQueuedEmail);
 
 /**
  * PUT /api/pilot-queue/:id

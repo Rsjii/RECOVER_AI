@@ -48,7 +48,7 @@ CREATE TABLE IF NOT EXISTS companies (
   cash_balance_usd           NUMERIC(15,2) DEFAULT 0,
 
   -- P0: Pilot mode & controls
-  pilot_mode                 VARCHAR(20) DEFAULT 'auto',    -- 'shadow' | 'auto' | 'paused'
+  pilot_mode                 VARCHAR(20) DEFAULT 'shadow',    -- 'shadow' | 'auto' | 'paused'
   manual_mode                BOOLEAN DEFAULT false,         -- when true, all emails queued for approval
   reply_to_email             VARCHAR(255),                  -- company email for dunning replies
 
@@ -1003,30 +1003,77 @@ CREATE INDEX IF NOT EXISTS idx_pilots_created ON pilots(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_pilots_company ON pilots(company_id);
 
 
--- P1: Shadow mode email queue (pilots review emails before send)
+-- P0: 4-State Email Queue System (pending → rejected | sent | failed)
 CREATE TABLE IF NOT EXISTS pilot_queued_emails (
-  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  company_id      UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
-  invoice_id      UUID NOT NULL REFERENCES invoices(id) ON DELETE CASCADE,
-  customer_id     UUID NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
-  recipient_email VARCHAR NOT NULL,
-  customer_name   VARCHAR NOT NULL,
-  invoice_amount  DECIMAL(12,2) NOT NULL,
-  days_overdue    INT NOT NULL,
-  email_type      VARCHAR(50) NOT NULL,
-  attempt_number  INT DEFAULT 1,
-  queued_at       TIMESTAMPTZ DEFAULT NOW(),
-  due_date        TIMESTAMPTZ,                   -- original invoice due date (not days_overdue which drifts)
-  approved_at     TIMESTAMPTZ,
-  status          VARCHAR(20) DEFAULT 'pending',  -- pending | approved | rejected | sent
-  sent_at         TIMESTAMPTZ,
-  subject         TEXT,                          -- user-edited email subject (optional, null until edited)
-  body            TEXT                           -- user-edited email body (optional, null until edited)
+  id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id            UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  invoice_id            UUID NOT NULL REFERENCES invoices(id) ON DELETE CASCADE,
+  customer_id           UUID NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+  recipient_email       VARCHAR NOT NULL,
+  customer_name         VARCHAR NOT NULL,
+  invoice_amount        DECIMAL(12,2) NOT NULL,
+  days_overdue          INT NOT NULL,
+  email_type            VARCHAR(50) NOT NULL,
+  subject               TEXT,                          -- AI-generated or user-edited email subject
+  body                  TEXT,                          -- AI-generated or user-edited email body
+
+  -- 4-State System: pending → rejected | sent | failed
+  status                VARCHAR(20) DEFAULT 'pending', -- pending | rejected | sent | failed
+  created_at            TIMESTAMPTZ DEFAULT NOW(),
+  sent_at               TIMESTAMPTZ,
+
+  -- User approval in SHADOW mode
+  user_approved_at      TIMESTAMPTZ,
+  user_rejected_at      TIMESTAMPTZ,
+  user_edited_at        TIMESTAMPTZ,
+  edited_subject        TEXT,
+  edited_body           TEXT,
+
+  -- Retry logic for AUTO mode + failures
+  failure_count         INT DEFAULT 0,
+  last_error            VARCHAR(500),
+  retry_at              TIMESTAMPTZ,
+
+  -- Tracking
+  resend_message_id     VARCHAR(255),
+  risk_score            NUMERIC(5,2),
+  due_date              TIMESTAMPTZ,
+
+  -- Legacy compatibility
+  queued_at             TIMESTAMPTZ DEFAULT NOW(),
+  approved_at           TIMESTAMPTZ,
+  attempt_number        INT DEFAULT 1,
+
+  UNIQUE(company_id, invoice_id, email_type)
 );
 
+-- 4-State System Indexes
 CREATE INDEX IF NOT EXISTS idx_pilot_queued_company ON pilot_queued_emails(company_id, status);
-CREATE INDEX IF NOT EXISTS idx_pilot_queued_created ON pilot_queued_emails(queued_at DESC);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_pilot_queued_dedup ON pilot_queued_emails(company_id, invoice_id, email_type) WHERE status = 'pending';
+CREATE INDEX IF NOT EXISTS idx_pilot_queued_company_pending ON pilot_queued_emails(company_id, status) WHERE status = 'pending';
+CREATE INDEX IF NOT EXISTS idx_pilot_queued_failed ON pilot_queued_emails(company_id, status) WHERE status = 'failed';
+CREATE INDEX IF NOT EXISTS idx_pilot_queued_retry_at ON pilot_queued_emails(retry_at) WHERE status = 'failed' AND retry_at IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_pilot_queued_created ON pilot_queued_emails(created_at DESC);
+
+-- ============================================================
+-- P0: REJECTION TRACKING (7-day re-queue safeguard)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS rejection_tracking (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id    UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  invoice_id    UUID NOT NULL REFERENCES invoices(id) ON DELETE CASCADE,
+  email_type    VARCHAR(50) NOT NULL,
+  rejected_by   VARCHAR(100),                         -- user_id or 'system_mode_switch'
+  rejected_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  reason        VARCHAR(255),
+  expires_at    TIMESTAMPTZ NOT NULL,
+  created_at    TIMESTAMPTZ DEFAULT NOW(),
+
+  UNIQUE(invoice_id, email_type)
+);
+
+CREATE INDEX IF NOT EXISTS idx_rejection_tracking_company ON rejection_tracking(company_id);
+CREATE INDEX IF NOT EXISTS idx_rejection_tracking_expires ON rejection_tracking(company_id, expires_at);
+CREATE INDEX IF NOT EXISTS idx_rejection_tracking_invoice_email ON rejection_tracking(invoice_id, email_type);
 
 -- ============================================================
 -- AGENT DECISIONS: Learning foundation for future ML optimization

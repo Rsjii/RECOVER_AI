@@ -19,6 +19,8 @@ import {
   getDunningSenderName,
   updateDunningSenderName,
   disconnectStripe,
+  getEmailMode,      // P0: Email queue mode
+  switchEmailMode,   // P0: Email queue mode switching
 } from '../controllers/settingsController';
 import {
   getSMTPStatusHandler,
@@ -36,6 +38,8 @@ router.use(demoBlocker);  // Block mutations for demo users (after auth is set)
 
 router.get('/', getSettings);
 router.get('/costs', getApiCosts);
+router.get('/email-mode', getEmailMode);  // P0: Get current email mode
+router.post('/email-mode', requireRole('admin'), switchEmailMode);  // P0: Switch email mode
 router.put('/dunning', requireRole('admin'), updateDunningSettings);
 router.put('/slack', requireRole('admin'), updateSlackSettings);
 router.put('/general', requireRole('admin'), updateGeneralSettings);

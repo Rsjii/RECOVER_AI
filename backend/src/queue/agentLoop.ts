@@ -9,6 +9,7 @@ import { normalizePhone } from '../services/smsService';
 import { scoreCustomerRisk } from '../services/riskScoringService';
 import { createPlanForInvoice } from '../services/paymentPlanService';
 import { logAgentDecision } from '../db/agentDecisions';
+import { isRecentlyRejected } from '../db/rejectionTracking';
 import type { DunningEmailType } from '../types/email';
 
 // SMS thresholds: send SMS when email alone isn't working
@@ -280,27 +281,38 @@ async function runDecisionEngine(): Promise<{
       }
 
       if (nextStep && invoice.dunning_emails_sent < MAX_DUNNING_EMAILS) {
-        await queueEmailNow({
-          companyId: invoice.company_id,
-          customerId: invoice.customer_id,
-          invoiceId: invoice.id,
-          recipientEmail: invoice.customer_email,
-          customerName: invoice.customer_name,
-          invoiceAmount: invoice.amount,
-          dueDate: invoice.due_date,
-          daysOverdue,
-          emailType: nextStep.emailType,
-          attemptNumber: invoice.dunning_emails_sent + 1,
-          riskScore: invoice.customer_risk_score || undefined,
-          pilotMode: invoice.company_pilot_mode as any,  // Pass config to avoid DB lookup
-        });
-        emailsQueued++;
-        logInfo(LOG_MODULE, method, 'Dunning email queued', {
-          invoiceId: invoice.id,
-          daysOverdue,
-          emailType: nextStep.emailType,
-          attemptNumber: invoice.dunning_emails_sent + 1,
-        });
+        // Check if this email type was recently rejected (7-day block)
+        const recentRejection = await isRecentlyRejected(invoice.id, nextStep.emailType);
+        if (recentRejection) {
+          logInfo(LOG_MODULE, method, 'Skipping recently rejected email (7-day block)', {
+            invoiceId: invoice.id,
+            emailType: nextStep.emailType,
+            expiresAt: recentRejection.expires_at,
+          });
+          skippedCount++;
+        } else {
+          await queueEmailNow({
+            companyId: invoice.company_id,
+            customerId: invoice.customer_id,
+            invoiceId: invoice.id,
+            recipientEmail: invoice.customer_email,
+            customerName: invoice.customer_name,
+            invoiceAmount: invoice.amount,
+            dueDate: invoice.due_date,
+            daysOverdue,
+            emailType: nextStep.emailType,
+            attemptNumber: invoice.dunning_emails_sent + 1,
+            riskScore: invoice.customer_risk_score || undefined,
+            pilotMode: invoice.company_pilot_mode as any,  // Pass config to avoid DB lookup
+          });
+          emailsQueued++;
+          logInfo(LOG_MODULE, method, 'Dunning email queued', {
+            invoiceId: invoice.id,
+            daysOverdue,
+            emailType: nextStep.emailType,
+            attemptNumber: invoice.dunning_emails_sent + 1,
+          });
+        }
         // Log decision for learning system (fire-and-forget)
         try {
           await logAgentDecision({
@@ -338,38 +350,48 @@ async function runDecisionEngine(): Promise<{
         !invoice.has_active_plan &&
         !invoice.plan_offer_sent
       ) {
-        // Create the DB record first so paymentPlanChargeJob can pick it up
-        try {
-          await createPlanForInvoice(invoice.id, invoice.company_id, 3);
-          logInfo(LOG_MODULE, method, 'Payment plan created', {
+        // Check if payment plan offer was recently rejected (7-day block)
+        const recentRejection = await isRecentlyRejected(invoice.id, 'payment_plan_offer');
+
+        if (!recentRejection) {
+          // Create the DB record first so paymentPlanChargeJob can pick it up
+          try {
+            await createPlanForInvoice(invoice.id, invoice.company_id, 3);
+            logInfo(LOG_MODULE, method, 'Payment plan created', {
+              invoiceId: invoice.id,
+              numInstallments: 3,
+            });
+          } catch (planErr) {
+            logWarn(LOG_MODULE, method, 'Could not create payment plan (may already exist)', {
+              invoiceId: invoice.id,
+              error: String(planErr),
+            });
+          }
+          await queueEmailNow({
+            companyId: invoice.company_id,
+            customerId: invoice.customer_id,
             invoiceId: invoice.id,
-            numInstallments: 3,
+            recipientEmail: invoice.customer_email,
+            customerName: invoice.customer_name,
+            invoiceAmount: invoice.amount,
+            dueDate: invoice.due_date,
+            daysOverdue,
+            emailType: 'payment_plan_offer',
+            attemptNumber: 1,
+            riskScore: invoice.customer_risk_score || undefined,
+            pilotMode: invoice.company_pilot_mode as any,  // Pass config to avoid DB lookup
           });
-        } catch (planErr) {
-          logWarn(LOG_MODULE, method, 'Could not create payment plan (may already exist)', {
+          planOffersQueued++;
+          logInfo(LOG_MODULE, method, 'Payment plan offer queued', {
             invoiceId: invoice.id,
-            error: String(planErr),
+            daysOverdue,
+          });
+        } else {
+          logInfo(LOG_MODULE, method, 'Skipping recently rejected payment plan offer (7-day block)', {
+            invoiceId: invoice.id,
+            expiresAt: recentRejection.expires_at,
           });
         }
-        await queueEmailNow({
-          companyId: invoice.company_id,
-          customerId: invoice.customer_id,
-          invoiceId: invoice.id,
-          recipientEmail: invoice.customer_email,
-          customerName: invoice.customer_name,
-          invoiceAmount: invoice.amount,
-          dueDate: invoice.due_date,
-          daysOverdue,
-          emailType: 'payment_plan_offer',
-          attemptNumber: 1,
-          riskScore: invoice.customer_risk_score || undefined,
-          pilotMode: invoice.company_pilot_mode as any,  // Pass config to avoid DB lookup
-        });
-        planOffersQueued++;
-        logInfo(LOG_MODULE, method, 'Payment plan offer queued', {
-          invoiceId: invoice.id,
-          daysOverdue,
-        });
         // Log decision for learning system (fire-and-forget)
         try {
           await logAgentDecision({

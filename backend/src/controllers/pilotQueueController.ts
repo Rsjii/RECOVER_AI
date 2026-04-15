@@ -397,3 +397,154 @@ export const updateQueuedEmail = async (req: Request, res: Response) => {
     return res.status(400).json({ error: err.message });
   }
 };
+
+/**
+ * POST /api/pilot-queue/:id/preview
+ * Preview a queued email (read-only TO, SUBJECT, MESSAGE)
+ */
+export const previewQueuedEmail = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const companyId = (req as any).companyId;
+
+  if (!companyId) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  try {
+    const result = await pool.query(
+      `SELECT
+        id,
+        recipient_email,
+        subject,
+        body
+       FROM pilot_queued_emails
+       WHERE id = $1 AND company_id = $2`,
+      [id, companyId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Email not found' });
+    }
+
+    const email = result.rows[0];
+
+    logInfo(MODULE, 'previewQueuedEmail', 'Email previewed', { email_id: id });
+
+    return res.json({
+      data: {
+        id: email.id,
+        to: email.recipient_email,
+        subject: email.subject,
+        message: email.body,
+      },
+    });
+  } catch (err: any) {
+    logError(MODULE, 'previewQueuedEmail', 'Failed to preview email', err);
+    return res.status(400).json({ error: err.message });
+  }
+};
+
+/**
+ * POST /api/pilot-queue/:id/retry
+ * Manually retry a failed email
+ */
+export const retryQueuedEmail = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const companyId = (req as any).companyId;
+
+  if (!companyId) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  try {
+    // Get the failed email
+    const result = await pool.query(
+      `SELECT
+        id,
+        invoice_id,
+        customer_id,
+        recipient_email,
+        customer_name,
+        invoice_amount,
+        due_date,
+        days_overdue,
+        email_type,
+        subject,
+        body,
+        failure_count
+       FROM pilot_queued_emails
+       WHERE id = $1 AND company_id = $2 AND status = 'failed'`,
+      [id, companyId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Email not found or not in failed state' });
+    }
+
+    const email = result.rows[0];
+
+    // Retry send
+    try {
+      const dueDate = email.due_date || new Date(Date.now() - email.days_overdue * 24 * 60 * 60 * 1000).toISOString();
+
+      const sendResult = await emailService.sendDunningEmailDirect({
+        companyId,
+        invoiceId: email.invoice_id,
+        customerId: email.customer_id,
+        recipientEmail: email.recipient_email,
+        customerName: email.customer_name,
+        invoiceAmount: email.invoice_amount,
+        dueDate,
+        daysOverdue: email.days_overdue,
+        emailType: email.email_type as any,
+        attemptNumber: (email.failure_count || 0) + 1,
+        storedSubject: email.subject,
+        storedBody: email.body,
+      });
+
+      if (sendResult.success) {
+        // Mark as sent
+        await pool.query(
+          `UPDATE pilot_queued_emails
+           SET status = 'sent', sent_at = NOW(), failure_count = 0
+           WHERE id = $1`,
+          [id]
+        );
+
+        logInfo(MODULE, 'retryQueuedEmail', 'Email retry successful', { email_id: id });
+
+        return res.json({
+          message: 'Email sent successfully',
+          email_id: id,
+        });
+      } else {
+        // Schedule next retry
+        const nextFailureCount = (email.failure_count || 0) + 1;
+        const backoffMinutes = 5 * nextFailureCount;
+        const retryAt = new Date();
+        retryAt.setMinutes(retryAt.getMinutes() + backoffMinutes);
+
+        await pool.query(
+          `UPDATE pilot_queued_emails
+           SET status = 'failed', failure_count = $1, last_error = $2, retry_at = $3
+           WHERE id = $4`,
+          [nextFailureCount, sendResult.error || 'Unknown error', retryAt, id]
+        );
+
+        logError(MODULE, 'retryQueuedEmail', 'Email retry failed', { email_id: id, error: sendResult.error });
+
+        return res.status(400).json({
+          error: 'Retry failed',
+          message: sendResult.error || 'Unknown error',
+          nextRetryAt: retryAt.toISOString(),
+        });
+      }
+    } catch (sendErr: any) {
+      logError(MODULE, 'retryQueuedEmail', 'Exception during retry', sendErr);
+      return res.status(400).json({ error: 'Failed to retry email: ' + sendErr.message });
+    }
+  } catch (err: any) {
+    logError(MODULE, 'retryQueuedEmail', 'Failed to retry email', err);
+    return res.status(400).json({ error: err.message });
+  }
+};

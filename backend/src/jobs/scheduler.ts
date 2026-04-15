@@ -179,6 +179,41 @@ export function initScheduler() {
   });
 
   // ============================================================
+  // SEND QUEUED EMAILS (AUTO MODE - every 6 hours)
+  // ============================================================
+  cron.schedule('0 */6 * * *', async () => {
+    await executeJob('sendQueuedEmails', async () => {
+      try {
+        const { sendQueuedEmails: sendQueuedEmailsJob } = await import('../services/emailQueueService');
+        const result = await sendQueuedEmailsJob();
+        logInfo(LOG_MODULE, 'sendQueuedEmails', 'Job complete', {
+          sent: result.sent,
+          failed: result.failed,
+        });
+      } catch (err) {
+        logError(LOG_MODULE, 'sendQueuedEmails', 'Job failed', err);
+      }
+    });
+  });
+
+  // ============================================================
+  // RETRY FAILED EMAILS (every 5 minutes)
+  // ============================================================
+  cron.schedule('*/5 * * * *', async () => {
+    await executeJob('retryFailedEmails', async () => {
+      try {
+        const { retryFailedEmails: retryFailedEmailsJob } = await import('../services/emailQueueService');
+        const result = await retryFailedEmailsJob();
+        logInfo(LOG_MODULE, 'retryFailedEmails', 'Job complete', {
+          retried: result.retried,
+        });
+      } catch (err) {
+        logError(LOG_MODULE, 'retryFailedEmails', 'Job failed', err);
+      }
+    });
+  });
+
+  // ============================================================
   // STRIPE AUTO-SYNC (NEW - 2026-04-04)
   // ============================================================
   // Syncs all Stripe invoices every 6 hours (backup for webhook failures)
