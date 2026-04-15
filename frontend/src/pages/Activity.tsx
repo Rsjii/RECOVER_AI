@@ -66,6 +66,10 @@ const Activity: React.FC = () => {
   const [queueStats, setQueueStats] = useState<any>(null);
   const [pilotMode, setPilotMode] = useState<string>('auto');
 
+  // Filters for Sent & Tracked section
+  const [statusFilter, setStatusFilter] = useState<string>('all'); // all | sent | opened | clicked | bounced | failed
+  const [searchCustomer, setSearchCustomer] = useState<string>('');
+
   // Queued emails (pending approval)
   const [queuedEmails, setQueuedEmails] = useState<any[]>([]);
   const [approvingQueue, setApprovingQueue] = useState<string | null>(null);
@@ -432,7 +436,39 @@ const Activity: React.FC = () => {
 
               {/* SECTION 2: SENT & TRACKED EMAILS */}
               <Card>
-                <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-3">✅ Sent & Tracked</h3>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-white">✅ Sent & Tracked</h3>
+                </div>
+
+                {/* Filters for Sent & Tracked */}
+                <div className="mb-4 flex flex-col sm:flex-row gap-3">
+                  <div className="flex-1">
+                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
+                    <select
+                      value={statusFilter}
+                      onChange={(e) => setStatusFilter(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-sm text-gray-900 dark:text-white"
+                    >
+                      <option value="all">All Statuses</option>
+                      <option value="sent">Sent</option>
+                      <option value="opened">Opened</option>
+                      <option value="clicked">Clicked</option>
+                      <option value="bounced">Bounced</option>
+                      <option value="failed">Failed</option>
+                    </select>
+                  </div>
+                  <div className="flex-1">
+                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Customer Email</label>
+                    <input
+                      type="text"
+                      placeholder="Search..."
+                      value={searchCustomer}
+                      onChange={(e) => setSearchCustomer(e.target.value.toLowerCase())}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-sm text-gray-900 dark:text-white placeholder-gray-400"
+                    />
+                  </div>
+                </div>
+
                 {emailLogs.length === 0 ? (
                   <p className="text-gray-500 text-center py-8">No emails sent yet. Start the dunning agent from the Invoices page.</p>
                 ) : (
@@ -441,7 +477,18 @@ const Activity: React.FC = () => {
                       All emails include a CAN-SPAM compliant unsubscribe link. Replies and opt-outs are tracked automatically.
                     </div>
                   <div className="space-y-1 max-h-[600px] overflow-y-auto">
-                    {groupByDate(emailLogs, 'sent_at').map(({ dateLabel, items }) => (
+                    {groupByDate(
+                      emailLogs.filter((log: any) => {
+                        // Filter out 'skipped' status (legacy entries)
+                        if (log.status === 'skipped') return false;
+                        // Filter by status
+                        if (statusFilter !== 'all' && log.status !== statusFilter) return false;
+                        // Filter by customer email
+                        if (searchCustomer && !log.recipient_email.toLowerCase().includes(searchCustomer)) return false;
+                        return true;
+                      }),
+                      'sent_at'
+                    ).map(({ dateLabel, items }) => (
                       <div key={dateLabel}>
                         <div className="text-xs font-semibold text-gray-400 dark:text-gray-500 py-2 px-1 sticky top-0 bg-white dark:bg-[#09090b] z-10">
                           {dateLabel}

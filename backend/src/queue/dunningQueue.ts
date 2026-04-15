@@ -419,8 +419,8 @@ export function startDunningWorker(): Worker<DunningEmailJob> {
         } catch (err) {
           logError(LOG_MODULE, 'worker', 'Failed to insert shadow email (non-critical)', err);
         }
-        recordSkippedEmail(data.invoiceId, data.companyId, data.emailType, data.recipientEmail, 'Shadow mode — stored for review');
-        return { skipped: true, reason: 'Shadow mode — stored for review' };
+        // ✅ DO NOT record as skipped — email is pending approval in pilot_queued_emails, not skipped
+        return { queued: true, reason: 'Shadow mode — pending user approval' };
       }
       // pilotMode === 'auto' (or null) — fall through to normal send
 

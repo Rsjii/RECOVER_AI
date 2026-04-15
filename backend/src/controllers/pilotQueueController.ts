@@ -31,7 +31,7 @@ export const listQueuedEmails = async (req: Request, res: Response) => {
         queued_at,
         status
        FROM pilot_queued_emails
-       WHERE company_id = $1 AND status IN ('pending', 'approved')
+       WHERE company_id = $1 AND status = 'pending'
        ORDER BY queued_at DESC
        LIMIT 50`,
       [companyId]
