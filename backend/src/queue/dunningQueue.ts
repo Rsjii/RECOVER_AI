@@ -3,6 +3,7 @@ import { config } from '../config/env';
 import { isRedisConnected } from '../config/redis';
 import { DunningEmailJob, DunningEmailType } from '../types/email';
 import emailService from '../services/emailService';
+import aiService from '../services/aiService';
 import { countEmailsSentForInvoice } from '../db/emailLogs';
 import { pool } from '../config/database';
 import { logError, logInfo, logWarn } from '../utils/logger';
@@ -368,7 +369,53 @@ export function startDunningWorker(): Worker<DunningEmailJob> {
           invoiceId: data.invoiceId,
         });
         try {
-          await insertQueuedEmail(data);
+          // Fetch company name for email generation
+          let companyName = 'Our Company';
+          try {
+            const companyResult = await pool.query(
+              'SELECT name FROM companies WHERE id = $1',
+              [data.companyId]
+            );
+            if (companyResult.rows[0]?.name) {
+              companyName = companyResult.rows[0].name;
+            }
+          } catch (err) {
+            logWarn(LOG_MODULE, 'worker', 'Failed to fetch company name, using default', { companyId: data.companyId });
+          }
+
+          // Generate email subject/body before queueing for review
+          const emailResponse = await aiService.generateDunningEmail(
+            {
+              customerId: data.customerId,
+              invoiceId: data.invoiceId,
+              customerName: data.customerName,
+              companyName,
+              invoiceAmount: data.invoiceAmount,
+              dueDate: data.dueDate,
+              daysOverdue: data.daysOverdue,
+              emailType: data.emailType,
+              previousReminders: data.attemptNumber - 1,
+              riskScore: data.riskScore,
+              paymentLink: data.paymentLink,
+            },
+            data.companyId
+          );
+
+          // Queue for SHADOW approval with generated subject/body
+          await insertQueuedEmail({
+            companyId: data.companyId,
+            invoiceId: data.invoiceId,
+            customerId: data.customerId,
+            recipientEmail: data.recipientEmail,
+            customerName: data.customerName,
+            invoiceAmount: data.invoiceAmount,
+            daysOverdue: data.daysOverdue,
+            dueDate: data.dueDate,
+            emailType: data.emailType,
+            subject: emailResponse.subject,
+            body: emailResponse.bodyText,
+            riskScore: data.riskScore,
+          });
         } catch (err) {
           logError(LOG_MODULE, 'worker', 'Failed to insert shadow email (non-critical)', err);
         }
