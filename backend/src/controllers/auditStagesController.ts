@@ -350,10 +350,21 @@ export const proceedFromStage4 = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Company not found' });
     }
 
-    // In dev mode, Stripe is optional so flow can be tested end-to-end
-    // Check for encrypted API key (set by /api/stripe/validate-key endpoint)
-    if (!isDev && !company.stripe_api_key_encrypted) {
-      return res.status(400).json({ error: 'Stripe connection required' });
+    // Check for at least one integration: Stripe OR CSV (manually imported invoices)
+    let csvConnected = false;
+    try {
+      const csvResult = await pool.query(
+        `SELECT COUNT(*) AS cnt FROM invoices WHERE company_id = $1 AND source = 'manual'`,
+        [companyId]
+      );
+      csvConnected = parseInt(csvResult.rows[0]?.cnt || '0') > 0;
+    } catch { /* non-blocking */ }
+
+    const stripeConnected = !!company.stripe_api_key_encrypted || !!company.stripe_account_id;
+
+    // Require at least one integration (dev mode allows either)
+    if (!isDev && !stripeConnected && !csvConnected) {
+      return res.status(400).json({ error: 'Connect Stripe or import invoices via CSV to proceed' });
     }
 
     logInfo(MODULE, handler, 'Company data before sync', {
