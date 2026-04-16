@@ -718,6 +718,33 @@ const Activity: React.FC = () => {
                         <Button
                           variant="secondary"
                           size="sm"
+                          onClick={async () => {
+                            setBulkOperating(true);
+                            let moved = 0;
+                            try {
+                              for (const id of selectedRejectedIds) {
+                                try {
+                                  await api.post(`/api/pilot-queue/${id}/move-to-pending`);
+                                  moved++;
+                                } catch {
+                                  // Continue with next
+                                }
+                              }
+                              addToast({ type: 'success', message: `${moved} emails moved to Pending Approval` });
+                              setSelectedRejectedIds(new Set());
+                              fetchQueuedEmails();
+                            } finally {
+                              setBulkOperating(false);
+                            }
+                          }}
+                          loading={bulkOperating}
+                          disabled={bulkOperating}
+                        >
+                          ↩️ Move to Pending ({selectedRejectedIds.size})
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          size="sm"
                           onClick={() => setSelectedRejectedIds(new Set())}
                           disabled={bulkOperating}
                         >
