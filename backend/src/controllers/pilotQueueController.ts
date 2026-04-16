@@ -211,6 +211,62 @@ export const rejectQueuedEmail = async (req: Request, res: Response) => {
 };
 
 /**
+ * POST /api/pilot-queue/:id/move-to-pending
+ * Move a rejected email back to pending (SHADOW mode - for review/edit before approval)
+ */
+export const moveRejectedToPending = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const companyId = (req as any).companyId;
+
+  if (!companyId) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  try {
+    // Get the email first to verify it exists and get invoice_id + email_type
+    const getResult = await pool.query(
+      `SELECT id, invoice_id, email_type FROM pilot_queued_emails
+       WHERE id = $1 AND company_id = $2`,
+      [id, companyId]
+    );
+
+    if (getResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Email not found' });
+    }
+
+    const email = getResult.rows[0];
+
+    // 1. Update status from rejected to pending
+    await pool.query(
+      `UPDATE pilot_queued_emails
+       SET status = 'pending'
+       WHERE id = $1 AND company_id = $2`,
+      [id, companyId]
+    );
+
+    // 2. Delete rejection_tracking block to unblock future sends
+    await pool.query(
+      `DELETE FROM rejection_tracking
+       WHERE invoice_id = $1 AND email_type = $2 AND company_id = $3`,
+      [email.invoice_id, email.email_type, companyId]
+    );
+
+    logInfo(MODULE, 'moveRejectedToPending', 'Email moved from rejected to pending for review', {
+      emailId: id,
+      invoiceId: email.invoice_id,
+    });
+
+    return res.json({
+      message: 'Email moved to pending approval for review and editing',
+      email_id: id,
+    });
+  } catch (err: any) {
+    logError(MODULE, 'moveRejectedToPending', 'Failed to move email to pending', err);
+    return res.status(400).json({ error: err.message });
+  }
+};
+
+/**
  * POST /api/pilot-queue/approve-all
  * Approve and send all pending queued emails
  */

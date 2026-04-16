@@ -292,6 +292,26 @@ const Activity: React.FC = () => {
     }
   };
 
+  // Move rejected email back to pending approval (SHADOW mode only)
+  const handleMoveToPending = async (id: string) => {
+    setApprovingQueue(id);
+    try {
+      await api.post(`/api/pilot-queue/${id}/move-to-pending`);
+      addToast({
+        type: 'success',
+        message: 'Email moved to Pending Approval. You can now edit and approve it.',
+      });
+      fetchQueuedEmails();
+    } catch (err: any) {
+      addToast({
+        type: 'error',
+        message: err.message || 'Failed to move email to pending',
+      });
+    } finally {
+      setApprovingQueue(null);
+    }
+  };
+
   const handleApproveAllQueued = async () => {
     setApprovingAllQueue(true);
     try {
@@ -775,6 +795,13 @@ const Activity: React.FC = () => {
                                     className="text-xs px-2.5 py-1 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors"
                                   >
                                     👁 Preview
+                                  </button>
+                                  <button
+                                    onClick={() => handleMoveToPending(email.id)}
+                                    className="text-xs px-2.5 py-1 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900/50 transition-colors"
+                                    disabled={approvingQueue !== null}
+                                  >
+                                    ↩️ Move to Pending
                                   </button>
                                   <Button
                                     variant="primary"

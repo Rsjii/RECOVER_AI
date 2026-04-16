@@ -14,7 +14,7 @@ interface ModeSwitchDialogProps {
 
 export const ModeSwitchDialog: React.FC<ModeSwitchDialogProps> = ({ currentMode, onClose, onSwitch }) => {
   const [pendingCount, setPendingCount] = useState(0);
-  const [selectedAction, setSelectedAction] = useState<'approve' | 'reject' | 'delete' | null>(null);
+  const [selectedAction, setSelectedAction] = useState<'approve' | 'reject' | null>(null);
   const [switching, setSwitching] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
 
@@ -37,6 +37,12 @@ export const ModeSwitchDialog: React.FC<ModeSwitchDialogProps> = ({ currentMode,
   const newMode = currentMode === 'shadow' ? 'auto' : 'shadow';
 
   const handleSelectAction = () => {
+    // If no pending emails, just switch directly
+    if (pendingCount === 0) {
+      handleConfirm();
+      return;
+    }
+    // If pending emails, need to select an action first
     if (selectedAction) {
       setShowConfirmation(true);
     }
@@ -69,12 +75,6 @@ export const ModeSwitchDialog: React.FC<ModeSwitchDialogProps> = ({ currentMode,
         title: 'Reject All Pending Emails',
         description: `All ${pendingCount} pending email${pendingCount !== 1 ? 's' : ''} will be rejected and blocked for 7 days. You can approve them again after 7 days.`,
         warning: 'Your customers will not receive these emails. The mode will switch to ' + (newMode === 'shadow' ? 'SHADOW (Review)' : 'AUTO (Autonomous)'),
-      },
-      delete: {
-        icon: '❌',
-        title: 'Delete All Pending Emails',
-        description: `All ${pendingCount} pending email${pendingCount !== 1 ? 's' : ''} will be permanently deleted and blocked for 7 days.`,
-        warning: 'This action cannot be undone. Your customers will not receive these emails. The mode will switch to ' + (newMode === 'shadow' ? 'SHADOW (Review)' : 'AUTO (Autonomous)'),
       },
     };
 
@@ -116,7 +116,7 @@ export const ModeSwitchDialog: React.FC<ModeSwitchDialogProps> = ({ currentMode,
               Back
             </Button>
             <Button variant="primary" onClick={handleConfirm} disabled={switching} className="bg-red-600 hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-800">
-              {switching ? 'Processing...' : `Yes, ${selectedAction === 'approve' ? 'approve & switch' : selectedAction === 'reject' ? 'reject & switch' : 'delete & switch'}`}
+              {switching ? 'Processing...' : `Yes, ${selectedAction === 'approve' ? 'approve & switch' : 'reject & switch'}`}
             </Button>
           </div>
         </div>
@@ -195,23 +195,6 @@ export const ModeSwitchDialog: React.FC<ModeSwitchDialogProps> = ({ currentMode,
                 </div>
               </label>
 
-              <label className={`flex items-center p-3 border-2 rounded-lg cursor-pointer transition-all ${
-                selectedAction === 'delete'
-                  ? 'border-red-500 bg-red-50 dark:bg-red-900/20'
-                  : 'border-gray-300 dark:border-gray-600 hover:border-red-300'
-              }`}>
-                <input
-                  type="radio"
-                  value="delete"
-                  checked={selectedAction === 'delete'}
-                  onChange={(e) => setSelectedAction(e.target.value as any)}
-                  className="mr-3"
-                />
-                <div>
-                  <p className="font-medium text-gray-900 dark:text-white">❌ Delete All & Switch</p>
-                  <p className="text-xs text-gray-600 dark:text-gray-400">Permanently remove all emails</p>
-                </div>
-              </label>
             </div>
           )}
 
@@ -229,10 +212,10 @@ export const ModeSwitchDialog: React.FC<ModeSwitchDialogProps> = ({ currentMode,
           <Button
             variant="primary"
             onClick={handleSelectAction}
-            disabled={!selectedAction || switching}
-            className={selectedAction ? '' : 'opacity-50 cursor-not-allowed'}
+            disabled={(pendingCount > 0 && !selectedAction) || switching}
+            className={(pendingCount > 0 && !selectedAction) ? 'opacity-50 cursor-not-allowed' : ''}
           >
-            {switching ? 'Switching...' : 'Next: Confirm Action'}
+            {switching ? 'Switching...' : (pendingCount === 0 ? `Switch to ${newMode === 'shadow' ? 'SHADOW' : 'AUTO'}` : 'Next: Confirm Action')}
           </Button>
         </div>
       </div>

@@ -43,6 +43,12 @@ router.post('/:id/approve', authMiddleware, demoBlocker, pilotQueueController.ap
 router.post('/:id/reject', authMiddleware, demoBlocker, pilotQueueController.rejectQueuedEmail);
 
 /**
+ * POST /api/pilot-queue/:id/move-to-pending
+ * Move a rejected email back to pending for review/edit (SHADOW mode)
+ */
+router.post('/:id/move-to-pending', authMiddleware, demoBlocker, pilotQueueController.moveRejectedToPending);
+
+/**
  * POST /api/pilot-queue/:id/retry
  * Manually retry a failed email (requires auth)
  */
