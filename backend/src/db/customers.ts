@@ -56,16 +56,22 @@ export async function listCustomers(
     SELECT c.*,
       c.customer_risk_score,
       c.payment_insights,
-      MAX(i.last_decline_type) AS last_decline_type,
-      COALESCE(SUM(CASE WHEN i.status NOT IN ('paid','uncollectable') THEN i.amount ELSE 0 END), 0) AS total_ar_balance,
+      (SELECT MAX(i.last_decline_type) FROM invoices i
+       WHERE i.customer_id = c.id AND i.company_id = c.company_id) AS last_decline_type,
+      (SELECT COALESCE(SUM(CASE WHEN status NOT IN ('paid','uncollectable') THEN amount ELSE 0 END), 0)
+       FROM invoices WHERE customer_id = c.id AND company_id = c.company_id) AS total_ar_balance,
       (SELECT COUNT(*) FROM invoices WHERE customer_id = c.id AND company_id = c.company_id AND status NOT IN ('paid','uncollectable')) AS unpaid_invoice_count,
       json_build_object(
-        'stage_2_count', COUNT(DISTINCT i.id) FILTER (WHERE i.dunning_stage = 2),
-        'stage_3_count', COUNT(DISTINCT i.id) FILTER (WHERE i.dunning_stage = 3),
-        'sms_eligible_count', COUNT(DISTINCT i.id) FILTER (WHERE i.dunning_stage >= 2
-          AND COALESCE(i.sms_count, 0) = 0
-          AND EXTRACT(DAY FROM NOW() - i.due_date) >= 7
-          AND c.phone_opt_in = true)
+        'stage_2_count', (SELECT COUNT(*) FROM pilot_queued_emails pq
+                          WHERE pq.customer_id = c.id AND pq.email_type LIKE 'dunning_tier_2%'),
+        'stage_3_count', (SELECT COUNT(*) FROM pilot_queued_emails pq
+                          WHERE pq.customer_id = c.id AND pq.email_type LIKE 'dunning_tier_3%'),
+        'sms_eligible_count', (SELECT COUNT(DISTINCT i.id) FROM invoices i
+                               WHERE i.customer_id = c.id AND i.company_id = c.company_id
+                               AND i.status NOT IN ('paid','uncollectable')
+                               AND COALESCE(i.sms_count, 0) = 0
+                               AND EXTRACT(DAY FROM NOW() - i.due_date) >= 7
+                               AND c.phone_opt_in = true)
       ) AS dunning_summary,
       json_build_object(
         'pending', COALESCE((SELECT COUNT(*) FROM pilot_queued_emails pq
@@ -76,10 +82,8 @@ export async function listCustomers(
                             WHERE pq.customer_id = c.id AND pq.status = 'failed'), 0)
       ) AS queue_summary
     FROM customers c
-    LEFT JOIN invoices i ON i.customer_id = c.id AND i.company_id = c.company_id
     WHERE c.company_id = $1
       ${riskFilter ? `AND ${riskFilter.replace('WHERE ', '')}` : ''}
-    GROUP BY c.id
   `;
 
   const [data, count] = await Promise.all([

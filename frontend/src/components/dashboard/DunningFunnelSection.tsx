@@ -9,26 +9,27 @@ interface AgingBucket {
   pctOfTotal: number;
 }
 
-interface PaymentPlanSummaryItem {
-  planId: string;
-  customerName: string;
-  totalAmount: number;
-  status: string;
-  installmentsTotal: number;
-  installmentsPaid: number;
-  pctComplete: number;
-}
+// 🔴 PAYMENT PLANS DISABLED — Awaiting client decision
+// interface PaymentPlanSummaryItem {
+//   planId: string;
+//   customerName: string;
+//   totalAmount: number;
+//   status: string;
+//   installmentsTotal: number;
+//   installmentsPaid: number;
+//   pctComplete: number;
+// }
 
 interface DunningFunnelSectionProps {
   totalAr: number;
   agingBuckets?: AgingBucket[];
   emailsSent: number;
   emailsDelivered: number;
-  plansOffered: number;
-  plansAccepted: number;
+  // plansOffered: number; // 🔴 DISABLED
+  // plansAccepted: number; // 🔴 DISABLED
   paymentsReceived: number;
   paymentAmount: number;
-  recentPlans?: PaymentPlanSummaryItem[];
+  // recentPlans?: PaymentPlanSummaryItem[]; // 🔴 DISABLED
   loading?: boolean;
 }
 

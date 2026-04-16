@@ -4,15 +4,51 @@ import { api } from '../../lib/api';
 import { useNotification } from '../../hooks/useNotification';
 import { logError } from '../../utils/logger';
 
+interface SMSOptOut {
+  id: string;
+  customer_id: string;
+  phone_number: string;
+  opted_out_at: string;
+  reason: string;
+}
+
 export const SMSSettingsSection: React.FC = () => {
   const { addToast } = useNotification();
+
+  // Phase 1-2: Basic SMS settings
   const [settings, setSettings] = useState({
     sms_enabled: true,
     sms_tone: 'professional',
     sms_day_threshold: 7,
   });
+
+  // Phase 3: Escalation, Retry, Compliance settings
+  const [escalationSettings, setEscalationSettings] = useState({
+    sms_escalation_enabled: true,
+    sms_escalate_after_emails: 2,
+    sms_max_per_invoice: 2,
+  });
+
+  const [retrySettings, setRetrySettings] = useState({
+    sms_retry_enabled: true,
+    sms_retry_hours: 24,
+    sms_max_retries: 2,
+  });
+
+  const [complianceSettings, setComplianceSettings] = useState({
+    sms_tcpa_enabled: false,
+    sms_weekend_blackout: false,
+    sms_require_opt_in: false,
+  });
+
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Opt-outs management
+  const [showOptOuts, setShowOptOuts] = useState(false);
+  const [optOuts, setOptOuts] = useState<SMSOptOut[]>([]);
+  const [optOutsLoading, setOptOutsLoading] = useState(false);
+  const [reOptInning, setReOptInning] = useState<string | null>(null);
 
   // Twilio config state
   const [useTwilioMode, setUseTwilioMode] = useState<'recoverai' | 'custom'>('recoverai');
@@ -29,7 +65,7 @@ export const SMSSettingsSection: React.FC = () => {
   const [testingTwilio, setTestingTwilio] = useState(false);
   const [showTwilioModal, setShowTwilioModal] = useState(false);
 
-  // Fetch current SMS settings
+  // Fetch all SMS settings
   useEffect(() => {
     const fetchSettings = async () => {
       setIsLoading(true);
@@ -40,7 +76,32 @@ export const SMSSettingsSection: React.FC = () => {
         ]);
 
         if (smsRes.data) {
-          setSettings(smsRes.data);
+          setSettings({
+            sms_enabled: smsRes.data.sms_enabled ?? true,
+            sms_tone: smsRes.data.sms_tone ?? 'professional',
+            sms_day_threshold: smsRes.data.sms_day_threshold ?? 7,
+          });
+
+          // Phase 3 escalation settings
+          setEscalationSettings({
+            sms_escalation_enabled: smsRes.data.sms_escalation_enabled ?? true,
+            sms_escalate_after_emails: smsRes.data.sms_escalate_after_emails ?? 2,
+            sms_max_per_invoice: smsRes.data.sms_max_per_invoice ?? 2,
+          });
+
+          // Phase 3 retry settings
+          setRetrySettings({
+            sms_retry_enabled: smsRes.data.sms_retry_enabled ?? true,
+            sms_retry_hours: smsRes.data.sms_retry_hours ?? 24,
+            sms_max_retries: smsRes.data.sms_max_retries ?? 2,
+          });
+
+          // Phase 3 compliance settings
+          setComplianceSettings({
+            sms_tcpa_enabled: smsRes.data.sms_tcpa_enabled ?? false,
+            sms_weekend_blackout: smsRes.data.sms_weekend_blackout ?? false,
+            sms_require_opt_in: smsRes.data.sms_require_opt_in ?? false,
+          });
         }
 
         if (twilioRes.data) {
@@ -106,6 +167,104 @@ export const SMSSettingsSection: React.FC = () => {
       });
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  // Phase 3: Escalation settings
+  const handleSaveEscalation = async () => {
+    setIsSaving(true);
+    try {
+      await api.patch('/api/settings/sms/escalation', escalationSettings);
+      addToast({
+        type: 'success',
+        message: 'SMS escalation settings saved!',
+      });
+    } catch (error: any) {
+      logError('SMSSettingsSection', 'handleSaveEscalation', 'Failed to save escalation settings', error);
+      addToast({
+        type: 'error',
+        message: error.message || 'Failed to save escalation settings',
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Phase 3: Retry settings
+  const handleSaveRetry = async () => {
+    setIsSaving(true);
+    try {
+      await api.patch('/api/settings/sms/retry', retrySettings);
+      addToast({
+        type: 'success',
+        message: 'SMS retry settings saved!',
+      });
+    } catch (error: any) {
+      logError('SMSSettingsSection', 'handleSaveRetry', 'Failed to save retry settings', error);
+      addToast({
+        type: 'error',
+        message: error.message || 'Failed to save retry settings',
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Phase 3: Compliance settings
+  const handleSaveCompliance = async () => {
+    setIsSaving(true);
+    try {
+      await api.patch('/api/settings/sms/compliance', complianceSettings);
+      addToast({
+        type: 'success',
+        message: 'SMS compliance settings saved!',
+      });
+    } catch (error: any) {
+      logError('SMSSettingsSection', 'handleSaveCompliance', 'Failed to save compliance settings', error);
+      addToast({
+        type: 'error',
+        message: error.message || 'Failed to save compliance settings',
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Phase 3: Load opt-outs
+  const fetchOptOuts = async () => {
+    setOptOutsLoading(true);
+    try {
+      const res = await api.get('/api/settings/sms/opt-outs');
+      setOptOuts(res.data || []);
+    } catch (error) {
+      logError('SMSSettingsSection', 'fetchOptOuts', 'Failed to load opt-outs', error);
+      addToast({
+        type: 'error',
+        message: 'Failed to load opt-outs',
+      });
+    } finally {
+      setOptOutsLoading(false);
+    }
+  };
+
+  // Phase 3: Re-opt customer
+  const handleReOptIn = async (customerId: string) => {
+    setReOptInning(customerId);
+    try {
+      await api.post(`/api/settings/sms/opt-outs/${customerId}/re-enable`);
+      addToast({
+        type: 'success',
+        message: 'Customer re-opted into SMS',
+      });
+      await fetchOptOuts();
+    } catch (error: any) {
+      logError('SMSSettingsSection', 'handleReOptIn', 'Failed to re-opt customer', error);
+      addToast({
+        type: 'error',
+        message: error.message || 'Failed to re-opt customer',
+      });
+    } finally {
+      setReOptInning(null);
     }
   };
 
@@ -239,7 +398,7 @@ export const SMSSettingsSection: React.FC = () => {
 
   return (
     <div className="max-w-4xl space-y-6">
-      {/* SMS Dunning Card */}
+      {/* SMS Dunning Card (Phase 1-2) */}
       <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-900 border border-blue-200 dark:border-white/[0.08] rounded-2xl p-6">
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 sm:gap-6">
           <div className="flex-1">
@@ -336,6 +495,385 @@ export const SMSSettingsSection: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* PHASE 3: Escalation Settings */}
+      <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-white/[0.08] p-6">
+        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">🔄 SMS Escalation Logic</h3>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+          Control when SMS is escalated as a secondary collection channel after email
+        </p>
+
+        <div className="space-y-6">
+          {/* Enable escalation */}
+          <div>
+            <label className="flex items-center cursor-pointer gap-3">
+              <div className="relative inline-flex h-6 w-11 items-center rounded-full bg-gray-200 dark:bg-gray-700 transition-colors" style={{ backgroundColor: escalationSettings.sms_escalation_enabled ? '#2563eb' : undefined }}>
+                <input
+                  type="checkbox"
+                  checked={escalationSettings.sms_escalation_enabled}
+                  onChange={(e) => setEscalationSettings(prev => ({
+                    ...prev,
+                    sms_escalation_enabled: e.target.checked,
+                  }))}
+                  className="sr-only"
+                />
+                <span
+                  className={cn(
+                    'inline-block h-4 w-4 transform rounded-full bg-white transition-transform',
+                    escalationSettings.sms_escalation_enabled ? 'translate-x-5' : 'translate-x-1'
+                  )}
+                />
+              </div>
+              <span className="text-sm font-medium text-gray-900 dark:text-white">
+                {escalationSettings.sms_escalation_enabled ? 'Enabled' : 'Disabled'}
+              </span>
+            </label>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+              Automatically escalate to SMS if email attempts fail
+            </p>
+          </div>
+
+          {/* Escalate after N emails */}
+          <div>
+            <label htmlFor="escalate_after" className="block text-sm font-bold text-gray-900 dark:text-white mb-3 uppercase tracking-wide">
+              Escalate After Email Count
+            </label>
+            <div className="flex items-center gap-4">
+              <input
+                id="escalate_after"
+                type="number"
+                value={escalationSettings.sms_escalate_after_emails}
+                onChange={(e) => setEscalationSettings(prev => ({
+                  ...prev,
+                  sms_escalate_after_emails: Math.max(1, Math.min(5, parseInt(e.target.value) || 2)),
+                }))}
+                min={1}
+                max={5}
+                className="w-20 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              <span className="text-sm text-gray-600 dark:text-gray-400">
+                Escalate to SMS after <span className="font-semibold">{escalationSettings.sms_escalate_after_emails}</span> email sends
+              </span>
+            </div>
+          </div>
+
+          {/* Max SMS per invoice */}
+          <div>
+            <label htmlFor="max_sms" className="block text-sm font-bold text-gray-900 dark:text-white mb-3 uppercase tracking-wide">
+              Max SMS Per Invoice
+            </label>
+            <div className="flex items-center gap-4">
+              <select
+                id="max_sms"
+                value={escalationSettings.sms_max_per_invoice}
+                onChange={(e) => setEscalationSettings(prev => ({
+                  ...prev,
+                  sms_max_per_invoice: parseInt(e.target.value),
+                }))}
+                className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value={1}>1 SMS</option>
+                <option value={2}>2 SMS</option>
+                <option value={3}>3 SMS</option>
+              </select>
+              <span className="text-sm text-gray-600 dark:text-gray-400">
+                Maximum SMS sends per invoice
+              </span>
+            </div>
+          </div>
+
+          {/* Save button */}
+          <div className="flex justify-end pt-4">
+            <button
+              onClick={handleSaveEscalation}
+              disabled={isSaving}
+              className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors"
+            >
+              {isSaving ? 'Saving...' : 'Save Escalation'}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* PHASE 3: Retry Settings */}
+      <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-white/[0.08] p-6">
+        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">🔁 SMS Retry Configuration</h3>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+          Automatically retry failed SMS with exponential backoff
+        </p>
+
+        <div className="space-y-6">
+          {/* Enable retry */}
+          <div>
+            <label className="flex items-center cursor-pointer gap-3">
+              <div className="relative inline-flex h-6 w-11 items-center rounded-full bg-gray-200 dark:bg-gray-700 transition-colors" style={{ backgroundColor: retrySettings.sms_retry_enabled ? '#2563eb' : undefined }}>
+                <input
+                  type="checkbox"
+                  checked={retrySettings.sms_retry_enabled}
+                  onChange={(e) => setRetrySettings(prev => ({
+                    ...prev,
+                    sms_retry_enabled: e.target.checked,
+                  }))}
+                  className="sr-only"
+                />
+                <span
+                  className={cn(
+                    'inline-block h-4 w-4 transform rounded-full bg-white transition-transform',
+                    retrySettings.sms_retry_enabled ? 'translate-x-5' : 'translate-x-1'
+                  )}
+                />
+              </div>
+              <span className="text-sm font-medium text-gray-900 dark:text-white">
+                {retrySettings.sms_retry_enabled ? 'Enabled' : 'Disabled'}
+              </span>
+            </label>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+              Retry failed SMS deliveries automatically
+            </p>
+          </div>
+
+          {/* Retry after N hours */}
+          <div>
+            <label htmlFor="retry_hours" className="block text-sm font-bold text-gray-900 dark:text-white mb-3 uppercase tracking-wide">
+              Retry After (Hours)
+            </label>
+            <div className="flex items-center gap-4">
+              <input
+                id="retry_hours"
+                type="number"
+                value={retrySettings.sms_retry_hours}
+                onChange={(e) => setRetrySettings(prev => ({
+                  ...prev,
+                  sms_retry_hours: Math.max(1, Math.min(168, parseInt(e.target.value) || 24)),
+                }))}
+                min={1}
+                max={168}
+                className="w-20 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              <span className="text-sm text-gray-600 dark:text-gray-400">
+                Retry after <span className="font-semibold">{retrySettings.sms_retry_hours}</span> hours
+              </span>
+            </div>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+              1-168 hours (default: 24h)
+            </p>
+          </div>
+
+          {/* Max retries */}
+          <div>
+            <label htmlFor="max_retries" className="block text-sm font-bold text-gray-900 dark:text-white mb-3 uppercase tracking-wide">
+              Max Retry Attempts
+            </label>
+            <div className="flex items-center gap-4">
+              <select
+                id="max_retries"
+                value={retrySettings.sms_max_retries}
+                onChange={(e) => setRetrySettings(prev => ({
+                  ...prev,
+                  sms_max_retries: parseInt(e.target.value),
+                }))}
+                className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value={1}>1 Retry</option>
+                <option value={2}>2 Retries</option>
+                <option value={3}>3 Retries</option>
+              </select>
+              <span className="text-sm text-gray-600 dark:text-gray-400">
+                Total retry attempts
+              </span>
+            </div>
+          </div>
+
+          {/* Save button */}
+          <div className="flex justify-end pt-4">
+            <button
+              onClick={handleSaveRetry}
+              disabled={isSaving}
+              className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors"
+            >
+              {isSaving ? 'Saving...' : 'Save Retry Config'}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* PHASE 3: Compliance Settings */}
+      <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-white/[0.08] p-6">
+        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">📋 SMS Compliance</h3>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+          TCPA compliance & respect customer preferences
+        </p>
+
+        <div className="space-y-6">
+          {/* TCPA Compliance */}
+          <div>
+            <label className="flex items-center cursor-pointer gap-3">
+              <div className="relative inline-flex h-6 w-11 items-center rounded-full bg-gray-200 dark:bg-gray-700 transition-colors" style={{ backgroundColor: complianceSettings.sms_tcpa_enabled ? '#2563eb' : undefined }}>
+                <input
+                  type="checkbox"
+                  checked={complianceSettings.sms_tcpa_enabled}
+                  onChange={(e) => setComplianceSettings(prev => ({
+                    ...prev,
+                    sms_tcpa_enabled: e.target.checked,
+                  }))}
+                  className="sr-only"
+                />
+                <span
+                  className={cn(
+                    'inline-block h-4 w-4 transform rounded-full bg-white transition-transform',
+                    complianceSettings.sms_tcpa_enabled ? 'translate-x-5' : 'translate-x-1'
+                  )}
+                />
+              </div>
+              <div className="flex-1">
+                <span className="text-sm font-medium text-gray-900 dark:text-white">
+                  TCPA Compliance (8am-9pm Eastern)
+                </span>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Only send SMS during business hours (TCPA-compliant)
+                </p>
+              </div>
+            </label>
+          </div>
+
+          {/* Weekend Blackout */}
+          <div>
+            <label className="flex items-center cursor-pointer gap-3">
+              <div className="relative inline-flex h-6 w-11 items-center rounded-full bg-gray-200 dark:bg-gray-700 transition-colors" style={{ backgroundColor: complianceSettings.sms_weekend_blackout ? '#2563eb' : undefined }}>
+                <input
+                  type="checkbox"
+                  checked={complianceSettings.sms_weekend_blackout}
+                  onChange={(e) => setComplianceSettings(prev => ({
+                    ...prev,
+                    sms_weekend_blackout: e.target.checked,
+                  }))}
+                  className="sr-only"
+                />
+                <span
+                  className={cn(
+                    'inline-block h-4 w-4 transform rounded-full bg-white transition-transform',
+                    complianceSettings.sms_weekend_blackout ? 'translate-x-5' : 'translate-x-1'
+                  )}
+                />
+              </div>
+              <div className="flex-1">
+                <span className="text-sm font-medium text-gray-900 dark:text-white">
+                  Weekend Blackout
+                </span>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Don't send SMS on Saturday & Sunday
+                </p>
+              </div>
+            </label>
+          </div>
+
+          {/* Require opt-in */}
+          <div>
+            <label className="flex items-center cursor-pointer gap-3">
+              <div className="relative inline-flex h-6 w-11 items-center rounded-full bg-gray-200 dark:bg-gray-700 transition-colors" style={{ backgroundColor: complianceSettings.sms_require_opt_in ? '#2563eb' : undefined }}>
+                <input
+                  type="checkbox"
+                  checked={complianceSettings.sms_require_opt_in}
+                  onChange={(e) => setComplianceSettings(prev => ({
+                    ...prev,
+                    sms_require_opt_in: e.target.checked,
+                  }))}
+                  className="sr-only"
+                />
+                <span
+                  className={cn(
+                    'inline-block h-4 w-4 transform rounded-full bg-white transition-transform',
+                    complianceSettings.sms_require_opt_in ? 'translate-x-5' : 'translate-x-1'
+                  )}
+                />
+              </div>
+              <div className="flex-1">
+                <span className="text-sm font-medium text-gray-900 dark:text-white">
+                  Require Explicit Opt-in
+                </span>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Only send SMS to customers who explicitly opted in
+                </p>
+              </div>
+            </label>
+          </div>
+
+          {/* Save button */}
+          <div className="flex justify-end pt-4">
+            <button
+              onClick={handleSaveCompliance}
+              disabled={isSaving}
+              className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors"
+            >
+              {isSaving ? 'Saving...' : 'Save Compliance'}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* PHASE 3: Opt-out Management */}
+      <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-white/[0.08] p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white">❌ SMS Opt-Outs</h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+              Customers who replied STOP or bounced
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              setShowOptOuts(!showOptOuts);
+              if (!showOptOuts && optOuts.length === 0) {
+                fetchOptOuts();
+              }
+            }}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors whitespace-nowrap"
+          >
+            {showOptOuts ? 'Hide' : 'View'} Opt-Outs
+          </button>
+        </div>
+
+        {showOptOuts && (
+          <div>
+            {optOutsLoading ? (
+              <div className="flex items-center justify-center py-6">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+              </div>
+            ) : optOuts.length === 0 ? (
+              <div className="text-center py-6">
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  No customers have opted out yet
+                </p>
+              </div>
+            ) : (
+              <div className="mt-4 space-y-2 max-h-96 overflow-y-auto">
+                {optOuts.map((optOut) => (
+                  <div
+                    key={optOut.id}
+                    className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-white/[0.08]"
+                  >
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">
+                        {optOut.phone_number}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        {optOut.reason || 'No reason provided'} • {new Date(optOut.opted_out_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => handleReOptIn(optOut.customer_id)}
+                      disabled={reOptInning === optOut.customer_id}
+                      className="px-3 py-1 text-xs font-medium bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/40 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {reOptInning === optOut.customer_id ? 'Re-opting...' : 'Re-opt In'}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Twilio Configuration Card */}
       <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-white/[0.08] p-6">

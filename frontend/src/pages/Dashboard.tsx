@@ -125,7 +125,7 @@ interface PaymentPlansSummaryData {
 
 interface AgentPreview {
   emailsWouldQueue: number;
-  plansWouldOffer: number;
+  // plansWouldOffer: number; // 🔴 DISABLED — Payment plans awaiting client decision
   invoicesScanned: number;
   estimatedRecoveryUsd: number;
   previews: Array<{
@@ -158,7 +158,7 @@ interface DashCache {
   timeline: any[];
   workingCapital: WorkingCapitalFreed | null;
   dsoReduction: DSOReduction | null;
-  hoursSaved: { hoursSaved: number; emailsSent: number; paymentPlansOffered: number; period: string } | null;
+  hoursSaved: { hoursSaved: number; emailsSent: number; /* paymentPlansOffered: number; */ period: string } | null; // 🔴 DISABLED
   billingAnomalies: BillingAnomaly[];
   cashForecast: EnhancedCashForecast | null;
   ts: number;
@@ -192,21 +192,22 @@ const Dashboard: React.FC = () => {
   const [aging, setAging] = useState<AgingAnalysis | null>(null);
   const [emailAnalytics, setEmailAnalytics] = useState<EmailAnalytics | null>(null);
   const [riskDrivers, setRiskDrivers] = useState<RiskDrivers | null>(null);
-  const [plansSummary, setPlansSummary] = useState<PaymentPlansSummaryData | null>(null);
-  const [workingCapital, setWorkingCapital] = useState<WorkingCapitalFreed | null>(null);
-  const [dsoReduction, setDsoReduction] = useState<DSOReduction | null>(null);
-  const [hoursSaved, setHoursSaved] = useState<{ hoursSaved: number; emailsSent: number; paymentPlansOffered: number; period: string } | null>(null);
+  // 🔴 DISABLED: Payment plans, working capital, DSO reduction (Phase 2 features)
+  const [_plansSummary, _setPlansSummary] = useState<PaymentPlansSummaryData | null>(null);
+  const [_workingCapital, _setWorkingCapital] = useState<WorkingCapitalFreed | null>(null);
+  const [_dsoReduction, _setDsoReduction] = useState<DSOReduction | null>(null);
+  const [hoursSaved, setHoursSaved] = useState<{ hoursSaved: number; emailsSent: number; /* paymentPlansOffered: number; */ period: string } | null>(null); // 🔴 DISABLED
   const [billingAnomalies, setBillingAnomalies] = useState<BillingAnomaly[]>([]);
   const [cashForecast, setCashForecast] = useState<EnhancedCashForecast | null>(null);
   // Pilot controls
   const [pilotMode, setPilotMode] = useState<string | null>(null);
+  const [dismissEmailWarning, setDismissEmailWarning] = useState(false);
   const [recoveryToday, setRecoveryToday] = useState<{ amount: number; count: number } | null>(null);
   const [pausingAgent, setPausingAgent] = useState(false);
   // Trial mode
   const [isTrialMode, setIsTrialMode] = useState(false);
   const [trialAnalysis, setTrialAnalysis] = useState<any>(null);
   const [trialDaysRemaining, setTrialDaysRemaining] = useState(0);
-  const [dismissEmailWarning, setDismissEmailWarning] = useState(false);
 
   useEffect(() => {
     document.title = 'Dashboard — RecoverAI';
@@ -247,9 +248,9 @@ const Dashboard: React.FC = () => {
       setAging(dashCache.aging);
       setEmailAnalytics(dashCache.emailAnalytics);
       setRiskDrivers(dashCache.riskDrivers);
-      setPlansSummary(dashCache.plansSummary);
-      setWorkingCapital(dashCache.workingCapital);
-      setDsoReduction(dashCache.dsoReduction);
+      // setPlansSummary(dashCache.plansSummary); // 🔴 DISABLED
+      // setWorkingCapital(dashCache.workingCapital); // 🔴 DISABLED
+      // setDsoReduction(dashCache.dsoReduction); // 🔴 DISABLED
       setHoursSaved(dashCache.hoursSaved);
       setBillingAnomalies(dashCache.billingAnomalies);
       setCashForecast(dashCache.cashForecast);
@@ -329,9 +330,9 @@ const Dashboard: React.FC = () => {
         setAging(agingData);
         setEmailAnalytics(emailAnalyticsData);
         setRiskDrivers(riskDriversData);
-        setPlansSummary(plansSummaryData);
-        setWorkingCapital(workingCapitalData);
-        setDsoReduction(dsoReductionData);
+        // setPlansSummary(plansSummaryData); // 🔴 DISABLED
+        // setWorkingCapital(workingCapitalData); // 🔴 DISABLED
+        // setDsoReduction(dsoReductionData); // 🔴 DISABLED
         setHoursSaved(hoursSavedData);
         setBillingAnomalies(billingAnomaliesData);
         setCashForecast(cashForecastData);
@@ -360,14 +361,14 @@ const Dashboard: React.FC = () => {
     setAgentMsg(null);
     setAgentPreview(null);
     try {
-      const res = await api.post<{ emailsQueued: number; plansOffered: number; invoicesScanned: number; skipped: number }>('/api/dashboard/agent/trigger');
-      const { emailsQueued, plansOffered, invoicesScanned } = res;
-      if (emailsQueued === 0 && plansOffered === 0) {
+      const res = await api.post<{ emailsQueued: number; /* plansOffered: number; */ invoicesScanned: number; skipped: number }>('/api/dashboard/agent/trigger'); // 🔴 DISABLED plansOffered
+      const { emailsQueued, /* plansOffered, */ invoicesScanned } = res;
+      if (emailsQueued === 0) { // 🔴 Removed plansOffered check
         setAgentMsg(`Scanned ${invoicesScanned} invoices — all up to date.`);
       } else {
         const parts = [];
         if (emailsQueued > 0) parts.push(`${emailsQueued} email${emailsQueued !== 1 ? 's' : ''} queued`);
-        if (plansOffered > 0) parts.push(`${plansOffered} plan offer${plansOffered !== 1 ? 's' : ''} sent`);
+        // if (plansOffered > 0) parts.push(`${plansOffered} plan offer${plansOffered !== 1 ? 's' : ''} sent`); // 🔴 DISABLED
         setAgentMsg(`Agent run complete: ${parts.join(', ')} (${invoicesScanned} invoices scanned).`);
       }
     } catch (err: any) {
@@ -437,8 +438,8 @@ const Dashboard: React.FC = () => {
       await api.patch(`/api/billing-optimization/${id}`, { status: 'confirmed' });
       setBillingAnomalies(prev => prev.map(a => a.id === id ? { ...a, status: 'confirmed' as const } : a));
       // Refresh working capital since confirming an anomaly may affect it
-      const wcRes = await api.get<{ data: WorkingCapitalFreed }>('/api/dashboard/working-capital-freed').catch(() => null);
-      if (wcRes?.data) setWorkingCapital(wcRes.data);
+      // const wcRes = await api.get<{ data: WorkingCapitalFreed }>('/api/dashboard/working-capital-freed').catch(() => null);
+      // if (wcRes?.data) _setWorkingCapital(wcRes.data); // 🔴 DISABLED
     } catch { /* non-critical */ }
   };
 
@@ -910,9 +911,9 @@ const Dashboard: React.FC = () => {
           } : undefined}
           aging={aging}
           emailAnalytics={emailAnalytics}
-          plansSummary={plansSummary}
-          workingCapital={workingCapital}
-          dsoReduction={dsoReduction}
+          plansSummary={_plansSummary}
+          workingCapital={_workingCapital}
+          dsoReduction={_dsoReduction}
           hoursSaved={hoursSaved}
           loading={loading}
         />
@@ -973,11 +974,8 @@ const Dashboard: React.FC = () => {
           agingBuckets={aging.buckets}
           emailsSent={emailAnalytics?.sent ?? 0}
           emailsDelivered={emailAnalytics?.sent ?? 0}
-          plansOffered={plansSummary?.totalOffered ?? 0}
-          plansAccepted={plansSummary?.completedPlans ?? 0}
           paymentsReceived={stats?.totalRecovered ? Math.round(stats.totalRecovered) : 0}
           paymentAmount={stats?.totalRecovered ?? 0}
-          recentPlans={plansSummary?.recentPlans ?? []}
           loading={loading}
         />
       )}
