@@ -379,6 +379,336 @@ export const approveAllQueuedEmails = async (req: Request, res: Response) => {
 };
 
 /**
+ * POST /api/pilot-queue/bulk/approve-selected
+ * Approve and send selected pending emails (backend batching: 50 items at a time)
+ * Request body: { ids: string[] }
+ * Max: 500 emails per request, processed in batches of 50
+ */
+export const bulkApproveSelected = async (req: Request, res: Response) => {
+  const { ids } = req.body;
+  const companyId = (req as any).companyId;
+
+  if (!companyId) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ error: 'ids array is required and must not be empty' });
+  }
+
+  if (ids.length > 500) {
+    return res.status(400).json({ error: 'Maximum 500 emails per request' });
+  }
+
+  try {
+    const BATCH_SIZE = 50;
+    let sentCount = 0;
+    let failedCount = 0;
+    const errors: any[] = [];
+
+    logInfo(MODULE, 'bulkApproveSelected', `Starting bulk approve with ${ids.length} emails in batches of ${BATCH_SIZE}`);
+
+    // Process in batches of 50
+    for (let i = 0; i < ids.length; i += BATCH_SIZE) {
+      const batchIds = ids.slice(i, i + BATCH_SIZE);
+      const batchNum = Math.floor(i / BATCH_SIZE) + 1;
+      const totalBatches = Math.ceil(ids.length / BATCH_SIZE);
+
+      try {
+        // Get emails for this batch
+        const emailResult = await pool.query(
+          `SELECT
+            id,
+            invoice_id,
+            customer_id,
+            recipient_email,
+            customer_name,
+            invoice_amount,
+            due_date,
+            days_overdue,
+            email_type,
+            attempt_number,
+            subject,
+            body
+           FROM pilot_queued_emails
+           WHERE company_id = $1 AND id = ANY($2::uuid[]) AND status = 'pending'`,
+          [companyId, batchIds]
+        );
+
+        const emails = emailResult.rows;
+
+        logInfo(MODULE, 'bulkApproveSelected', `Batch ${batchNum}/${totalBatches}: Processing ${emails.length} emails`);
+
+        // Send all emails in this batch in parallel
+        const sendPromises = emails.map(async (queued) => {
+          try {
+            const dueDate = queued.due_date || new Date(Date.now() - queued.days_overdue * 24 * 60 * 60 * 1000).toISOString();
+
+            if (queued.subject && queued.body) {
+              await emailService.sendDunningEmailDirect({
+                companyId,
+                invoiceId: queued.invoice_id,
+                customerId: queued.customer_id,
+                recipientEmail: queued.recipient_email,
+                customerName: queued.customer_name,
+                invoiceAmount: queued.invoice_amount,
+                dueDate,
+                daysOverdue: queued.days_overdue,
+                emailType: queued.email_type as any,
+                attemptNumber: queued.attempt_number,
+                storedSubject: queued.subject,
+                storedBody: queued.body,
+              });
+            } else {
+              await emailService.sendDunningEmail({
+                companyId,
+                invoiceId: queued.invoice_id,
+                customerId: queued.customer_id,
+                recipientEmail: queued.recipient_email,
+                customerName: queued.customer_name,
+                invoiceAmount: queued.invoice_amount,
+                dueDate,
+                daysOverdue: queued.days_overdue,
+                emailType: queued.email_type as any,
+                attemptNumber: queued.attempt_number,
+              });
+            }
+
+            await pool.query(
+              `UPDATE pilot_queued_emails SET status = 'sent', sent_at = NOW() WHERE id = $1`,
+              [queued.id]
+            );
+
+            sentCount++;
+          } catch (err: any) {
+            failedCount++;
+            errors.push({ email_id: queued.id, customer: queued.customer_name, error: err.message });
+            logError(MODULE, 'bulkApproveSelected', `Failed to send email to ${queued.customer_name}`, err);
+          }
+        });
+
+        await Promise.all(sendPromises);
+      } catch (batchErr: any) {
+        logError(MODULE, 'bulkApproveSelected', `Batch ${batchNum} failed`, batchErr);
+        batchIds.forEach((id) => {
+          errors.push({ email_id: id, error: batchErr.message });
+          failedCount++;
+        });
+      }
+    }
+
+    logInfo(MODULE, 'bulkApproveSelected', `Completed: ${sentCount} sent, ${failedCount} failed`);
+
+    return res.json({
+      message: `Approved ${sentCount} emails`,
+      sent_count: sentCount,
+      failed_count: failedCount,
+      errors: errors.length > 0 ? errors : undefined,
+    });
+  } catch (err: any) {
+    logError(MODULE, 'bulkApproveSelected', 'Failed to process bulk approve', err);
+    return res.status(400).json({ error: err.message });
+  }
+};
+
+/**
+ * POST /api/pilot-queue/bulk/reject-selected
+ * Reject selected pending emails (backend batching: 50 items at a time)
+ * Request body: { ids: string[] }
+ * Max: 500 emails per request, processed in batches of 50
+ */
+export const bulkRejectSelected = async (req: Request, res: Response) => {
+  const { ids } = req.body;
+  const companyId = (req as any).companyId;
+
+  if (!companyId) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ error: 'ids array is required and must not be empty' });
+  }
+
+  if (ids.length > 500) {
+    return res.status(400).json({ error: 'Maximum 500 emails per request' });
+  }
+
+  try {
+    const BATCH_SIZE = 50;
+    let rejectedCount = 0;
+    let failedCount = 0;
+    const errors: any[] = [];
+
+    logInfo(MODULE, 'bulkRejectSelected', `Starting bulk reject with ${ids.length} emails in batches of ${BATCH_SIZE}`);
+
+    // Process in batches of 50
+    for (let i = 0; i < ids.length; i += BATCH_SIZE) {
+      const batchIds = ids.slice(i, i + BATCH_SIZE);
+      const batchNum = Math.floor(i / BATCH_SIZE) + 1;
+      const totalBatches = Math.ceil(ids.length / BATCH_SIZE);
+
+      try {
+        // Get emails for this batch
+        const emailResult = await pool.query(
+          `SELECT
+            id,
+            invoice_id,
+            email_type
+           FROM pilot_queued_emails
+           WHERE company_id = $1 AND id = ANY($2::uuid[]) AND status = 'pending'`,
+          [companyId, batchIds]
+        );
+
+        const emails = emailResult.rows;
+
+        logInfo(MODULE, 'bulkRejectSelected', `Batch ${batchNum}/${totalBatches}: Processing ${emails.length} emails`);
+
+        // Update and create tracking in parallel
+        const rejectPromises = emails.map(async (email) => {
+          try {
+            await pool.query(
+              `UPDATE pilot_queued_emails SET status = 'rejected', user_rejected_at = NOW() WHERE id = $1`,
+              [email.id]
+            );
+
+            const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+            await pool.query(
+              `INSERT INTO rejection_tracking (company_id, invoice_id, email_type, expires_at)
+               VALUES ($1, $2, $3, $4)
+               ON CONFLICT DO NOTHING`,
+              [companyId, email.invoice_id, email.email_type, expiresAt]
+            );
+
+            rejectedCount++;
+          } catch (err: any) {
+            failedCount++;
+            errors.push({ email_id: email.id, error: err.message });
+            logError(MODULE, 'bulkRejectSelected', `Failed to reject email ${email.id}`, err);
+          }
+        });
+
+        await Promise.all(rejectPromises);
+      } catch (batchErr: any) {
+        logError(MODULE, 'bulkRejectSelected', `Batch ${batchNum} failed`, batchErr);
+        batchIds.forEach((id) => {
+          errors.push({ email_id: id, error: batchErr.message });
+          failedCount++;
+        });
+      }
+    }
+
+    logInfo(MODULE, 'bulkRejectSelected', `Completed: ${rejectedCount} rejected, ${failedCount} failed`);
+
+    return res.json({
+      message: `Rejected ${rejectedCount} emails`,
+      rejected_count: rejectedCount,
+      failed_count: failedCount,
+      errors: errors.length > 0 ? errors : undefined,
+    });
+  } catch (err: any) {
+    logError(MODULE, 'bulkRejectSelected', 'Failed to process bulk reject', err);
+    return res.status(400).json({ error: err.message });
+  }
+};
+
+/**
+ * POST /api/pilot-queue/bulk/move-to-pending-selected
+ * Move selected rejected emails back to pending (backend batching: 50 items at a time)
+ * Request body: { ids: string[] }
+ * Max: 500 emails per request, processed in batches of 50
+ */
+export const bulkMoveToPendingSelected = async (req: Request, res: Response) => {
+  const { ids } = req.body;
+  const companyId = (req as any).companyId;
+
+  if (!companyId) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ error: 'ids array is required and must not be empty' });
+  }
+
+  if (ids.length > 500) {
+    return res.status(400).json({ error: 'Maximum 500 emails per request' });
+  }
+
+  try {
+    const BATCH_SIZE = 50;
+    let movedCount = 0;
+    let failedCount = 0;
+    const errors: any[] = [];
+
+    logInfo(MODULE, 'bulkMoveToPendingSelected', `Starting bulk move with ${ids.length} emails in batches of ${BATCH_SIZE}`);
+
+    // Process in batches of 50
+    for (let i = 0; i < ids.length; i += BATCH_SIZE) {
+      const batchIds = ids.slice(i, i + BATCH_SIZE);
+      const batchNum = Math.floor(i / BATCH_SIZE) + 1;
+      const totalBatches = Math.ceil(ids.length / BATCH_SIZE);
+
+      try {
+        // Get emails for this batch
+        const emailResult = await pool.query(
+          `SELECT
+            id,
+            invoice_id,
+            email_type
+           FROM pilot_queued_emails
+           WHERE company_id = $1 AND id = ANY($2::uuid[]) AND status = 'rejected'`,
+          [companyId, batchIds]
+        );
+
+        const emails = emailResult.rows;
+
+        logInfo(MODULE, 'bulkMoveToPendingSelected', `Batch ${batchNum}/${totalBatches}: Processing ${emails.length} emails`);
+
+        // Update and delete in parallel
+        const movePromises = emails.map(async (email) => {
+          try {
+            await pool.query(
+              `UPDATE pilot_queued_emails SET status = 'pending' WHERE id = $1`,
+              [email.id]
+            );
+
+            await pool.query(
+              `DELETE FROM rejection_tracking WHERE company_id = $1 AND invoice_id = $2 AND email_type = $3`,
+              [companyId, email.invoice_id, email.email_type]
+            );
+
+            movedCount++;
+          } catch (err: any) {
+            failedCount++;
+            errors.push({ email_id: email.id, error: err.message });
+            logError(MODULE, 'bulkMoveToPendingSelected', `Failed to move email ${email.id}`, err);
+          }
+        });
+
+        await Promise.all(movePromises);
+      } catch (batchErr: any) {
+        logError(MODULE, 'bulkMoveToPendingSelected', `Batch ${batchNum} failed`, batchErr);
+        batchIds.forEach((id) => {
+          errors.push({ email_id: id, error: batchErr.message });
+          failedCount++;
+        });
+      }
+    }
+
+    logInfo(MODULE, 'bulkMoveToPendingSelected', `Completed: ${movedCount} moved, ${failedCount} failed`);
+
+    return res.json({
+      message: `Moved ${movedCount} emails to pending`,
+      moved_count: movedCount,
+      failed_count: failedCount,
+      errors: errors.length > 0 ? errors : undefined,
+    });
+  } catch (err: any) {
+    logError(MODULE, 'bulkMoveToPendingSelected', 'Failed to process bulk move-to-pending', err);
+    return res.status(400).json({ error: err.message });
+  }
+};
+
+/**
  * GET /api/pilot-queue/stats
  * Get statistics about queued emails
  */

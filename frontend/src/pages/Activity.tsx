@@ -336,23 +336,23 @@ const Activity: React.FC = () => {
   const handleBulkApproveSelected = async () => {
     if (selectedPendingIds.size === 0) return;
     setBulkOperating(true);
-    let approved = 0;
-    let failed = 0;
     try {
-      for (const id of selectedPendingIds) {
-        try {
-          await api.post(`/api/pilot-queue/${id}/approve`);
-          approved++;
-        } catch {
-          failed++;
-        }
-      }
+      const ids = Array.from(selectedPendingIds);
+      const res = await api.post<{ sent_count: number; failed_count: number }>(
+        `/api/pilot-queue/bulk/approve-selected`,
+        { ids }
+      );
       addToast({
         type: 'success',
-        message: `${approved} emails approved${failed > 0 ? `, ${failed} failed` : ''}`,
+        message: `${res.sent_count} emails approved${res.failed_count > 0 ? `, ${res.failed_count} failed` : ''}`,
       });
       setSelectedPendingIds(new Set());
       fetchQueuedEmails();
+    } catch (err: any) {
+      addToast({
+        type: 'error',
+        message: err.message || 'Failed to approve emails',
+      });
     } finally {
       setBulkOperating(false);
     }
@@ -361,23 +361,23 @@ const Activity: React.FC = () => {
   const handleBulkRejectSelected = async () => {
     if (selectedPendingIds.size === 0) return;
     setBulkOperating(true);
-    let rejected = 0;
-    let failed = 0;
     try {
-      for (const id of selectedPendingIds) {
-        try {
-          await api.post(`/api/pilot-queue/${id}/reject`);
-          rejected++;
-        } catch {
-          failed++;
-        }
-      }
+      const ids = Array.from(selectedPendingIds);
+      const res = await api.post<{ rejected_count: number; failed_count: number }>(
+        `/api/pilot-queue/bulk/reject-selected`,
+        { ids }
+      );
       addToast({
         type: 'success',
-        message: `${rejected} emails rejected${failed > 0 ? `, ${failed} failed` : ''}`,
+        message: `${res.rejected_count} emails rejected${res.failed_count > 0 ? `, ${res.failed_count} failed` : ''}`,
       });
       setSelectedPendingIds(new Set());
       fetchQueuedEmails();
+    } catch (err: any) {
+      addToast({
+        type: 'error',
+        message: err.message || 'Failed to reject emails',
+      });
     } finally {
       setBulkOperating(false);
     }
@@ -694,19 +694,23 @@ const Activity: React.FC = () => {
                           size="sm"
                           onClick={async () => {
                             setBulkOperating(true);
-                            let approved = 0;
                             try {
-                              for (const id of selectedRejectedIds) {
-                                try {
-                                  await api.post(`/api/pilot-queue/${id}/approve`);
-                                  approved++;
-                                } catch {
-                                  // Continue with next
-                                }
-                              }
-                              addToast({ type: 'success', message: `${approved} emails approved` });
+                              const ids = Array.from(selectedRejectedIds);
+                              const res = await api.post<{ sent_count: number; failed_count: number }>(
+                                `/api/pilot-queue/bulk/approve-selected`,
+                                { ids }
+                              );
+                              addToast({
+                                type: 'success',
+                                message: `${res.sent_count} emails approved${res.failed_count > 0 ? `, ${res.failed_count} failed` : ''}`,
+                              });
                               setSelectedRejectedIds(new Set());
                               fetchQueuedEmails();
+                            } catch (err: any) {
+                              addToast({
+                                type: 'error',
+                                message: err.message || 'Failed to approve emails',
+                              });
                             } finally {
                               setBulkOperating(false);
                             }
@@ -720,19 +724,23 @@ const Activity: React.FC = () => {
                           size="sm"
                           onClick={async () => {
                             setBulkOperating(true);
-                            let moved = 0;
                             try {
-                              for (const id of selectedRejectedIds) {
-                                try {
-                                  await api.post(`/api/pilot-queue/${id}/move-to-pending`);
-                                  moved++;
-                                } catch {
-                                  // Continue with next
-                                }
-                              }
-                              addToast({ type: 'success', message: `${moved} emails moved to Pending Approval` });
+                              const ids = Array.from(selectedRejectedIds);
+                              const res = await api.post<{ moved_count: number; failed_count: number }>(
+                                `/api/pilot-queue/bulk/move-to-pending-selected`,
+                                { ids }
+                              );
+                              addToast({
+                                type: 'success',
+                                message: `${res.moved_count} emails moved to Pending Approval${res.failed_count > 0 ? `, ${res.failed_count} failed` : ''}`,
+                              });
                               setSelectedRejectedIds(new Set());
                               fetchQueuedEmails();
+                            } catch (err: any) {
+                              addToast({
+                                type: 'error',
+                                message: err.message || 'Failed to move emails to pending',
+                              });
                             } finally {
                               setBulkOperating(false);
                             }

@@ -25,6 +25,24 @@ router.get('/stats', authMiddleware, demoBlocker, pilotQueueController.getQueueS
 router.post('/approve-all', authMiddleware, demoBlocker, pilotQueueController.approveAllQueuedEmails);
 
 /**
+ * POST /api/pilot-queue/bulk/approve-selected
+ * Approve and send selected pending emails (optimized bulk operation)
+ */
+router.post('/bulk/approve-selected', authMiddleware, demoBlocker, pilotQueueController.bulkApproveSelected);
+
+/**
+ * POST /api/pilot-queue/bulk/reject-selected
+ * Reject selected pending emails (optimized bulk operation)
+ */
+router.post('/bulk/reject-selected', authMiddleware, demoBlocker, pilotQueueController.bulkRejectSelected);
+
+/**
+ * POST /api/pilot-queue/bulk/move-to-pending-selected
+ * Move selected rejected emails back to pending (optimized bulk operation)
+ */
+router.post('/bulk/move-to-pending-selected', authMiddleware, demoBlocker, pilotQueueController.bulkMoveToPendingSelected);
+
+/**
  * POST /api/pilot-queue/:id/preview
  * Preview a queued email (requires auth)
  */
