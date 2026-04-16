@@ -61,12 +61,13 @@ export const API_ENDPOINTS = {
     preview: (invoiceId: string, emailType = 'dunning_1') =>
       `/api/email/preview?invoiceId=${invoiceId}&emailType=${emailType}`,
   },
-  paymentPlans: {
-    create: '/api/payment-plans',
-    byInvoice: (invoiceId: string) => `/api/payment-plans?invoiceId=${invoiceId}`,
-    list: '/api/payment-plans/list',
-    status: (planId: string) => `/api/payment-plans/${planId}/status`,
-  },
+  // ❌ DISABLED: PHASE 2 feature
+  // paymentPlans: {
+  //   create: '/api/payment-plans',
+  //   byInvoice: (invoiceId: string) => `/api/payment-plans?invoiceId=${invoiceId}`,
+  //   list: '/api/payment-plans/list',
+  //   status: (planId: string) => `/api/payment-plans/${planId}/status`,
+  // },
   settings: {
     get: '/api/settings',
     costs: '/api/settings/costs',

@@ -74,7 +74,7 @@ export const NotificationsSection: React.FC<NotificationsSectionProps> = ({ slac
             {[
               { key: 'email_payment_received', label: 'Payment received', desc: 'When a customer pays an invoice' },
               { key: 'email_invoice_overdue', label: 'Invoice overdue alert', desc: 'When invoices reach overdue thresholds' },
-              { key: 'email_agent_action', label: 'Agent actions', desc: 'When RecoverAI sends emails or offers payment plans' },
+              { key: 'email_agent_action', label: 'Agent actions', desc: 'When RecoverAI sends emails' },  // ❌ DISABLED: PHASE 2 - "or offers payment plans"
               { key: 'email_weekly_summary', label: 'Weekly summary', desc: 'Every Monday at 9am with recovery stats' },
             ].map(({ key, label, desc }) => (
               <label key={key} className="flex items-start gap-3 cursor-pointer">

@@ -200,7 +200,7 @@ const Billing: React.FC = () => {
                         {[
                           'Autonomous AR agent',
                           'AI-written dunning emails',
-                          'Payment plan automation',
+                          // ❌ DISABLED: PHASE 2 - 'Payment plan automation',
                           'Stripe + QuickBooks sync',
                           'Cash forecast dashboard',
                           'Decline code intelligence',

@@ -134,87 +134,88 @@ export const getAgingDetail = async (req: Request, res: Response): Promise<void>
 };
 
 /**
+ * ❌ DISABLED: PHASE 2 feature - Payment plans reporting
  * GET /api/reports/payment-plans-detail
  * All payment plans with full detail for reporting
  */
-export const getPaymentPlansDetail = async (req: Request, res: Response): Promise<void> => {
-  const handler = 'getPaymentPlansDetail';
-  const companyId = (req as any).companyId;
-
-  try {
-    const plansResult = await pool.query(
-      `SELECT
-         pp.id,
-         pp.status,
-         pp.total_amount,
-         pp.installments,
-         pp.created_at,
-         pp.updated_at,
-         c.name AS customer_name,
-         c.email AS customer_email,
-         i.amount AS invoice_amount,
-         i.due_date AS invoice_due_date
-       FROM payment_plans pp
-       JOIN invoices i ON i.id = pp.invoice_id
-       JOIN customers c ON c.id = i.customer_id
-       WHERE i.company_id = $1
-       ORDER BY pp.created_at DESC`,
-      [companyId]
-    );
-
-    const offersResult = await pool.query(
-      `SELECT COUNT(*) AS offers FROM email_logs WHERE company_id = $1 AND email_type = 'payment_plan_offer'`,
-      [companyId]
-    );
-
-    const totalOffered = parseInt(offersResult.rows[0]?.offers || '0');
-    const plans = plansResult.rows;
-    const active = plans.filter(p => p.status === 'active').length;
-    const completed = plans.filter(p => p.status === 'completed').length;
-    const defaulted = plans.filter(p => p.status === 'defaulted').length;
-    const totalValue = plans.reduce((s, p) => s + parseFloat(p.total_amount || '0'), 0);
-    const activeValue = plans.filter(p => p.status === 'active').reduce((s, p) => s + parseFloat(p.total_amount || '0'), 0);
-
-    const plansDetail = plans.map(p => {
-      const installments: Array<{ paid: boolean; amount: number; due_date: string }> = Array.isArray(p.installments) ? p.installments : [];
-      const paidCount = installments.filter(i => i.paid).length;
-      const nextDue = installments.find(i => !i.paid)?.due_date ?? null;
-      return {
-        planId: p.id,
-        customerName: p.customer_name,
-        customerEmail: p.customer_email,
-        totalAmount: parseFloat(p.total_amount || '0'),
-        status: p.status,
-        installmentsTotal: installments.length,
-        installmentsPaid: paidCount,
-        pctComplete: installments.length > 0 ? Math.round((paidCount / installments.length) * 100) : 0,
-        nextDueDate: nextDue,
-        createdAt: p.created_at,
-      };
-    });
-
-    logInfo(LOG_MODULE, handler, 'Payment plans detail fetched', { companyId, total: plans.length });
-    res.status(200).json({
-      data: {
-        summary: {
-          activePlans: active,
-          completedPlans: completed,
-          defaultedPlans: defaulted,
-          totalOffered,
-          acceptanceRate: totalOffered > 0 ? Math.round((plans.length / totalOffered) * 100) : plans.length > 0 ? 100 : 0,
-          completionRate: (active + completed) > 0 ? Math.round((completed / (active + completed)) * 100) : 0,
-          totalValue,
-          activeValue,
-        },
-        plans: plansDetail,
-      },
-    });
-  } catch (error) {
-    logError(LOG_MODULE, handler, 'Failed to get payment plans detail', error);
-    const { statusCode, message } = parseError(error);
-    sendErrorResponse(res, statusCode, message);
-  }
-};
+// export const getPaymentPlansDetail = async (req: Request, res: Response): Promise<void> => {
+//   const handler = 'getPaymentPlansDetail';
+//   const companyId = (req as any).companyId;
+//
+//   try {
+//     const plansResult = await pool.query(
+//       `SELECT
+//          pp.id,
+//          pp.status,
+//          pp.total_amount,
+//          pp.installments,
+//          pp.created_at,
+//          pp.updated_at,
+//          c.name AS customer_name,
+//          c.email AS customer_email,
+//          i.amount AS invoice_amount,
+//          i.due_date AS invoice_due_date
+//        FROM payment_plans pp
+//        JOIN invoices i ON i.id = pp.invoice_id
+//        JOIN customers c ON c.id = i.customer_id
+//        WHERE i.company_id = $1
+//        ORDER BY pp.created_at DESC`,
+//       [companyId]
+//     );
+//
+//     const offersResult = await pool.query(
+//       `SELECT COUNT(*) AS offers FROM email_logs WHERE company_id = $1 AND email_type = 'payment_plan_offer'`,
+//       [companyId]
+//     );
+//
+//     const totalOffered = parseInt(offersResult.rows[0]?.offers || '0');
+//     const plans = plansResult.rows;
+//     const active = plans.filter(p => p.status === 'active').length;
+//     const completed = plans.filter(p => p.status === 'completed').length;
+//     const defaulted = plans.filter(p => p.status === 'defaulted').length;
+//     const totalValue = plans.reduce((s, p) => s + parseFloat(p.total_amount || '0'), 0);
+//     const activeValue = plans.filter(p => p.status === 'active').reduce((s, p) => s + parseFloat(p.total_amount || '0'), 0);
+//
+//     const plansDetail = plans.map(p => {
+//       const installments: Array<{ paid: boolean; amount: number; due_date: string }> = Array.isArray(p.installments) ? p.installments : [];
+//       const paidCount = installments.filter(i => i.paid).length;
+//       const nextDue = installments.find(i => !i.paid)?.due_date ?? null;
+//       return {
+//         planId: p.id,
+//         customerName: p.customer_name,
+//         customerEmail: p.customer_email,
+//         totalAmount: parseFloat(p.total_amount || '0'),
+//         status: p.status,
+//         installmentsTotal: installments.length,
+//         installmentsPaid: paidCount,
+//         pctComplete: installments.length > 0 ? Math.round((paidCount / installments.length) * 100) : 0,
+//         nextDueDate: nextDue,
+//         createdAt: p.created_at,
+//       };
+//     });
+//
+//     logInfo(LOG_MODULE, handler, 'Payment plans detail fetched', { companyId, total: plans.length });
+//     res.status(200).json({
+//       data: {
+//         summary: {
+//           activePlans: active,
+//           completedPlans: completed,
+//           defaultedPlans: defaulted,
+//           totalOffered,
+//           acceptanceRate: totalOffered > 0 ? Math.round((plans.length / totalOffered) * 100) : plans.length > 0 ? 100 : 0,
+//           completionRate: (active + completed) > 0 ? Math.round((completed / (active + completed)) * 100) : 0,
+//           totalValue,
+//           activeValue,
+//         },
+//         plans: plansDetail,
+//       },
+//     });
+//   } catch (error) {
+//     logError(LOG_MODULE, handler, 'Failed to get payment plans detail', error);
+//     const { statusCode, message } = parseError(error);
+//     sendErrorResponse(res, statusCode, message);
+//   }
+// };
 
 /**
  * GET /api/reports/kpi-trends?months=6

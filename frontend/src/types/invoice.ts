@@ -102,15 +102,24 @@ export interface EmailLog {
   sendgrid_message_id?: string;
 }
 
+// ❌ DISABLED: PHASE 2 feature
+// export interface PaymentPlan {
+//   id: string;
+//   invoice_id: string;
+//   status: 'active' | 'completed' | 'defaulted';
+//   installments: {
+//     amount: number;
+//     due_date: string;
+//     paid: boolean;
+//   }[];
+//   created_at: string;
+//   updated_at: string;
+// }
 export interface PaymentPlan {
   id: string;
   invoice_id: string;
   status: 'active' | 'completed' | 'defaulted';
-  installments: {
-    amount: number;
-    due_date: string;
-    paid: boolean;
-  }[];
+  installments: { amount: number; due_date: string; paid: boolean }[];
   created_at: string;
   updated_at: string;
 }
@@ -153,7 +162,7 @@ export interface InvoiceDetail {
   invoice: Invoice;
   payments: Payment[];
   emailLogs: EmailLog[];
-  paymentPlan: PaymentPlan | null;
+  paymentPlan: PaymentPlan | null;  // ❌ DISABLED: PHASE 2 feature
   dunningStatus?: DunningStatus;
 }
 
@@ -163,7 +172,7 @@ export interface CustomerDetail {
   customer: Customer;
   invoices: Invoice[];
   emailLogs: EmailLog[];
-  paymentPlans: PaymentPlan[];
+  paymentPlans: PaymentPlan[];  // ❌ DISABLED: PHASE 2 feature
   stats: {
     totalInvoices: number;
     unpaidAR: number;

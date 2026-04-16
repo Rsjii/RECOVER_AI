@@ -7,7 +7,7 @@ import { pool } from '../config/database';
 import { logError, logInfo, logWarn } from '../utils/logger';
 import { normalizePhone } from '../services/smsService';
 import { scoreCustomerRisk } from '../services/riskScoringService';
-import { createPlanForInvoice } from '../services/paymentPlanService';
+// import { createPlanForInvoice } from '../services/paymentPlanService';  // ❌ DISABLED: PHASE 2 feature
 import { logAgentDecision } from '../db/agentDecisions';
 import { isRecentlyRejected } from '../db/rejectionTracking';
 import type { DunningEmailType } from '../types/email';
@@ -18,7 +18,7 @@ const SMS_MIN_DAYS_OVERDUE = 7;    // must be at least 7 days overdue
 
 const LOG_MODULE = 'agentLoop';
 const MAX_DUNNING_EMAILS = 5;
-const PAYMENT_PLAN_DAY_THRESHOLD = 15;
+// const PAYMENT_PLAN_DAY_THRESHOLD = 15;  // ❌ DISABLED: PHASE 2 feature
 
 // Decision tree: days overdue → email type (in order)
 // Exported so invoiceController can compute nextScheduledDate without duplicating
@@ -91,14 +91,14 @@ async function getOverdueInvoicesForProcessing(): Promise<Array<{
         ARRAY_AGG(DISTINCT el.email_type) FILTER (WHERE el.email_type IS NOT NULL AND el.status NOT IN ('failed', 'skipped')),
         '{}'::text[]
       ) AS email_types_sent,
-      (COUNT(DISTINCT pp.id) FILTER (WHERE pp.status = 'active') > 0) AS has_active_plan,
+      false AS has_active_plan,  -- ❌ DISABLED: PHASE 2 feature (was: COUNT(DISTINCT pp.id) FILTER (WHERE pp.status = 'active') > 0)
       (COUNT(DISTINCT el2.id) FILTER (WHERE el2.email_type = 'payment_plan_offer' AND el2.status NOT IN ('failed', 'skipped')) > 0) AS plan_offer_sent
     FROM invoices i
     JOIN customers c  ON i.customer_id = c.id
     JOIN companies co ON i.company_id  = co.id
     LEFT JOIN email_logs el  ON el.invoice_id = i.id
     LEFT JOIN email_logs el2 ON el2.invoice_id = i.id
-    LEFT JOIN payment_plans pp ON pp.invoice_id = i.id
+    -- LEFT JOIN payment_plans pp ON pp.invoice_id = i.id  -- ❌ DISABLED: PHASE 2 feature
     WHERE i.status NOT IN ('paid', 'uncollectable')
       AND i.due_date < NOW() + INTERVAL '7 days'  -- include invoices due soon for proactive risk emails
       AND c.email IS NOT NULL
@@ -344,71 +344,72 @@ async function runDecisionEngine(): Promise<{
         skippedCount++;
       }
 
-      // ── Auto-offer payment plan at day 15+ ──
-      if (
-        daysOverdue >= PAYMENT_PLAN_DAY_THRESHOLD &&
-        !invoice.has_active_plan &&
-        !invoice.plan_offer_sent
-      ) {
-        // Check if payment plan offer was recently rejected (7-day block)
-        const recentRejection = await isRecentlyRejected(invoice.id, 'payment_plan_offer');
+      // ❌ DISABLED: PHASE 2 feature
+      // // ── Auto-offer payment plan at day 15+ ──
+      // if (
+      //   daysOverdue >= PAYMENT_PLAN_DAY_THRESHOLD &&
+      //   !invoice.has_active_plan &&
+      //   !invoice.plan_offer_sent
+      // ) {
+      //   // Check if payment plan offer was recently rejected (7-day block)
+      //   const recentRejection = await isRecentlyRejected(invoice.id, 'payment_plan_offer');
 
-        if (!recentRejection) {
-          // Create the DB record first so paymentPlanChargeJob can pick it up
-          try {
-            await createPlanForInvoice(invoice.id, invoice.company_id, 3);
-            logInfo(LOG_MODULE, method, 'Payment plan created', {
-              invoiceId: invoice.id,
-              numInstallments: 3,
-            });
-          } catch (planErr) {
-            logWarn(LOG_MODULE, method, 'Could not create payment plan (may already exist)', {
-              invoiceId: invoice.id,
-              error: String(planErr),
-            });
-          }
-          await queueEmailNow({
-            companyId: invoice.company_id,
-            customerId: invoice.customer_id,
-            invoiceId: invoice.id,
-            recipientEmail: invoice.customer_email,
-            customerName: invoice.customer_name,
-            invoiceAmount: invoice.amount,
-            dueDate: invoice.due_date,
-            daysOverdue,
-            emailType: 'payment_plan_offer',
-            attemptNumber: 1,
-            riskScore: invoice.customer_risk_score || undefined,
-            pilotMode: invoice.company_pilot_mode as any,  // Pass config to avoid DB lookup
-          });
-          planOffersQueued++;
-          logInfo(LOG_MODULE, method, 'Payment plan offer queued', {
-            invoiceId: invoice.id,
-            daysOverdue,
-          });
-        } else {
-          logInfo(LOG_MODULE, method, 'Skipping recently rejected payment plan offer (7-day block)', {
-            invoiceId: invoice.id,
-            expiresAt: recentRejection.expires_at,
-          });
-        }
-        // Log decision for learning system (fire-and-forget)
-        try {
-          await logAgentDecision({
-            companyId: invoice.company_id,
-            invoiceId: invoice.id,
-            customerId: invoice.customer_id,
-            decisionType: 'email_queued',
-            emailType: 'payment_plan_offer',
-            pilotMode: invoice.company_pilot_mode || undefined,
-            daysOverdue,
-            riskScore: invoice.customer_risk_score || undefined,
-            reason: 'Payment plan offer at day 15+',
-          });
-        } catch (_err) {
-          // Swallow errors - non-critical
-        }
-      }
+      //   if (!recentRejection) {
+      //     // Create the DB record first so paymentPlanChargeJob can pick it up
+      //     try {
+      //       await createPlanForInvoice(invoice.id, invoice.company_id, 3);
+      //       logInfo(LOG_MODULE, method, 'Payment plan created', {
+      //         invoiceId: invoice.id,
+      //         numInstallments: 3,
+      //       });
+      //     } catch (planErr) {
+      //       logWarn(LOG_MODULE, method, 'Could not create payment plan (may already exist)', {
+      //         invoiceId: invoice.id,
+      //         error: String(planErr),
+      //       });
+      //     }
+      //     await queueEmailNow({
+      //       companyId: invoice.company_id,
+      //       customerId: invoice.customer_id,
+      //       invoiceId: invoice.id,
+      //       recipientEmail: invoice.customer_email,
+      //       customerName: invoice.customer_name,
+      //       invoiceAmount: invoice.amount,
+      //       dueDate: invoice.due_date,
+      //       daysOverdue,
+      //       emailType: 'payment_plan_offer',
+      //       attemptNumber: 1,
+      //       riskScore: invoice.customer_risk_score || undefined,
+      //       pilotMode: invoice.company_pilot_mode as any,  // Pass config to avoid DB lookup
+      //     });
+      //     planOffersQueued++;
+      //     logInfo(LOG_MODULE, method, 'Payment plan offer queued', {
+      //       invoiceId: invoice.id,
+      //       daysOverdue,
+      //     });
+      //   } else {
+      //     logInfo(LOG_MODULE, method, 'Skipping recently rejected payment plan offer (7-day block)', {
+      //       invoiceId: invoice.id,
+      //       expiresAt: recentRejection.expires_at,
+      //     });
+      //   }
+      //   // Log decision for learning system (fire-and-forget)
+      //   try {
+      //     await logAgentDecision({
+      //       companyId: invoice.company_id,
+      //       invoiceId: invoice.id,
+      //       customerId: invoice.customer_id,
+      //       decisionType: 'email_queued',
+      //       emailType: 'payment_plan_offer',
+      //       pilotMode: invoice.company_pilot_mode || undefined,
+      //       daysOverdue,
+      //       riskScore: invoice.customer_risk_score || undefined,
+      //       reason: 'Payment plan offer at day 15+',
+      //     });
+      //   } catch (_err) {
+      //     // Swallow errors - non-critical
+      //   }
+      // }
 
       // ── SMS escalation: trigger when email isn't working ──
       if (
@@ -668,23 +669,24 @@ export async function runDecisionEngineDryRun(companyId?: string): Promise<{
       skipped++;
     }
 
-    if (
-      daysOverdue >= PAYMENT_PLAN_DAY_THRESHOLD &&
-      !invoice.has_active_plan &&
-      !invoice.plan_offer_sent
-    ) {
-      plansWouldOffer++;
-      previews.push({
-        invoiceId: invoice.id,
-        customerId: invoice.customer_id,
-        customerName: invoice.customer_name,
-        recipientEmail: invoice.customer_email,
-        amount: invoice.amount,
-        daysOverdue,
-        emailType: 'payment_plan_offer',
-        riskScore: invoice.customer_risk_score || 0,
-      });
-    }
+    // ❌ DISABLED: PHASE 2 feature
+    // if (
+    //   daysOverdue >= PAYMENT_PLAN_DAY_THRESHOLD &&
+    //   !invoice.has_active_plan &&
+    //   !invoice.plan_offer_sent
+    // ) {
+    //   plansWouldOffer++;
+    //   previews.push({
+    //     invoiceId: invoice.id,
+    //     customerId: invoice.customer_id,
+    //     customerName: invoice.customer_name,
+    //     recipientEmail: invoice.customer_email,
+    //     amount: invoice.amount,
+    //     daysOverdue,
+    //     emailType: 'payment_plan_offer',
+    //     riskScore: invoice.customer_risk_score || 0,
+    //   });
+    // }
   }
 
   const result = { total: invoices.length, emailsWouldQueue, plansWouldOffer, skipped, estimatedRecoveryUsd, previews };

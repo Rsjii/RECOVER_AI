@@ -20,11 +20,12 @@ const InvoiceDetail: React.FC = () => {
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [detail, setDetail] = useState<InvoiceDetailType | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<'details' | 'payments' | 'emails' | 'plan' | 'dunning'>('details');
+  const [tab, setTab] = useState<'details' | 'payments' | 'emails' | 'dunning'>('details');  // ❌ Removed 'plan' (PHASE 2)
   const [updating, setUpdating] = useState(false);
-  const [creatingPlan, setCreatingPlan] = useState(false);
-  const [planInstallments, setPlanInstallments] = useState(3);
-  const [planSubmitting, setPlanSubmitting] = useState(false);
+  // ❌ DISABLED: PHASE 2 feature
+  // const [creatingPlan, setCreatingPlan] = useState(false);
+  // const [planInstallments, setPlanInstallments] = useState(3);
+  // const [planSubmitting, setPlanSubmitting] = useState(false);
   const [showEmailPreview, setShowEmailPreview] = useState(false);
   const [dunningStatus, setDunningStatus] = useState<DunningStatus | null>(null);
   const [pauseDays, setPauseDays] = useState(7);
@@ -105,22 +106,23 @@ const InvoiceDetail: React.FC = () => {
     }
   };
 
-  const handleCreatePlan = async () => {
-    if (!invoice) return;
-    setPlanSubmitting(true);
-    try {
-      await api.post(API_ENDPOINTS.paymentPlans.create, {
-        invoiceId: invoice.id,
-        numberOfInstallments: planInstallments,
-      });
-      addToast({ type: 'success', message: `Payment plan created (${planInstallments} installments)` });
-      setCreatingPlan(false);
-      const res: any = await api.get(API_ENDPOINTS.invoices.detailFull(invoice.id));
-      setDetail(res.data || res);
-    } catch (err: any) {
-      addToast({ type: 'error', message: err.message || 'Failed to create plan' });
-    } finally { setPlanSubmitting(false); }
-  };
+  // ❌ DISABLED: PHASE 2 feature
+  // const handleCreatePlan = async () => {
+  //   if (!invoice) return;
+  //   setPlanSubmitting(true);
+  //   try {
+  //     await api.post(API_ENDPOINTS.paymentPlans.create, {
+  //       invoiceId: invoice.id,
+  //       numberOfInstallments: planInstallments,
+  //     });
+  //     addToast({ type: 'success', message: `Payment plan created (${planInstallments} installments)` });
+  //     setCreatingPlan(false);
+  //     const res: any = await api.get(API_ENDPOINTS.invoices.detailFull(invoice.id));
+  //     setDetail(res.data || res);
+  //   } catch (err: any) {
+  //     addToast({ type: 'error', message: err.message || 'Failed to create plan' });
+  //   } finally { setPlanSubmitting(false); }
+  // };
 
   useEffect(() => {
     if (tab === 'dunning' && id) fetchDunningStatus();
@@ -225,7 +227,8 @@ const InvoiceDetail: React.FC = () => {
     { id: 'details' as const, label: 'Details' },
     { id: 'payments' as const, label: `Payments (${detail?.payments.length || 0})` },
     { id: 'emails' as const, label: `Emails (${detail?.emailLogs.length || 0})` },
-    { id: 'plan' as const, label: 'Plan' },
+    // ❌ DISABLED: PHASE 2 feature
+    // { id: 'plan' as const, label: 'Plan' },
     { id: 'dunning' as const, label: 'Dunning' },
   ];
 
@@ -535,7 +538,7 @@ const InvoiceDetail: React.FC = () => {
           </div>
         )}
 
-        {/* Plan */}
+        {/* ❌ DISABLED: PHASE 2 feature - Plan Tab
         {tab === 'plan' && (
           <div className="space-y-4">
             {detail?.paymentPlan ? (
@@ -605,6 +608,7 @@ const InvoiceDetail: React.FC = () => {
             )}
           </div>
         )}
+        */}
 
         {/* Dunning */}
         {tab === 'dunning' && (

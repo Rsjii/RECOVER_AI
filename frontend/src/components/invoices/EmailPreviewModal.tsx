@@ -6,7 +6,8 @@ import { API_ENDPOINTS } from '../../lib/constants';
 const EMAIL_TYPES = [
   { value: 'dunning_1', label: 'Email 1 — Friendly reminder (Day 0)' },
   { value: 'dunning_2', label: 'Email 2 — Getting overdue (Day 7)' },
-  { value: 'dunning_3', label: 'Email 3 — Payment plan offer (Day 14)' },
+  // ❌ DISABLED: PHASE 2 feature - Payment plan offer
+  // { value: 'dunning_3', label: 'Email 3 — Payment plan offer (Day 14)' },
   { value: 'dunning_4', label: 'Email 4 — Formal notice (Day 30)' },
   { value: 'dunning_5', label: 'Email 5 — Escalation (Day 60)' },
 ];
@@ -33,17 +34,18 @@ interface EmailPreviewModalProps {
 const CONFIDENCE_BY_TYPE: Record<string, number> = {
   dunning_1: 68,
   dunning_2: 55,
-  dunning_3: 48,
+  // ❌ DISABLED: PHASE 2 feature - dunning_3: 48,
   dunning_4: 38,
   dunning_5: 28,
-  payment_plan_offer: 72,
+  // ❌ DISABLED: PHASE 2 feature - payment_plan_offer: 72,
 };
 
 // Helper to recommend dunning type based on days overdue
 function getRecommendedType(days: number): string {
   if (days <= 15) return 'dunning_1';
   if (days <= 30) return 'dunning_2';
-  if (days <= 60) return 'dunning_3';
+  // ❌ DISABLED: PHASE 2 - dunning_3 (payment plan offer)
+  // if (days <= 60) return 'dunning_3';
   if (days <= 90) return 'dunning_4';
   return 'dunning_5';
 }

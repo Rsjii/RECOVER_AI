@@ -3,7 +3,7 @@ import * as InvoiceDB from '../db/invoices';
 import * as CustomerDB from '../db/customers';
 import * as PaymentDB from '../db/payments';
 import { listEmailLogs } from '../db/emailLogs';
-import { findPaymentPlanByInvoice } from '../db/paymentPlans';
+// import { findPaymentPlanByInvoice } from '../db/paymentPlans';  // ❌ DISABLED: PHASE 2 feature
 import { logError as baseLogError, logInfo as baseLogInfo } from '../utils/logger';
 import { sendErrorResponse, parseError } from '../utils/errorHandler';
 import { DUNNING_DECISION_TREE } from '../queue/agentLoop';
@@ -213,11 +213,13 @@ export const getInvoiceDetail = async (req: Request, res: Response) => {
     const invoice = await InvoiceDB.findInvoiceById(id, companyId);
     if (!invoice) return sendErrorResponse(res, 404, 'Invoice not found');
 
-    const [payments, emailLogs, paymentPlan] = await Promise.all([
+    // const paymentPlan = await findPaymentPlanByInvoice(id, companyId);  // ❌ DISABLED: PHASE 2 feature
+    const [payments, emailLogs] = await Promise.all([
       PaymentDB.listPaymentsByInvoice(id, companyId),
       listEmailLogs(companyId, id),
-      findPaymentPlanByInvoice(id, companyId),
+      // findPaymentPlanByInvoice(id, companyId),  // ❌ DISABLED: PHASE 2 feature
     ]);
+    const paymentPlan = null;  // ❌ DISABLED: PHASE 2 feature
 
     // Calculate dunning status with correct email type suggestion
     const emailTypesSent = emailLogs

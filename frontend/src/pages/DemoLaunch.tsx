@@ -21,10 +21,10 @@ interface DemoPreview {
 const EMAIL_TYPE_LABELS: Record<string, string> = {
   dunning_1: 'Friendly reminder',
   dunning_2: 'Overdue notice',
-  dunning_3: 'Urgent — payment plan offered',
+  // ❌ DISABLED: PHASE 2 - dunning_3: 'Urgent — payment plan offered',
   dunning_4: 'Formal notice',
   dunning_5: 'Final escalation',
-  payment_plan_offer: 'Payment plan offer',
+  // ❌ DISABLED: PHASE 2 - payment_plan_offer: 'Payment plan offer',
 };
 
 const RISK_COLOR = (score: number) =>
@@ -110,10 +110,12 @@ const DemoLaunch: React.FC = () => {
               <div className="text-2xl font-bold text-blue-600">{preview.emailsWouldQueue}</div>
               <div className="text-xs text-gray-500 mt-1">Emails ready to send</div>
             </div>
+            {/* ❌ DISABLED: PHASE 2 - Payment plans card
             <div className="bg-white dark:bg-[#111113] rounded-xl border border-gray-200 dark:border-white/[0.06] p-4 text-center">
               <div className="text-2xl font-bold text-purple-600">{preview.plansWouldOffer}</div>
               <div className="text-xs text-gray-500 mt-1">Payment plans offered</div>
             </div>
+            */}
             <div className="bg-white dark:bg-[#111113] rounded-xl border border-gray-200 dark:border-white/[0.06] p-4 text-center">
               <div className="text-2xl font-bold text-green-600">
                 ${preview.estimatedRecoveryUsd.toLocaleString()}

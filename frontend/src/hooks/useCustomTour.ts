@@ -92,7 +92,7 @@ export const mainDashboardTour: TourConfig = {
       id: 'invoices',
       title: '💰 Invoices',
       description:
-        'View all invoices, status, and AI risk scores. Click any invoice to see email history and payment plans offered.',
+        'View all invoices, status, and AI risk scores. Click any invoice to see email history.',
       target: '[data-tour="sidebar-invoices"]',
     },
     {

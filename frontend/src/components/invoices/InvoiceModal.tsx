@@ -21,13 +21,14 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ invoice, isOpen, onC
   const [detail, setDetail] = useState<InvoiceDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [updating, setUpdating] = useState(false);
-  const [tab, setTab] = useState<'details' | 'payments' | 'emails' | 'plan'>('details');
+  const [tab, setTab] = useState<'details' | 'payments' | 'emails'>('details');  // ❌ Removed 'plan' (PHASE 2)
   const isDemo = typeof window !== 'undefined' && localStorage.getItem('isDemo') === 'true';
 
-  // Plan creation state
-  const [creatingPlan, setCreatingPlan] = useState(false);
-  const [planForm, setPlanForm] = useState({ installments: 3 });
-  const [planSubmitting, setPlanSubmitting] = useState(false);
+  // ❌ DISABLED: PHASE 2 feature
+  // // Plan creation state
+  // const [creatingPlan, setCreatingPlan] = useState(false);
+  // const [planForm, setPlanForm] = useState({ installments: 3 });
+  // const [planSubmitting, setPlanSubmitting] = useState(false);
 
   // Edit state
   const [isEditing, setIsEditing] = useState(false);
@@ -42,7 +43,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ invoice, isOpen, onC
   useEffect(() => {
     if (invoice && isOpen) {
       setTab('details');
-      setCreatingPlan(false);
+      // setCreatingPlan(false);  // ❌ DISABLED: PHASE 2 feature
       setIsEditing(false);
       setLoading(true);
       api.get<{ data: InvoiceDetail }>(API_ENDPOINTS.invoices.detailFull(invoice.id))
@@ -85,23 +86,24 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ invoice, isOpen, onC
     }
   };
 
-  const handleCreatePlan = async () => {
-    if (!invoice) return;
-    setPlanSubmitting(true);
-    try {
-      await api.post(API_ENDPOINTS.paymentPlans.create, {
-        invoiceId: invoice.id,
-        numberOfInstallments: planForm.installments,
-      });
-      addToast({ type: 'success', message: `Payment plan created (${planForm.installments} installments)` });
-      setCreatingPlan(false);
-      // Reload detail
-      const res: any = await api.get(API_ENDPOINTS.invoices.detailFull(invoice.id));
-      setDetail(res.data || res);
-    } catch (err: any) {
-      addToast({ type: 'error', message: err.message || 'Failed to create plan' });
-    } finally { setPlanSubmitting(false); }
-  };
+  // ❌ DISABLED: PHASE 2 feature
+  // const handleCreatePlan = async () => {
+  //   if (!invoice) return;
+  //   setPlanSubmitting(true);
+  //   try {
+  //     await api.post(API_ENDPOINTS.paymentPlans.create, {
+  //       invoiceId: invoice.id,
+  //       numberOfInstallments: planForm.installments,
+  //     });
+  //     addToast({ type: 'success', message: `Payment plan created (${planForm.installments} installments)` });
+  //     setCreatingPlan(false);
+  //     // Reload detail
+  //     const res: any = await api.get(API_ENDPOINTS.invoices.detailFull(invoice.id));
+  //     setDetail(res.data || res);
+  //   } catch (err: any) {
+  //     addToast({ type: 'error', message: err.message || 'Failed to create plan' });
+  //   } finally { setPlanSubmitting(false); }
+  // };
 
   const handleSaveEdit = async () => {
     if (!invoice || !detail) return;
@@ -147,7 +149,8 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ invoice, isOpen, onC
     { id: 'details' as const, label: 'Details' },
     { id: 'payments' as const, label: `Payments (${detail?.payments.length || 0})` },
     { id: 'emails' as const, label: `Emails (${detail?.emailLogs.length || 0})` },
-    { id: 'plan' as const, label: 'Plan' },
+    // ❌ DISABLED: PHASE 2 feature
+    // { id: 'plan' as const, label: 'Plan' },
   ];
 
   return (
@@ -363,8 +366,8 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ invoice, isOpen, onC
               )
           )}
 
-          {/* Plan Tab */}
-          {tab === 'plan' && (
+          {/* ❌ DISABLED: PHASE 2 feature - Plan Tab */}
+          {/* {tab === 'plan' && (
             <div className="space-y-4">
               {detail?.paymentPlan ? (
                 <div className="space-y-3">
@@ -436,7 +439,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ invoice, isOpen, onC
                 </div>
               )}
             </div>
-          )}
+          )} */}
         </div>
       )}
     </Modal>

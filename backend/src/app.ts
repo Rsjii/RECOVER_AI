@@ -10,7 +10,7 @@ import stripeRoutes from './routes/stripe';
 import twilioRoutes from './routes/twilio';
 import aiRoutes from './routes/ai';
 import emailRoutes from './routes/email';
-import paymentPlanRoutes from './routes/paymentPlan';
+// import paymentPlanRoutes from './routes/paymentPlan';  // ❌ DISABLED: PHASE 2 feature
 import dashboardRoutes from './routes/dashboard';
 import invoiceRoutes from './routes/invoices';
 import customerRoutes from './routes/customers';
@@ -189,7 +189,7 @@ app.use('/api/audits/send-otp', auditOtpLimiter);
 app.use('/api/audits/verify-otp', auditOtpLimiter);
 app.use('/api/pilots/request', publicFormLimiter);
 app.use('/api/pilots/setup-password', authLimiter);
-app.use('/api/payment-plans/accept', publicFormLimiter);
+// app.use('/api/payment-plans/accept', publicFormLimiter);  // ❌ DISABLED: PHASE 2 feature
 // Global API limiter (applies to all remaining /api/ routes)
 app.use('/api/', apiLimiter);
 
@@ -206,7 +206,7 @@ app.use('/api/stripe', stripeRoutes);
 app.use('/api/twilio', twilioRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/email', emailRoutes);
-app.use('/api/payment-plans', paymentPlanRoutes);
+// app.use('/api/payment-plans', paymentPlanRoutes);  // ❌ DISABLED: PHASE 2 feature
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/invoices', invoiceRoutes);
 app.use('/api/customers', customerRoutes);

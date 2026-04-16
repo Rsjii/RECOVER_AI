@@ -3,7 +3,7 @@ import { authMiddleware } from '../middleware/auth';
 import { requireActiveSubscription } from '../middleware/subscriptionGate';
 import { checkTrialStatus, requireNotTrial } from '../middleware/trialGating';
 import { demoBlocker } from '../middleware/demoBlocker';
-import { getStats, getPipeline, getRiskList, getRecoveryTimeline, getAtRisk, getCashPositionHandler, updateCashBalanceHandler, updateBurnRateHandler, getWhatIfHandler, getRunwayHandler, getCashLeakageHandler, getKpi, getAgingAnalysisHandler, getEmailAnalyticsHandler, getRiskDriversHandler, getPaymentPlansSummaryHandler, getPaymentEvents, getSmsActivity, getWorkingCapitalFreedHandler, getDSOReductionHandler, getHoursSavedHandler, getCashForecastHandler, getVoiceStatsHandler, getRecoveryToday, getTrialAnalysis } from '../controllers/dashboardController';
+import { getStats, getPipeline, getRiskList, getRecoveryTimeline, getAtRisk, getCashPositionHandler, updateCashBalanceHandler, updateBurnRateHandler, getWhatIfHandler, getRunwayHandler, getCashLeakageHandler, getKpi, getAgingAnalysisHandler, getEmailAnalyticsHandler, getRiskDriversHandler, /*getPaymentPlansSummaryHandler,*/ getPaymentEvents, getSmsActivity, getWorkingCapitalFreedHandler, getDSOReductionHandler, getHoursSavedHandler, getCashForecastHandler, getVoiceStatsHandler, getRecoveryToday, getTrialAnalysis } from '../controllers/dashboardController';  // ❌ getPaymentPlansSummaryHandler disabled (PHASE 2)
 import { runDecisionEngineNow, runDecisionEngineDryRun } from '../queue/agentLoop';
 import { findInvoiceById } from '../db/invoices';
 import { findCompanyById } from '../db/companies';
@@ -60,7 +60,7 @@ router.get('/kpi', getKpi);
 router.get('/aging-analysis', getAgingAnalysisHandler);
 router.get('/email-analytics', getEmailAnalyticsHandler);
 router.get('/risk-drivers', getRiskDriversHandler);
-router.get('/payment-plans-summary', getPaymentPlansSummaryHandler);
+// router.get('/payment-plans-summary', getPaymentPlansSummaryHandler);  // ❌ DISABLED: PHASE 2 feature
 router.get('/payment-events', getPaymentEvents);
 router.get('/sms-activity', getSmsActivity);
 router.get('/working-capital-freed', getWorkingCapitalFreedHandler);

@@ -225,7 +225,7 @@ export const AuditReport: React.FC = () => {
             Ready to Automate Cash Recovery?
           </h2>
           <p className="text-slate-600 dark:text-slate-300 text-sm sm:text-base mb-8 max-w-2xl mx-auto">
-            Our AI agent handles collections, payment plans, and forecasting — 24/7. No manual work needed.
+            Our AI agent handles collections and dunning — 24/7. No manual work needed. (Payment plans coming Phase 2)
           </p>
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center mb-6">

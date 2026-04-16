@@ -16,7 +16,7 @@ const CustomerDetail: React.FC = () => {
 
   const [detail, setDetail] = useState<CustomerDetailType | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<'overview' | 'invoices' | 'emails' | 'plans'>('overview');
+  const [tab, setTab] = useState<'overview' | 'invoices' | 'emails'>('overview');  // ❌ DISABLED: 'plans' (PHASE 2)
   const [updatingEmail, setUpdatingEmail] = useState(false);
   const [editingEmail, setEditingEmail] = useState(false);
   const [emailInput, setEmailInput] = useState('');
@@ -115,7 +115,8 @@ const CustomerDetail: React.FC = () => {
     { id: 'overview' as const, label: 'Overview' },
     { id: 'invoices' as const, label: `Invoices (${detail.invoices.length})` },
     { id: 'emails' as const, label: `Emails (${detail.emailLogs.length})` },
-    { id: 'plans' as const, label: `Plans (${detail.paymentPlans.length})` },
+    // ❌ DISABLED: PHASE 2 feature - Payment plans
+    // { id: 'plans' as const, label: `Plans (${detail.paymentPlans.length})` },
   ];
 
   return (
@@ -403,7 +404,7 @@ const CustomerDetail: React.FC = () => {
             </div>
           )}
 
-          {/* Plans Tab */}
+          {/* ❌ DISABLED: PHASE 2 feature - Payment plans tab
           {tab === 'plans' && (
             <div className="space-y-3 max-h-96 overflow-y-auto">
               {detail.paymentPlans.length === 0 ? (
@@ -438,6 +439,7 @@ const CustomerDetail: React.FC = () => {
               )}
             </div>
           )}
+          */}
         </Card>
       </div>
     </>

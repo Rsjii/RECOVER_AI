@@ -70,6 +70,8 @@ const Signup: React.FC = () => {
       scope,
       response_type: responseType,
       state,
+      prompt: 'select_account consent',  // Show account selector + consent screen
+      access_type: 'offline',  // Get refresh token for offline access
     });
 
     window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;

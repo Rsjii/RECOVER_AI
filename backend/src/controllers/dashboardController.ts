@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { getRecoveryStats, getInvoicePipeline, getCustomerRiskList, getDashboardKpi, getAgingAnalysis, getEmailAnalytics, getRiskDrivers, getPaymentPlansSummary, getWorkingCapitalFreed, getDSOReduction, getHoursSaved } from '../db/dashboard';
+import { getRecoveryStats, getInvoicePipeline, getCustomerRiskList, getDashboardKpi, getAgingAnalysis, getEmailAnalytics, getRiskDrivers, /*getPaymentPlansSummary,*/ getWorkingCapitalFreed, getDSOReduction, getHoursSaved } from '../db/dashboard';  // ❌ getPaymentPlansSummary disabled (PHASE 2)
 import { listPaymentsByCompany } from '../db/payments';
 import { pool } from '../config/database';
 import { logError, logInfo } from '../utils/logger';
@@ -331,22 +331,23 @@ export const getRiskDriversHandler = async (req: Request, res: Response): Promis
 };
 
 /**
+ * ❌ DISABLED: PHASE 2 feature
  * GET /api/dashboard/payment-plans-summary
  * Active plans, acceptance %, completion %, total value, recent plans list
  */
-export const getPaymentPlansSummaryHandler = async (req: Request, res: Response): Promise<void> => {
-  const handler = 'getPaymentPlansSummary';
-  const companyId = (req as any).companyId;
-  try {
-    const summary = await getPaymentPlansSummary(companyId);
-    logInfo(LOG_MODULE, handler, 'Payment plans summary fetched', { companyId, active: summary.activePlans });
-    res.status(200).json({ data: summary });
-  } catch (error) {
-    logError(LOG_MODULE, handler, 'Failed to get payment plans summary', error);
-    const { statusCode, message } = parseError(error);
-    sendErrorResponse(res, statusCode, message);
-  }
-};
+// export const getPaymentPlansSummaryHandler = async (req: Request, res: Response): Promise<void> => {
+//   const handler = 'getPaymentPlansSummary';
+//   const companyId = (req as any).companyId;
+//   try {
+//     const summary = await getPaymentPlansSummary(companyId);
+//     logInfo(LOG_MODULE, handler, 'Payment plans summary fetched', { companyId, active: summary.activePlans });
+//     res.status(200).json({ data: summary });
+//   } catch (error) {
+//     logError(LOG_MODULE, handler, 'Failed to get payment plans summary', error);
+//     const { statusCode, message } = parseError(error);
+//     sendErrorResponse(res, statusCode, message);
+//   }
+// };
 
 /**
  * GET /api/dashboard/payment-events

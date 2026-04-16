@@ -135,8 +135,9 @@ export const getCustomer = async (req: Request, res: Response): Promise<void> =>
       return;
     }
 
-    // Get their invoices + payment plans + email logs in parallel
-    const [invoiceResult, emailLogsResult, paymentPlansResult] = await Promise.all([
+    // Get their invoices + email logs in parallel
+    // ❌ DISABLED payment plans query (PHASE 2 feature)
+    const [invoiceResult, emailLogsResult] = await Promise.all([
       InvoiceDB.listInvoices(companyId, { customerId: id as string }, 100, 0),
       pool.query(
         `SELECT el.*, i.due_date, i.amount, i.currency
@@ -147,15 +148,17 @@ export const getCustomer = async (req: Request, res: Response): Promise<void> =>
          LIMIT 100`,
         [companyId, id]
       ),
-      pool.query(
-        `SELECT pp.*, i.amount, i.currency, i.status as invoice_status
-         FROM payment_plans pp
-         JOIN invoices i ON pp.invoice_id = i.id
-         WHERE pp.company_id = $1 AND i.customer_id = $2
-         ORDER BY pp.created_at DESC`,
-        [companyId, id]
-      ),
+      // ❌ DISABLED: PHASE 2 feature
+      // pool.query(
+      //   `SELECT pp.*, i.amount, i.currency, i.status as invoice_status
+      //    FROM payment_plans pp
+      //    JOIN invoices i ON pp.invoice_id = i.id
+      //    WHERE pp.company_id = $1 AND i.customer_id = $2
+      //    ORDER BY pp.created_at DESC`,
+      //   [companyId, id]
+      // ),
     ]);
+    const paymentPlansResult = { rows: [] };  // ❌ DISABLED: PHASE 2 feature
 
     // Calculate stats from actual fetched data (not from customer.payment_history which may be null)
     const unpaidInvoices = invoiceResult.data.filter(inv => inv.status === 'unpaid');

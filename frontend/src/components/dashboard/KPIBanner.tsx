@@ -316,12 +316,14 @@ export const KPIBanner: React.FC<KPIBannerProps> = ({
               </p>
             </div>
 
+            {/* ❌ DISABLED: PHASE 2 feature
             <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
               <p className="text-sm font-semibold text-blue-900 dark:text-blue-200 mb-2">📝 PHASE 2+ Addition</p>
               <p className="text-sm text-blue-800 dark:text-blue-300">
                 When payment plans are enabled (Phase 2), we'll add 30 min per plan offer to this calculation.
               </p>
             </div>
+            */}
           </div>
         </DashboardDetailModal>
       )}
