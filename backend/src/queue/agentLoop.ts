@@ -435,6 +435,21 @@ async function runDecisionEngine(): Promise<{
             daysOverdue,
             dunningEmailsSent: invoice.dunning_emails_sent,
           });
+          // Log decision for learning system (fire-and-forget)
+          try {
+            await logAgentDecision({
+              companyId: invoice.company_id,
+              invoiceId: invoice.id,
+              customerId: invoice.customer_id,
+              decisionType: 'sms_queued',
+              pilotMode: invoice.company_pilot_mode || undefined,
+              daysOverdue,
+              riskScore: invoice.customer_risk_score || undefined,
+              reason: `SMS triggered at day ${daysOverdue} (after ${invoice.dunning_emails_sent} emails)`,
+            });
+          } catch (_err) {
+            // Swallow errors - non-critical
+          }
         }
       }
 

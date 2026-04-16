@@ -811,3 +811,320 @@ export const switchEmailMode = async (req: Request, res: Response): Promise<void
     sendErrorResponse(res, statusCode, message);
   }
 };
+
+/**
+ * GET /api/settings/sms
+ * Fetch current SMS settings for the company
+ */
+export const getSMSSettings = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'getSMSSettings';
+  const companyId = (req as any).companyId;
+
+  try {
+    const result = await pool.query(
+      `SELECT sms_enabled, sms_tone, sms_day_threshold FROM companies WHERE id = $1`,
+      [companyId]
+    );
+
+    if (result.rows.length === 0) {
+      sendErrorResponse(res, 404, 'Company not found');
+      return;
+    }
+
+    const settings = result.rows[0];
+
+    logInfo(LOG_MODULE, handler, 'SMS settings fetched', { companyId });
+
+    res.status(200).json({
+      data: {
+        sms_enabled: settings.sms_enabled,
+        sms_tone: settings.sms_tone,
+        sms_day_threshold: settings.sms_day_threshold,
+      },
+    });
+  } catch (error) {
+    logError(LOG_MODULE, handler, 'Failed to fetch SMS settings', error);
+    const { statusCode, message } = parseError(error);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
+
+/**
+ * PATCH /api/settings/sms
+ * Update SMS settings for the company
+ */
+export const updateSMSSettings = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'updateSMSSettings';
+  const companyId = (req as any).companyId;
+  const { sms_enabled, sms_tone, sms_day_threshold } = req.body;
+
+  try {
+    // Validate inputs
+    if (sms_enabled !== undefined && typeof sms_enabled !== 'boolean') {
+      sendErrorResponse(res, 400, 'sms_enabled must be a boolean');
+      return;
+    }
+
+    if (sms_tone !== undefined && !['friendly', 'professional', 'stern'].includes(sms_tone)) {
+      sendErrorResponse(res, 400, 'sms_tone must be friendly, professional, or stern');
+      return;
+    }
+
+    if (sms_day_threshold !== undefined) {
+      const day = parseInt(sms_day_threshold);
+      if (isNaN(day) || day < 1 || day > 90) {
+        sendErrorResponse(res, 400, 'sms_day_threshold must be between 1 and 90');
+        return;
+      }
+    }
+
+    // Build update query dynamically based on provided fields
+    const updateFields: string[] = [];
+    const updateValues: any[] = [companyId];
+    let paramIndex = 2;
+
+    if (sms_enabled !== undefined) {
+      updateFields.push(`sms_enabled = $${paramIndex++}`);
+      updateValues.push(sms_enabled);
+    }
+
+    if (sms_tone !== undefined) {
+      updateFields.push(`sms_tone = $${paramIndex++}`);
+      updateValues.push(sms_tone);
+    }
+
+    if (sms_day_threshold !== undefined) {
+      updateFields.push(`sms_day_threshold = $${paramIndex++}`);
+      updateValues.push(parseInt(sms_day_threshold));
+    }
+
+    if (updateFields.length === 0) {
+      sendErrorResponse(res, 400, 'No fields to update');
+      return;
+    }
+
+    // Execute update
+    await pool.query(
+      `UPDATE companies SET ${updateFields.join(', ')}, updated_at = NOW() WHERE id = $1`,
+      updateValues
+    );
+
+    logInfo(LOG_MODULE, handler, 'SMS settings updated', {
+      companyId,
+      updatedFields: updateFields.length,
+    });
+
+    // Fetch updated settings
+    const result = await pool.query(
+      `SELECT sms_enabled, sms_tone, sms_day_threshold FROM companies WHERE id = $1`,
+      [companyId]
+    );
+
+    const settings = result.rows[0];
+
+    res.status(200).json({
+      data: {
+        message: 'SMS settings updated successfully',
+        sms_enabled: settings.sms_enabled,
+        sms_tone: settings.sms_tone,
+        sms_day_threshold: settings.sms_day_threshold,
+      },
+    });
+  } catch (error) {
+    logError(LOG_MODULE, handler, 'Failed to update SMS settings', error);
+    const { statusCode, message } = parseError(error);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
+
+/**
+ * GET /api/settings/twilio
+ * Get customer's Twilio configuration status
+ */
+export const getTwilioConfig = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'getTwilioConfig';
+  const companyId = (req as any).companyId;
+
+  try {
+    const company = await findCompanyById(companyId);
+    if (!company) {
+      sendErrorResponse(res, 404, 'Company not found');
+      return;
+    }
+
+    const configured = !!(company as any).twilio_configured;
+    const phoneNumber = configured ? (company as any).twilio_phone_number : null;
+    const lastVerifiedAt = configured ? (company as any).twilio_last_verified_at : null;
+
+    res.status(200).json({
+      data: {
+        configured,
+        phoneNumber,
+        lastVerifiedAt,
+      },
+    });
+  } catch (error) {
+    logError(LOG_MODULE, handler, 'Failed to get Twilio config', error);
+    const { statusCode, message } = parseError(error);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
+
+/**
+ * POST /api/settings/twilio/configure
+ * Save customer's Twilio credentials (Account SID, Auth Token, Phone Number)
+ */
+export const configureTwilio = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'configureTwilio';
+  const companyId = (req as any).companyId;
+  const { accountSid, authToken, phoneNumber } = req.body;
+
+  try {
+    // Validate inputs
+    if (!accountSid || !authToken || !phoneNumber) {
+      sendErrorResponse(res, 400, 'accountSid, authToken, and phoneNumber are required');
+      return;
+    }
+
+    if (!/^\+?[1-9]\d{7,14}$/.test(phoneNumber.replace(/[\s\-().]/g, ''))) {
+      sendErrorResponse(res, 400, 'Invalid phone number format');
+      return;
+    }
+
+    // Encrypt credentials
+    const { encrypt } = await import('../utils/encryption');
+    const encryptedSid = encrypt(accountSid);
+    const encryptedToken = encrypt(authToken);
+
+    // Update company with encrypted credentials
+    const result = await pool.query(
+      `UPDATE companies
+       SET twilio_account_sid_encrypted = $1,
+           twilio_auth_token_encrypted = $2,
+           twilio_phone_number = $3,
+           twilio_configured = true,
+           twilio_last_verified_at = NOW(),
+           updated_at = NOW()
+       WHERE id = $4
+       RETURNING twilio_phone_number, twilio_last_verified_at`,
+      [encryptedSid, encryptedToken, phoneNumber, companyId]
+    );
+
+    if (result.rows.length === 0) {
+      sendErrorResponse(res, 404, 'Company not found');
+      return;
+    }
+
+    logInfo(LOG_MODULE, handler, 'Twilio credentials configured', {
+      companyId,
+      phoneNumber,
+    });
+
+    res.status(200).json({
+      data: {
+        message: 'Twilio credentials configured successfully',
+        phoneNumber: result.rows[0].twilio_phone_number,
+        lastVerifiedAt: result.rows[0].twilio_last_verified_at,
+      },
+    });
+  } catch (error) {
+    logError(LOG_MODULE, handler, 'Failed to configure Twilio', error);
+    const { statusCode, message } = parseError(error);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
+
+/**
+ * POST /api/settings/twilio/test
+ * Test Twilio credentials by making API call
+ */
+export const testTwilio = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'testTwilio';
+  const companyId = (req as any).companyId;
+  const { accountSid, authToken, phoneNumber } = req.body;
+
+  try {
+    // Validate inputs
+    if (!accountSid || !authToken || !phoneNumber) {
+      sendErrorResponse(res, 400, 'accountSid, authToken, and phoneNumber are required');
+      return;
+    }
+
+    const { encrypt } = await import('../utils/encryption');
+    const { testTwilioCredentials } = await import('../services/smsService');
+
+    // Encrypt for testing
+    const encryptedSid = encrypt(accountSid);
+    const encryptedToken = encrypt(authToken);
+
+    // Test credentials
+    const testResult = await testTwilioCredentials(encryptedSid, encryptedToken, phoneNumber);
+
+    if (!testResult.valid) {
+      res.status(400).json({
+        data: {
+          valid: false,
+          error: testResult.error || 'Invalid Twilio credentials',
+        },
+      });
+      return;
+    }
+
+    logInfo(LOG_MODULE, handler, 'Twilio credentials tested successfully', {
+      companyId,
+      phoneNumber,
+    });
+
+    res.status(200).json({
+      data: {
+        valid: true,
+        message: 'Twilio credentials are valid',
+      },
+    });
+  } catch (error) {
+    logError(LOG_MODULE, handler, 'Failed to test Twilio credentials', error);
+    const { statusCode, message } = parseError(error);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
+
+/**
+ * POST /api/settings/twilio/disconnect
+ * Remove customer's Twilio configuration
+ */
+export const disconnectTwilio = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'disconnectTwilio';
+  const companyId = (req as any).companyId;
+
+  try {
+    const result = await pool.query(
+      `UPDATE companies
+       SET twilio_account_sid_encrypted = NULL,
+           twilio_auth_token_encrypted = NULL,
+           twilio_phone_number = NULL,
+           twilio_configured = false,
+           twilio_last_verified_at = NULL,
+           updated_at = NOW()
+       WHERE id = $1
+       RETURNING id`,
+      [companyId]
+    );
+
+    if (result.rows.length === 0) {
+      sendErrorResponse(res, 404, 'Company not found');
+      return;
+    }
+
+    logInfo(LOG_MODULE, handler, 'Twilio configuration disconnected', { companyId });
+
+    res.status(200).json({
+      data: {
+        message: 'Twilio configuration removed successfully',
+      },
+    });
+  } catch (error) {
+    logError(LOG_MODULE, handler, 'Failed to disconnect Twilio', error);
+    const { statusCode, message } = parseError(error);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
