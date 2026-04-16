@@ -55,12 +55,28 @@ export async function listCustomers(
   const baseQuery = `
     SELECT c.*,
       c.customer_risk_score,
+      c.payment_insights,
       MAX(i.last_decline_type) AS last_decline_type,
       COALESCE(SUM(CASE WHEN i.status NOT IN ('paid','uncollectable') THEN i.amount ELSE 0 END), 0) AS total_ar_balance,
-      MAX(p.paid_at) AS last_payment_date
+      (SELECT COUNT(*) FROM invoices WHERE customer_id = c.id AND company_id = c.company_id AND status NOT IN ('paid','uncollectable')) AS unpaid_invoice_count,
+      json_build_object(
+        'stage_2_count', COUNT(DISTINCT i.id) FILTER (WHERE i.dunning_stage = 2),
+        'stage_3_count', COUNT(DISTINCT i.id) FILTER (WHERE i.dunning_stage = 3),
+        'sms_eligible_count', COUNT(DISTINCT i.id) FILTER (WHERE i.dunning_stage >= 2
+          AND COALESCE(i.sms_count, 0) = 0
+          AND EXTRACT(DAY FROM NOW() - i.due_date) >= 7
+          AND c.phone_opt_in = true)
+      ) AS dunning_summary,
+      json_build_object(
+        'pending', COALESCE((SELECT COUNT(*) FROM pilot_queued_emails pq
+                             WHERE pq.customer_id = c.id AND pq.status = 'pending'), 0),
+        'sent', COALESCE((SELECT COUNT(*) FROM pilot_queued_emails pq
+                          WHERE pq.customer_id = c.id AND pq.status = 'sent'), 0),
+        'failed', COALESCE((SELECT COUNT(*) FROM pilot_queued_emails pq
+                            WHERE pq.customer_id = c.id AND pq.status = 'failed'), 0)
+      ) AS queue_summary
     FROM customers c
     LEFT JOIN invoices i ON i.customer_id = c.id AND i.company_id = c.company_id
-    LEFT JOIN payments p ON p.invoice_id = i.id AND p.company_id = c.company_id
     WHERE c.company_id = $1
       ${riskFilter ? `AND ${riskFilter.replace('WHERE ', '')}` : ''}
     GROUP BY c.id

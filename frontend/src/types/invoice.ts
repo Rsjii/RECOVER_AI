@@ -16,7 +16,23 @@ export interface Customer {
   customer_risk_score?: number | null;  // Calculated customer payment risk (0-100)
   last_decline_type?: string | null;
   total_ar_balance?: number;
-  last_payment_date?: string | null;
+  unpaid_invoice_count?: number;  // Count of unpaid invoices for this customer
+  payment_insights?: {
+    reliability_pct?: number;
+    avg_days_to_pay?: number;
+    avg_emails_before_payment?: number;
+    dso_trend?: 'improving' | 'stable' | 'worsening';
+  } | null;
+  dunning_summary?: {
+    stage_2_count: number;
+    stage_3_count: number;
+    sms_eligible_count: number;
+  };
+  queue_summary?: {
+    pending: number;
+    sent: number;
+    failed: number;
+  };
   payment_history: {
     on_time_rate: number;
     avg_days_late: number;
@@ -45,8 +61,11 @@ export interface Invoice {
   dunning_paused_until?: string | null;
   dunning_stopped?: boolean;
   dunning_stage?: number;
+  dunning_emails_sent?: number;
+  sms_count?: number;
   next_action?: string;
   email_types_sent?: string[];
+  latest_queue_status?: string;
 }
 
 export interface DunningStatus {

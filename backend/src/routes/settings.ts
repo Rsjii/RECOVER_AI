@@ -27,6 +27,11 @@ import {
   configureTwilio,
   testTwilio,
   disconnectTwilio,
+  updateSMSEscalation,
+  updateSMSRetry,
+  updateSMSCompliance,
+  getSMSOptOuts,
+  reOptInSMS,
 } from '../controllers/settingsController';
 import {
   getSMTPStatusHandler,
@@ -71,6 +76,12 @@ router.post('/smtp/disable', requireRole('admin'), disableSmtpHandler);
 // SMS Settings
 router.get('/sms', getSMSSettings);
 router.patch('/sms', requireRole('admin'), updateSMSSettings);
+// NEW: SMS escalation, retry, compliance
+router.patch('/sms/escalation', requireRole('admin'), updateSMSEscalation);
+router.patch('/sms/retry', requireRole('admin'), updateSMSRetry);
+router.patch('/sms/compliance', requireRole('admin'), updateSMSCompliance);
+router.get('/sms/opt-outs', getSMSOptOuts);
+router.post('/sms/opt-outs/:customerId/re-enable', requireRole('admin'), reOptInSMS);
 
 // Twilio SMS Configuration (Customer's own account)
 router.get('/twilio', getTwilioConfig);

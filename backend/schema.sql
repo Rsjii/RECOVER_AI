@@ -92,6 +92,21 @@ CREATE TABLE IF NOT EXISTS companies (
   sms_tone                   VARCHAR(20) DEFAULT 'professional',  -- friendly | professional | stern
   sms_day_threshold          INT DEFAULT 7,                 -- day to send SMS (default: day 7+)
 
+  -- SMS Escalation Logic (NEW)
+  sms_escalation_enabled     BOOLEAN DEFAULT true,          -- Send SMS after email fails?
+  sms_escalate_after_emails  INT DEFAULT 2,                 -- After how many emails?
+  sms_max_per_invoice        INT DEFAULT 2,                 -- Max SMS per invoice (1, 2, or 3)
+
+  -- SMS Retry Config (NEW)
+  sms_retry_enabled          BOOLEAN DEFAULT true,
+  sms_retry_hours            INT DEFAULT 24,
+  sms_max_retries            INT DEFAULT 2,
+
+  -- SMS Compliance (NEW)
+  sms_tcpa_enabled           BOOLEAN DEFAULT false,         -- Only send 8am-9pm Eastern?
+  sms_weekend_blackout       BOOLEAN DEFAULT false,         -- Skip weekends?
+  sms_require_opt_in         BOOLEAN DEFAULT false,         -- Require explicit opt-in?
+
   -- Twilio SMS Configuration (Customer's own account - "Bring Your Own")
   twilio_account_sid_encrypted TEXT,                        -- Customer's Twilio Account SID (encrypted)
   twilio_auth_token_encrypted TEXT,                         -- Customer's Twilio Auth Token (encrypted)
@@ -227,7 +242,7 @@ CREATE TABLE IF NOT EXISTS email_logs (
   id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   invoice_id          UUID NOT NULL REFERENCES invoices(id) ON DELETE CASCADE,
   company_id          UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
-  email_type          VARCHAR(50) NOT NULL,    -- dunning_1 | dunning_2 | dunning_3 | dunning_4 | dunning_5 | payment_plan_offer
+  email_type          VARCHAR(50) NOT NULL,    -- EMAILS: dunning_tier_1 | dunning_tier_2 | dunning_tier_3 | dunning_tier_4 | dunning_tier_5 | payment_plan_offer | SMS: sms_tier_1 | sms_tier_2 | sms_final
   recipient_email     VARCHAR NOT NULL,
   subject             VARCHAR NOT NULL,
   body                TEXT NOT NULL,
@@ -1057,9 +1072,15 @@ CREATE TABLE IF NOT EXISTS pilot_queued_emails (
   customer_name         VARCHAR NOT NULL,
   invoice_amount        DECIMAL(12,2) NOT NULL,
   days_overdue          INT NOT NULL,
-  email_type            VARCHAR(50) NOT NULL,
-  subject               TEXT,                          -- AI-generated or user-edited email subject
-  body                  TEXT,                          -- AI-generated or user-edited email body
+  email_type            VARCHAR(50) NOT NULL,    -- Dunning stage: dunning_tier_1..5, payment_plan_offer, OR SMS escalation: sms_tier_1, sms_tier_2, sms_final
+  subject               TEXT,                          -- AI-generated or user-edited email subject (email only)
+  body                  TEXT,                          -- AI-generated or user-edited email body (email only)
+
+  -- NEW: SMS Support (Unified Queue)
+  type                  VARCHAR(20) DEFAULT 'email',  -- 'email' | 'sms' (determines channel: Resend vs Twilio)
+  phone_number          VARCHAR(20),                   -- for SMS only
+  message_preview       VARCHAR(160),                  -- SMS message (truncated, max 160 chars)
+  message_full          TEXT,                          -- Full SMS message for editing
 
   -- 4-State System: pending → rejected | sent | failed
   status                VARCHAR(20) DEFAULT 'pending', -- pending | rejected | sent | failed
@@ -1080,6 +1101,7 @@ CREATE TABLE IF NOT EXISTS pilot_queued_emails (
 
   -- Tracking
   resend_message_id     VARCHAR(255),
+  twilio_message_sid    VARCHAR(255),                  -- for SMS tracking
   risk_score            NUMERIC(5,2),
   due_date              TIMESTAMPTZ,
 
@@ -1091,12 +1113,16 @@ CREATE TABLE IF NOT EXISTS pilot_queued_emails (
   UNIQUE(company_id, invoice_id, email_type)
 );
 
--- 4-State System Indexes
+-- 4-State System Indexes (Email + SMS)
 CREATE INDEX IF NOT EXISTS idx_pilot_queued_company ON pilot_queued_emails(company_id, status);
 CREATE INDEX IF NOT EXISTS idx_pilot_queued_company_pending ON pilot_queued_emails(company_id, status) WHERE status = 'pending';
 CREATE INDEX IF NOT EXISTS idx_pilot_queued_failed ON pilot_queued_emails(company_id, status) WHERE status = 'failed';
 CREATE INDEX IF NOT EXISTS idx_pilot_queued_retry_at ON pilot_queued_emails(retry_at) WHERE status = 'failed' AND retry_at IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_pilot_queued_created ON pilot_queued_emails(created_at DESC);
+-- NEW: SMS-specific indexes
+CREATE INDEX IF NOT EXISTS idx_pilot_queued_type ON pilot_queued_emails(type);
+CREATE INDEX IF NOT EXISTS idx_pilot_queued_type_status ON pilot_queued_emails(type, status);
+CREATE INDEX IF NOT EXISTS idx_pilot_queued_phone ON pilot_queued_emails(phone_number);
 
 -- ============================================================
 -- P0: REJECTION TRACKING (7-day re-queue safeguard)
@@ -1118,6 +1144,23 @@ CREATE TABLE IF NOT EXISTS rejection_tracking (
 CREATE INDEX IF NOT EXISTS idx_rejection_tracking_company ON rejection_tracking(company_id);
 CREATE INDEX IF NOT EXISTS idx_rejection_tracking_expires ON rejection_tracking(company_id, expires_at);
 CREATE INDEX IF NOT EXISTS idx_rejection_tracking_invoice_email ON rejection_tracking(invoice_id, email_type);
+
+-- ============================================================
+-- SMS OPT-OUTS: Track customers who replied STOP
+-- ============================================================
+CREATE TABLE IF NOT EXISTS sms_opt_outs (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id        UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  customer_id       UUID NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+  phone_number      VARCHAR(20) NOT NULL,
+  opted_out_at      TIMESTAMPTZ DEFAULT NOW(),
+  reason            VARCHAR(50),  -- 'explicit' (user replied STOP) | 'bounce' (hard bounce) | 'complaint'
+
+  UNIQUE(company_id, customer_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_sms_opt_outs_company ON sms_opt_outs(company_id);
+CREATE INDEX IF NOT EXISTS idx_sms_opt_outs_phone ON sms_opt_outs(phone_number);
 
 -- ============================================================
 -- AGENT DECISIONS: Learning foundation for future ML optimization

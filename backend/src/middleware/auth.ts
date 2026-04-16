@@ -8,7 +8,15 @@ const LOG_MODULE = 'authMiddleware';
 
 export const authMiddleware = (req: Request, res: Response, next: NextFunction) => {
   try {
-    const token = req.cookies.access_token;
+    // Check for token in cookies (browser) or Authorization header (curl/API clients)
+    let token = req.cookies.access_token;
+
+    if (!token) {
+      const authHeader = req.headers.authorization;
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        token = authHeader.slice(7); // Remove 'Bearer ' prefix
+      }
+    }
 
     if (!token) {
       logInfo(LOG_MODULE, 'authMiddleware', 'No access token', getRequestContext(req));

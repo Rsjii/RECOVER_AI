@@ -18,6 +18,7 @@ import * as CompanyDB from '../db/companies';
 const LOG_MODULE = 'scheduler';
 const activeJobs = new Map<string, boolean>();
 const AGENT_ENABLED = process.env.AGENT_ENABLED !== 'false'; // Toggle via env var
+const SENDING_JOBS_ENABLED = process.env.SENDING_JOBS_ENABLED !== 'false'; // Toggle email/SMS sending jobs
 
 /**
  * Wrapper for job execution (prevents concurrent runs)
@@ -181,37 +182,45 @@ export function initScheduler() {
   // ============================================================
   // SEND QUEUED EMAILS (AUTO MODE - every 6 hours)
   // ============================================================
-  cron.schedule('0 */6 * * *', async () => {
-    await executeJob('sendQueuedEmails', async () => {
-      try {
-        const { sendQueuedEmails: sendQueuedEmailsJob } = await import('../services/emailQueueService');
-        const result = await sendQueuedEmailsJob();
-        logInfo(LOG_MODULE, 'sendQueuedEmails', 'Job complete', {
-          sent: result.sent,
-          failed: result.failed,
-        });
-      } catch (err) {
-        logError(LOG_MODULE, 'sendQueuedEmails', 'Job failed', err);
-      }
+  if (SENDING_JOBS_ENABLED) {
+    cron.schedule('0 */6 * * *', async () => {
+      await executeJob('sendQueuedEmails', async () => {
+        try {
+          const { sendQueuedEmails: sendQueuedEmailsJob } = await import('../services/emailQueueService');
+          const result = await sendQueuedEmailsJob();
+          logInfo(LOG_MODULE, 'sendQueuedEmails', 'Job complete', {
+            sent: result.sent,
+            failed: result.failed,
+          });
+        } catch (err) {
+          logError(LOG_MODULE, 'sendQueuedEmails', 'Job failed', err);
+        }
+      });
     });
-  });
+  } else {
+    logInfo(LOG_MODULE, 'initScheduler', '⏸ sendQueuedEmails job DISABLED (SENDING_JOBS_ENABLED=false)');
+  }
 
   // ============================================================
   // RETRY FAILED EMAILS (every 5 minutes)
   // ============================================================
-  cron.schedule('*/5 * * * *', async () => {
-    await executeJob('retryFailedEmails', async () => {
-      try {
-        const { retryFailedEmails: retryFailedEmailsJob } = await import('../services/emailQueueService');
-        const result = await retryFailedEmailsJob();
-        logInfo(LOG_MODULE, 'retryFailedEmails', 'Job complete', {
-          retried: result.retried,
-        });
-      } catch (err) {
-        logError(LOG_MODULE, 'retryFailedEmails', 'Job failed', err);
-      }
+  if (SENDING_JOBS_ENABLED) {
+    cron.schedule('*/5 * * * *', async () => {
+      await executeJob('retryFailedEmails', async () => {
+        try {
+          const { retryFailedEmails: retryFailedEmailsJob } = await import('../services/emailQueueService');
+          const result = await retryFailedEmailsJob();
+          logInfo(LOG_MODULE, 'retryFailedEmails', 'Job complete', {
+            retried: result.retried,
+          });
+        } catch (err) {
+          logError(LOG_MODULE, 'retryFailedEmails', 'Job failed', err);
+        }
+      });
     });
-  });
+  } else {
+    logInfo(LOG_MODULE, 'initScheduler', '⏸ retryFailedEmails job DISABLED (SENDING_JOBS_ENABLED=false)');
+  }
 
   // ============================================================
   // STRIPE AUTO-SYNC (NEW - 2026-04-04)

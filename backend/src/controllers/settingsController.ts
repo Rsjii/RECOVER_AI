@@ -1128,3 +1128,187 @@ export const disconnectTwilio = async (req: Request, res: Response): Promise<voi
     sendErrorResponse(res, statusCode, message);
   }
 };
+
+/**
+ * PATCH /api/settings/sms/escalation
+ * Update SMS escalation logic settings
+ */
+export const updateSMSEscalation = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'updateSMSEscalation';
+  const companyId = (req as any).companyId;
+  const { sms_escalation_enabled, sms_escalate_after_emails, sms_max_per_invoice } = req.body;
+
+  try {
+    const result = await pool.query(
+      `UPDATE companies
+       SET sms_escalation_enabled = COALESCE($1, sms_escalation_enabled),
+           sms_escalate_after_emails = COALESCE($2, sms_escalate_after_emails),
+           sms_max_per_invoice = COALESCE($3, sms_max_per_invoice),
+           updated_at = NOW()
+       WHERE id = $4
+       RETURNING sms_escalation_enabled, sms_escalate_after_emails, sms_max_per_invoice`,
+      [sms_escalation_enabled, sms_escalate_after_emails, sms_max_per_invoice, companyId]
+    );
+
+    if (result.rows.length === 0) {
+      sendErrorResponse(res, 404, 'Company not found');
+      return;
+    }
+
+    logInfo(LOG_MODULE, handler, 'SMS escalation settings updated', { companyId });
+
+    res.status(200).json({
+      data: result.rows[0],
+    });
+  } catch (error) {
+    logError(LOG_MODULE, handler, 'Failed to update SMS escalation settings', error);
+    const { statusCode, message } = parseError(error);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
+
+/**
+ * PATCH /api/settings/sms/retry
+ * Update SMS retry settings
+ */
+export const updateSMSRetry = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'updateSMSRetry';
+  const companyId = (req as any).companyId;
+  const { sms_retry_enabled, sms_retry_hours, sms_max_retries } = req.body;
+
+  try {
+    const result = await pool.query(
+      `UPDATE companies
+       SET sms_retry_enabled = COALESCE($1, sms_retry_enabled),
+           sms_retry_hours = COALESCE($2, sms_retry_hours),
+           sms_max_retries = COALESCE($3, sms_max_retries),
+           updated_at = NOW()
+       WHERE id = $4
+       RETURNING sms_retry_enabled, sms_retry_hours, sms_max_retries`,
+      [sms_retry_enabled, sms_retry_hours, sms_max_retries, companyId]
+    );
+
+    if (result.rows.length === 0) {
+      sendErrorResponse(res, 404, 'Company not found');
+      return;
+    }
+
+    logInfo(LOG_MODULE, handler, 'SMS retry settings updated', { companyId });
+
+    res.status(200).json({
+      data: result.rows[0],
+    });
+  } catch (error) {
+    logError(LOG_MODULE, handler, 'Failed to update SMS retry settings', error);
+    const { statusCode, message } = parseError(error);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
+
+/**
+ * PATCH /api/settings/sms/compliance
+ * Update SMS compliance settings
+ */
+export const updateSMSCompliance = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'updateSMSCompliance';
+  const companyId = (req as any).companyId;
+  const { sms_tcpa_enabled, sms_weekend_blackout, sms_require_opt_in } = req.body;
+
+  try {
+    const result = await pool.query(
+      `UPDATE companies
+       SET sms_tcpa_enabled = COALESCE($1, sms_tcpa_enabled),
+           sms_weekend_blackout = COALESCE($2, sms_weekend_blackout),
+           sms_require_opt_in = COALESCE($3, sms_require_opt_in),
+           updated_at = NOW()
+       WHERE id = $4
+       RETURNING sms_tcpa_enabled, sms_weekend_blackout, sms_require_opt_in`,
+      [sms_tcpa_enabled, sms_weekend_blackout, sms_require_opt_in, companyId]
+    );
+
+    if (result.rows.length === 0) {
+      sendErrorResponse(res, 404, 'Company not found');
+      return;
+    }
+
+    logInfo(LOG_MODULE, handler, 'SMS compliance settings updated', { companyId });
+
+    res.status(200).json({
+      data: result.rows[0],
+    });
+  } catch (error) {
+    logError(LOG_MODULE, handler, 'Failed to update SMS compliance settings', error);
+    const { statusCode, message } = parseError(error);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
+
+/**
+ * GET /api/settings/sms/opt-outs
+ * Get list of customers who opted out of SMS
+ */
+export const getSMSOptOuts = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'getSMSOptOuts';
+  const companyId = (req as any).companyId;
+
+  try {
+    const result = await pool.query(
+      `SELECT
+        id,
+        customer_id,
+        phone_number,
+        opted_out_at,
+        reason
+       FROM sms_opt_outs
+       WHERE company_id = $1
+       ORDER BY opted_out_at DESC`,
+      [companyId]
+    );
+
+    logInfo(LOG_MODULE, handler, `Retrieved ${result.rows.length} SMS opt-outs`, { companyId });
+
+    res.status(200).json({
+      data: result.rows,
+    });
+  } catch (error) {
+    logError(LOG_MODULE, handler, 'Failed to retrieve SMS opt-outs', error);
+    const { statusCode, message } = parseError(error);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
+
+/**
+ * POST /api/settings/sms/opt-outs/:customerId/re-enable
+ * Re-opt customer into SMS
+ */
+export const reOptInSMS = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'reOptInSMS';
+  const companyId = (req as any).companyId;
+  const { customerId } = req.params;
+
+  try {
+    const result = await pool.query(
+      `DELETE FROM sms_opt_outs
+       WHERE company_id = $1 AND customer_id = $2
+       RETURNING id`,
+      [companyId, customerId]
+    );
+
+    if (result.rows.length === 0) {
+      sendErrorResponse(res, 404, 'Customer not found in opt-out list');
+      return;
+    }
+
+    logInfo(LOG_MODULE, handler, 'Customer re-opted into SMS', { companyId, customerId });
+
+    res.status(200).json({
+      data: {
+        message: 'Customer re-opted into SMS successfully',
+      },
+    });
+  } catch (error) {
+    logError(LOG_MODULE, handler, 'Failed to re-opt customer', error);
+    const { statusCode, message } = parseError(error);
+    sendErrorResponse(res, statusCode, message);
+  }
+};

@@ -95,6 +95,14 @@ export interface CustomerRow {
   // Risk scoring (calculated daily from payment behavior)
   customer_risk_score: number;  // 0-100, calculated from payment history
   customer_risk_score_updated_at: string | null;
+  // Payment insights & unpaid invoice count
+  unpaid_invoice_count?: number;  // Count of unpaid invoices for this customer
+  payment_insights?: any;  // Per-customer behavioral profile
+  // Aggregated summaries
+  dunning_summary?: any;
+  queue_summary?: any;
+  last_decline_type?: string | null;
+  total_ar_balance?: number | string;
 }
 
 // ============ Invoices ============

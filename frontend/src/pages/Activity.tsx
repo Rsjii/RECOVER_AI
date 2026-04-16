@@ -79,6 +79,7 @@ const Activity: React.FC = () => {
   const [searchCustomer, setSearchCustomer] = useState<string>('');
 
   // Filters for Pending Approval section
+  const [pendingChannelFilter, setPendingChannelFilter] = useState<string>('all'); // all | email | sms
   const [pendingEmailTypeFilter, setPendingEmailTypeFilter] = useState<string>('all');
   const [pendingDaysOverdueFilter, setPendingDaysOverdueFilter] = useState<string>('all'); // all | 0-30 | 30-60 | 60+
 
@@ -202,12 +203,22 @@ const Activity: React.FC = () => {
       const isPending = queuedEmails.some(e => e.id === selectedEmail.id) || selectedEmail.status === 'pending';
 
       if (isPending) {
-        // Update pending email via pilot-queue endpoint
-        await api.put(`/api/pilot-queue/${selectedEmail.id}`, {
-          subject: editSubject,
-          body: editBody,
-        });
-        addToast({ type: 'success', message: 'Email updated successfully' });
+        // Update pending item (email or SMS) via pilot-queue endpoint
+        if (selectedEmail.type === 'sms') {
+          // Update SMS message
+          await api.put(`/api/pilot-queue/${selectedEmail.id}`, {
+            message_full: editBody,
+            message_preview: editBody.slice(0, 160),
+          });
+          addToast({ type: 'success', message: 'SMS message updated successfully' });
+        } else {
+          // Update email
+          await api.put(`/api/pilot-queue/${selectedEmail.id}`, {
+            subject: editSubject,
+            body: editBody,
+          });
+          addToast({ type: 'success', message: 'Email updated successfully' });
+        }
         setShowEditModal(false);
         fetchQueuedEmails();
       } else {
@@ -257,16 +268,18 @@ const Activity: React.FC = () => {
   const handleApproveQueuedEmail = async (id: string) => {
     setApprovingQueue(id);
     try {
+      const item = queuedEmails.find(e => e.id === id);
+      const itemType = item?.type === 'sms' ? 'SMS' : 'Email';
       await api.post(`/api/pilot-queue/${id}/approve`);
       addToast({
         type: 'success',
-        message: 'Email approved and sent',
+        message: `${itemType} approved and sent`,
       });
       fetchQueuedEmails();
     } catch (err: any) {
       addToast({
         type: 'error',
-        message: err.message || 'Failed to approve email',
+        message: err.message || 'Failed to approve item',
       });
     } finally {
       setApprovingQueue(null);
@@ -276,16 +289,18 @@ const Activity: React.FC = () => {
   const handleRejectQueuedEmail = async (id: string) => {
     setApprovingQueue(id);
     try {
+      const item = queuedEmails.find(e => e.id === id);
+      const itemType = item?.type === 'sms' ? 'SMS' : 'Email';
       await api.post(`/api/pilot-queue/${id}/reject`);
       addToast({
         type: 'success',
-        message: 'Email rejected',
+        message: `${itemType} rejected`,
       });
       fetchQueuedEmails();
     } catch (err: any) {
       addToast({
         type: 'error',
-        message: err.message || 'Failed to reject email',
+        message: err.message || 'Failed to reject item',
       });
     } finally {
       setApprovingQueue(null);
@@ -320,7 +335,7 @@ const Activity: React.FC = () => {
       );
       addToast({
         type: 'success',
-        message: `${res.sent_count} emails sent${res.failed_count > 0 ? `, ${res.failed_count} failed` : ''}`,
+        message: `${res.sent_count} items sent${res.failed_count > 0 ? `, ${res.failed_count} failed` : ''}`,
       });
       fetchQueuedEmails();
     } catch (err: any) {
@@ -344,14 +359,14 @@ const Activity: React.FC = () => {
       );
       addToast({
         type: 'success',
-        message: `${res.sent_count} emails approved${res.failed_count > 0 ? `, ${res.failed_count} failed` : ''}`,
+        message: `${res.sent_count} items approved${res.failed_count > 0 ? `, ${res.failed_count} failed` : ''}`,
       });
       setSelectedPendingIds(new Set());
       fetchQueuedEmails();
     } catch (err: any) {
       addToast({
         type: 'error',
-        message: err.message || 'Failed to approve emails',
+        message: err.message || 'Failed to approve items',
       });
     } finally {
       setBulkOperating(false);
@@ -369,14 +384,14 @@ const Activity: React.FC = () => {
       );
       addToast({
         type: 'success',
-        message: `${res.rejected_count} emails rejected${res.failed_count > 0 ? `, ${res.failed_count} failed` : ''}`,
+        message: `${res.rejected_count} items rejected${res.failed_count > 0 ? `, ${res.failed_count} failed` : ''}`,
       });
       setSelectedPendingIds(new Set());
       fetchQueuedEmails();
     } catch (err: any) {
       addToast({
         type: 'error',
-        message: err.message || 'Failed to reject emails',
+        message: err.message || 'Failed to reject items',
       });
     } finally {
       setBulkOperating(false);
@@ -385,8 +400,16 @@ const Activity: React.FC = () => {
 
   const handlePreviewQueuedEmail = async (email: any) => {
     setPreviewQueueEmail(email);
-    // Use stored subject/body from queue (no API call needed)
-    if (email.subject && email.body) {
+    // Handle both email and SMS previews
+    if (email.type === 'sms') {
+      // SMS preview
+      setPreviewQueueData({
+        subject: `SMS to ${email.phone_number}`,
+        body: email.message_full || email.message_preview || '',
+      });
+      setPreviewQueueLoading(false);
+    } else if (email.subject && email.body) {
+      // Email preview from stored data
       setPreviewQueueData({ subject: email.subject, body: email.body });
       setPreviewQueueLoading(false);
     } else {
@@ -401,7 +424,7 @@ const Activity: React.FC = () => {
       } catch (err: any) {
         addToast({
           type: 'error',
-          message: err.message || 'Failed to load email preview',
+          message: err.message || 'Failed to load preview',
         });
       } finally {
         setPreviewQueueLoading(false);
@@ -477,22 +500,40 @@ const Activity: React.FC = () => {
                   <div className="space-y-3">
                     {/* Filters for Pending Approval */}
                     <div className="mb-4 flex flex-col sm:flex-row gap-3">
+                      {/* Channel Filter */}
                       <div className="flex-1">
-                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Email Type</label>
+                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Channel</label>
+                        <select
+                          value={pendingChannelFilter}
+                          onChange={(e) => setPendingChannelFilter(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-sm text-gray-900 dark:text-white"
+                        >
+                          <option value="all">All Channels</option>
+                          <option value="email">📧 Email</option>
+                          <option value="sms">📱 SMS</option>
+                        </select>
+                      </div>
+
+                      {/* Dunning Stage Filter - Dynamic */}
+                      <div className="flex-1">
+                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Stage</label>
                         <select
                           value={pendingEmailTypeFilter}
                           onChange={(e) => setPendingEmailTypeFilter(e.target.value)}
                           className="w-full px-3 py-2 border border-gray-300 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-sm text-gray-900 dark:text-white"
                         >
-                          <option value="all">All Types</option>
-                          <option value="dunning_1">Dunning 1</option>
-                          <option value="dunning_2">Dunning 2</option>
-                          <option value="dunning_3">Dunning 3</option>
-                          <option value="dunning_4">Dunning 4</option>
-                          <option value="dunning_5">Dunning 5</option>
-                          <option value="payment_plan_offer">Payment Plan Offer</option>
+                          <option value="all">All Stages</option>
+                          {Array.from(new Set(queuedEmails.map((e: any) => e.email_type)))
+                            .sort()
+                            .map((type: string) => (
+                              <option key={type} value={type}>
+                                {type.replace(/_/g, ' ').charAt(0).toUpperCase() + type.replace(/_/g, ' ').slice(1)}
+                              </option>
+                            ))}
                         </select>
                       </div>
+
+                      {/* Days Overdue Filter */}
                       <div className="flex-1">
                         <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Days Overdue</label>
                         <select
@@ -571,14 +612,18 @@ const Activity: React.FC = () => {
                             <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300">Customer</th>
                             <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300">Amount</th>
                             <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300">Days Overdue</th>
-                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300">Email Type</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300">Type</th>
                             <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 dark:text-gray-300">Actions</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200 dark:divide-white/[0.06]">
                           {queuedEmails
                             .filter((email: any) => {
-                              // Filter by email type
+                              // Filter by channel (email vs sms)
+                              if (pendingChannelFilter !== 'all' && email.type !== pendingChannelFilter) {
+                                return false;
+                              }
+                              // Filter by dunning stage/email_type
                               if (pendingEmailTypeFilter !== 'all' && email.email_type !== pendingEmailTypeFilter) {
                                 return false;
                               }
@@ -611,7 +656,16 @@ const Activity: React.FC = () => {
                               <td className="px-4 py-3">
                                 <div>
                                   <p className="font-medium text-gray-900 dark:text-white text-sm">{email.customer_name}</p>
-                                  <p className="text-xs text-gray-500 dark:text-gray-400">{email.recipient_email}</p>
+                                  {email.type === 'sms' ? (
+                                    <>
+                                      <p className="text-xs text-gray-500 dark:text-gray-400">📱 {email.phone_number ? `${email.phone_number.slice(0, -4)}****` : 'N/A'}</p>
+                                      {email.message_preview && (
+                                        <p className="text-xs text-gray-600 dark:text-gray-500 truncate mt-1">"{email.message_preview.slice(0, 50)}..."</p>
+                                      )}
+                                    </>
+                                  ) : (
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">{email.recipient_email}</p>
+                                  )}
                                 </div>
                               </td>
                               <td className="px-4 py-3">
@@ -621,8 +675,12 @@ const Activity: React.FC = () => {
                                 <p className="text-gray-700 dark:text-gray-300 text-sm">{email.days_overdue}d</p>
                               </td>
                               <td className="px-4 py-3">
-                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300">
-                                  {email.email_type.replace(/_/g, ' ')}
+                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                  email.type === 'sms'
+                                    ? 'bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-300'
+                                    : 'bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300'
+                                }`}>
+                                  {email.type === 'sms' ? '📱 SMS' : `📧 ${email.email_type.replace(/_/g, ' ')}`}
                                 </span>
                               </td>
                               <td className="px-4 py-3">
@@ -636,8 +694,14 @@ const Activity: React.FC = () => {
                                   <button
                                     onClick={() => {
                                       setSelectedEmail(email);
-                                      setEditSubject(email.subject || '');
-                                      setEditBody(email.body || '');
+                                      // For SMS: edit message_full, for Email: edit subject/body
+                                      if (email.type === 'sms') {
+                                        setEditSubject('SMS Message');
+                                        setEditBody(email.message_full || email.message_preview || '');
+                                      } else {
+                                        setEditSubject(email.subject || '');
+                                        setEditBody(email.body || '');
+                                      }
                                       setShowEditModal(true);
                                     }}
                                     className="text-xs px-2.5 py-1 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900/50 transition-colors"
@@ -783,7 +847,7 @@ const Activity: React.FC = () => {
                             <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300">Customer</th>
                             <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300">Amount</th>
                             <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300">Days Overdue</th>
-                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300">Email Type</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300">Type</th>
                             <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 dark:text-gray-300">Actions</th>
                           </tr>
                         </thead>
@@ -809,7 +873,11 @@ const Activity: React.FC = () => {
                               <td className="px-4 py-3">
                                 <div>
                                   <p className="font-medium text-gray-900 dark:text-white text-sm">{email.customer_name}</p>
-                                  <p className="text-xs text-gray-500 dark:text-gray-400">{email.recipient_email}</p>
+                                  {email.type === 'sms' ? (
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">📱 {email.phone_number ? `${email.phone_number.slice(0, -4)}****` : 'N/A'}</p>
+                                  ) : (
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">{email.recipient_email}</p>
+                                  )}
                                 </div>
                               </td>
                               <td className="px-4 py-3">
@@ -819,8 +887,12 @@ const Activity: React.FC = () => {
                                 <p className="text-gray-700 dark:text-gray-300 text-sm">{email.days_overdue}d</p>
                               </td>
                               <td className="px-4 py-3">
-                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-300">
-                                  {email.email_type.replace(/_/g, ' ')}
+                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                  email.type === 'sms'
+                                    ? 'bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-300'
+                                    : 'bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300'
+                                }`}>
+                                  {email.type === 'sms' ? '📱 SMS' : `📧 ${email.email_type.replace(/_/g, ' ')}`}
                                 </span>
                               </td>
                               <td className="px-4 py-3">

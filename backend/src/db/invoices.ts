@@ -159,7 +159,12 @@ export async function listInvoices(
 
   const [data, count] = await Promise.all([
     pool.query(
-      `SELECT i.*, c.name as customer_name, c.email as customer_email
+      `SELECT i.*,
+              c.name as customer_name,
+              c.email as customer_email,
+              (SELECT status FROM pilot_queued_emails
+               WHERE invoice_id = i.id
+               ORDER BY created_at DESC LIMIT 1) AS latest_queue_status
        FROM invoices i
        JOIN customers c ON i.customer_id = c.id
        WHERE ${where}

@@ -28,7 +28,7 @@ function exportCustomersCSV(customers: Customer[]) {
     String(Number(c.total_ar_balance ?? 0).toFixed(2)),
     String(c.max_risk_score ?? ''),
     String(c.payment_history.on_time_rate) + '%',
-    c.last_payment_date ?? 'Never',
+    String(c.unpaid_invoice_count ?? 0),
     String(c.payment_history.total_invoices),
   ]);
   const csv = [headers, ...rows].map(r => r.map(v => `"${v.replace(/"/g, '""')}"`).join(',')).join('\n');

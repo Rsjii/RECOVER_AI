@@ -6,6 +6,13 @@ import { demoBlocker } from '../middleware/demoBlocker';
 const router = express.Router();
 
 /**
+ * TEST ENDPOINT (Staging only - no auth required for testing)
+ * POST /api/pilot-queue/test/populate?count=3
+ * Populates queue with test email + SMS items
+ */
+router.post('/test/populate', authMiddleware, pilotQueueController.testPopulateQueue);
+
+/**
  * GET /api/pilot-queue
  * List queued emails for pilot company (requires auth)
  */

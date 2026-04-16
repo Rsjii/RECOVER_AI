@@ -221,13 +221,51 @@ export const InvoiceTable: React.FC<InvoiceTableProps> = ({
       },
     },
     {
-      key: 'next_action',
-      label: 'Next Action',
+      key: 'journey',
+      label: 'Journey',
       render: (_, row) => (
-        <span className="text-xs text-blue-600 dark:text-blue-400 leading-tight">
-          {row.next_action ?? '—'}
-        </span>
+        <div className="flex flex-col gap-1 text-xs">
+          {(row.dunning_emails_sent ?? 0) >= 1 && (
+            <span className="text-green-600 dark:text-green-400">✅ Email {row.dunning_emails_sent} sent</span>
+          )}
+          {(row.dunning_emails_sent ?? 0) < 5 && (
+            <span className="text-amber-600 dark:text-amber-400">🟡 Email {(row.dunning_emails_sent ?? 0) + 1} ready</span>
+          )}
+          {(row.dunning_emails_sent ?? 0) >= 2 && (row.sms_count ?? 0) === 0 && (
+            <span className="text-blue-600 dark:text-blue-400">⏳ SMS eligible</span>
+          )}
+          {(row.sms_count ?? 0) > 0 && (
+            <span className="text-green-600 dark:text-green-400">✅ SMS sent</span>
+          )}
+        </div>
       ),
+    },
+    {
+      key: 'queue_status',
+      label: 'Queue',
+      width: '60px',
+      render: (_, row) => {
+        if (row.latest_queue_status) {
+          const icons: Record<string, string> = {
+            pending: '🟡',
+            sent: '✅',
+            failed: '❌',
+            bounced: '❌'
+          };
+          const colors: Record<string, string> = {
+            pending: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
+            sent: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
+            failed: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300',
+            bounced: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
+          };
+          return (
+            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${colors[row.latest_queue_status]}`}>
+              {icons[row.latest_queue_status]} {row.latest_queue_status}
+            </span>
+          );
+        }
+        return <span className="text-gray-400">—</span>;
+      },
     },
     {
       key: 'status',

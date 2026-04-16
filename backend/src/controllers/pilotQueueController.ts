@@ -37,7 +37,11 @@ export const listQueuedEmails = async (req: Request, res: Response) => {
         status,
         subject,
         body,
-        user_rejected_at
+        user_rejected_at,
+        type,
+        phone_number,
+        message_preview,
+        message_full
        FROM pilot_queued_emails
        WHERE company_id = $1 AND status = $2
        ORDER BY queued_at DESC
@@ -70,7 +74,7 @@ export const approveQueuedEmail = async (req: Request, res: Response) => {
   }
 
   try {
-    // 1. Get the queued email record (including user-edited subject/body if present)
+    // 1. Get the queued item (email or SMS)
     const queuedResult = await pool.query(
       `SELECT
         id,
@@ -78,78 +82,98 @@ export const approveQueuedEmail = async (req: Request, res: Response) => {
         customer_id,
         recipient_email,
         customer_name,
+        phone_number,
         invoice_amount,
         due_date,
         days_overdue,
         email_type,
         attempt_number,
+        type,
         subject,
-        body
+        body,
+        message_preview,
+        message_full
        FROM pilot_queued_emails
        WHERE id = $1 AND company_id = $2`,
       [id, companyId]
     );
 
     if (queuedResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Email not found' });
+      return res.status(404).json({ error: 'Item not found' });
     }
 
     const queued = queuedResult.rows[0];
+    const itemType = queued.type || 'email';
 
-    logInfo(MODULE, 'approveQueuedEmail', `Approving queued email for ${queued.customer_name}`);
+    logInfo(MODULE, 'approveQueuedEmail', `Approving queued ${itemType} for ${queued.customer_name}`);
 
-    // 2. Send the email (use stored subject/body if edited by user, otherwise regenerate)
+    // 2. Send the item (email or SMS)
     try {
-      const dueDate = queued.due_date || new Date(Date.now() - queued.days_overdue * 24 * 60 * 60 * 1000).toISOString();
+      if (itemType === 'sms') {
+        // SMS: Send via Twilio
+        const { sendSMS } = await import('../services/smsService');
+        const message = queued.message_full || queued.message_preview;
 
-      // If user edited subject/body, use those; otherwise regenerate via Claude
-      if (queued.subject && queued.body) {
-        // User edited this email — send with stored content
-        logInfo(MODULE, 'approveQueuedEmail', 'Sending with user-edited content', {
+        logInfo(MODULE, 'approveQueuedEmail', 'Sending SMS', {
           invoiceId: queued.invoice_id,
-          hasStoredSubject: !!queued.subject,
+          phone: queued.phone_number,
         });
 
-        // Send directly without regenerating (uses stored subject + body)
-        const result = await emailService.sendDunningEmailDirect({
+        await sendSMS({
+          phoneNumber: queued.phone_number,
+          message,
           companyId,
           invoiceId: queued.invoice_id,
           customerId: queued.customer_id,
-          recipientEmail: queued.recipient_email,
           customerName: queued.customer_name,
-          invoiceAmount: queued.invoice_amount,
-          dueDate,
-          daysOverdue: queued.days_overdue,
-          emailType: queued.email_type as any,
-          attemptNumber: queued.attempt_number,
-          // User-edited content:
-          storedSubject: queued.subject,
-          storedBody: queued.body,
-        });
+        } as any);
       } else {
-        // Not edited — regenerate via Claude as usual
-        logInfo(MODULE, 'approveQueuedEmail', 'Sending with AI-generated content', {
-          invoiceId: queued.invoice_id,
-        });
+        // EMAIL: Send via Resend (existing logic)
+        const dueDate = queued.due_date || new Date(Date.now() - queued.days_overdue * 24 * 60 * 60 * 1000).toISOString();
 
-        await emailService.sendDunningEmail({
-          companyId,
-          invoiceId: queued.invoice_id,
-          customerId: queued.customer_id,
-          recipientEmail: queued.recipient_email,
-          customerName: queued.customer_name,
-          invoiceAmount: queued.invoice_amount,
-          dueDate,
-          daysOverdue: queued.days_overdue,
-          emailType: queued.email_type as any,
-          attemptNumber: queued.attempt_number,
-        });
+        if (queued.subject && queued.body) {
+          logInfo(MODULE, 'approveQueuedEmail', 'Sending with user-edited content', {
+            invoiceId: queued.invoice_id,
+          });
+
+          await emailService.sendDunningEmailDirect({
+            companyId,
+            invoiceId: queued.invoice_id,
+            customerId: queued.customer_id,
+            recipientEmail: queued.recipient_email,
+            customerName: queued.customer_name,
+            invoiceAmount: queued.invoice_amount,
+            dueDate,
+            daysOverdue: queued.days_overdue,
+            emailType: queued.email_type as any,
+            attemptNumber: queued.attempt_number,
+            storedSubject: queued.subject,
+            storedBody: queued.body,
+          });
+        } else {
+          logInfo(MODULE, 'approveQueuedEmail', 'Sending with AI-generated content', {
+            invoiceId: queued.invoice_id,
+          });
+
+          await emailService.sendDunningEmail({
+            companyId,
+            invoiceId: queued.invoice_id,
+            customerId: queued.customer_id,
+            recipientEmail: queued.recipient_email,
+            customerName: queued.customer_name,
+            invoiceAmount: queued.invoice_amount,
+            dueDate,
+            daysOverdue: queued.days_overdue,
+            emailType: queued.email_type as any,
+            attemptNumber: queued.attempt_number,
+          });
+        }
       }
 
-      logInfo(MODULE, 'approveQueuedEmail', 'Email sent successfully');
-    } catch (emailErr: any) {
-      logError(MODULE, 'approveQueuedEmail', 'Failed to send email', emailErr);
-      return res.status(400).json({ error: 'Failed to send email: ' + emailErr.message });
+      logInfo(MODULE, 'approveQueuedEmail', `${itemType} sent successfully`);
+    } catch (sendErr: any) {
+      logError(MODULE, 'approveQueuedEmail', `Failed to send ${itemType}`, sendErr);
+      return res.status(400).json({ error: `Failed to send ${itemType}: ` + sendErr.message });
     }
 
     // 3. Mark as sent in database
@@ -415,63 +439,85 @@ export const bulkApproveSelected = async (req: Request, res: Response) => {
       const totalBatches = Math.ceil(ids.length / BATCH_SIZE);
 
       try {
-        // Get emails for this batch
-        const emailResult = await pool.query(
+        // Get items (emails or SMS) for this batch
+        const itemResult = await pool.query(
           `SELECT
             id,
             invoice_id,
             customer_id,
             recipient_email,
+            phone_number,
             customer_name,
             invoice_amount,
             due_date,
             days_overdue,
             email_type,
             attempt_number,
+            type,
             subject,
-            body
+            body,
+            message_preview,
+            message_full
            FROM pilot_queued_emails
            WHERE company_id = $1 AND id = ANY($2::uuid[]) AND status = 'pending'`,
           [companyId, batchIds]
         );
 
-        const emails = emailResult.rows;
+        const items = itemResult.rows;
 
-        logInfo(MODULE, 'bulkApproveSelected', `Batch ${batchNum}/${totalBatches}: Processing ${emails.length} emails`);
+        logInfo(MODULE, 'bulkApproveSelected', `Batch ${batchNum}/${totalBatches}: Processing ${items.length} items`);
 
-        // Send all emails in this batch in parallel
-        const sendPromises = emails.map(async (queued) => {
+        // Send all items (email or SMS) in this batch in parallel
+        const sendPromises = items.map(async (queued) => {
           try {
-            const dueDate = queued.due_date || new Date(Date.now() - queued.days_overdue * 24 * 60 * 60 * 1000).toISOString();
+            const itemType = queued.type || 'email';
 
-            if (queued.subject && queued.body) {
-              await emailService.sendDunningEmailDirect({
+            if (itemType === 'sms') {
+              // Send SMS
+              const { sendSMS } = await import('../services/smsService');
+              const message = queued.message_full || queued.message_preview;
+
+              await sendSMS({
+                phoneNumber: queued.phone_number,
+                message,
                 companyId,
                 invoiceId: queued.invoice_id,
                 customerId: queued.customer_id,
-                recipientEmail: queued.recipient_email,
                 customerName: queued.customer_name,
-                invoiceAmount: queued.invoice_amount,
-                dueDate,
-                daysOverdue: queued.days_overdue,
-                emailType: queued.email_type as any,
-                attemptNumber: queued.attempt_number,
-                storedSubject: queued.subject,
-                storedBody: queued.body,
-              });
+              } as any);
             } else {
-              await emailService.sendDunningEmail({
-                companyId,
-                invoiceId: queued.invoice_id,
-                customerId: queued.customer_id,
-                recipientEmail: queued.recipient_email,
-                customerName: queued.customer_name,
-                invoiceAmount: queued.invoice_amount,
-                dueDate,
-                daysOverdue: queued.days_overdue,
-                emailType: queued.email_type as any,
-                attemptNumber: queued.attempt_number,
-              });
+              // Send EMAIL
+              const dueDate = queued.due_date || new Date(Date.now() - queued.days_overdue * 24 * 60 * 60 * 1000).toISOString();
+
+              if (queued.subject && queued.body) {
+                await emailService.sendDunningEmailDirect({
+                  companyId,
+                  invoiceId: queued.invoice_id,
+                  customerId: queued.customer_id,
+                  recipientEmail: queued.recipient_email,
+                  customerName: queued.customer_name,
+                  invoiceAmount: queued.invoice_amount,
+                  dueDate,
+                  daysOverdue: queued.days_overdue,
+                  emailType: queued.email_type as any,
+                  attemptNumber: queued.attempt_number,
+                  storedSubject: queued.subject,
+                  storedBody: queued.body,
+                });
+              } else {
+                await emailService.sendDunningEmail({
+                  companyId,
+                  invoiceId: queued.invoice_id,
+                  customerId: queued.customer_id,
+                  recipientEmail: queued.recipient_email,
+                  customerName: queued.customer_name,
+                  invoiceAmount: queued.invoice_amount,
+                  dueDate,
+                  daysOverdue: queued.days_overdue,
+                  emailType: queued.email_type as any,
+                  attemptNumber: queued.attempt_number,
+                });
+              }
             }
 
             await pool.query(
@@ -482,8 +528,8 @@ export const bulkApproveSelected = async (req: Request, res: Response) => {
             sentCount++;
           } catch (err: any) {
             failedCount++;
-            errors.push({ email_id: queued.id, customer: queued.customer_name, error: err.message });
-            logError(MODULE, 'bulkApproveSelected', `Failed to send email to ${queued.customer_name}`, err);
+            errors.push({ item_id: queued.id, customer: queued.customer_name, error: err.message });
+            logError(MODULE, 'bulkApproveSelected', `Failed to send item to ${queued.customer_name}`, err);
           }
         });
 
@@ -939,6 +985,240 @@ export const retryQueuedEmail = async (req: Request, res: Response) => {
     }
   } catch (err: any) {
     logError(MODULE, 'retryQueuedEmail', 'Failed to retry email', err);
+    return res.status(400).json({ error: err.message });
+  }
+};
+
+/**
+ * POST /api/pilot-queue/test/populate
+ * TEST ENDPOINT: Populate queue with sample email + SMS items (staging only)
+ * Requires: ?count=1 (default 1) to create that many email+SMS pairs
+ * Example: POST /api/pilot-queue/test/populate?count=3
+ * Creates: 3 email items + 3 SMS items in pending state (SHADOW mode)
+ */
+export const testPopulateQueue = async (req: Request, res: Response) => {
+  const companyId = (req as any).companyId;
+  const count = Math.min(parseInt((req.query.count as string) || '1'), 10); // Max 10 pairs
+
+  if (!companyId) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  try {
+    logInfo(MODULE, 'testPopulateQueue', `Creating ${count} test email+SMS pairs`, { companyId });
+
+    // Get or create test customer
+    const customerResult = await pool.query(
+      `SELECT id FROM customers WHERE company_id = $1 AND name ILIKE '%Test Customer%' LIMIT 1`,
+      [companyId]
+    );
+
+    let customerId: string;
+
+    if (customerResult.rows.length === 0) {
+      // Create test customer
+      const createCustomer = await pool.query(
+        `INSERT INTO customers (company_id, name, email, phone)
+         VALUES ($1, $2, $3, $4)
+         RETURNING id`,
+        [companyId, 'Test Customer (Auto)', 'test@example.com', '+1-415-555-1234']
+      );
+      customerId = createCustomer.rows[0].id;
+      logInfo(MODULE, 'testPopulateQueue', 'Created test customer', { customerId });
+    } else {
+      customerId = customerResult.rows[0].id;
+    }
+
+    // Create NEW test invoice each call (so each call can populate with fresh items)
+    const createInvoice = await pool.query(
+      `INSERT INTO invoices (company_id, customer_id, amount, currency, issued_date, due_date, status, source, notes)
+       VALUES ($1, $2, $3, $4, NOW(), NOW() - INTERVAL '15 days', $5, $6, $7)
+       RETURNING id`,
+      [companyId, customerId, 5000, 'USD', 'unpaid', 'manual', `Test Invoice (Auto) - ${Date.now()}`]
+    );
+    const invoiceId = createInvoice.rows[0].id;
+    logInfo(MODULE, 'testPopulateQueue', 'Created test invoice', { invoiceId });
+
+    // Create email + SMS items
+    const created: any[] = [];
+
+    // Test Data: Create 3 emails (dunning tiers) + 2 SMS (escalation)
+    // Real flow: Email Tier 1→2→3 (if no response), THEN SMS Tier 1→2 (if email fails)
+
+    // Email Tier 1: First contact (Day 5)
+    const emailTier1Type = 'dunning_tier_1';
+    await pool.query(
+      `INSERT INTO pilot_queued_emails (
+        company_id, invoice_id, customer_id,
+        recipient_email, customer_name, invoice_amount, days_overdue,
+        email_type, type, subject, body, status
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+       RETURNING id`,
+      [
+        companyId,
+        invoiceId,
+        customerId,
+        'test@example.com',
+        'Test Customer (Auto)',
+        5000,
+        5, // Day 5: First email
+        emailTier1Type,
+        'email',
+        '[TEST] Payment Reminder - Invoice #1001',
+        '<p>Hi Test Customer,</p><p>Our records show that Invoice #1001 for $5,000 is now due. Please remit payment at your earliest convenience.</p><p>Thank you!</p>',
+        'pending',
+      ]
+    );
+    const email1Res = await pool.query(
+      `SELECT id FROM pilot_queued_emails WHERE company_id = $1 AND email_type = $2 ORDER BY created_at DESC LIMIT 1`,
+      [companyId, emailTier1Type]
+    );
+    if (email1Res.rows.length > 0) {
+      created.push({ type: 'email', email_type: emailTier1Type, id: email1Res.rows[0].id });
+    }
+
+    // Email Tier 2: Second contact (Day 12, if email 1 not responded)
+    const emailTier2Type = 'dunning_tier_2';
+    await pool.query(
+      `INSERT INTO pilot_queued_emails (
+        company_id, invoice_id, customer_id,
+        recipient_email, customer_name, invoice_amount, days_overdue,
+        email_type, type, subject, body, status
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+       RETURNING id`,
+      [
+        companyId,
+        invoiceId,
+        customerId,
+        'test@example.com',
+        'Test Customer (Auto)',
+        5000,
+        12, // Day 12: Second email (7 days after first)
+        emailTier2Type,
+        'email',
+        '[URGENT] Payment Required - Invoice #1001',
+        '<p>URGENT: Invoice #1001 is now 12 days overdue. Immediate payment is required.</p><p>Please contact us if payment has already been sent or if you have questions.</p>',
+        'pending',
+      ]
+    );
+    const email2Res = await pool.query(
+      `SELECT id FROM pilot_queued_emails WHERE company_id = $1 AND email_type = $2 ORDER BY created_at DESC LIMIT 1`,
+      [companyId, emailTier2Type]
+    );
+    if (email2Res.rows.length > 0) {
+      created.push({ type: 'email', email_type: emailTier2Type, id: email2Res.rows[0].id });
+    }
+
+    // Email Tier 3: Final email escalation (Day 18, if emails 1-2 not responded)
+    const emailTier3Type = 'dunning_tier_3';
+    await pool.query(
+      `INSERT INTO pilot_queued_emails (
+        company_id, invoice_id, customer_id,
+        recipient_email, customer_name, invoice_amount, days_overdue,
+        email_type, type, subject, body, status
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+       RETURNING id`,
+      [
+        companyId,
+        invoiceId,
+        customerId,
+        'test@example.com',
+        'Test Customer (Auto)',
+        5000,
+        18, // Day 18: Final email notice
+        emailTier3Type,
+        'email',
+        '[FINAL] Legal Action Pending - Invoice #1001',
+        '<p>FINAL NOTICE: Invoice #1001 is 18 days overdue. This is your final notice before we escalate to legal proceedings.</p><p>Please remit payment immediately or contact us.</p>',
+        'pending',
+      ]
+    );
+    const email3Res = await pool.query(
+      `SELECT id FROM pilot_queued_emails WHERE company_id = $1 AND email_type = $2 ORDER BY created_at DESC LIMIT 1`,
+      [companyId, emailTier3Type]
+    );
+    if (email3Res.rows.length > 0) {
+      created.push({ type: 'email', email_type: emailTier3Type, id: email3Res.rows[0].id });
+    }
+
+    // SMS Tier 1: Escalation to SMS (Day 20, after emails 1-3 failed)
+    const smsTier1Type = 'sms_tier_1';
+    await pool.query(
+      `INSERT INTO pilot_queued_emails (
+        company_id, invoice_id, customer_id,
+        recipient_email, phone_number, customer_name, invoice_amount, days_overdue,
+        email_type, type, message_preview, message_full, status
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+       RETURNING id`,
+      [
+        companyId,
+        invoiceId,
+        customerId,
+        'sms@example.com', // Placeholder for SMS items
+        '+1-415-555-1234',
+        'Test Customer (Auto)',
+        5000,
+        20, // Day 20: SMS escalation (emails failed)
+        smsTier1Type,
+        'sms',
+        'URGENT: Your $5,000 invoice #1001 is 20 days overdue. Reply STOP to opt out.',
+        'URGENT: Your $5000 invoice #1001 is 20 days overdue. Please remit payment immediately or contact our office. Reply STOP to opt out.',
+        'pending',
+      ]
+    );
+    const sms1Res = await pool.query(
+      `SELECT id FROM pilot_queued_emails WHERE company_id = $1 AND email_type = $2 ORDER BY created_at DESC LIMIT 1`,
+      [companyId, smsTier1Type]
+    );
+    if (sms1Res.rows.length > 0) {
+      created.push({ type: 'sms', email_type: smsTier1Type, id: sms1Res.rows[0].id });
+    }
+
+    // SMS Tier 2: SMS Retry (Day 27, if SMS tier 1 failed)
+    const smsTier2Type = 'sms_tier_2';
+    await pool.query(
+      `INSERT INTO pilot_queued_emails (
+        company_id, invoice_id, customer_id,
+        recipient_email, phone_number, customer_name, invoice_amount, days_overdue,
+        email_type, type, message_preview, message_full, status
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+       RETURNING id`,
+      [
+        companyId,
+        invoiceId,
+        customerId,
+        'sms@example.com',
+        '+1-415-555-1234',
+        'Test Customer (Auto)',
+        5000,
+        27, // Day 27: SMS retry
+        smsTier2Type,
+        'sms',
+        'FINAL: Invoice #1001 ($5K) - 27 days overdue. Legal action pending.',
+        'FINAL NOTICE: Invoice #1001 for $5000 is 27 days overdue. This is your final notice before legal action. Contact us immediately. Reply STOP to opt out.',
+        'pending',
+      ]
+    );
+    const sms2Res = await pool.query(
+      `SELECT id FROM pilot_queued_emails WHERE company_id = $1 AND email_type = $2 ORDER BY created_at DESC LIMIT 1`,
+      [companyId, smsTier2Type]
+    );
+    if (sms2Res.rows.length > 0) {
+      created.push({ type: 'sms', email_type: smsTier2Type, id: sms2Res.rows[0].id });
+    }
+
+    logInfo(MODULE, 'testPopulateQueue', 'Created test dunning flow: 3 emails + 2 SMS', {});
+
+    return res.json({
+      message: 'Created complete dunning flow: 3 emails (tiers 1-3) + 2 SMS (escalation + retry)',
+      flow: 'Day 5: Email Tier 1 → Day 12: Email Tier 2 → Day 18: Email Tier 3 → Day 20: SMS Tier 1 → Day 27: SMS Tier 2',
+      customer_id: customerId,
+      invoice_id: invoiceId,
+      created_count: created.length,
+      items: created,
+    });
+  } catch (err: any) {
+    logError(MODULE, 'testPopulateQueue', 'Failed to populate test queue', err);
     return res.status(400).json({ error: err.message });
   }
 };
