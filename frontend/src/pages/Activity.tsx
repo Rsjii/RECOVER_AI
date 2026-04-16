@@ -119,17 +119,26 @@ const Activity: React.FC = () => {
 
   const fetchQueuedEmails = useCallback(async () => {
     try {
-      const [pendingRes, rejectedRes] = await Promise.all([
-        api.get<{ data: any[] }>('/api/pilot-queue'),
-        api.get<{ data: any[] }>('/api/pilot-queue?status=rejected').catch(() => ({ data: [] })),
-      ]);
-      setQueuedEmails(pendingRes.data || []);
-      setRejectedEmails(rejectedRes.data || []);
+      // Fetch pending emails (required)
+      const pendingRes = await api.get<{ data: any[] }>('/api/pilot-queue');
+      setQueuedEmails(pendingRes?.data || []);
+
+      // Fetch rejected emails separately (optional - don't crash if fails)
+      try {
+        const rejectedRes = await api.get<{ data: any[] }>('/api/pilot-queue?status=rejected');
+        setRejectedEmails(rejectedRes?.data || []);
+      } catch {
+        // Rejected emails endpoint might not return data - silently continue
+        setRejectedEmails([]);
+      }
     } catch (err: any) {
       addToast({
         type: 'error',
-        message: err.message || 'Failed to load queued emails',
+        message: err.message || 'Failed to load pending emails',
       });
+      // Still set empty arrays so component doesn't break
+      setQueuedEmails([]);
+      setRejectedEmails([]);
     }
   }, [addToast]);
 
