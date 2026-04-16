@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Button } from './ui/Button';
+import { api } from '../lib/api';
 
 interface ModeSwitchDialogProps {
   currentMode: 'shadow' | 'auto';
@@ -21,13 +22,13 @@ export const ModeSwitchDialog: React.FC<ModeSwitchDialogProps> = ({ currentMode,
   useEffect(() => {
     const fetchPendingCount = async () => {
       try {
-        const res = await fetch('/api/settings/email-mode');
-        if (res.ok) {
-          const data = await res.json();
-          setPendingCount(data.data.pendingCount);
+        const res = await api.get<{ data: { pendingCount: number; mode: string } }>('/api/settings/email-mode');
+        if (res?.data?.pendingCount !== undefined) {
+          setPendingCount(res.data.pendingCount);
         }
       } catch (err) {
         console.error('Failed to fetch pending count:', err);
+        setPendingCount(0); // Default to 0 on error
       }
     };
 
