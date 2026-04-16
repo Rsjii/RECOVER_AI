@@ -37,14 +37,24 @@ export const ModeSwitchDialog: React.FC<ModeSwitchDialogProps> = ({ currentMode,
   const newMode = currentMode === 'shadow' ? 'auto' : 'shadow';
 
   const handleSelectAction = () => {
-    // If no pending emails, just switch directly
+    // If no pending emails, just switch directly (no action needed)
     if (pendingCount === 0) {
-      handleConfirm();
+      handleDirectSwitch();
       return;
     }
     // If pending emails, need to select an action first
     if (selectedAction) {
       setShowConfirmation(true);
+    }
+  };
+
+  const handleDirectSwitch = async () => {
+    setSwitching(true);
+    try {
+      // When no pending emails, use 'approve' as dummy action (not used by backend)
+      await onSwitch(newMode, 'approve');
+    } finally {
+      setSwitching(false);
     }
   };
 
