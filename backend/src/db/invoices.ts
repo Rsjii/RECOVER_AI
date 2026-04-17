@@ -160,7 +160,7 @@ export async function listInvoices(
   const [data, count] = await Promise.all([
     pool.query(
       `SELECT i.*,
-              c.name as customer_name,
+              c.company_name as customer_name,
               c.email as customer_email,
               (SELECT status FROM pilot_queued_emails
                WHERE invoice_id = i.id
@@ -180,7 +180,7 @@ export async function listInvoices(
 
 export async function findInvoiceById(id: string, companyId: string): Promise<InvoiceRow | null> {
   const result = await pool.query(
-    `SELECT i.*, c.name as customer_name, c.email as customer_email
+    `SELECT i.*, c.company_name as customer_name, c.email as customer_email
      FROM invoices i
      JOIN customers c ON i.customer_id = c.id
      WHERE i.id = $1 AND i.company_id = $2`,
@@ -203,7 +203,7 @@ export async function findInvoiceBySourceId(
   }
 
   const result = await pool.query(
-    `SELECT i.*, c.name as customer_name, c.email as customer_email
+    `SELECT i.*, c.company_name as customer_name, c.email as customer_email
      FROM invoices i
      JOIN customers c ON i.customer_id = c.id
      WHERE i.source_id = $1 AND i.source = $2
@@ -348,7 +348,7 @@ export async function getAllInvoiceIds(
   }
 
   if (filters.search) {
-    conditions.push(`(LOWER(c.name) ILIKE $${paramIndex} OR LOWER(c.email) ILIKE $${paramIndex++})`);
+    conditions.push(`(LOWER(c.company_name) ILIKE $${paramIndex} OR LOWER(c.email) ILIKE $${paramIndex++})`);
     params.push(`%${filters.search.toLowerCase()}%`);
   }
 

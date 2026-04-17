@@ -176,7 +176,7 @@ class QuickBooksService {
 
         const customer = await CustomerDB.findOrCreateCustomer({
           companyId,
-          name: qbInv.CustomerRef?.name || email,
+          companyName: qbInv.CustomerRef?.name || email.split('@')[0],
           email,
         });
 

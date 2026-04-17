@@ -359,7 +359,7 @@ export const getPaymentEvents = async (req: Request, res: Response): Promise<voi
   const limit = Math.min(100, parseInt(req.query.limit as string) || 50);
   try {
     const result = await pool.query(
-      `SELECT p.*, i.amount AS invoice_amount, c.name AS customer_name, c.email AS customer_email
+      `SELECT p.*, i.amount AS invoice_amount, c.company_name AS customer_name, c.email AS customer_email
        FROM payments p
        JOIN invoices i ON i.id = p.invoice_id
        JOIN customers c ON c.id = i.customer_id
@@ -388,7 +388,7 @@ export const getSmsActivity = async (req: Request, res: Response): Promise<void>
   try {
     const result = await pool.query(
       `SELECT i.id, i.sms_count, i.last_sms_sent_at, i.amount, i.currency,
-              c.name AS customer_name, c.email AS customer_email, c.phone AS customer_phone
+              c.company_name AS customer_name, c.email AS customer_email, c.phone AS customer_phone
        FROM invoices i
        JOIN customers c ON c.id = i.customer_id
        WHERE i.company_id = $1 AND i.sms_count > 0

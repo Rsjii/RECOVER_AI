@@ -386,11 +386,11 @@ export const demoLogin = async (req: Request, res: Response): Promise<void> => {
     for (let i = 0; i < customers.length; i++) {
       const c = customers[i];
       const r = await client.query(
-        `INSERT INTO customers (company_id, name, email, company_name, industry, payment_history, created_at)
+        `INSERT INTO customers (company_id, company_name, name, email, industry, payment_history, created_at)
          VALUES ($1,$2,$3,$4,$5,$6,$7)
-         ON CONFLICT (company_id, email) DO UPDATE SET name=$2, company_name=$4, industry=$5, payment_history=$6, created_at=$7
+         ON CONFLICT (company_id, company_name) DO UPDATE SET name=$3, email=$4, industry=$5, payment_history=$6, created_at=$7
          RETURNING id`,
-        [companyId, c.name, c.email, c.company, c.industry, JSON.stringify(c.history), d(90 - i * 5)]
+        [companyId, c.company, c.name, c.email, c.industry, JSON.stringify(c.history), d(90 - i * 5)]
       );
       custRows.push({ id: r.rows[0].id, idx: i });
     }

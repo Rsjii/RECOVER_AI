@@ -46,6 +46,9 @@ instance.interceptors.response.use(
           status: error.response?.status || 401,
           message: data?.['error'] || data?.['message'] || 'Invalid email or password',
           details: data?.['details'],
+          response: {
+            data: data
+          }
         });
       }
 
@@ -81,6 +84,10 @@ instance.interceptors.response.use(
       status: error.response?.status || 500,
       message: data?.['error'] || data?.['message'] || error.message || 'An error occurred',
       details: data?.['details'],
+      // Pass through full error response for cases like CSV validation
+      response: {
+        data: data
+      }
     });
   }
 );

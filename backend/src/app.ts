@@ -141,6 +141,10 @@ app.use((req, res, next) => {
           error: payload.error,
           details: payload.details,
           requestId: (req as any).requestId || req.header('x-request-id') || undefined,
+          // Preserve validation errors for detailed error messages
+          ...(payload.errors && { errors: payload.errors }),
+          ...(payload.total_errors && { total_errors: payload.total_errors }),
+          ...(payload.message && { message: payload.message }),
         };
         return originalJson(normalized);
       }

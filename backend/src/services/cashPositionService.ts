@@ -176,7 +176,7 @@ export async function calculateWhatIf(
       // Calculate how much this customer contributes to expected cash
       const custResult = await pool.query(
         `SELECT
-           c.name AS customer_name,
+           c.company_name AS customer_name,
            COALESCE(SUM(CASE WHEN CEIL(EXTRACT(EPOCH FROM (i.due_date - NOW())) / 86400) <= 30 THEN i.amount ELSE 0 END), 0) AS due_30,
            COALESCE(SUM(CASE WHEN CEIL(EXTRACT(EPOCH FROM (i.due_date - NOW())) / 86400) <= 60 THEN i.amount ELSE 0 END), 0) AS due_60,
            COALESCE(SUM(CASE WHEN CEIL(EXTRACT(EPOCH FROM (i.due_date - NOW())) / 86400) <= 90 THEN i.amount ELSE 0 END), 0) AS due_90
@@ -187,7 +187,7 @@ export async function calculateWhatIf(
            AND i.status = 'unpaid'
            AND i.dunning_stopped = FALSE
            AND i.due_date > NOW()
-         GROUP BY c.name`,
+         GROUP BY c.company_name`,
         [companyId, scenario.removeCustomerId]
       );
 

@@ -53,13 +53,20 @@ const ToastComponent: React.FC<ToastComponentProps> = ({ id, type, message, acti
     setTimeout(() => onClose(id), 200);
   };
 
+  // Handle multi-line messages (split by \n and render each line)
+  const messageLines = message.split('\n');
+
   return (
-    <div className={`flex items-start gap-3 p-4 rounded-xl border shadow-lg max-w-sm transition-all duration-200 ${
+    <div className={`flex items-start gap-3 p-4 rounded-xl border shadow-lg max-w-2xl transition-all duration-200 ${
       exiting ? 'opacity-0 translate-x-4' : 'opacity-100 translate-x-0'
     } ${bgColors[type]}`}>
       <span className="flex-shrink-0 mt-0.5">{icons[type]}</span>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-gray-900 dark:text-white">{message}</p>
+        <div className="text-sm font-medium text-gray-900 dark:text-white whitespace-pre-wrap break-words">
+          {messageLines.map((line, idx) => (
+            <div key={idx}>{line}</div>
+          ))}
+        </div>
         {action && (
           <button onClick={action.onClick} className="text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 mt-1 underline">
             {action.label}

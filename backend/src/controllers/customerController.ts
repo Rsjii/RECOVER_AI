@@ -17,8 +17,8 @@ export const createCustomer = async (req: Request, res: Response): Promise<void>
   const startTime = Date.now();
 
   try {
-    const { name, email, phone, phone_opt_in } = req.body as {
-      name?: string;
+    const { company_name, email, phone, phone_opt_in } = req.body as {
+      company_name?: string;
       email?: string;
       phone?: string;
       phone_opt_in?: boolean;
@@ -26,7 +26,7 @@ export const createCustomer = async (req: Request, res: Response): Promise<void>
 
     // Validate required fields
     const errors = [];
-    if (!name || typeof name !== 'string' || name.trim().length === 0) errors.push('name');
+    if (!company_name || typeof company_name !== 'string' || company_name.trim().length === 0) errors.push('company_name');
     if (!email || typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.push('email (valid email required)');
 
     if (errors.length > 0) {
@@ -34,10 +34,10 @@ export const createCustomer = async (req: Request, res: Response): Promise<void>
       return;
     }
 
-    // Create customer (name and email are guaranteed to exist after validation)
+    // Create customer (company_name and email are guaranteed to exist after validation)
     const customer = await CustomerDB.findOrCreateCustomer({
       companyId,
-      name: (name as string).trim(),
+      companyName: (company_name as string).trim(),
       email: (email as string).trim().toLowerCase(),
     });
 
@@ -360,43 +360,45 @@ export const importCustomersCSV = async (req: Request, res: Response): Promise<v
       });
     };
 
-    // Find columns (name & email required)
-    const nameIdx = findColumn(['name', 'customername', 'company', 'business', 'org']);
+    // Find columns (company_name & email required)
+    const companyNameIdx = findColumn(['companyname', 'company', 'business', 'org', 'organization', 'name']);
     const emailIdx = findColumn(['email', 'mail', 'contact', 'address', 'emailaddress']);
+    const contactNameIdx = findColumn(['contactname', 'contact', 'personname', 'firstname']); // Optional contact person
     const phoneIdx = findColumn(['phone', 'telephone', 'mobile', 'cell', 'number']);
     const optInIdx = findColumn(['optin', 'opt_in', 'phoneoptin', 'sms', 'opted']);
 
     logInfo(LOG_MODULE, handler, 'CSV column detection', {
       headers: rawHeader,
-      detectedColumns: { nameIdx, emailIdx, phoneIdx, optInIdx },
+      detectedColumns: { companyNameIdx, emailIdx, contactNameIdx, phoneIdx, optInIdx },
     });
 
     // STEP 1: Parse & normalize all customers IN MEMORY
-    const normalized: Array<{ name: string; email: string; phone?: string; phone_opt_in: boolean }> = [];
+    const normalized: Array<{ company_name: string; name?: string; email: string; phone?: string; phone_opt_in: boolean }> = [];
 
     for (let i = 1; i < lines.length; i++) {
       const values = lines[i].split(',').map(v => v.trim());
       if (values.every(v => !v)) continue; // Skip empty rows
 
       // Extract values with fallbacks
-      let name = nameIdx >= 0 ? values[nameIdx] : '';
+      let companyName = companyNameIdx >= 0 ? values[companyNameIdx] : '';
       let email = emailIdx >= 0 ? values[emailIdx] : '';
+      let contactName = contactNameIdx >= 0 ? values[contactNameIdx] : '';
       const phone = phoneIdx >= 0 ? values[phoneIdx] : '';
       const optIn = optInIdx >= 0 ? values[optInIdx] : '';
 
-      // AUTO-INFER MISSING NAME
-      if (!name && email) {
-        name = email.split('@')[0];
+      // AUTO-INFER MISSING COMPANY_NAME
+      if (!companyName && email) {
+        companyName = email.split('@')[0];
       }
-      if (!name) {
+      if (!companyName) {
         const uniqueId = values.find(v => v && !v.includes(' ') && v.length > 2);
-        name = uniqueId || `Customer ${i}`;
+        companyName = uniqueId || `Company ${i}`;
       }
 
       // AUTO-INFER MISSING EMAIL
       if (!email) {
         const emailValue = values.find(v => v.includes('@'));
-        email = emailValue || `cust${Math.random().toString(36).substring(7)}@local.invalid`;
+        email = emailValue || `contact@${companyName.toLowerCase().replace(/\s+/g, '')}.local`;
       }
 
       // Validate email
@@ -405,7 +407,8 @@ export const importCustomersCSV = async (req: Request, res: Response): Promise<v
       }
 
       normalized.push({
-        name: name.trim(),
+        company_name: companyName.trim(),
+        name: contactName ? contactName.trim() : undefined, // Optional contact person
         email: email.toLowerCase(),
         phone: phone || undefined,
         phone_opt_in: optIn.toLowerCase() === 'true' || optIn === '1',
@@ -424,66 +427,100 @@ export const importCustomersCSV = async (req: Request, res: Response): Promise<v
     }
 
     // STEP 2: Bulk find-or-create customers (1 SQL call for existing lookup)
-    const uniqueEmails = [...new Set(normalized.map(c => c.email))];
-    const customerMap = new Map<string, string>();
+    // FIX #6: Changed from email-based lookup to company_name-based (new identifier)
+    const uniqueCompanyNames = [...new Set(normalized.map(c => c.company_name))];
+    const customerByCompanyNameMap = new Map<string, string>(); // company_name -> id
+    const customerByEmailMap = new Map<string, string>(); // email -> id (for updating existing)
     let skipped = 0;
 
-    // Get existing customers
-    if (uniqueEmails.length > 0) {
+    // Get existing customers by COMPANY_NAME (primary identifier)
+    if (uniqueCompanyNames.length > 0) {
       const existing = await pool.query(
-        `SELECT id, email FROM customers WHERE company_id = $1 AND email = ANY($2)`,
-        [companyId, uniqueEmails]
+        `SELECT id, company_name, email FROM customers WHERE company_id = $1 AND company_name = ANY($2)`,
+        [companyId, uniqueCompanyNames]
       );
       existing.rows.forEach((row: any) => {
-        customerMap.set(row.email, row.id);
+        customerByCompanyNameMap.set(row.company_name, row.id);
+        if (row.email) customerByEmailMap.set(row.email, row.id);
       });
     }
 
     // Create missing customers in BULK (1 SQL call)
-    const missing = uniqueEmails.filter(e => !customerMap.has(e));
+    // Only create if company_name doesn't already exist
+    const missingCompanyNames = uniqueCompanyNames.filter(name => !customerByCompanyNameMap.has(name));
     let created = 0;
 
-    if (missing.length > 0) {
-      // Build parameters for bulk insert
-      const vals = missing.map((_, i) => `($1, $${i * 2 + 2}, $${i * 2 + 3})`).join(',');
-      const params = [companyId, ...missing.flatMap(e => [e.split('@')[0], e])];
+    if (missingCompanyNames.length > 0) {
+      // Build maps from normalized data
+      const companyNameToEmailMap = new Map<string, string>();
+      const companyNameToContactNameMap = new Map<string, string | undefined>();
+      const companyNameToPhoneMap = new Map<string, string | undefined>();
+      for (const cust of normalized) {
+        companyNameToEmailMap.set(cust.company_name, cust.email);
+        if (cust.name) companyNameToContactNameMap.set(cust.company_name, cust.name);
+        if (cust.phone) companyNameToPhoneMap.set(cust.company_name, cust.phone);
+      }
+
+      // Build parameters for bulk insert (company_id, company_name, name, email, phone)
+      const vals = missingCompanyNames.map((_, i) => `($1, $${i * 4 + 2}, $${i * 4 + 3}, $${i * 4 + 4}, $${i * 4 + 5})`).join(',');
+      const params = [companyId, ...missingCompanyNames.flatMap(name => [
+        name,
+        companyNameToContactNameMap.get(name) || null,
+        companyNameToEmailMap.get(name) || null,
+        companyNameToPhoneMap.get(name) || null
+      ])];
 
       const newCustomers = await pool.query(
-        `INSERT INTO customers (company_id, name, email) VALUES ${vals} RETURNING id, email`,
+        `INSERT INTO customers (company_id, company_name, name, email, phone) VALUES ${vals} RETURNING id, company_name, email`,
         params
       );
       newCustomers.rows.forEach((row: any) => {
-        customerMap.set(row.email, row.id);
+        customerByCompanyNameMap.set(row.company_name, row.id);
+        if (row.email) customerByEmailMap.set(row.email, row.id);
       });
       created = newCustomers.rows.length;
     } else {
       skipped = normalized.length;
     }
 
-    // STEP 3: Update phones IN BULK (1 SQL call per unique phone value)
-    const phonesToUpdate = normalized.filter(c => c.phone && customerMap.has(c.email));
+    // STEP 3: Update phones and contact info IN BULK
+    // FIX #6: Update for customers that already existed or were just created
+    const phonesToUpdate = normalized.filter(c => c.phone && customerByCompanyNameMap.has(c.company_name));
     if (phonesToUpdate.length > 0) {
       for (const cust of phonesToUpdate) {
-        const custId = customerMap.get(cust.email);
+        const custId = customerByCompanyNameMap.get(cust.company_name);
         if (custId) {
           await CustomerDB.updateCustomerPhone(custId, companyId, cust.phone!, cust.phone_opt_in);
         }
       }
     }
 
+    // Also update emails for existing customers if email is provided
+    const emailsToUpdate = normalized.filter(c => c.email && customerByCompanyNameMap.has(c.company_name));
+    if (emailsToUpdate.length > 0) {
+      for (const cust of emailsToUpdate) {
+        const custId = customerByCompanyNameMap.get(cust.company_name);
+        if (custId) {
+          // Use updateCustomer to update email
+          await CustomerDB.updateCustomer(custId, companyId, { email: cust.email });
+        }
+      }
+    }
+
+    const existing = uniqueCompanyNames.length - created;
     logInfo(LOG_MODULE, handler, `CSV import completed in ${Date.now() - startTime}ms`, {
       companyId,
       total: normalized.length,
       created,
-      existing: uniqueEmails.length - created,
+      existing,
     });
 
     res.status(200).json({
       data: {
         created,
-        existing: uniqueEmails.length - created,
+        existing,
         total: normalized.length,
-        message: `Successfully imported ${created} customer${created !== 1 ? 's' : ''}${uniqueEmails.length - created > 0 ? `, ${uniqueEmails.length - created} already existed` : ''}`,
+        message: `Successfully imported ${created} customer${created !== 1 ? 's' : ''}${existing > 0 ? `, ${existing} already existed` : ''}`,
       },
     });
   } catch (error: any) {

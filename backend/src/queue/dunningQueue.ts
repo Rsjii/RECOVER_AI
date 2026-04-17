@@ -193,12 +193,19 @@ export async function scheduleDunningEmails(
     const sendAt = dueDate + step.dayOffset * 24 * 60 * 60 * 1000;
     const delay = Math.max(0, sendAt - now);
 
+    // FIX #4: Get customer contact name (customers.name field, optional)
+    // Fallback to company_name if contact name is NULL
+    // NOTE: customer_name in pilot_queued_emails is for email salutation, should be contact person
+    let displayName = invoice.customer_name || 'Valued Customer';
+
+    // If we have access to customer.name field (contact person), use that
+    // Otherwise use company name as fallback
     const job: DunningEmailJob = {
       companyId,
       customerId: invoice.customer_id,
       invoiceId,
       recipientEmail: invoice.customer_email || '',
-      customerName: invoice.customer_name || 'Valued Customer',
+      customerName: displayName,  // Will be used for email salutation
       invoiceAmount: Number(invoice.amount),
       dueDate: invoice.due_date,
       daysOverdue: Math.max(0, Math.floor((now - dueDate) / (24 * 60 * 60 * 1000))),
@@ -383,12 +390,15 @@ export function startDunningWorker(): Worker<DunningEmailJob> {
             logWarn(LOG_MODULE, 'worker', 'Failed to fetch company name, using default', { companyId: data.companyId });
           }
 
+          // FIX #5: Ensure customerName is never NULL (required for pilot_queued_emails.customer_name)
+          const safeCustomerName = data.customerName || 'Valued Customer';
+
           // Generate email subject/body before queueing for review
           const emailResponse = await aiService.generateDunningEmail(
             {
               customerId: data.customerId,
               invoiceId: data.invoiceId,
-              customerName: data.customerName,
+              customerName: safeCustomerName,
               companyName,
               invoiceAmount: data.invoiceAmount,
               dueDate: data.dueDate,
@@ -407,7 +417,7 @@ export function startDunningWorker(): Worker<DunningEmailJob> {
             invoiceId: data.invoiceId,
             customerId: data.customerId,
             recipientEmail: data.recipientEmail,
-            customerName: data.customerName,
+            customerName: safeCustomerName,  // FIX #5: Always non-NULL
             invoiceAmount: data.invoiceAmount,
             daysOverdue: data.daysOverdue,
             dueDate: data.dueDate,

@@ -1009,7 +1009,7 @@ export const testPopulateQueue = async (req: Request, res: Response) => {
 
     // Get or create test customer
     const customerResult = await pool.query(
-      `SELECT id FROM customers WHERE company_id = $1 AND name ILIKE '%Test Customer%' LIMIT 1`,
+      `SELECT id FROM customers WHERE company_id = $1 AND company_name ILIKE '%Test Customer%' LIMIT 1`,
       [companyId]
     );
 
@@ -1018,10 +1018,10 @@ export const testPopulateQueue = async (req: Request, res: Response) => {
     if (customerResult.rows.length === 0) {
       // Create test customer
       const createCustomer = await pool.query(
-        `INSERT INTO customers (company_id, name, email, phone)
-         VALUES ($1, $2, $3, $4)
+        `INSERT INTO customers (company_id, company_name, name, email, phone)
+         VALUES ($1, $2, $3, $4, $5)
          RETURNING id`,
-        [companyId, 'Test Customer (Auto)', 'test@example.com', '+1-415-555-1234']
+        [companyId, 'Test Company (Auto)', 'Test Customer', 'test@example.com', '+1-415-555-1234']
       );
       customerId = createCustomer.rows[0].id;
       logInfo(MODULE, 'testPopulateQueue', 'Created test customer', { customerId });

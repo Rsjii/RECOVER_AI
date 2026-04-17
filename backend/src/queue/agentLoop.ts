@@ -73,7 +73,7 @@ async function getOverdueInvoicesForProcessing(): Promise<Array<{
       COALESCE(i.dunning_stopped, false) AS dunning_stopped,
       COALESCE(i.sms_count, 0)::int AS sms_count,
       c.email           AS customer_email,
-      c.name            AS customer_name,
+      c.company_name    AS customer_name,
       c.phone           AS customer_phone,
       COALESCE(c.phone_opt_in, false) AS customer_phone_opt_in,
       COALESCE(c.risk_tier, 2)::int AS risk_tier,
@@ -106,7 +106,7 @@ async function getOverdueInvoicesForProcessing(): Promise<Array<{
       AND COALESCE(c.do_not_email, false) = false
     GROUP BY i.id, i.company_id, i.customer_id, i.amount, i.due_date, c.customer_risk_score,
              i.dunning_paused_until, i.dunning_stopped, i.sms_count,
-             c.email, c.name, c.phone, c.phone_opt_in, c.risk_tier, co.name, co.pilot_mode,
+             c.email, c.company_name, c.phone, c.phone_opt_in, c.risk_tier, co.name, co.pilot_mode,
              co.dunning_tone, co.pause_dunning_until, co.paused_customers, co.aggressive_enabled,
              c.payment_insights
     ORDER BY i.due_date ASC

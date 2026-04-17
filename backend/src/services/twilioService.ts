@@ -249,7 +249,7 @@ export async function getVoiceCallStats(companyId: string, daysBack: number = 30
 export async function getRecentVoiceCalls(companyId: string, limit: number = 10): Promise<any[]> {
   try {
     const result = await pool.query(
-      `SELECT vc.*, i.invoice_number, i.amount, c.name as customer_name
+      `SELECT vc.*, i.invoice_number, i.amount, c.company_name as customer_name
        FROM voice_calls vc
        JOIN invoices i ON vc.invoice_id = i.id
        JOIN customers c ON vc.customer_id = c.id

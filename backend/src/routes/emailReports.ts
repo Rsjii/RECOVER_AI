@@ -39,7 +39,7 @@ router.get('/sent', authMiddleware, async (req: Request, res: Response) => {
         el.sent_at,
         el.opened_at,
         i.source_id,
-        c.name as customer_name,
+        c.company_name as customer_name,
         c.email as customer_email,
         i.amount,
         i.currency,
