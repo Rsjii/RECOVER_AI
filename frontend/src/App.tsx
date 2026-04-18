@@ -31,7 +31,6 @@ import Onboard from './pages/Onboard';
 import Profile from './pages/Profile';
 import { Integrations } from './pages/Integrations';
 import { AuditReport } from './pages/AuditReport';
-import { DemoFlow } from './components/DemoFlow';
 
 // Placeholder pages (create empty files for now, fill in later phases)
 const Dashboard = React.lazy(() => import('./pages/Dashboard'));
@@ -111,9 +110,6 @@ const App: React.FC = () => {
             <Route path="/stripe/oauth/callback" element={<StripeCallback />} />
             <Route path="/unsubscribe" element={<Unsubscribe />} />
             <Route path="/onboard" element={<Onboard />} />
-
-            {/* 🎬 DEMO FLOW: Cold email video recording — /demo */}
-            <Route path="/demo" element={<DemoFlow />} />
 
             <Route path="/verify-email" element={<VerifyEmail />} />
             <Route

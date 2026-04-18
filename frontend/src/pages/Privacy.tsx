@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { PublicHeader } from '../components/layout/PublicHeader';
+import { PublicFooter } from '../components/layout/PublicFooter';
 import { useSEO } from '../hooks/useSEO';
 import { getPageSEO } from '../lib/seoConfig';
 
@@ -120,6 +121,7 @@ const Privacy: React.FC = () => {
           </Link>
         </div>
       </div>
+      <PublicFooter />
     </div>
   );
 };

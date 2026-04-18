@@ -486,7 +486,7 @@ const Activity: React.FC = () => {
           {activeTab === 'emails' && (
             <div className="space-y-6">
               {/* SECTION 1: PENDING APPROVAL QUEUE */}
-              <Card>
+              <Card data-tour="pending-approval-section">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-base font-semibold text-gray-900 dark:text-white">📬 Pending Approval</h3>
                   <div className="bg-blue-100 dark:bg-blue-500/20 text-blue-900 dark:text-blue-200 px-3 py-1 rounded-full font-medium text-sm">
@@ -931,7 +931,7 @@ const Activity: React.FC = () => {
               )}
 
               {/* SECTION 2: SENT & TRACKED EMAILS */}
-              <Card>
+              <Card data-tour="sent-emails-section">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-base font-semibold text-gray-900 dark:text-white">✅ Sent & Tracked</h3>
                 </div>

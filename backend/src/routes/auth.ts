@@ -20,6 +20,7 @@ import {
   onboardWithToken,
   completeCompanyForm,
 } from '../controllers/authController';
+import { demoLogin } from '../controllers/demoController';
 import { authMiddleware } from '../middleware/auth';
 import { requireRole } from '../middleware/rbac';
 import { validate } from '../middleware/validate';
@@ -30,6 +31,9 @@ import { demoBlocker } from '../middleware/demoBlocker';
 const router = Router();
 
 // Public routes
+// Demo login: for video recording
+router.post('/demo/login', demoLogin);
+
 // Bootstrap: only works on empty DB (first admin setup)
 router.post('/bootstrap', validate(signupSchema), bootstrap);
 

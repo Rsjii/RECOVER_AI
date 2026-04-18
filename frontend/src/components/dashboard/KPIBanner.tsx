@@ -168,6 +168,7 @@ export const KPIBanner: React.FC<KPIBannerProps> = ({
               key={metric.id}
               onClick={() => setSelectedMetric(metric.id)}
               className="text-left p-2 md:p-3 lg:p-4 rounded-lg bg-gray-50 dark:bg-white/[0.02] hover:bg-gray-100 dark:hover:bg-white/[0.04] transition-colors border border-transparent hover:border-gray-200 dark:hover:border-white/[0.06]"
+              data-tour={metric.id === 'hours-saved' ? 'hours-saved' : undefined}
             >
               <p className="text-[9px] md:text-[10px] lg:text-[11px] text-gray-600 dark:text-gray-400 uppercase tracking-wide font-medium truncate">{metric.label}</p>
               <p className={`text-base md:text-xl lg:text-2xl font-bold mt-2 ${metric.color}`}>{metric.format(metric.value)}</p>

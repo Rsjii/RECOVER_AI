@@ -398,9 +398,8 @@ export async function getEmailAnalytics(companyId: string): Promise<EmailAnalyti
 export async function getRiskDrivers(companyId: string): Promise<RiskDrivers> {
   const result = await pool.query(
     `SELECT
-       COUNT(DISTINCT c.id) FILTER (
-         WHERE c.payment_history->>'on_time_rate' IS NOT NULL
-           AND (c.payment_history->>'on_time_rate')::numeric < 0.8
+       COUNT(DISTINCT i.customer_id) FILTER (
+         WHERE i.last_decline_type IN ('soft', 'hard')
        ) AS failed_payment,
        COUNT(DISTINCT c.id) FILTER (
          WHERE c.card_expires_at IS NOT NULL AND c.card_expires_at < NOW() + INTERVAL '30 days'

@@ -30,8 +30,12 @@ const Landing: React.FC = () => {
   const handleTryDemo = async () => {
     setDemoLoading(true);
     try {
-      const result = await api.post<{ user: any; company: any }>('/api/demo/login');
+      const result = await api.post<{ user: any; company: any; demoData?: any }>('/api/demo/login');
       localStorage.setItem('isDemo', 'true');
+      // Store real demo data (invoice IDs, amounts) for use in tour
+      if (result.demoData) {
+        localStorage.setItem('demoData', JSON.stringify(result.demoData));
+      }
       setAuthState(result.user, result.company);
       navigate('/dashboard', { replace: true });
     } catch (err: any) {
@@ -99,7 +103,7 @@ const Landing: React.FC = () => {
             onClick={handleTryDemo}
             disabled={demoLoading}
           >
-            {demoLoading ? 'Loading demo...' : 'Try live demo'}
+            {demoLoading ? '⏳ Loading...' : '🎬 View Demo'}
           </Button>
         </div>
         <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">21-day free trial • No credit card required</p>
@@ -264,7 +268,7 @@ const Landing: React.FC = () => {
               { icon: '✉️', title: 'Smart Email Timing', desc: 'AI decides when to email each customer for best response. Not random schedules.' },
               { icon: '💬', title: 'Tone Optimization', desc: 'Generate friendly, neutral, or aggressive emails based on customer history.' },
               { icon: '💳', title: 'Payment Plans', desc: 'Offer installments to customers who can\'t pay in full. Improve outcomes.' },
-              { icon: '🔗', title: 'Multi-source Sync', desc: 'Stripe + CSV + QuickBooks. All invoice data in one place.' },
+              { icon: '🔗', title: 'Multi-source Sync', desc: 'Stripe + CSV integration. All invoice data in one place. (QuickBooks coming soon)' },
               { icon: '⚙️', title: 'Full Controls', desc: 'Pause agent, review before send, set tone preference. You\'re always in control.' },
             ].map((f) => (
               <div key={f.title} className="bg-white dark:bg-[#111113] rounded-xl border border-gray-200 dark:border-white/[0.06] p-5">
@@ -384,7 +388,10 @@ const Landing: React.FC = () => {
               <Link to="/refund-policy" className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">Refund</Link>
               <Link to="/dpa" className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">DPA</Link>
             </div>
-            <p className="text-xs text-gray-600 dark:text-gray-400">2026 RecoverAI. All rights reserved.</p>
+            <div className="flex flex-col gap-1 text-xs text-gray-600 dark:text-gray-400">
+              <p>2026 RecoverAI. All rights reserved.</p>
+              <a href="mailto:hello@recoverai.tech" className="text-blue-600 dark:text-blue-400 hover:underline">hello@recoverai.tech</a>
+            </div>
           </div>
         </div>
       </footer>

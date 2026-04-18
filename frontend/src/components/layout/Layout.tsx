@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { Header } from './Header';
 import { Sidebar } from './Sidebar';
-import { DemoBanner } from '../ui/DemoBanner';
+// import { DemoBanner } from '../ui/DemoBanner'; // Hidden for demo
+import { DemoAutoNavigation } from '../dashboard/DemoAutoNavigation';
+import { useAuth } from '../../hooks/useAuth';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -9,8 +11,13 @@ interface LayoutProps {
 
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { user } = useAuth();
+
   return (
     <div className="flex h-screen bg-gray-50 dark:bg-[#09090b]">
+      {/* Demo Auto-Navigation Tour — stays mounted across all pages */}
+      {user?.isDemo && <DemoAutoNavigation />}
+
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div className="fixed inset-0 bg-black/50 z-30 lg:hidden" onClick={() => setSidebarOpen(false)} />
@@ -24,7 +31,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         <Header onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
-        <DemoBanner />
+        {/* Demo Banner - Hidden for now */}
+        {/* <DemoBanner /> */}
         <main className="flex-1 overflow-y-auto bg-white dark:bg-[#09090b]">
           <div className="p-4 sm:p-6 pb-8">
             {children}

@@ -459,7 +459,7 @@ export const InvoiceTable: React.FC<InvoiceTableProps> = ({
       />
 
       <MobileCards />
-      <div className="hidden md:block">
+      <div className="hidden md:block" data-tour="invoices-table">
         <Table<Invoice>
           data={invoices}
           columns={columns}

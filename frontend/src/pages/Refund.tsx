@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { PublicHeader } from '../components/layout/PublicHeader';
+import { PublicFooter } from '../components/layout/PublicFooter';
 
 const Refund: React.FC = () => {
   useEffect(() => { document.title = 'Refund & Cancellation Policy — RecoverAI'; }, []);
@@ -20,7 +21,7 @@ const Refund: React.FC = () => {
         <ul className="list-disc list-inside space-y-2 text-sm text-gray-700 dark:text-gray-300 mt-3">
           <li><span className="font-medium">Full Refund:</span> If you cancel within 7 days of trial start</li>
           <li><span className="font-medium">No Refund:</span> If you cancel after 7 days but before trial expires</li>
-          <li><span className="font-medium">How to Refund:</span> Email support@recoverai.com with your account email. No questions asked.</li>
+          <li><span className="font-medium">How to Refund:</span> Email hello@recoverai.tech with your account email. No questions asked.</li>
           <li><span className="font-medium">Auto-Conversion:</span> If trial expires without cancellation, you will be charged for the selected plan</li>
         </ul>
 
@@ -71,7 +72,7 @@ const Refund: React.FC = () => {
           <li><span className="font-medium">Service Pause:</span> If all retries fail, your service will be paused (not deleted)</li>
           <li><span className="font-medium">Reactivation:</span> You can reactivate by updating your payment method and retrying</li>
           <li><span className="font-medium">No Auto-Refund:</span> Failed payment does not entitle you to a refund of prior usage</li>
-          <li><span className="font-medium">Contact Support:</span> If you have payment issues, email support@recoverai.com</li>
+          <li><span className="font-medium">Contact Support:</span> If you have payment issues, email hello@recoverai.tech</li>
         </ul>
 
         <h2 className="text-xl font-semibold text-gray-900 dark:text-white mt-8 mb-3">Annual Plans</h2>
@@ -96,7 +97,7 @@ const Refund: React.FC = () => {
           If you believe you're entitled to a refund or credit due to a service failure or other exceptional circumstance:
         </p>
         <ol className="list-decimal list-inside space-y-2 text-sm text-gray-700 dark:text-gray-300 mt-3">
-          <li>Contact <a href="mailto:support@recoverai.com" className="text-blue-600 dark:text-blue-400 hover:underline">support@recoverai.com</a> within 7 days of the issue</li>
+          <li>Contact <a href="mailto:hello@recoverai.tech" className="text-blue-600 dark:text-blue-400 hover:underline">hello@recoverai.tech</a> within 7 days of the issue</li>
           <li>Provide detailed explanation and evidence of the service failure</li>
           <li>We will review your case and respond within 5 business days</li>
           <li>If your claim is valid, we may offer a partial credit or refund at our discretion</li>
@@ -118,7 +119,7 @@ const Refund: React.FC = () => {
           We're confident you'll love RecoverAI. However, if you're not completely satisfied within your first 7 days:
         </p>
         <ul className="list-disc list-inside space-y-2 text-sm text-gray-700 dark:text-gray-300 mt-3">
-          <li>Contact <a href="mailto:support@recoverai.com" className="text-blue-600 dark:text-blue-400 hover:underline">support@recoverai.com</a> within 7 days</li>
+          <li>Contact <a href="mailto:hello@recoverai.tech" className="text-blue-600 dark:text-blue-400 hover:underline">hello@recoverai.tech</a> within 7 days</li>
           <li>Explain what didn't work for you</li>
           <li>We'll discuss options: refund, troubleshooting, or custom configuration</li>
           <li>No hard feelings — we just want you to succeed</li>
@@ -129,7 +130,7 @@ const Refund: React.FC = () => {
           Have questions about refunds or cancellation? Reach out anytime:
         </p>
         <ul className="list-disc list-inside space-y-2 text-sm text-gray-700 dark:text-gray-300 mt-3">
-          <li>Email: <a href="mailto:support@recoverai.com" className="text-blue-600 dark:text-blue-400 hover:underline">support@recoverai.com</a></li>
+          <li>Email: <a href="mailto:hello@recoverai.tech" className="text-blue-600 dark:text-blue-400 hover:underline">hello@recoverai.tech</a></li>
           <li>Phone: +91 75097 95114</li>
         </ul>
 
@@ -137,6 +138,7 @@ const Refund: React.FC = () => {
           Last updated: March 17, 2026
         </p>
       </div>
+      <PublicFooter />
     </div>
   );
 };

@@ -510,13 +510,17 @@ const Dashboard: React.FC = () => {
 
   // Initialize custom tour (first-time only)
   const { startTour, closeTour, completeTour, markTourStarted, resetTour, isOpen, currentTour, isTourStarted } = useCustomTour();
+  const { user } = useAuth();
 
   useEffect(() => {
-    // Start tour only on first dashboard visit (never again)
+    // Demo users: tour handled by DemoAutoNavigation at Layout level
+    if (user?.isDemo) return;
+
+    // Real users: start main tour only on first dashboard visit (never again)
     if (!isTourStarted('main_onboarding')) {
       startTour(mainDashboardTour);
     }
-  }, [startTour, isTourStarted]);
+  }, [startTour, isTourStarted, user?.isDemo]);
 
   // Debug: Allow manual tour reset via ?tour=reset in URL
   useEffect(() => {
@@ -568,7 +572,7 @@ const Dashboard: React.FC = () => {
     );
   }
 
-  if (loading) {
+  if (loading && stats && stats.totalOwed === 0) {
     return (
       <div className="min-h-screen bg-white dark:bg-[#09090b]">
         <div className="max-w-7xl mx-auto px-6 sm:px-8 py-8">
@@ -578,6 +582,18 @@ const Dashboard: React.FC = () => {
               <p className="text-gray-700 dark:text-gray-300 font-medium">⏳ Analyzing your AR data...</p>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">This may take a few seconds</p>
             </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-white dark:bg-[#09090b]">
+        <div className="max-w-7xl mx-auto px-6 sm:px-8 py-8">
+          <div className="flex items-center justify-center mb-12 py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
           </div>
         </div>
       </div>
@@ -596,7 +612,7 @@ const Dashboard: React.FC = () => {
   return (
     <div className="bg-white dark:bg-[#09090b] min-h-full">
       {/* STRIPE NOT CONNECTED WARNING */}
-      {!company?.stripe_account_id && (
+      {!company?.stripe_account_id && !isDemo && (
         <div className="max-w-7xl mx-auto px-6 sm:px-8 mt-6 mb-6">
           <div className="p-4 bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 rounded-lg">
             <div className="flex items-center justify-between gap-4">
@@ -621,7 +637,7 @@ const Dashboard: React.FC = () => {
       )}
 
       {/* EMAIL SETUP INFO CARD */}
-      {!dismissEmailWarning && !company?.smtp_verified && (
+      {!dismissEmailWarning && !company?.smtp_verified && !isDemo && (
         <div className="max-w-7xl mx-auto px-6 sm:px-8 mb-6">
           <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500 rounded-lg">
             <div className="flex items-center justify-between gap-4">
@@ -940,7 +956,7 @@ const Dashboard: React.FC = () => {
 
       {/* Recovery Funnel - Collapsible */}
       {(() => {
-        const invoicesAtRisk = kpi?.atRiskCustomerCount ?? 0;
+        const invoicesAtRisk = aging?.buckets.reduce((sum, b) => sum + b.invoiceCount, 0) ?? 0;
         const emailsSent = emailAnalytics?.sent ?? 0;
         const recovered = stats ? Math.round((stats.totalRecovered / Math.max(stats.totalOwed + stats.totalRecovered, 1)) * invoicesAtRisk) : 0;
         const recoveryRate = invoicesAtRisk > 0 ? Math.round((recovered / invoicesAtRisk) * 100) : 0;
@@ -1107,7 +1123,7 @@ const Dashboard: React.FC = () => {
         />
       )}
 
-      {/* Custom Tour */}
+      {/* Custom Tour (real users only — demo users use DemoAutoNavigation at Layout level) */}
       {currentTour && (
         <CustomTour
           steps={currentTour.steps}
@@ -1115,6 +1131,7 @@ const Dashboard: React.FC = () => {
           onClose={closeTour}
           onComplete={() => completeTour(currentTour.id)}
           onBackdropClick={() => markTourStarted(currentTour.id)}
+          autoProgress={currentTour.autoProgress}
         />
       )}
     </div>

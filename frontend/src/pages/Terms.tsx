@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { PublicHeader } from '../components/layout/PublicHeader';
+import { PublicFooter } from '../components/layout/PublicFooter';
 import { useSEO } from '../hooks/useSEO';
 import { getPageSEO } from '../lib/seoConfig';
 
@@ -95,7 +96,7 @@ const Terms: React.FC = () => {
 
         <h2 className="text-xl font-semibold text-gray-900 dark:text-white mt-8 mb-3">16. Contact Information</h2>
         <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
-          If you have any questions about these Terms, please contact us at legal@recoverai.com or by mail at RecoverAI, Inc., 1209 Orange Street, Wilmington, DE 19801, United States.
+          If you have any questions about these Terms, please contact us at <a href="mailto:hello@recoverai.tech" className="text-blue-600 dark:text-blue-400 hover:underline">hello@recoverai.tech</a> or by mail at RecoverAI, Inc., 1209 Orange Street, Wilmington, DE 19801, United States.
         </p>
 
         <div className="mt-12 pt-6 border-t border-gray-200 dark:border-white/[0.06]">
@@ -104,6 +105,7 @@ const Terms: React.FC = () => {
           </Link>
         </div>
       </div>
+      <PublicFooter />
     </div>
   );
 };

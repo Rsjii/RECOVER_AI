@@ -11,6 +11,7 @@ export interface User {
   emailVerified?: boolean;
   onboardingStatus?: 'pending_profile' | 'onboarding' | 'company_form' | 'integrations_pending' | 'stripe_pending' | 'active';
   authProvider?: 'email' | 'google' | 'both';
+  isDemo?: boolean;
 }
 
 export interface Company {

@@ -339,8 +339,14 @@ export const demoLogin = async (req: Request, res: Response): Promise<void> => {
     const companyId = authResult.company.id;
     logInfo(LOG_MODULE, handler, 'Demo company resolved', { companyId });
 
-    // ---- 1b. Mark demo user as email-verified + demo mode (skip OTP requirement) ----
-    await pool.query(`UPDATE users SET email_verified = true, is_demo = true, otp_code = NULL, otp_expires = NULL WHERE id = $1`, [authResult.user.id]);
+    // Initialize demo data info (will be populated if creating new data)
+    let demoDataInfo: any = {};
+
+    // ---- 1a. Set company to paid_active status (bypass onboarding checks) ----
+    await pool.query(`UPDATE companies SET onboarding_stage = 'paid_active', account_type = 'paid', billing_tier = 4 WHERE id = $1`, [companyId]);
+
+    // ---- 1b. Mark demo user as email-verified + demo mode (skip OTP requirement) + set onboarding_status to active (bypass profile page) ----
+    await pool.query(`UPDATE users SET email_verified = true, is_demo = true, otp_code = NULL, otp_expires = NULL, onboarding_status = 'active' WHERE id = $1`, [authResult.user.id]);
 
     // ---- 1c. Regenerate tokens with is_demo flag ----
     // The initial signup tokens don't include is_demo, so we need to regenerate them now
@@ -385,14 +391,30 @@ export const demoLogin = async (req: Request, res: Response): Promise<void> => {
     const custRows: { id: string; idx: number }[] = [];
     for (let i = 0; i < customers.length; i++) {
       const c = customers[i];
-      const r = await client.query(
-        `INSERT INTO customers (company_id, company_name, name, email, industry, payment_history, created_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7)
-         ON CONFLICT (company_id, company_name) DO UPDATE SET name=$3, email=$4, industry=$5, payment_history=$6, created_at=$7
-         RETURNING id`,
-        [companyId, c.company, c.name, c.email, c.industry, JSON.stringify(c.history), d(90 - i * 5)]
-      );
-      custRows.push({ id: r.rows[0].id, idx: i });
+      try {
+        const r = await client.query(
+          `INSERT INTO customers (company_id, company_name, name, email, industry, payment_history, created_at)
+           VALUES ($1,$2,$3,$4,$5,$6,$7)
+           RETURNING id`,
+          [companyId, c.company, c.name, c.email, c.industry, JSON.stringify(c.history), d(90 - i * 5)]
+        );
+        custRows.push({ id: r.rows[0].id, idx: i });
+      } catch (err: any) {
+        // If customer already exists, try to find it
+        if (err.code === '23505') { // unique constraint violation
+          const existing = await client.query(
+            `SELECT id FROM customers WHERE company_id = $1 AND company_name = $2`,
+            [companyId, c.company]
+          );
+          if (existing.rows.length > 0) {
+            custRows.push({ id: existing.rows[0].id, idx: i });
+          } else {
+            throw err;
+          }
+        } else {
+          throw err;
+        }
+      }
     }
 
     // ---- 4. Seed invoices ----
@@ -590,16 +612,128 @@ export const demoLogin = async (req: Request, res: Response): Promise<void> => {
     } catch (cacheErr) {
       logError(LOG_MODULE, handler, 'Failed to cache demo email previews (non-fatal)', cacheErr);
     }
+
+    // ---- 9. Queue emails to pilotQueuedEmails (20+ sent, 3 pending) ----
+    try {
+      // Collect all queueable invoices (unpaid + arranged) with email type
+      type QueuedEmail = {
+        invId: string;
+        custId: string;
+        emailType: string;
+        subject: string;
+        body: string;
+        recipientEmail: string;
+        customerName: string;
+        invoiceAmount: number;
+        daysOverdue: number;
+      };
+      const queuedEmails: QueuedEmail[] = [];
+
+      for (const inv of invRows.filter(i => i.status === 'unpaid' || i.status === 'arranged')) {
+        const daysOverdue = inv.daysAgoDue;
+        let emailType: string | null = null;
+
+        // Determine email type based on days overdue
+        if (daysOverdue >= 60) emailType = 'dunning_5';
+        else if (daysOverdue >= 30) emailType = 'dunning_4';
+        else if (daysOverdue >= 14) emailType = 'dunning_3';
+        else if (daysOverdue >= 7) emailType = 'dunning_2';
+        else if (daysOverdue >= 1) emailType = 'dunning_1';
+
+        if (!emailType) continue;
+
+        // Get email content
+        const custKey = `${inv.custIdx}:${emailType}`;
+        const emailContent = DEMO_EMAILS[custKey];
+        if (!emailContent) continue;
+
+        const cust = customers[inv.custIdx];
+        const custRow = custRows[inv.custIdx];
+
+        queuedEmails.push({
+          invId: inv.id,
+          custId: custRow.id,
+          emailType,
+          subject: emailContent.subject,
+          body: emailContent.body,
+          recipientEmail: cust.email,
+          customerName: cust.name,
+          invoiceAmount: inv.amount,
+          daysOverdue,
+        });
+      }
+
+      // Insert all queued emails (mark last 3 as pending, rest as sent)
+      if (queuedEmails.length > 0) {
+        const queuePH: string[] = [];
+        const queueVals: any[] = [];
+        const lastThreeIdx = Math.max(0, queuedEmails.length - 3);
+
+        for (let i = 0; i < queuedEmails.length; i++) {
+          const q = queuedEmails[i];
+          const isPending = i >= lastThreeIdx;
+          const status = isPending ? 'pending' : 'sent';
+          const sentAt = isPending ? null : d(Math.max(1, q.daysOverdue - 7));
+          const createdAt = d(q.daysOverdue - 3);
+
+          const b = i * 13;
+          queuePH.push(`($${b+1},$${b+2},$${b+3},$${b+4},$${b+5},$${b+6},$${b+7},$${b+8},$${b+9},$${b+10},$${b+11},$${b+12},$${b+13})`);
+          queueVals.push(
+            companyId, q.invId, q.custId, q.recipientEmail, q.customerName,
+            q.invoiceAmount, q.daysOverdue, q.emailType, q.subject, q.body,
+            status, createdAt, sentAt
+          );
+        }
+
+        await pool.query(
+          `INSERT INTO pilot_queued_emails (company_id,invoice_id,customer_id,recipient_email,customer_name,invoice_amount,days_overdue,email_type,subject,body,status,created_at,sent_at)
+           VALUES ${queuePH.join(',')}`,
+          queueVals
+        );
+
+        logInfo(LOG_MODULE, handler, 'Demo emails queued', {
+          total: queuedEmails.length,
+          sent: queuedEmails.length - 3,
+          pending: Math.min(3, queuedEmails.length),
+        });
+      }
+    } catch (queueErr) {
+      logError(LOG_MODULE, handler, 'Failed to queue demo emails (non-fatal)', queueErr);
+    }
+
+      // ---- 10. Prepare demo data values for frontend (real invoice IDs + amounts) ----
+      const demoTechWaveInv = invRows.find(i => i.custIdx === 2 && i.amount === 9100 && i.status === 'unpaid');
+      const demoPaidTotal = paidInvs.reduce((sum, inv) => sum + inv.amount, 0);
+      const demoUnpaidTotal = invRows.filter(i => i.status !== 'paid').reduce((sum, inv) => sum + inv.amount, 0);
+
+      demoDataInfo = {
+        techWaveInvoiceId: demoTechWaveInv?.id || null,
+        techWaveAmount: demoTechWaveInv?.amount || 9100,
+        totalRecovered: demoPaidTotal, // Real amount: ~45,200
+        totalAR: demoUnpaidTotal, // Unpaid + arranged
+      };
+
+      logInfo(LOG_MODULE, handler, 'Demo data info prepared', {
+        techWaveInvoiceId: demoDataInfo.techWaveInvoiceId,
+        totalRecovered: demoDataInfo.totalRecovered,
+        totalAR: demoDataInfo.totalAR,
+      });
     } // ✅ Close else block for demo data creation
 
-    // ---- 10. Return cookies — reuse authResult from step 1, no second login needed ----
+    // ---- 11. Return cookies — reuse authResult from step 1, no second login needed ----
     setCookies(res, authResult.tokens.accessToken, authResult.tokens.refreshToken);
 
     res.status(200).json({
       message: 'Demo account ready',
-      user: { ...authResult.user, emailVerified: true, is_demo: true },
+      user: {
+        ...authResult.user,
+        emailVerified: true,
+        isDemo: true,  // ✅ camelCase so frontend detects it
+        onboardingStatus: 'active' // ✅ camelCase so frontend bypasses /profile
+      },
       company: authResult.company,
       isDemo: true,
+      demoData: demoDataInfo, // ✅ Real invoice IDs and amounts for frontend
     });
   } catch (error) {
     try { await client.query('ROLLBACK'); } catch {}

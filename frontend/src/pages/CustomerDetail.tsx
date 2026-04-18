@@ -22,7 +22,6 @@ const CustomerDetail: React.FC = () => {
   const [emailInput, setEmailInput] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [pausingDunning, setPausingDunning] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -79,25 +78,6 @@ const CustomerDetail: React.FC = () => {
       addToast({ type: 'error', message: err.message || 'Failed to delete customer' });
     } finally {
       setDeleting(false);
-    }
-  };
-
-  const handlePauseDunning = async (days: number | null) => {
-    if (!id) return;
-    setPausingDunning(true);
-    try {
-      await api.put(`/api/settings/pause-customer`, { customerId: id, action: days === null ? 'remove' : 'add' });
-      // Refresh customer data
-      const res = await api.get<{ data: CustomerDetailType }>(API_ENDPOINTS.customers.detail(id));
-      setDetail(res.data || res);
-      addToast({
-        type: 'success',
-        message: days === null ? 'Dunning resumed for this customer' : `Dunning paused for ${days} days`
-      });
-    } catch (err: any) {
-      addToast({ type: 'error', message: err.message || 'Failed to update dunning status' });
-    } finally {
-      setPausingDunning(false);
     }
   };
 
@@ -196,40 +176,6 @@ const CustomerDetail: React.FC = () => {
             }`}>{stats.riskScore}/100</p>
           </Card>
         </div>
-
-        {/* Dunning Controls */}
-        <Card>
-          <h3 className="font-semibold text-gray-900 dark:text-white mb-4">Dunning Controls</h3>
-          <div className="flex flex-wrap gap-3">
-            <button
-              onClick={() => handlePauseDunning(7)}
-              disabled={pausingDunning}
-              className="px-4 py-2 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900/50 rounded-lg font-medium text-sm disabled:opacity-50"
-            >
-              ⏸️ Pause 7 days
-            </button>
-            <button
-              onClick={() => handlePauseDunning(30)}
-              disabled={pausingDunning}
-              className="px-4 py-2 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900/50 rounded-lg font-medium text-sm disabled:opacity-50"
-            >
-              ⏸️ Pause 30 days
-            </button>
-            <button
-              onClick={() => handlePauseDunning(null)}
-              disabled={pausingDunning}
-              className="px-4 py-2 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-900/50 rounded-lg font-medium text-sm disabled:opacity-50"
-            >
-              ▶️ Resume dunning
-            </button>
-            <button
-              onClick={() => navigate(`/invoices?customerId=${id}`)}
-              className="px-4 py-2 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900/50 rounded-lg font-medium text-sm"
-            >
-              📧 View invoices
-            </button>
-          </div>
-        </Card>
 
         {/* Tabs */}
         <Card>

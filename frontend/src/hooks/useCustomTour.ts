@@ -9,7 +9,9 @@ export interface TourConfig {
     description: string;
     target?: string;
     position?: 'top' | 'bottom' | 'left' | 'right';
+    duration?: number; // Duration in seconds for auto-progression
   }>;
+  autoProgress?: boolean; // Enable auto-progression
 }
 
 export const useCustomTour = () => {
@@ -63,10 +65,11 @@ export const useCustomTour = () => {
   };
 };
 
-// Main dashboard tour config
+// Main dashboard tour config (manual progression)
 export const mainDashboardTour: TourConfig = {
   id: 'main_onboarding',
   title: 'RecoverAI Dashboard Tour',
+  autoProgress: false,
   steps: [
     {
       id: 'welcome',
@@ -114,6 +117,55 @@ export const mainDashboardTour: TourConfig = {
       title: '🚀 You\'re All Set!',
       description:
         'RecoverAI is now monitoring your invoices 24/7. Check back in a few days to see recovery progress. You can restart this tour anytime from Settings → Tours.',
+    },
+  ],
+};
+
+// Demo recording tour (auto-progression for video)
+export const demoRecordingTour: TourConfig = {
+  id: 'demo_recording',
+  title: 'RecoverAI Demo',
+  autoProgress: true,
+  steps: [
+    {
+      id: 'welcome',
+      title: '🎬 RecoverAI Demo',
+      description: 'Your autonomous AR recovery agent. Watch how it recovers unpaid invoices without manual work.',
+      duration: 4,
+    },
+    {
+      id: 'kpi',
+      title: '€139,000 Recovered',
+      description: 'RecoverAI automatically recovered €139,000 in unpaid invoices for service agencies.',
+      target: '[data-tour="kpi-banner"]',
+      duration: 6,
+    },
+    {
+      id: 'invoice-risk',
+      title: '🔴 High-Risk Invoice Detected',
+      description: 'GrowthCo €32,000, 48 days overdue. Payment history shows 3 late payments. Agent marks this as priority.',
+      target: '[role="row"]:nth-child(2)',
+      duration: 6,
+    },
+    {
+      id: 'activity-pending',
+      title: '✉️ AI Generated Email',
+      description: 'Agent generated a personalized dunning email in milliseconds. Matches your tone. Ready for approval.',
+      target: '[data-tour="activity-section"]',
+      duration: 7,
+    },
+    {
+      id: 'results',
+      title: '✅ €32,000 Collected!',
+      description: 'Email approved → sent to customer → payment received in 3 days. Agent saved 20 hours of manual work.',
+      target: '[data-tour="kpi-banner"]',
+      duration: 5,
+    },
+    {
+      id: 'cta',
+      title: 'Ready to recover your AR?',
+      description: 'Start your free 21-day trial today. Agent runs 24/7 autonomously. No credit card required.',
+      duration: 2,
     },
   ],
 };
