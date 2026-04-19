@@ -767,46 +767,40 @@ export const verifyEmail = async (req: Request, res: Response) => {
 export const resendOtp = async (req: Request, res: Response) => {
   const handler = 'resendOtp';
   try {
-    const userId = (req as any).userId;
     const { email } = req.body as { email?: string };
 
-    let user;
-    if (userId) {
-      // If authenticated, use user from auth middleware
-      user = await UserDB.findUserById(userId);
-      if (!user) {
-        return sendErrorResponse(res, 404, 'User not found');
-      }
-    } else if (email) {
-      // If not authenticated, lookup by email (for users on verify page)
-      user = await UserDB.findUserByEmail(email);
-      if (!user) {
-        return sendErrorResponse(res, 404, 'User not found');
-      }
-    } else {
-      return sendErrorResponse(res, 400, 'Either authentication or email is required');
+    if (!email) {
+      return sendErrorResponse(res, 400, 'Email is required');
+    }
+
+    // Check if pending signup exists in Redis
+    const pendingStr = await redisClient.get(`signup_pending:${email}`);
+    if (!pendingStr) {
+      return sendErrorResponse(res, 400, 'No pending signup found. Please start signup again.');
     }
 
     // Generate new OTP
-    const isDev = process.env.NODE_ENV !== 'production';
+    const isDev = config.nodeEnv !== 'production';
     const otpCode = isDev ? '123456' : String(Math.floor(100000 + Math.random() * 900000));
-    const otpExpires = new Date(Date.now() + 15 * 60 * 1000);
-    await UserDB.setOTP(user.id, otpCode, otpExpires);
 
-    if (isDev) {
-      logInfo(handler, 'DEV MODE: OTP is 123456, no email sent', { userId: user.id });
-    } else {
-      const result = await resendService.sendOTP({ email: user.email, code: otpCode });
-      if (!result.success) {
-        logError(handler, 'Failed to send OTP email', result.error);
-        return sendErrorResponse(res, 500, 'Failed to send OTP email. Please try again.');
+    // Store OTP in Redis with 15 min TTL (matches signupWithOTP)
+    await redisClient.set(`signup_otp:${email}`, otpCode, { EX: 15 * 60 });
+
+    // Send OTP email
+    if (!isDev) {
+      try {
+        await resendService.sendOTP({ email, code: otpCode });
+      } catch (emailErr: any) {
+        logError(handler, 'Failed to send OTP email', emailErr);
+        // Continue — user can retry
       }
     }
 
-    logInfo(handler, 'OTP resent successfully', { userId: user.id, email: user.email });
+    logInfo(handler, 'Signup OTP resent', { email, isDev });
 
     return res.status(200).json({
-      message: 'OTP resent to your email',
+      message: isDev ? 'Dev: OTP is 123456' : 'Verification code resent to your email',
+      devOtp: isDev ? '123456' : undefined,
     });
   } catch (err: any) {
     logError(handler, 'Failed to resend OTP', err);
