@@ -188,6 +188,8 @@ export const DemoAutoNavigation: React.FC<DemoAutoNavigationProps> = ({ onComple
         : step.description,
       target: step.highlightSelector,
       position: (step.tooltipPosition || 'top') as 'top' | 'right' | 'left' | 'bottom',
+      slideIndex: currentStep,
+      totalSlides: demoSteps.length,
     };
   };
 

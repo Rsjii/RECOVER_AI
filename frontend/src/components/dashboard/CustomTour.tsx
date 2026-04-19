@@ -8,7 +8,105 @@ interface TourStep {
   target?: string;
   position?: 'top' | 'bottom' | 'left' | 'right' | 'center';
   duration?: number;
+  slideIndex?: number;
+  totalSlides?: number;
 }
+
+// Premium animation styles
+const animationStyles = `
+  @keyframes slideInTitle {
+    from {
+      opacity: 0;
+      transform: translateX(-20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes slideInDesc {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes pulseGlow {
+    0%, 100% {
+      box-shadow: 0 0 30px rgba(59, 130, 246, 0.5);
+    }
+    50% {
+      box-shadow: 0 0 60px rgba(59, 130, 246, 0.8);
+    }
+  }
+
+  @keyframes fadeInCard {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  @keyframes borderGradient {
+    0% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+    100% {
+      background-position: 0% 50%;
+    }
+  }
+
+  .demo-gradient-border {
+    position: relative;
+    background-clip: padding-box;
+  }
+
+  .demo-gradient-border::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border-radius: inherit;
+    padding: 2px;
+    background: linear-gradient(90deg, #3b82f6, #0ea5e9, #3b82f6);
+    background-size: 200% 200%;
+    animation: borderGradient 3s ease infinite;
+    pointer-events: none;
+    z-index: 0;
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask-composite: exclude;
+  }
+
+  .demo-slide-in-title {
+    animation: slideInTitle 0.6s ease-out;
+  }
+
+  .demo-slide-in-desc {
+    animation: slideInDesc 0.7s ease-out 0.15s backwards;
+  }
+
+  .demo-fade-card {
+    animation: fadeInCard 0.5s ease-out;
+  }
+
+  .demo-pulse-glow {
+    animation: pulseGlow 2s ease-in-out infinite;
+  }
+`;
 
 interface CustomTourProps {
   steps: TourStep[];
@@ -34,6 +132,17 @@ export const CustomTour: React.FC<CustomTourProps> = ({
   const autoProgressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const step = steps[currentStep];
+
+  // Inject animation styles
+  useEffect(() => {
+    if (!document.getElementById('demo-animations')) {
+      const style = document.createElement('style');
+      style.id = 'demo-animations';
+      style.textContent = animationStyles;
+      document.head.appendChild(style);
+      return () => style.remove();
+    }
+  }, []);
 
   // Detect dark mode
   useEffect(() => {
@@ -215,10 +324,10 @@ export const CustomTour: React.FC<CustomTourProps> = ({
         onClick={handleBackdropClick}
       />
 
-      {/* Highlight Box with premium styling */}
+      {/* Highlight Box with premium styling & pulse glow */}
       {targetRect && targetRect.width > 0 && targetRect.height > 0 && (
         <div
-          className="absolute pointer-events-none transition-all duration-300"
+          className="absolute pointer-events-none transition-all duration-300 demo-pulse-glow"
           style={{
             top: targetRect.top - 14,
             left: targetRect.left - 14,
@@ -234,12 +343,12 @@ export const CustomTour: React.FC<CustomTourProps> = ({
         />
       )}
 
-      {/* Premium Sexy Card */}
+      {/* Premium Sexy Card with Animated Gradient Border */}
       <div
-        className={`absolute p-8 max-w-sm transition-all duration-300 ${
+        className={`absolute p-8 max-w-sm transition-all duration-300 demo-fade-card demo-gradient-border ${
           isDark
-            ? 'bg-gray-800/95 border border-gray-600/60 text-gray-50 rounded-3xl'
-            : 'bg-white/98 border border-blue-200/60 text-gray-900 rounded-3xl'
+            ? 'bg-gray-800/95 text-gray-50 rounded-3xl'
+            : 'bg-white/98 text-gray-900 rounded-3xl'
         }`}
         style={{
           top: `${tooltipPos.top}px`,
@@ -271,16 +380,16 @@ export const CustomTour: React.FC<CustomTourProps> = ({
           </button>
         )}
 
-        {/* Header - Premium Typography */}
+        {/* Header - Premium Typography with animations */}
         <div className="mb-6">
-          <h3 className={`text-2xl font-bold mb-3 leading-tight tracking-tight ${
+          <h3 className={`text-2xl font-bold mb-3 leading-tight tracking-tight demo-slide-in-title ${
             isDark
               ? 'text-blue-300/90'
               : 'text-blue-700'
           }`}>
             {step.title}
           </h3>
-          <p className={`text-base leading-relaxed font-normal ${isDark ? 'text-gray-300/80' : 'text-gray-600'}`}>
+          <p className={`text-base leading-relaxed font-normal demo-slide-in-desc ${isDark ? 'text-gray-300/80' : 'text-gray-600'}`}>
             {step.description}
           </p>
         </div>

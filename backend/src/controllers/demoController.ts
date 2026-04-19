@@ -696,6 +696,96 @@ export const demoLogin = async (req: Request, res: Response): Promise<void> => {
           sent: queuedEmails.length - 3,
           pending: Math.min(3, queuedEmails.length),
         });
+
+        // Add 2-3 pending approval demo emails for Activity page showcase (1 SMS + 2 Email)
+        const pendingEmails = [
+          {
+            email: 'david@techwave.io',
+            phone: '+1-415-555-0142',
+            name: 'David Park',
+            amount: 14500,
+            subject: 'Final Notice: $14,500 Invoice — Immediate Action Required',
+            body: 'Hi David, this is a reminder that TechWave Co\'s invoice of $14,500 is 65 days overdue. Please arrange payment immediately to avoid escalation. Reply STOP to opt out.',
+            type: 'sms', // SMS instead of email
+          },
+          {
+            email: 'jason@cloudgate.io',
+            name: 'Jason Torres',
+            amount: 22000,
+            subject: 'Final Notice: $22,000 Invoice #INV-00042 — CloudGate Inc',
+            body: 'Hi Jason,\n\nThis is a final notice regarding CloudGate Inc\'s balance of $22,000, now 70 days overdue.\n\nContinuing non-payment will result in escalation to our collections partner.\n\nPlease respond within 48 hours.\n\nRegards,\nAcme SaaS Collections',
+            type: 'email',
+          },
+          {
+            email: 'nina@devfirst.io',
+            name: 'Nina Patel',
+            amount: 8600,
+            subject: 'Formal Payment Notice: Invoice $8,600 — 40 Days Overdue',
+            body: 'Hi Nina,\n\nI\'m following up on DevFirst\'s overdue invoice of $8,600, now 40 days past due.\n\nWe need to formally request immediate resolution. Please process payment at your earliest convenience.\n\nThank you,\nAcme SaaS',
+            type: 'email',
+          },
+        ];
+
+        const custMap: Record<string, string> = {};
+        custRows.forEach((row: any) => {
+          custMap[row.email] = row.id;
+        });
+
+        const invMap: Record<string, string> = {};
+        invRows.forEach((row: any) => {
+          if (row.amount === 14500 || row.amount === 22000 || row.amount === 8600) {
+            invMap[row.amount] = row.id;
+          }
+        });
+
+        logInfo(LOG_MODULE, handler, 'Pending emails to insert', {
+          count: pendingEmails.length,
+          custMapSize: Object.keys(custMap).length,
+          invMapSize: Object.keys(invMap).length,
+        });
+
+        for (const pend of pendingEmails) {
+          const custId = custMap[pend.email];
+          const invId = invMap[pend.amount];
+          logInfo(LOG_MODULE, handler, `Processing pending email: ${pend.name}`, {
+            email: pend.email,
+            amount: pend.amount,
+            custIdFound: !!custId,
+            invIdFound: !!invId,
+            custId: custId ? 'found' : 'NOT FOUND',
+            invId: invId ? 'found' : 'NOT FOUND',
+          });
+
+          if (custId && invId) {
+            try {
+              const isSms = (pend as any).type === 'sms';
+              const emailType = isSms ? 'sms_tier_2' : 'dunning_4';
+              const phone = (pend as any).phone || null;
+
+              if (isSms) {
+                // SMS insertion
+                await pool.query(
+                  `INSERT INTO pilot_queued_emails (company_id,invoice_id,customer_id,recipient_email,customer_name,invoice_amount,days_overdue,email_type,type,phone_number,message_preview,message_full,status,created_at)
+                   VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+                  [companyId, invId, custId, pend.email, pend.name, pend.amount, 40, emailType, 'sms', phone, pend.body.substring(0, 160), pend.body, 'pending', new Date()]
+                );
+                logInfo(LOG_MODULE, handler, `✓ SMS inserted: ${pend.name}`, { phone, custId, invId });
+              } else {
+                // Email insertion
+                await pool.query(
+                  `INSERT INTO pilot_queued_emails (company_id,invoice_id,customer_id,recipient_email,customer_name,invoice_amount,days_overdue,email_type,subject,body,type,status,created_at)
+                   VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+                  [companyId, invId, custId, pend.email, pend.name, pend.amount, 40, emailType, pend.subject, pend.body, 'email', 'pending', new Date()]
+                );
+                logInfo(LOG_MODULE, handler, `✓ Email inserted: ${pend.name}`, { custId, invId });
+              }
+            } catch (e) {
+              logError(LOG_MODULE, handler, 'Failed to insert pending demo email', e);
+            }
+          } else {
+            logInfo(LOG_MODULE, handler, `⚠ Skipped ${pend.name}: custId=${!!custId}, invId=${!!invId}`);
+          }
+        }
       }
     } catch (queueErr) {
       logError(LOG_MODULE, handler, 'Failed to queue demo emails (non-fatal)', queueErr);
