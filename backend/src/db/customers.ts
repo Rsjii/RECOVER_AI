@@ -3,29 +3,41 @@ import { CustomerRow } from '../types/database';
 
 export interface CreateCustomerInput {
   companyId: string;
-  name: string;
+  companyName: string;  // Company name (REQUIRED)
   email: string;
-  companyName?: string;
+  name?: string;  // Contact person name (OPTIONAL)
   phone?: string;
 }
 
 export async function findOrCreateCustomer(input: CreateCustomerInput): Promise<CustomerRow> {
-  const { companyId, name, email, companyName, phone } = input;
+  const { companyId, companyName, email, name, phone } = input;
 
+  // Look up by company_name (one customer per company per company_id)
   const existing = await pool.query(
-    'SELECT * FROM customers WHERE company_id = $1 AND email = $2',
-    [companyId, email]
+    'SELECT * FROM customers WHERE company_id = $1 AND company_name = $2',
+    [companyId, companyName]
   );
 
   if (existing.rows.length > 0) {
+    // Customer exists - update email/phone if provided (merge contact info)
+    if (email || phone) {
+      await pool.query(
+        `UPDATE customers
+         SET email = COALESCE($1, email),
+             phone = COALESCE($2, phone),
+             updated_at = NOW()
+         WHERE id = $3 AND company_id = $4`,
+        [email || null, phone || null, existing.rows[0].id, companyId]
+      );
+    }
     return existing.rows[0];
   }
 
   const result = await pool.query(
-    `INSERT INTO customers (company_id, name, email, company_name, phone)
+    `INSERT INTO customers (company_id, company_name, name, email, phone)
      VALUES ($1, $2, $3, $4, $5)
      RETURNING *`,
-    [companyId, name, email, companyName || null, phone || null]
+    [companyId, companyName, name || null, email || null, phone || null]
   );
 
   return result.rows[0];

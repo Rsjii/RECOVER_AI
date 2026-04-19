@@ -77,7 +77,7 @@ async function buildDigestPayload(companyId: string, companyName: string, cashBa
     // 4. Top 3 at-risk customers
     const topAtRiskResult = await pool.query(
       `SELECT
-         c.name,
+         c.company_name,
          SUM(i.amount)                                                                    AS total_owed,
          MAX(EXTRACT(EPOCH FROM (NOW() - COALESCE(i.due_date, i.created_at))) / 86400)   AS max_days_overdue
        FROM invoices i
@@ -85,7 +85,7 @@ async function buildDigestPayload(companyId: string, companyName: string, cashBa
        WHERE i.company_id = $1
          AND i.status != 'paid'
          AND i.due_date < NOW()
-       GROUP BY c.id, c.name
+       GROUP BY c.id, c.company_name
        ORDER BY total_owed DESC
        LIMIT 3`,
       [companyId]
@@ -131,7 +131,7 @@ async function buildDigestPayload(companyId: string, companyName: string, cashBa
       runwayDays,
       forecast30Day,
       topAtRisk: topAtRiskResult.rows.map((r: any) => ({
-        name: r.name,
+        name: r.company_name,
         amount: parseFloat(r.total_owed),
         daysOverdue: Math.round(parseFloat(r.max_days_overdue)),
       })),

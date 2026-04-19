@@ -170,7 +170,7 @@ class StripeService {
 
         const customer = await CustomerDB.findOrCreateCustomer({
           companyId,
-          name: inv.customer_name || inv.customer_email,
+          companyName: inv.customer_name || inv.customer_email,
           email: inv.customer_email,
         });
 
@@ -770,7 +770,7 @@ class StripeService {
       // Create or find customer
       const customer = await CustomerDB.findOrCreateCustomer({
         companyId,
-        name: inv.customer_name || (inv.customer_email as string) || 'Unknown Customer',
+        companyName: inv.customer_name || (inv.customer_email as string) || 'Unknown Customer',
         email: (inv.customer_email as string) || '',
       });
 

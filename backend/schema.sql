@@ -176,9 +176,9 @@ END $$;
 CREATE TABLE IF NOT EXISTS customers (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   company_id      UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
-  name            VARCHAR NOT NULL,
+  name            VARCHAR,  -- Contact person name (optional)
   email           VARCHAR,  -- NULL allowed for customers without email (optional contact info)
-  company_name    VARCHAR,
+  company_name    VARCHAR NOT NULL,  -- Company name (REQUIRED - who owes us money)
   phone           VARCHAR,
   phone_opt_in    BOOLEAN DEFAULT false,
   card_expires_at DATE,
@@ -194,7 +194,7 @@ CREATE TABLE IF NOT EXISTS customers (
   payment_insights    JSONB DEFAULT NULL,       -- per-client behavioral profile (reliability, DSO trend, avg emails before payment)
   created_at      TIMESTAMPTZ DEFAULT NOW(),
   updated_at      TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(company_id, email)  -- NULL values don't violate unique constraint in PostgreSQL
+  UNIQUE(company_id, company_name)  -- One customer record per company per company_id
 );
 
 CREATE INDEX IF NOT EXISTS idx_customers_risk_score ON customers(company_id, customer_risk_score DESC);

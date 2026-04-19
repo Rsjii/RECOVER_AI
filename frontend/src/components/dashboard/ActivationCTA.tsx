@@ -69,6 +69,7 @@ export const ActivationCTA: React.FC<ActivationCTAProps> = ({
           disabled={loading}
           size="lg"
           className="shrink-0 bg-blue-600 hover:bg-blue-700 text-white"
+          data-tour="cta-button"
         >
           {loading ? 'Activating...' : 'Activate Agent'}
         </Button>

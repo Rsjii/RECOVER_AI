@@ -192,7 +192,7 @@ export async function getCustomerRiskList(
   const result = await pool.query(
     `SELECT
        c.id as customer_id,
-       c.name as customer_name,
+       c.company_name as customer_name,
        c.email as customer_email,
        COUNT(i.id) as unpaid_invoices,
        COALESCE(SUM(i.amount), 0) as total_owed,
@@ -203,7 +203,7 @@ export async function getCustomerRiskList(
      WHERE c.company_id = $1
        AND i.status NOT IN ('paid', 'uncollectable')
        AND i.company_id = $1
-     GROUP BY c.id, c.name, c.email, c.customer_risk_score
+     GROUP BY c.id, c.company_name, c.email, c.customer_risk_score
      ORDER BY max_risk_score DESC, total_owed DESC
      LIMIT $2`,
     [companyId, limit]
@@ -398,9 +398,8 @@ export async function getEmailAnalytics(companyId: string): Promise<EmailAnalyti
 export async function getRiskDrivers(companyId: string): Promise<RiskDrivers> {
   const result = await pool.query(
     `SELECT
-       COUNT(DISTINCT c.id) FILTER (
-         WHERE c.payment_history->>'on_time_rate' IS NOT NULL
-           AND (c.payment_history->>'on_time_rate')::numeric < 0.8
+       COUNT(DISTINCT i.customer_id) FILTER (
+         WHERE i.last_decline_type IN ('soft', 'hard')
        ) AS failed_payment,
        COUNT(DISTINCT c.id) FILTER (
          WHERE c.card_expires_at IS NOT NULL AND c.card_expires_at < NOW() + INTERVAL '30 days'
@@ -485,7 +484,7 @@ export async function getPaymentPlansSummary(companyId: string): Promise<Payment
        pp.status,
        pp.original_amount,
        pp.installment_count,
-       c.name AS customer_name,
+       c.company_name AS customer_name,
        (SELECT COUNT(*) FROM payment_plan_charges WHERE plan_id = pp.id AND status = 'charged') as charges_paid
      FROM payment_plans pp
      JOIN customers c ON c.id = pp.customer_id
@@ -704,7 +703,7 @@ export async function getBillingAnomalies(
        ba.description,
        ba.estimated_impact_usd,
        ba.status,
-       c.name   AS customer_name,
+       c.company_name   AS customer_name,
        i.amount AS invoice_amount,
        ba.detected_at
      FROM billing_anomalies ba

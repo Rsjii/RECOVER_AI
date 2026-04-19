@@ -35,7 +35,7 @@ async function runPaymentPlanCharges(): Promise<{ processed: number; notified: n
           try {
             // Fetch plan and customer details for email notification
             const planResult = await pool.query(
-              `SELECT c.email as customer_email, c.name as customer_name, pp.id as plan_id, i.invoice_number, i.amount
+              `SELECT c.email as customer_email, c.company_name as customer_name, pp.id as plan_id, i.invoice_number, i.amount
                FROM payment_plan_charges ppc
                JOIN payment_plans pp ON ppc.plan_id = pp.id
                JOIN customers c ON pp.customer_id = c.id

@@ -373,7 +373,7 @@ export async function fetchSmartARData(companyId: string): Promise<SmartARData |
     const result = await pool.query(`
       SELECT
         c.id AS customer_id,
-        c.name AS customer_name,
+        c.company_name AS customer_name,
         c.email AS customer_email,
         COUNT(DISTINCT i.id) FILTER (WHERE i.status NOT IN ('paid', 'uncollectable')) AS invoices_overdue,
         COALESCE(SUM(i.amount) FILTER (WHERE i.status NOT IN ('paid', 'uncollectable')), 0)::float AS total_outstanding,
@@ -388,7 +388,7 @@ export async function fetchSmartARData(companyId: string): Promise<SmartARData |
       WHERE c.company_id = $1
         AND i.status NOT IN ('paid', 'uncollectable')
         AND i.due_date < NOW()
-      GROUP BY c.id, c.name, c.email, c.customer_risk_score
+      GROUP BY c.id, c.company_name, c.email, c.customer_risk_score
       ORDER BY total_outstanding DESC
       LIMIT 50
     `, [companyId]);

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api';
 import { API_ENDPOINTS } from '../lib/constants';
 import { formatCurrency } from '../lib/utils';
@@ -86,11 +87,19 @@ const fmt = (v: number) => v >= 1000 ? `$${(v / 1000).toFixed(1)}K` : `$${v.toFi
 // ─── Component ───────────────────────────────────────────────────────────────
 
 const Reports: React.FC = () => {
+  const [searchParams] = useSearchParams();
+
   useEffect(() => { document.title = 'Reports — RecoverAI'; }, []);
   const { theme } = useTheme();
   const isDark = theme === 'dark';
 
-  const [activeTab, setActiveTab] = useState<Tab>('Overview');
+  const [activeTab, setActiveTab] = useState<Tab>(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam && ['Overview', 'Campaigns', 'Aging'].includes(tabParam)) {
+      return tabParam as 'Overview' | 'Campaigns' | 'Aging';
+    }
+    return 'Overview';
+  });
   const [months, setMonths] = useState(6);
   const [campaignPeriod, setCampaignPeriod] = useState(30);
   const [agingPeriod, setAgingPeriod] = useState(180); // All time by default
@@ -202,6 +211,14 @@ const Reports: React.FC = () => {
   //     setLoadingAttribution(false);
   //   }
   // }, []);
+
+  // Respond to URL parameter changes
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam && ['Overview', 'Campaigns', 'Aging'].includes(tabParam)) {
+      setActiveTab(tabParam as 'Overview' | 'Campaigns' | 'Aging');
+    }
+  }, [searchParams]);
 
   // Fetch on tab switch or filter change
   useEffect(() => {
@@ -706,7 +723,7 @@ const Reports: React.FC = () => {
 
       {/* ── Overview Tab ── */}
       {activeTab === 'Overview' && (
-        <div className="space-y-6">
+        <div className="space-y-6" data-tour="reports-overview">
           {loadingOverview ? (
             <div className="flex justify-center py-20"><Spinner size="lg" text="Loading reports..." /></div>
           ) : (
@@ -817,7 +834,7 @@ const Reports: React.FC = () => {
 
       {/* ── Campaigns Tab ── */}
       {activeTab === 'Campaigns' && (
-        <div className="space-y-6">
+        <div className="space-y-6" data-tour="reports-campaigns">
           {loadingCampaign ? (
             <div className="flex justify-center py-20"><Spinner size="lg" text="Loading campaign data..." /></div>
           ) : (
@@ -913,7 +930,7 @@ const Reports: React.FC = () => {
 
       {/* ── Aging Tab ── */}
       {activeTab === 'Aging' && (
-        <div className="space-y-6">
+        <div className="space-y-6" data-tour="reports-aging">
           {loadingAging ? (
             <div className="flex justify-center py-20"><Spinner size="lg" text="Loading aging data..." /></div>
           ) : agingBuckets.length === 0 ? (

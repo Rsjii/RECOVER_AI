@@ -1,0 +1,6 @@
+company_name,email,amount,due_date,currency,issued_date,phone
+TechFlow Inc,billing@techflow.com,25000.00,2026-02-15,USD,2026-01-15,+1-555-1234
+GrowthCo,accounting@growthco.com,32000.00,2026-01-20,EUR,2026-01-05,+33-1-4567-8900
+Acme Corp,invoices@acmecorp.com,21000.00,2026-01-15,GBP,2026-01-01,+44-20-7946-0958
+Innovate LLC,finance@innovate.com,28000.00,2025-12-28,USD,2025-11-28,+1-555-5678
+Momentum Labs,billing@momentum.com,33000.00,2026-01-08,USD,2025-12-08,+1-555-9012

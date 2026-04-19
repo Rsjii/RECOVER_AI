@@ -45,6 +45,7 @@ const Customers: React.FC = () => {
     document.title = 'Customers — RecoverAI';
   }, []);
   const { addToast } = useNotification();
+  const isDemo = typeof window !== 'undefined' && localStorage.getItem('isDemo') === 'true';
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
@@ -167,13 +168,13 @@ const Customers: React.FC = () => {
               {deletingIds ? 'Deleting...' : `Delete ${selectedIds.size}`}
             </Button>
           )}
-          <Button variant="primary" size="sm" onClick={() => setShowAddModal(true)}>
+          <Button variant="primary" size="sm" onClick={() => setShowAddModal(true)} disabled={isDemo}>
             <svg className="w-4 h-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
             Add Customer
           </Button>
-          <Button variant="secondary" size="sm" onClick={() => setShowImportModal(true)}>
+          <Button variant="secondary" size="sm" onClick={() => setShowImportModal(true)} disabled={isDemo}>
             <svg className="w-4 h-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
             </svg>

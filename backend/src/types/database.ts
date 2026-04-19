@@ -80,9 +80,9 @@ export interface CompanyRow {
 export interface CustomerRow {
   id: string;
   company_id: string;
-  name: string;
+  name: string | null;  // Contact person name (OPTIONAL)
   email: string | null;  // NULL allowed for customers without email
-  company_name: string | null;
+  company_name: string;  // Company name (REQUIRED - who owes us money)
   phone: string | null;
   payment_history: any;
   industry: string | null;

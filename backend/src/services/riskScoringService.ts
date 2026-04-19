@@ -259,7 +259,7 @@ export async function getAtRiskCustomers(companyId: string): Promise<AtRiskCusto
     const customersResult = await pool.query(
       `SELECT
          c.id AS customer_id,
-         c.name,
+         c.company_name,
          c.email,
          i.id AS invoice_id,
          i.amount AS invoice_amount,
@@ -288,7 +288,7 @@ export async function getAtRiskCustomers(companyId: string): Promise<AtRiskCusto
       if (!customerMap.has(customerId)) {
         customerMap.set(customerId, {
           id: customerId,
-          name: row.name,
+          name: row.company_name,
           email: row.email,
           invoices: [],
         });

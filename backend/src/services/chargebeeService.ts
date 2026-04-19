@@ -92,9 +92,10 @@ class ChargebeeService {
 
           const customer = await CustomerDB.findOrCreateCustomer({
             companyId,
+            companyName: inv.customer?.company_name || email.split('@')[0],
             name: inv.billing_address?.first_name
               ? `${inv.billing_address.first_name} ${inv.billing_address.last_name || ''}`.trim()
-              : email,
+              : undefined,
             email,
           });
 
@@ -151,7 +152,7 @@ class ChargebeeService {
 
         const customer = await CustomerDB.findOrCreateCustomer({
           companyId,
-          name: email,
+          companyName: inv.customer?.company_name || email.split('@')[0],
           email,
         });
 

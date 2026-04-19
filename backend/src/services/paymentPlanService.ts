@@ -386,7 +386,7 @@ export async function getPaymentPlansSummary(companyId: string): Promise<{
   const recentResult = await pool.query(
     `SELECT
       pp.id as plan_id,
-      c.name as customer_name,
+      c.company_name as customer_name,
       pp.original_amount as total_amount,
       pp.status,
       pp.installment_count as installments_total,

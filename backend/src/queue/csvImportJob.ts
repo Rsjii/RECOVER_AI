@@ -15,6 +15,7 @@ export interface CSVImportJobData {
     currency: string;
     dueDate: string;
     issuedDate?: string;
+    phone?: string;
   }>;
   jobId: string;
 }
@@ -79,6 +80,7 @@ export async function processCsvImportJob(companyId: string, invoices: CSVImport
       currency: string;
       dueDate: Date;
       issuedDate: Date;
+      phone?: string;
     }> = [];
 
     for (const inv of invoices) {
@@ -101,6 +103,8 @@ export async function processCsvImportJob(companyId: string, invoices: CSVImport
         issuedDate = new Date();
       }
 
+      let phone = inv.phone || '';
+
       normalized.push({
         customerName: inv.customerName,
         customerEmail: email,
@@ -108,80 +112,75 @@ export async function processCsvImportJob(companyId: string, invoices: CSVImport
         currency: inv.currency || 'USD',
         dueDate,
         issuedDate,
+        phone,
       });
     }
 
-    // STEP 2: Bulk find-or-create customers (1 SQL call)
-    const uniqueEmails = [...new Set(normalized.map(i => i.customerEmail).filter(e => e))]; // Only non-empty emails
-    const uniqueNames = [...new Set(normalized.map(i => i.customerName).filter(n => n))]; // For matching by name
-    const customerMap = new Map<string, string>(); // email -> id map
-    const customerByNameMap = new Map<string, string>(); // name -> id map for empty email invoices
+    // STEP 2: Bulk find-or-create customers (2 SQL calls)
+    // FIX #1: Changed from email/name lookup to company_name (new identifier)
+    const uniqueCompanyNames = [...new Set(normalized.map(i => i.customerName).filter(n => n))];
+    const uniqueEmails = [...new Set(normalized.map(i => i.customerEmail).filter(e => e))];
 
-    // Get existing customers by email
-    if (uniqueEmails.length > 0) {
+    const customerByCompanyNameMap = new Map<string, { id: string; email?: string }>(); // company_name -> {id, email}
+    const customerByEmailMap = new Map<string, string>(); // email -> id (for rows with email)
+
+    // Get existing customers by COMPANY_NAME (primary key after redesign)
+    if (uniqueCompanyNames.length > 0) {
       const existing = await pool.query(
-        `SELECT id, email, name FROM customers WHERE company_id = $1 AND email = ANY($2)`,
-        [companyId, uniqueEmails]
+        `SELECT id, company_name, email FROM customers WHERE company_id = $1 AND company_name = ANY($2)`,
+        [companyId, uniqueCompanyNames]
       );
       existing.rows.forEach((row: any) => {
-        customerMap.set(row.email, row.id);
-        customerByNameMap.set(row.name, row.id); // Also store by name
+        customerByCompanyNameMap.set(row.company_name, { id: row.id, email: row.email });
+        if (row.email) {
+          customerByEmailMap.set(row.email, row.id);
+        }
       });
     }
 
-    // Get existing customers by name (for invoices with empty email)
-    if (uniqueNames.length > 0) {
-      const existing = await pool.query(
-        `SELECT id, name FROM customers WHERE company_id = $1 AND name = ANY($2)`,
-        [companyId, uniqueNames]
-      );
-      existing.rows.forEach((row: any) => {
-        customerByNameMap.set(row.name, row.id);
-      });
+    // Build email → company_name and email → phone maps (validated 1:1 in invoiceController)
+    const emailToCompanyNameMap = new Map<string, string>();
+    const emailToPhoneMap = new Map<string, string>();
+    for (const inv of normalized) {
+      if (inv.customerEmail) {
+        emailToCompanyNameMap.set(inv.customerEmail, inv.customerName);
+        if (inv.phone) {
+          emailToPhoneMap.set(inv.customerEmail, inv.phone);
+        }
+      }
     }
 
     // Create missing customers in BULK
-    // For emails: create only if not in customerMap
-    // For names: create only if not in customerByNameMap AND no email exists for that name
-    const missingEmails = uniqueEmails.filter(e => !customerMap.has(e));
-    const missingNames = uniqueNames.filter(n => !customerByNameMap.has(n));
+    // Only create if company_name doesn't already exist (UNIQUE constraint)
+    const missingCompanyNames = uniqueCompanyNames.filter(name => !customerByCompanyNameMap.has(name));
+    const newCustomersToCreate: Array<{ company_name: string; email: string | null; phone: string | null }> = [];
 
-    const newCustomersToCreate: Array<{ name: string; email: string | null }> = [];
-
-    // Add missing emails
-    missingEmails.forEach(email => {
+    // Add missing company names (batch create with email/phone if available)
+    missingCompanyNames.forEach(companyName => {
+      // Find first email and phone associated with this company name in CSV
+      const firstInvoiceWithThisCompany = normalized.find(inv => inv.customerName === companyName);
       newCustomersToCreate.push({
-        name: email.split('@')[0],
-        email: email
+        company_name: companyName,
+        email: firstInvoiceWithThisCompany?.customerEmail || null,
+        phone: firstInvoiceWithThisCompany?.phone || null
       });
-    });
-
-    // Add missing names (without email)
-    // Store as NULL for customers without email - PostgreSQL allows multiple NULLs in UNIQUE constraint
-    missingNames.forEach(name => {
-      const hasEmailVersion = uniqueEmails.some(e => e.split('@')[0] === name);
-      if (!hasEmailVersion) {
-        newCustomersToCreate.push({
-          name: name,
-          email: null
-        });
-      }
     });
 
     // Bulk insert all missing customers
     if (newCustomersToCreate.length > 0) {
-      const vals = newCustomersToCreate.map((_, i) => `($1, $${i * 2 + 2}, $${i * 2 + 3})`).join(',');
-      const params = [companyId, ...newCustomersToCreate.flatMap(c => [c.name, c.email])];
+      // 4 columns per row: company_id, company_name, email, phone
+      const vals = newCustomersToCreate.map((_, i) => `($1, $${i * 3 + 2}, $${i * 3 + 3}, $${i * 3 + 4})`).join(',');
+      const params = [companyId, ...newCustomersToCreate.flatMap(c => [c.company_name, c.email, c.phone])];
 
       const newCustomers = await pool.query(
-        `INSERT INTO customers (company_id, name, email) VALUES ${vals} RETURNING id, email, name`,
+        `INSERT INTO customers (company_id, company_name, email, phone) VALUES ${vals} RETURNING id, company_name, email`,
         params
       );
       newCustomers.rows.forEach((row: any) => {
+        customerByCompanyNameMap.set(row.company_name, { id: row.id, email: row.email });
         if (row.email) {
-          customerMap.set(row.email, row.id);
+          customerByEmailMap.set(row.email, row.id);
         }
-        customerByNameMap.set(row.name, row.id);
       });
     }
 
@@ -190,10 +189,22 @@ export async function processCsvImportJob(companyId: string, invoices: CSVImport
     let duplicates = 0;
 
     for (const inv of normalized) {
-      // Get customer ID: try email first, then name
-      let customerId = inv.customerEmail ? customerMap.get(inv.customerEmail) : undefined;
-      if (!customerId) {
-        customerId = customerByNameMap.get(inv.customerName);
+      // FIX #2: Get customer ID by company_name (primary identifier after schema redesign)
+      // Fallback: if company_name is somehow not found, skip this invoice
+      let customerId = customerByCompanyNameMap.get(inv.customerName)?.id;
+
+      // For invoices with email, also try to update customer's email if it's missing
+      if (inv.customerEmail && customerId) {
+        const existingCustomer = customerByCompanyNameMap.get(inv.customerName);
+        if (existingCustomer && !existingCustomer.email) {
+          // This customer was created without email, update it
+          await pool.query(
+            `UPDATE customers SET email = $1, updated_at = NOW() WHERE id = $2 AND company_id = $3`,
+            [inv.customerEmail, customerId, companyId]
+          );
+          // Update in-memory map
+          customerByCompanyNameMap.set(inv.customerName, { ...existingCustomer, email: inv.customerEmail });
+        }
       }
 
       if (!customerId) {

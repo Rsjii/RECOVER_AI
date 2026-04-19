@@ -1255,3 +1255,4 @@ export const completeCompanyForm = async (req: Request, res: Response) => {
     return sendErrorResponse(res, statusCode, message);
   }
 };
+

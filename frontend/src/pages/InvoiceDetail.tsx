@@ -9,6 +9,7 @@ import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { DetailPageSkeleton } from '../components/ui/Skeleton';
 import { EmailPreviewModal } from '../components/invoices/EmailPreviewModal';
+import { AgentDecisionModal } from '../components/invoices/AgentDecisionModal';
 import type { Invoice, InvoiceDetail as InvoiceDetailType, InvoiceStatus, DunningStatus } from '../types';
 
 const InvoiceDetail: React.FC = () => {
@@ -37,6 +38,7 @@ const InvoiceDetail: React.FC = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [selectedEmailType, setSelectedEmailType] = useState<string>('dunning_1');
   const [sendingEmail, setSendingEmail] = useState(false);
+  const [showAgentDecision, setShowAgentDecision] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -269,7 +271,7 @@ const InvoiceDetail: React.FC = () => {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
         </button>
-        <div className="flex-1">
+        <div className="flex-1" data-tour="customer-header">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
             {invoice.customer_name || 'Unknown Customer'}
           </h1>
@@ -309,7 +311,7 @@ const InvoiceDetail: React.FC = () => {
                 <p className="text-sm text-red-700 dark:text-red-400 mt-0.5">This invoice requires immediate action. Consider escalating to collections.</p>
               </div>
             </div>
-            <button className="px-3 py-2 bg-red-600 text-white rounded font-medium text-sm hover:bg-red-700 transition-colors whitespace-nowrap flex-shrink-0">
+            <button disabled={isDemo} className={`px-3 py-2 bg-red-600 text-white rounded font-medium text-sm whitespace-nowrap flex-shrink-0 transition-colors ${isDemo ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-700'}`}>
               📞 Escalate
             </button>
           </div>
@@ -343,6 +345,27 @@ const InvoiceDetail: React.FC = () => {
           </p>
         </Card>
       </div>
+
+      {/* Agent Decision Button (Dev Only) */}
+      {isDemo && (
+        <Card className="border-2 border-blue-400 dark:border-blue-600 bg-blue-50 dark:bg-blue-950/20">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="text-3xl">🤖</div>
+              <div>
+                <p className="font-semibold text-gray-900 dark:text-white">Agent Decision</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-0.5">View why the agent chose this approach</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowAgentDecision(true)}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold"
+            >
+              View Decision
+            </button>
+          </div>
+        </Card>
+      )}
 
       {/* Tabs */}
       <Card>
@@ -441,7 +464,7 @@ const InvoiceDetail: React.FC = () => {
           !detail?.payments.length
             ? <p className="text-gray-500 dark:text-gray-400 text-center py-8">No payments recorded</p>
             : (
-              <table className="w-full text-sm">
+              <table className="w-full text-sm" data-tour="payment-history">
                 <thead className="bg-gray-50 dark:bg-white/[0.04]">
                   <tr>
                     <th className="px-4 py-2 text-left text-gray-600 dark:text-gray-300">Date</th>
@@ -492,10 +515,10 @@ const InvoiceDetail: React.FC = () => {
                   </select>
                 </div>
                 <div className="flex gap-2">
-                  <Button size="sm" variant="secondary" onClick={() => setShowEmailPreview(true)}>
+                  <Button size="sm" variant="secondary" onClick={() => setShowEmailPreview(true)} disabled={isDemo}>
                     Preview Email
                   </Button>
-                  <Button size="sm" onClick={() => sendEmail()} loading={sendingEmail}>
+                  <Button size="sm" onClick={() => sendEmail()} loading={sendingEmail} disabled={isDemo}>
                     Send Email
                   </Button>
                 </div>
@@ -698,6 +721,30 @@ const InvoiceDetail: React.FC = () => {
         )}
       </Card>
       </div>
+
+      {/* Agent Decision Modal */}
+      {isDemo && (
+        <AgentDecisionModal
+          isOpen={showAgentDecision}
+          onClose={() => setShowAgentDecision(false)}
+          companyName="DevFirst"
+          riskScore={92}
+          invoiceAmount={11200}
+          daysOverdue={35}
+          paymentPattern={{
+            onTimeRate: 40,
+            avgDaysLate: 28,
+            totalInvoices: 6,
+            totalPaid: 10000,
+          }}
+          agentDecision={{
+            dunningTier: 'dunning_3',
+            tone: 'friendly',
+            reasoning: 'Customer has low on-time rate (40%) but is reliable (6 invoices paid). They respond well to gentle pressure. This tone mentions their good payment history to reinforce positive behavior.',
+          }}
+          nextAction="Send email now, wait 7 days for response. If no payment received, escalate to SMS reminder."
+        />
+      )}
     </>
   );
 };

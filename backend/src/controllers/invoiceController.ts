@@ -39,6 +39,25 @@ function computeDunningFields(emailTypesSent: string[], daysOverdue: number): { 
   return { dunning_stage, next_action };
 }
 
+// ============================================================
+// CSV VALIDATION HELPERS
+// ============================================================
+
+function isValidEmail(email: string): boolean {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+}
+
+function isValidDate(dateStr: string, format: string = 'YYYY-MM-DD'): boolean {
+  if (format === 'YYYY-MM-DD') {
+    const regex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!regex.test(dateStr)) return false;
+    const d = new Date(dateStr);
+    return !isNaN(d.getTime());
+  }
+  return false;
+}
+
 export const listInvoices = async (req: Request, res: Response) => {
   const handler = 'listInvoices';
   const startTime = Date.now();
@@ -309,7 +328,7 @@ export const createManualInvoice = async (req: Request, res: Response) => {
       // Find or create customer by email
       const customer = await CustomerDB.findOrCreateCustomer({
         companyId,
-        name: customerName.trim(),
+        companyName: customerName.trim(),
         email: customerEmail.trim(),
       });
       finalCustomerId = customer.id;
@@ -451,67 +470,36 @@ export const uploadCSVFile = async (req: Request, res: Response): Promise<void> 
     const currencyIdx = findColumn(['currency', 'curr', 'code', 'iso', 'invoicecurrency']);
     const dueDateIdx = findColumn(['due', 'deadline', 'payment', 'paymentdue', 'dueindate']);
     const issuedDateIdx = findColumn(['issued', 'created', 'date', 'invoicedate', 'postingdate', 'documentcreatedate']);
+    const phoneIdx = findColumn(['phone', 'mobile', 'phone_number', 'tel']);
 
     logInfo(handler, 'CSV column detection', {
       headers: rawHeader,
       normalizedHeaders: header,
-      detectedColumns: { nameIdx, emailIdx, amountIdx, currencyIdx, dueDateIdx, issuedDateIdx },
+      detectedColumns: { nameIdx, emailIdx, amountIdx, currencyIdx, dueDateIdx, issuedDateIdx, phoneIdx },
     });
 
-    const invoices: Array<{ customerName: string; customerEmail: string; amount: number; currency: string; dueDate: string; issuedDate?: string }> = [];
+    const invoices: Array<{ customerName: string; customerEmail: string; amount: number; currency: string; dueDate: string; issuedDate?: string; phone?: string }> = [];
 
     // Process data rows (parsing only - no DB calls yet)
     for (let i = 1; i < lines.length; i++) {
       const values = lines[i].split(',').map(v => v.trim().replace(/^["']|["']$/g, ''));
       if (values.every(v => !v)) continue; // Skip completely empty rows
 
-      // Extract values with fallbacks
+      // Extract values (minimal processing)
       let name = nameIdx >= 0 ? values[nameIdx] : '';
       let email = emailIdx >= 0 ? values[emailIdx] : '';
       let amount = amountIdx >= 0 ? values[amountIdx] : '';
       const currency = currencyIdx >= 0 ? values[currencyIdx] : 'USD';
       let dueDate = dueDateIdx >= 0 ? values[dueDateIdx] : '';
       let issuedDate = issuedDateIdx >= 0 ? values[issuedDateIdx] : '';
+      let phone = phoneIdx >= 0 ? values[phoneIdx] : '';
 
-      // AUTO-INFER MISSING DATA
-      // If no amount found, try first numeric value in row (handle comma separators like "1,234.56")
-      if (!amount || !parseFloat(amount.replace(/,/g, ''))) {
-        const numValue = values.find(v => /^[\d,]+(\.\d+)?$/.test(v));
-        amount = numValue || '';
-      }
-      // Remove thousand separators for proper parsing
-      amount = amount.replace(/,/g, '');
-
-      // If no email found, try to extract from any field that looks like email
-      if (!email) {
-        const emailValue = values.find(v => v.includes('@'));
-        email = emailValue || '';
+      // Clean amount (remove comma separators only)
+      if (amount) {
+        amount = amount.replace(/,/g, '');
       }
 
-      // If no name, use email prefix or generate from customer code
-      if (!name && email) {
-        name = email.split('@')[0];
-      }
-      if (!name) {
-        // Try to use unique identifier from row (customer code, doc_id, etc)
-        const uniqueId = values.find(v => v && !v.includes(' ') && v.length > 2);
-        name = uniqueId || `Customer ${i}`;
-      }
-
-      // If no email, keep it empty (don't auto-generate)
-      // Empty emails are valid - just skip creating customer for those invoices
-      if (!email) {
-        email = '';
-      }
-
-      // If no due date, set to 30 days from now
-      if (!dueDate) {
-        const futureDate = new Date();
-        futureDate.setDate(futureDate.getDate() + 30);
-        dueDate = futureDate.toISOString().split('T')[0];
-      }
-
-      // If no issued date, use today
+      // Default issued_date to today if missing (safe auto-fill)
       if (!issuedDate) {
         issuedDate = new Date().toISOString().split('T')[0];
       }
@@ -521,11 +509,11 @@ export const uploadCSVFile = async (req: Request, res: Response): Promise<void> 
       // DEBUG: Log first 3 rows to see what's being parsed
       if (i <= 3) {
         logInfo(handler, `CSV row ${i} parsed`, {
-          rawAmount: values[amountIdx],
-          cleanedAmount: amount,
-          parsedAmount,
-          name,
-          email
+          companyName: name,
+          email,
+          amount: parsedAmount,
+          dueDate,
+          phone
         });
       }
 
@@ -536,7 +524,177 @@ export const uploadCSVFile = async (req: Request, res: Response): Promise<void> 
         currency: (currency || 'USD').toUpperCase().substring(0, 3),
         dueDate,
         issuedDate,
+        phone,
       });
+    }
+
+    // ============================================================
+    // VALIDATION: Check all required fields and conflicts
+    // ============================================================
+    const validationErrors: Array<{ rowNum: number; field: string; value: string; message: string }> = [];
+
+    // TIER 1 & 2: Validate each row
+    for (let i = 1; i < lines.length; i++) {
+      const values = lines[i].split(',').map(v => v.trim().replace(/^["']|["']$/g, ''));
+      if (values.every(v => !v)) continue; // Skip empty rows
+
+      // Map back to indices we already detected
+      const companyName = nameIdx >= 0 ? values[nameIdx] : '';
+      const email = emailIdx >= 0 ? values[emailIdx] : '';
+      const amount = amountIdx >= 0 ? values[amountIdx] : '';
+      const dueDate = dueDateIdx >= 0 ? values[dueDateIdx] : '';
+
+      // TIER 1: Required field checks
+      if (!companyName || companyName.trim() === '') {
+        validationErrors.push({
+          rowNum: i + 1,
+          field: 'company_name',
+          value: '',
+          message: 'Company name is required'
+        });
+        continue;
+      }
+
+      if (!email || email.trim() === '') {
+        validationErrors.push({
+          rowNum: i + 1,
+          field: 'email',
+          value: '',
+          message: 'Email is required'
+        });
+        continue;
+      }
+
+      if (!amount || isNaN(parseFloat(amount.replace(/,/g, ''))) || parseFloat(amount.replace(/,/g, '')) <= 0) {
+        validationErrors.push({
+          rowNum: i + 1,
+          field: 'amount',
+          value: amount,
+          message: 'Amount must be a positive number'
+        });
+        continue;
+      }
+
+      if (!dueDate || !isValidDate(dueDate)) {
+        validationErrors.push({
+          rowNum: i + 1,
+          field: 'due_date',
+          value: dueDate,
+          message: 'Due date must be in YYYY-MM-DD format'
+        });
+        continue;
+      }
+
+      // TIER 2: Format validation
+      if (!isValidEmail(email)) {
+        validationErrors.push({
+          rowNum: i + 1,
+          field: 'email',
+          value: email,
+          message: 'Email format is invalid'
+        });
+        continue;
+      }
+    }
+
+    // TIER 3A: Email uniqueness check WITHIN CSV - track which rows have conflicts
+    const emailToNames = new Map<string, string>();
+    const emailToRows = new Map<string, number[]>(); // Track all row numbers per email
+    const uniqueEmails: string[] = []; // FIX #3: Extract unique emails for DB validation
+
+    // First pass: collect all email→company_name mappings and row numbers
+    for (let i = 0; i < invoices.length; i++) {
+      const inv = invoices[i];
+      if (inv.customerEmail) {
+        const rowNum = i + 2; // +2 because row 1 is headers, array is 0-indexed
+        if (!emailToRows.has(inv.customerEmail)) {
+          emailToRows.set(inv.customerEmail, []);
+          uniqueEmails.push(inv.customerEmail); // Track unique emails
+        }
+        emailToRows.get(inv.customerEmail)!.push(rowNum);
+
+        const existing = emailToNames.get(inv.customerEmail);
+        if (!existing) {
+          emailToNames.set(inv.customerEmail, inv.customerName);
+        }
+      }
+    }
+
+    // Second pass: check for conflicts within CSV (collect count, not details)
+    let emailConflictCount = 0;
+    for (const rows of emailToRows.values()) {
+      const uniqueCompanyNames = new Set<string>();
+      for (const rowNum of rows) {
+        uniqueCompanyNames.add(invoices[rowNum - 2].customerName);
+      }
+
+      if (uniqueCompanyNames.size > 1) {
+        emailConflictCount++;
+      }
+    }
+
+    // If there are email conflicts, report count (not details)
+    if (emailConflictCount > 0) {
+      const conflictMsg = emailConflictCount === 1
+        ? '1 email is used by multiple companies'
+        : `${emailConflictCount} emails are used by multiple companies`;
+
+      validationErrors.push({
+        rowNum: -1,
+        field: 'email',
+        value: '',
+        message: conflictMsg
+      });
+    }
+
+    // TIER 3B: Email uniqueness check AGAINST DATABASE
+    // FIX #3: Check if any email in CSV already exists in DB with a DIFFERENT company_name
+    if (validationErrors.length === 0 && uniqueEmails.length > 0) {
+      try {
+        const existingInDb = await pool.query(
+          `SELECT email, company_name FROM customers WHERE company_id = $1 AND email = ANY($2)`,
+          [companyId, uniqueEmails]
+        );
+
+        let dbEmailConflictCount = 0;
+        for (const row of existingInDb.rows) {
+          const csvCompanyName = emailToNames.get(row.email);
+          if (csvCompanyName && csvCompanyName !== row.company_name) {
+            dbEmailConflictCount++;
+          }
+        }
+
+        if (dbEmailConflictCount > 0) {
+          validationErrors.push({
+            rowNum: -1,
+            field: 'email',
+            value: '',
+            message: dbEmailConflictCount === 1
+              ? '1 email already exists in database for a different company'
+              : `${dbEmailConflictCount} emails already exist for different companies`
+          });
+        }
+      } catch (err) {
+        logError(handler, 'Database email validation failed', err);
+        // Non-blocking: continue with import if DB check fails
+      }
+    }
+
+    // REJECT if any validation errors
+    if (validationErrors.length > 0) {
+      logInfo(handler, 'CSV validation failed', {
+        totalErrors: validationErrors.length,
+        errors: validationErrors
+      });
+
+      // Return error response with ALL errors
+      res.status(400).json({
+        error: 'CSV_VALIDATION_FAILED',
+        message: `CSV validation failed with ${validationErrors.length} error(s). Please fix and re-upload.`,
+        errors: validationErrors,
+        total_errors: validationErrors.length
+      });
+      return;
     }
 
     // Check limits AFTER processing (not on raw line count)
@@ -712,7 +870,7 @@ export const uploadCSV = async (req: Request, res: Response): Promise<void> => {
 
         const customer = await CustomerDB.findOrCreateCustomer({
           companyId,
-          name: inv.customerName || inv.customerEmail,
+          companyName: inv.customerName || inv.customerEmail,
           email: inv.customerEmail,
         });
 

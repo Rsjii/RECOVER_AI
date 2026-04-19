@@ -87,11 +87,11 @@ export async function getArHealth(companyId: string): Promise<ArHealthData> {
 
   // Get most at-risk customer
   const atRiskResult = await pool.query(`
-    SELECT c.name, c.email, COALESCE(SUM(i.amount_due), 0)::numeric as ar_amount
+    SELECT c.company_name, c.email, COALESCE(SUM(i.amount_due), 0)::numeric as ar_amount
     FROM customers c
     LEFT JOIN invoices i ON c.id = i.customer_id AND i.status NOT IN ('paid', 'void')
     WHERE c.company_id = $1
-    GROUP BY c.id, c.name, c.email
+    GROUP BY c.id, c.company_name, c.email
     ORDER BY ar_amount DESC
     LIMIT 1
   `, [companyId]);
@@ -104,7 +104,7 @@ export async function getArHealth(companyId: string): Promise<ArHealthData> {
 
   // Get largest overdue invoice
   const largestResult = await pool.query(`
-    SELECT i.id, c.name as customer, i.amount_due::numeric,
+    SELECT i.id, c.company_name as customer, i.amount_due::numeric,
            EXTRACT(EPOCH FROM (NOW() - i.due_date)) / 86400 as days_overdue
     FROM invoices i
     LEFT JOIN customers c ON i.customer_id = c.id
@@ -184,7 +184,7 @@ export async function getCompanyCustomers(
 
   if (options.search) {
     params.push(`%${options.search}%`);
-    conditions.push(`(c.name ILIKE $${params.length} OR c.email ILIKE $${params.length - 1})`);
+    conditions.push(`(c.company_name ILIKE $${params.length} OR c.email ILIKE $${params.length - 1})`);
   }
 
   const where = conditions.join(' AND ');
@@ -192,7 +192,7 @@ export async function getCompanyCustomers(
 
   const result = await pool.query(`
     SELECT
-      c.id, c.name, c.email, c.risk_score,
+      c.id, c.company_name, c.email, c.risk_score,
       COALESCE(SUM(i.amount_due), 0)::numeric as total_ar,
       COUNT(CASE WHEN i.status = 'overdue' THEN 1 END)::int as overdue_count,
       c.dunning_stage,
@@ -201,7 +201,7 @@ export async function getCompanyCustomers(
     LEFT JOIN invoices i ON c.id = i.customer_id AND i.status NOT IN ('paid', 'void')
     LEFT JOIN email_logs el ON c.id = el.customer_id
     WHERE ${where}
-    GROUP BY c.id, c.name, c.email, c.risk_score, c.dunning_stage
+    GROUP BY c.id, c.company_name, c.email, c.risk_score, c.dunning_stage
     ORDER BY COALESCE(SUM(i.amount_due), 0) DESC
     LIMIT $${params.length - 1} OFFSET $${params.length}
   `, params);
@@ -228,7 +228,7 @@ export async function getCompanyInvoicesDetailed(
 
   const result = await pool.query(`
     SELECT
-      i.id, i.invoice_number, c.name as customer, i.amount_due::numeric,
+      i.id, i.invoice_number, c.company_name as customer, i.amount_due::numeric,
       i.due_date, i.status,
       EXTRACT(EPOCH FROM (NOW() - i.due_date)) / 86400 as days_overdue,
       c.dunning_stage

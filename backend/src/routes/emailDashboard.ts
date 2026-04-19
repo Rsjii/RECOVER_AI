@@ -50,7 +50,7 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
     }
 
     if (customerName) {
-      whereClause += ` AND c.name ILIKE $${paramIndex}`;
+      whereClause += ` AND c.company_name ILIKE $${paramIndex}`;
       params.push(`%${customerName}%`);
       paramIndex++;
     }
@@ -78,7 +78,7 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
         el.sent_at,
         el.opened_at,
         el.sendgrid_message_id,
-        c.name as customer_name,
+        c.company_name as customer_name,
         c.email as customer_email,
         i.source_id as invoice_number,
         i.amount,
@@ -182,7 +182,7 @@ router.get('/:emailId', authMiddleware, async (req: Request, res: Response) => {
         el.sent_at,
         el.opened_at,
         el.sendgrid_message_id,
-        c.name as customer_name,
+        c.company_name as customer_name,
         c.email as customer_email,
         i.source_id as invoice_number,
         i.amount,

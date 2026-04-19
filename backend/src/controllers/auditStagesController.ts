@@ -425,9 +425,9 @@ export const proceedFromStage4 = async (req: Request, res: Response) => {
 
             // Create or find customer with actual email (not placeholder)
             const customerResult = await pool.query(
-              `INSERT INTO customers (company_id, name, email)
+              `INSERT INTO customers (company_id, company_name, email)
                VALUES ($1, $2, $3)
-               ON CONFLICT (company_id, email) DO UPDATE SET name = EXCLUDED.name
+               ON CONFLICT (company_id, company_name) DO UPDATE SET email = EXCLUDED.email
                RETURNING id`,
               [companyId, customerName, customerEmail]
             );

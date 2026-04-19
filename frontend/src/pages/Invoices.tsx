@@ -16,6 +16,7 @@ import type { Invoice } from '../types';
 
 const Invoices: React.FC = () => {
   const { addToast } = useNotification();
+  const isDemo = typeof window !== 'undefined' && localStorage.getItem('isDemo') === 'true';
 
   useEffect(() => {
     document.title = 'Invoices — RecoverAI';
@@ -386,8 +387,8 @@ const Invoices: React.FC = () => {
             Sync Stripe invoices or create a manual invoice to get started.
           </p>
           <div className="flex justify-center gap-2">
-            <Button variant="primary" onClick={handleSync} loading={syncing}>Sync from Stripe</Button>
-            <Button variant="secondary" onClick={() => setShowCreateModal(true)}>Create Manual</Button>
+            <Button variant="primary" onClick={handleSync} loading={syncing} disabled={isDemo}>Sync from Stripe</Button>
+            <Button variant="secondary" onClick={() => setShowCreateModal(true)} disabled={isDemo}>Create Manual</Button>
           </div>
         </div>
       )}

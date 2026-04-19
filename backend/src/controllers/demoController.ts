@@ -6,6 +6,90 @@ import { logInfo, logError } from '../utils/logger';
 import { runDecisionEngineDryRun } from '../queue/agentLoop';
 import { redisClient } from '../config/redis';
 
+/**
+ * ════════════════════════════════════════════════════════════════════════════════
+ * DEMO CONTROLLER — SECURITY & OPERATION NOTES
+ * ════════════════════════════════════════════════════════════════════════════════
+ *
+ * PURPOSE:
+ * - Creates isolated demo account (demo@recoverai.com) with realistic seeded data
+ * - Demo users can VIEW all data but CANNOT modify anything (read-only enforcement)
+ * - Useful for: video recording, sales demos, prospect evaluation, GTM
+ *
+ * SECURITY PROTECTIONS (MULTIPLE LAYERS):
+ *
+ * 1. RATE LIMITING (Backend)
+ *    - /api/auth/demo/login limited to 5 requests/minute per IP (via demoLimiter)
+ *    - Prevents: Database bloat from attackers creating 1000+ fake demo accounts
+ *    - Implementation: middleware/rateLimiter.ts → demoLimiter
+ *
+ * 2. READ-ONLY ENFORCEMENT (Backend)
+ *    - user.is_demo = true flag set in database + JWT token
+ *    - All write endpoints (POST/PUT/DELETE) blocked via demoBlocker middleware
+ *    - If demo user attempts write: Returns 403 Forbidden { error: "Demo Mode — Read-only" }
+ *    - Implementation: middleware/demoBlocker.ts (checks req.isDemo on POST/PUT/DELETE)
+ *    - Applied to: All routes that handle data mutation (invoices, customers, email, dashboard)
+ *
+ * 3. UI-LEVEL SAFEGUARDS (Frontend)
+ *    - Write buttons (Mark Paid, Send Email, Escalate, etc) are disabled={isDemo}
+ *    - Even if backend check fails, UI prevents accidental submissions
+ *    - Toast notifications show: "Demo Mode — Read-only"
+ *    - Implementation: pages/InvoiceDetail.tsx, pages/Dashboard.tsx, etc
+ *
+ * 4. DATA ISOLATION (Database)
+ *    - Demo company is separate record from real companies
+ *    - Demo user cannot see/modify other companies' data
+ *    - Enforced via tenantScopeGuard middleware (tenant isolation)
+ *
+ * ENDPOINTS PROTECTED (All write endpoints blocked for demo users):
+ * ✅ /api/invoices/* (POST/PUT/DELETE) — demoBlocker middleware
+ * ✅ /api/customers/* (POST/PUT/DELETE) — demoBlocker middleware
+ * ✅ /api/email/* (POST/PUT/DELETE) — demoBlocker middleware
+ * ✅ /api/dashboard/* (POST/PUT/DELETE) — demoBlocker middleware
+ * ✅ /api/payment-plans/* (POST/PUT/DELETE) — demoBlocker middleware
+ * ✅ /api/settings/* (POST/PUT/DELETE) — demoBlocker middleware
+ *
+ * DEMO DATA SEEDING:
+ * - 8 sample customers (Sarah Chen, Mike Johnson, David Park, etc)
+ * - 24 realistic invoices (8 paid, 4 arranged, 12 unpaid)
+ * - Aging buckets: fresh (0-7d), overdue (7-30d), high-risk (30-60d), critical (60+d)
+ * - 30 days of recovery timeline data (simulating agent progress)
+ * - 24 pre-crafted personalized emails (cached in Redis for instant viewing)
+ * - Email engagement data (opened, clicked, bounced rates)
+ * - 3 pending emails in approval queue (for Activity page showcase)
+ *
+ * DEMO TOUR AUTO-FLOW:
+ * - 10-step guided tour (55 seconds total, auto-progression)
+ * - Route sequence: Dashboard → Invoices → InvoiceDetail → Activity → Reports → Dashboard
+ * - Only shown to demo users (real users get separate onboarding tour)
+ * - Implemented via: DemoAutoNavigation.tsx at Layout level
+ *
+ * HOW TO TEST SECURITY:
+ *
+ * # Test 1: Rate limiting (should fail after 5 requests/min)
+ * for i in {1..10}; do
+ *   curl -X POST http://localhost:3000/api/auth/demo/login
+ * done
+ * # Expected: First 5 succeed, next 5 fail with "Too many demo requests"
+ *
+ * # Test 2: Demo user cannot modify data
+ * DEMO_JWT=$(curl -s -X POST http://localhost:3000/api/auth/demo/login | jq -r '.tokens.accessToken')
+ * curl -X PUT http://localhost:3000/api/invoices/123/status \
+ *   -H "Authorization: Bearer $DEMO_JWT" \
+ *   -d '{"status": "paid"}'
+ * # Expected: { error: "Demo Mode — Read-only", code: "DEMO_READ_ONLY" }
+ *
+ * # Test 3: Real user CAN modify data (with real JWT)
+ * REAL_JWT=$(curl -s -X POST http://localhost:3000/api/auth/login \
+ *   -d '{"email": "user@example.com", "password": "pass"}' | jq -r '.tokens.accessToken')
+ * curl -X PUT http://localhost:3000/api/invoices/123/status \
+ *   -H "Authorization: Bearer $REAL_JWT" \
+ *   -d '{"status": "paid"}'
+ * # Expected: { success: true, invoice: {...} }
+ *
+ * ════════════════════════════════════════════════════════════════════════════════
+ */
+
 // Pre-crafted personalized emails for each demo invoice (by invSpec index)
 // Keyed by [custIdx, emailType] → {subject, body, tone}
 // custIdx: 0=Sarah Chen, 1=Mike Johnson, 2=David Park, 3=Priya Mehta, 4=Jason Torres, 5=Emma Williams, 6=Ryan Lee, 7=Nina Patel
@@ -339,8 +423,14 @@ export const demoLogin = async (req: Request, res: Response): Promise<void> => {
     const companyId = authResult.company.id;
     logInfo(LOG_MODULE, handler, 'Demo company resolved', { companyId });
 
-    // ---- 1b. Mark demo user as email-verified + demo mode (skip OTP requirement) ----
-    await pool.query(`UPDATE users SET email_verified = true, is_demo = true, otp_code = NULL, otp_expires = NULL WHERE id = $1`, [authResult.user.id]);
+    // Initialize demo data info (will be populated if creating new data)
+    let demoDataInfo: any = {};
+
+    // ---- 1a. Set company to paid_active status (bypass onboarding checks) ----
+    await pool.query(`UPDATE companies SET onboarding_stage = 'paid_active', account_type = 'paid', billing_tier = 4 WHERE id = $1`, [companyId]);
+
+    // ---- 1b. Mark demo user as email-verified + demo mode (skip OTP requirement) + set onboarding_status to active (bypass profile page) ----
+    await pool.query(`UPDATE users SET email_verified = true, is_demo = true, otp_code = NULL, otp_expires = NULL, onboarding_status = 'active' WHERE id = $1`, [authResult.user.id]);
 
     // ---- 1c. Regenerate tokens with is_demo flag ----
     // The initial signup tokens don't include is_demo, so we need to regenerate them now
@@ -385,14 +475,30 @@ export const demoLogin = async (req: Request, res: Response): Promise<void> => {
     const custRows: { id: string; idx: number }[] = [];
     for (let i = 0; i < customers.length; i++) {
       const c = customers[i];
-      const r = await client.query(
-        `INSERT INTO customers (company_id, name, email, company_name, industry, payment_history, created_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7)
-         ON CONFLICT (company_id, email) DO UPDATE SET name=$2, company_name=$4, industry=$5, payment_history=$6, created_at=$7
-         RETURNING id`,
-        [companyId, c.name, c.email, c.company, c.industry, JSON.stringify(c.history), d(90 - i * 5)]
-      );
-      custRows.push({ id: r.rows[0].id, idx: i });
+      try {
+        const r = await client.query(
+          `INSERT INTO customers (company_id, company_name, name, email, industry, payment_history, created_at)
+           VALUES ($1,$2,$3,$4,$5,$6,$7)
+           RETURNING id`,
+          [companyId, c.company, c.name, c.email, c.industry, JSON.stringify(c.history), d(90 - i * 5)]
+        );
+        custRows.push({ id: r.rows[0].id, idx: i });
+      } catch (err: any) {
+        // If customer already exists, try to find it
+        if (err.code === '23505') { // unique constraint violation
+          const existing = await client.query(
+            `SELECT id FROM customers WHERE company_id = $1 AND company_name = $2`,
+            [companyId, c.company]
+          );
+          if (existing.rows.length > 0) {
+            custRows.push({ id: existing.rows[0].id, idx: i });
+          } else {
+            throw err;
+          }
+        } else {
+          throw err;
+        }
+      }
     }
 
     // ---- 4. Seed invoices ----
@@ -590,16 +696,218 @@ export const demoLogin = async (req: Request, res: Response): Promise<void> => {
     } catch (cacheErr) {
       logError(LOG_MODULE, handler, 'Failed to cache demo email previews (non-fatal)', cacheErr);
     }
+
+    // ---- 9. Queue emails to pilotQueuedEmails (20+ sent, 3 pending) ----
+    try {
+      // Collect all queueable invoices (unpaid + arranged) with email type
+      type QueuedEmail = {
+        invId: string;
+        custId: string;
+        emailType: string;
+        subject: string;
+        body: string;
+        recipientEmail: string;
+        customerName: string;
+        invoiceAmount: number;
+        daysOverdue: number;
+      };
+      const queuedEmails: QueuedEmail[] = [];
+
+      for (const inv of invRows.filter(i => i.status === 'unpaid' || i.status === 'arranged')) {
+        const daysOverdue = inv.daysAgoDue;
+        let emailType: string | null = null;
+
+        // Determine email type based on days overdue
+        if (daysOverdue >= 60) emailType = 'dunning_5';
+        else if (daysOverdue >= 30) emailType = 'dunning_4';
+        else if (daysOverdue >= 14) emailType = 'dunning_3';
+        else if (daysOverdue >= 7) emailType = 'dunning_2';
+        else if (daysOverdue >= 1) emailType = 'dunning_1';
+
+        if (!emailType) continue;
+
+        // Get email content
+        const custKey = `${inv.custIdx}:${emailType}`;
+        const emailContent = DEMO_EMAILS[custKey];
+        if (!emailContent) continue;
+
+        const cust = customers[inv.custIdx];
+        const custRow = custRows[inv.custIdx];
+
+        queuedEmails.push({
+          invId: inv.id,
+          custId: custRow.id,
+          emailType,
+          subject: emailContent.subject,
+          body: emailContent.body,
+          recipientEmail: cust.email,
+          customerName: cust.name,
+          invoiceAmount: inv.amount,
+          daysOverdue,
+        });
+      }
+
+      // Insert all queued emails (mark last 3 as pending, rest as sent)
+      if (queuedEmails.length > 0) {
+        const queuePH: string[] = [];
+        const queueVals: any[] = [];
+        const lastThreeIdx = Math.max(0, queuedEmails.length - 3);
+
+        for (let i = 0; i < queuedEmails.length; i++) {
+          const q = queuedEmails[i];
+          const isPending = i >= lastThreeIdx;
+          const status = isPending ? 'pending' : 'sent';
+          const sentAt = isPending ? null : d(Math.max(1, q.daysOverdue - 7));
+          const createdAt = d(q.daysOverdue - 3);
+
+          const b = i * 13;
+          queuePH.push(`($${b+1},$${b+2},$${b+3},$${b+4},$${b+5},$${b+6},$${b+7},$${b+8},$${b+9},$${b+10},$${b+11},$${b+12},$${b+13})`);
+          queueVals.push(
+            companyId, q.invId, q.custId, q.recipientEmail, q.customerName,
+            q.invoiceAmount, q.daysOverdue, q.emailType, q.subject, q.body,
+            status, createdAt, sentAt
+          );
+        }
+
+        await pool.query(
+          `INSERT INTO pilot_queued_emails (company_id,invoice_id,customer_id,recipient_email,customer_name,invoice_amount,days_overdue,email_type,subject,body,status,created_at,sent_at)
+           VALUES ${queuePH.join(',')}`,
+          queueVals
+        );
+
+        logInfo(LOG_MODULE, handler, 'Demo emails queued', {
+          total: queuedEmails.length,
+          sent: queuedEmails.length - 3,
+          pending: Math.min(3, queuedEmails.length),
+        });
+
+        // Add 2-3 pending approval demo emails for Activity page showcase (1 SMS + 2 Email)
+        const pendingEmails = [
+          {
+            email: 'david@techwave.io',
+            phone: '+1-415-555-0142',
+            name: 'David Park',
+            amount: 14500,
+            subject: 'Final Notice: $14,500 Invoice — Immediate Action Required',
+            body: 'Hi David, this is a reminder that TechWave Co\'s invoice of $14,500 is 65 days overdue. Please arrange payment immediately to avoid escalation. Reply STOP to opt out.',
+            type: 'sms', // SMS instead of email
+          },
+          {
+            email: 'jason@cloudgate.io',
+            name: 'Jason Torres',
+            amount: 22000,
+            subject: 'Final Notice: $22,000 Invoice #INV-00042 — CloudGate Inc',
+            body: 'Hi Jason,\n\nThis is a final notice regarding CloudGate Inc\'s balance of $22,000, now 70 days overdue.\n\nContinuing non-payment will result in escalation to our collections partner.\n\nPlease respond within 48 hours.\n\nRegards,\nAcme SaaS Collections',
+            type: 'email',
+          },
+          {
+            email: 'nina@devfirst.io',
+            name: 'Nina Patel',
+            amount: 8600,
+            subject: 'Formal Payment Notice: Invoice $8,600 — 40 Days Overdue',
+            body: 'Hi Nina,\n\nI\'m following up on DevFirst\'s overdue invoice of $8,600, now 40 days past due.\n\nWe need to formally request immediate resolution. Please process payment at your earliest convenience.\n\nThank you,\nAcme SaaS',
+            type: 'email',
+          },
+        ];
+
+        const custMap: Record<string, string> = {};
+        custRows.forEach((row: any) => {
+          custMap[row.email] = row.id;
+        });
+
+        const invMap: Record<string, string> = {};
+        invRows.forEach((row: any) => {
+          if (row.amount === 14500 || row.amount === 22000 || row.amount === 8600) {
+            invMap[row.amount] = row.id;
+          }
+        });
+
+        logInfo(LOG_MODULE, handler, 'Pending emails to insert', {
+          count: pendingEmails.length,
+          custMapSize: Object.keys(custMap).length,
+          invMapSize: Object.keys(invMap).length,
+        });
+
+        for (const pend of pendingEmails) {
+          const custId = custMap[pend.email];
+          const invId = invMap[pend.amount];
+          logInfo(LOG_MODULE, handler, `Processing pending email: ${pend.name}`, {
+            email: pend.email,
+            amount: pend.amount,
+            custIdFound: !!custId,
+            invIdFound: !!invId,
+            custId: custId ? 'found' : 'NOT FOUND',
+            invId: invId ? 'found' : 'NOT FOUND',
+          });
+
+          if (custId && invId) {
+            try {
+              const isSms = (pend as any).type === 'sms';
+              const emailType = isSms ? 'sms_tier_2' : 'dunning_4';
+              const phone = (pend as any).phone || null;
+
+              if (isSms) {
+                // SMS insertion
+                await pool.query(
+                  `INSERT INTO pilot_queued_emails (company_id,invoice_id,customer_id,recipient_email,customer_name,invoice_amount,days_overdue,email_type,type,phone_number,message_preview,message_full,status,created_at)
+                   VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+                  [companyId, invId, custId, pend.email, pend.name, pend.amount, 40, emailType, 'sms', phone, pend.body.substring(0, 160), pend.body, 'pending', new Date()]
+                );
+                logInfo(LOG_MODULE, handler, `✓ SMS inserted: ${pend.name}`, { phone, custId, invId });
+              } else {
+                // Email insertion
+                await pool.query(
+                  `INSERT INTO pilot_queued_emails (company_id,invoice_id,customer_id,recipient_email,customer_name,invoice_amount,days_overdue,email_type,subject,body,type,status,created_at)
+                   VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+                  [companyId, invId, custId, pend.email, pend.name, pend.amount, 40, emailType, pend.subject, pend.body, 'email', 'pending', new Date()]
+                );
+                logInfo(LOG_MODULE, handler, `✓ Email inserted: ${pend.name}`, { custId, invId });
+              }
+            } catch (e) {
+              logError(LOG_MODULE, handler, 'Failed to insert pending demo email', e);
+            }
+          } else {
+            logInfo(LOG_MODULE, handler, `⚠ Skipped ${pend.name}: custId=${!!custId}, invId=${!!invId}`);
+          }
+        }
+      }
+    } catch (queueErr) {
+      logError(LOG_MODULE, handler, 'Failed to queue demo emails (non-fatal)', queueErr);
+    }
+
+      // ---- 10. Prepare demo data values for frontend (real invoice IDs + amounts) ----
+      const demoTechWaveInv = invRows.find(i => i.custIdx === 2 && i.amount === 9100 && i.status === 'unpaid');
+      const demoPaidTotal = paidInvs.reduce((sum, inv) => sum + inv.amount, 0);
+      const demoUnpaidTotal = invRows.filter(i => i.status !== 'paid').reduce((sum, inv) => sum + inv.amount, 0);
+
+      demoDataInfo = {
+        techWaveInvoiceId: demoTechWaveInv?.id || null,
+        techWaveAmount: demoTechWaveInv?.amount || 9100,
+        totalRecovered: demoPaidTotal, // Real amount: ~45,200
+        totalAR: demoUnpaidTotal, // Unpaid + arranged
+      };
+
+      logInfo(LOG_MODULE, handler, 'Demo data info prepared', {
+        techWaveInvoiceId: demoDataInfo.techWaveInvoiceId,
+        totalRecovered: demoDataInfo.totalRecovered,
+        totalAR: demoDataInfo.totalAR,
+      });
     } // ✅ Close else block for demo data creation
 
-    // ---- 10. Return cookies — reuse authResult from step 1, no second login needed ----
+    // ---- 11. Return cookies — reuse authResult from step 1, no second login needed ----
     setCookies(res, authResult.tokens.accessToken, authResult.tokens.refreshToken);
 
     res.status(200).json({
       message: 'Demo account ready',
-      user: { ...authResult.user, emailVerified: true, is_demo: true },
+      user: {
+        ...authResult.user,
+        emailVerified: true,
+        isDemo: true,  // ✅ camelCase so frontend detects it
+        onboardingStatus: 'active' // ✅ camelCase so frontend bypasses /profile
+      },
       company: authResult.company,
       isDemo: true,
+      demoData: demoDataInfo, // ✅ Real invoice IDs and amounts for frontend
     });
   } catch (error) {
     try { await client.query('ROLLBACK'); } catch {}
