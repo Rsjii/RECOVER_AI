@@ -18,7 +18,9 @@ interface DemoStep {
 }
 
 function generateDemoSteps(): DemoStep[] {
-  const invoicePage = '/invoices/1359f244-8af1-4bf3-8ea8-d3593fc5084d';
+  const invoicePage = import.meta.env.PROD
+    ? '/invoices/ccfea4b1-9c73-4c8b-84f7-ecf942be936b'
+    : '/invoices/1359f244-8af1-4bf3-8ea8-d3593fc5084d';
 
   return [
     // ========== ACT 1: THE PROBLEM (2 slides) ==========
