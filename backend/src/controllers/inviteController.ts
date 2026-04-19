@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { createInviteToken, getInviteToken, validateInviteToken, getAdminInviteTokens } from '../db/invites';
 import { logInfo, logError } from '../utils/logger';
+import { config } from '../config/env';
 
 const MODULE = 'inviteController';
 
@@ -56,7 +57,7 @@ export async function generateInviteToken(req: Request, res: Response) {
       7
     );
 
-    const setup_url = `${process.env.FRONTEND_URL || 'https://recoverai.com'}/onboard/stage-1?token=${invite.token}${normalized_email ? `&email=${encodeURIComponent(normalized_email)}` : ''}`;
+    const setup_url = `${config.frontendUrl || 'https://recoverai.com'}/onboard/stage-1?token=${invite.token}${normalized_email ? `&email=${encodeURIComponent(normalized_email)}` : ''}`;
 
     logInfo(MODULE, 'generateInviteToken', 'Token created', {
       token: invite.token.substring(0, 10) + '...',

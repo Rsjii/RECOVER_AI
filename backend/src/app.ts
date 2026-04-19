@@ -71,12 +71,8 @@ app.use(helmet({
 }));
 app.use(compression());
 
-const defaultAllowedOrigins = ['http://localhost:5173', 'http://localhost:3001'];
-const envAllowedOrigins = (config.frontendUrl || '')
-  .split(',')
-  .map((origin) => origin.trim())
-  .filter(Boolean);
-const allowedOrigins = Array.from(new Set([...defaultAllowedOrigins, ...envAllowedOrigins]));
+const defaultAllowedOrigins = ['http://localhost:5173', 'http://localhost:3001', 'http://localhost:3173'];
+const allowedOrigins = Array.from(new Set([...defaultAllowedOrigins, ...config.corsOrigins]));
 
 logInfo('app', 'cors', 'Allowed frontend origins configured', { allowedOrigins });
 

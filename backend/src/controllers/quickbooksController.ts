@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { quickbooksService } from '../services/quickbooksService';
 import { sendErrorResponse, parseError } from '../utils/errorHandler';
 import { logError, logInfo } from '../utils/logger';
+import { config } from '../config/env';
 
 const LOG_MODULE = 'quickbooksController';
 
@@ -14,14 +15,14 @@ export const qbOAuthAuthorize = async (req: Request, res: Response) => {
     return res.redirect(url);
   } catch (err: any) {
     logError(LOG_MODULE, 'qbOAuthAuthorize', 'Failed', err);
-    return res.redirect(`${process.env.FRONTEND_URL}/settings?error=qb_auth_failed`);
+    return res.redirect(`${config.frontendUrl}/settings?error=qb_auth_failed`);
   }
 };
 
 export const qbOAuthCallback = async (req: Request, res: Response) => {
   try {
     const { code, state, realmId, error } = req.query;
-    const frontendUrl = process.env.FRONTEND_URL;
+    const frontendUrl = config.frontendUrl;
 
     if (error) {
       return res.redirect(`${frontendUrl}/settings?error=${error}`);
@@ -40,7 +41,7 @@ export const qbOAuthCallback = async (req: Request, res: Response) => {
     return res.redirect(`${frontendUrl}/settings?qb=connected`);
   } catch (err: any) {
     logError(LOG_MODULE, 'qbOAuthCallback', 'Failed', err);
-    return res.redirect(`${process.env.FRONTEND_URL}/settings?error=qb_connection_failed`);
+    return res.redirect(`${config.frontendUrl}/settings?error=qb_connection_failed`);
   }
 };
 

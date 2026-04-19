@@ -1,5 +1,6 @@
 import cron from 'node-cron';
 import { pool } from '../config/database';
+import { config } from '../config/env';
 import { logError, logInfo } from '../utils/logger';
 import resendService from '../services/resendService';
 import { sendCashOSDigest, CashDigestData } from '../services/slackService';
@@ -168,7 +169,7 @@ function buildEmailHTML(data: CashDigestData): string {
       </tr>`).join('')
     : `<tr><td colspan="3" style="padding:12px 16px;color:#64748b;font-size:14px;text-align:center">No overdue AR — all clear ✓</td></tr>`;
 
-  const frontendUrl = process.env.FRONTEND_URL || 'https://app.recoverai.com';
+  const frontendUrl = config.frontendUrl || 'https://app.recoverai.com';
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -277,7 +278,7 @@ function buildEmailHTML(data: CashDigestData): string {
 
 function buildEmailText(data: CashDigestData): string {
   const fmt = (n: number) => `$${Math.round(n).toLocaleString()}`;
-  const frontendUrl = process.env.FRONTEND_URL || 'https://app.recoverai.com';
+  const frontendUrl = config.frontendUrl || 'https://app.recoverai.com';
 
   return `CashOS Daily Digest — ${data.companyName}
 

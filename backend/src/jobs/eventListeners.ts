@@ -19,6 +19,7 @@ import {
 import { updateInvoiceStatus } from '../db/invoices';
 import { findInvoiceById } from '../db/invoices';
 import { logInfo, logError } from '../utils/logger';
+import { config } from '../config/env';
 import resendService from '../services/resendService';
 
 const LOG_MODULE = 'eventListeners';
@@ -34,7 +35,7 @@ export function registerEventListeners() {
   // ============================================================
   appEvents.on(AppEvent.AUDIT_APPROVED, async (payload: AuditApprovedPayload) => {
     try {
-      const link = `${process.env.FRONTEND_URL || 'https://recoverai.com'}/audit?invite=${payload.token}`;
+      const link = `${config.frontendUrl || 'https://recoverai.com'}/audit?invite=${payload.token}`;
 
       const subject = '🎯 Your RecoverAI AR Analysis Link';
       const bodyText = `

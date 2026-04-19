@@ -84,7 +84,7 @@ class EmailService {
       // 3. Pre-generate email log ID so we can inject tracking pixel before sending
       const emailLogId = crypto.randomUUID();
       const backendUrl = process.env.BACKEND_URL || 'http://localhost:3000';
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+      const frontendUrl = config.frontendUrl || 'http://localhost:5173';
 
       // 4. Inject tracking pixel + unsubscribe footer (CAN-SPAM / GDPR compliance)
       const trackOpenUrl = `${backendUrl}/api/email/track/open?logId=${emailLogId}`;
@@ -269,7 +269,7 @@ class EmailService {
       // 2. Pre-generate email log ID for tracking
       const emailLogId = crypto.randomUUID();
       const backendUrl = process.env.BACKEND_URL || 'http://localhost:3000';
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+      const frontendUrl = config.frontendUrl || 'http://localhost:5173';
 
       // 3. Add tracking pixel + unsubscribe footer
       const trackOpenUrl = `${backendUrl}/api/email/track/open?logId=${emailLogId}`;

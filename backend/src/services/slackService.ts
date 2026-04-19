@@ -124,7 +124,7 @@ export async function sendCashOSDigest(data: CashDigestData, webhookUrl: string)
             {
               type: 'button',
               text: { type: 'plain_text', text: '📊  View Dashboard' },
-              url: `${process.env.FRONTEND_URL || 'https://app.recoverai.com'}/dashboard`,
+              url: `${config.frontendUrl || 'https://app.recoverai.com'}/dashboard`,
               action_id: 'view_dashboard',
             },
           ],

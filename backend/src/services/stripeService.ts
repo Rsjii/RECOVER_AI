@@ -711,14 +711,14 @@ class StripeService {
                 <p style="color:#374151;font-size:14px;line-height:1.6;margin:0 0 20px;">
                   This payment was recovered as part of your RecoverAI pilot. Login to your dashboard to see full recovery stats.
                 </p>
-                <a href="${process.env.FRONTEND_URL}/dashboard" style="display:block;background:#2563eb;color:#fff;text-decoration:none;padding:14px 24px;border-radius:8px;text-align:center;font-weight:700;font-size:15px;">
+                <a href="${config.frontendUrl}/dashboard" style="display:block;background:#2563eb;color:#fff;text-decoration:none;padding:14px 24px;border-radius:8px;text-align:center;font-weight:700;font-size:15px;">
                   View Dashboard
                 </a>
               </div>
               <p style="color:#9ca3af;font-size:12px;text-align:center;margin-top:16px;">RecoverAI - Autonomous AR Recovery</p>
             </div>
           `,
-          bodyText: `${customerName} just paid $${formattedAmount}!\n\nThis payment was recovered as part of your RecoverAI pilot.\n\nLogin: ${process.env.FRONTEND_URL}/dashboard`,
+          bodyText: `${customerName} just paid $${formattedAmount}!\n\nThis payment was recovered as part of your RecoverAI pilot.\n\nLogin: ${config.frontendUrl}/dashboard`,
           replyTo: 'hello@recoverai.com',
         });
         logInfo('stripeService', method, 'Pilot celebration email sent', {

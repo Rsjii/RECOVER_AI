@@ -222,7 +222,7 @@ export const signupVerifyOTP = async (req: Request, res: Response) => {
 
     // Send welcome email (non-blocking)
     try {
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+      const frontendUrl = config.frontendUrl || 'http://localhost:5173';
       await resendService.sendEmail({
         to: email,
         subject: '🚀 Welcome to RecoverAI — Your 21-Day Free Trial Starts Now',

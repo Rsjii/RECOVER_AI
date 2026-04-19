@@ -18,7 +18,13 @@ export const config = {
   refreshTokenSecret: process.env.REFRESH_TOKEN_SECRET,
   encryptionKey: process.env.ENCRYPTION_KEY,
   adminSecret: process.env.ADMIN_SECRET,
-  frontendUrl: process.env.FRONTEND_URL,
+  frontendUrl: process.env.FRONTEND_URL, // Single URL for email links, redirects, user-facing URLs
+  // CORS_ORIGINS: comma-separated list of allowed origins (for backend CORS policy)
+  // Falls back to FRONTEND_URL if not explicitly set
+  corsOrigins: (process.env.CORS_ORIGINS || process.env.FRONTEND_URL || '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean),
   stripe: {
     apiKey: process.env.STRIPE_API_KEY,
     clientId: process.env.STRIPE_CLIENT_ID,

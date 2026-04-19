@@ -218,7 +218,7 @@ export class ResendService {
               </div>
 
               <div style="text-align: center;">
-                <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/dashboard" class="cta-button">View Your Dashboard</a>
+                <a href="${config.frontendUrl || 'http://localhost:5173'}/dashboard" class="cta-button">View Your Dashboard</a>
               </div>
 
               <div class="card" style="border-left-color: #10b981; background: #f0fdf4;">
@@ -240,7 +240,7 @@ export class ResendService {
           </body>
           </html>
         `,
-        text: `Your RecoverAI Dashboard is Live!\n\nHi ${params.firstName},\n\nYour dashboard is now live and monitoring ${params.companyName}'s overdue invoices.\n\nFirst emails go out in the next 6 hours.\n\nView your dashboard: ${process.env.FRONTEND_URL || 'http://localhost:5173'}/dashboard`,
+        text: `Your RecoverAI Dashboard is Live!\n\nHi ${params.firstName},\n\nYour dashboard is now live and monitoring ${params.companyName}'s overdue invoices.\n\nFirst emails go out in the next 6 hours.\n\nView your dashboard: ${config.frontendUrl || 'http://localhost:5173'}/dashboard`,
       });
 
       if (response.error) {
