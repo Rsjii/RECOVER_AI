@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { PublicHeader } from '../components/layout/PublicHeader';
+import { PublicFooter } from '../components/layout/PublicFooter';
 import { useSEO } from '../hooks/useSEO';
 import { getPageSEO } from '../lib/seoConfig';
 
@@ -154,7 +155,7 @@ const Dpa: React.FC = () => {
 
         <h2 className="text-xl font-semibold text-gray-900 dark:text-white mt-8 mb-3">13. Contact Information</h2>
         <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
-          For questions regarding this DPA or data processing matters, please contact our Data Protection Officer at dpo@recoverai.com or by mail at RecoverAI, Inc., 1209 Orange Street, Wilmington, DE 19801, United States.
+          For questions regarding this DPA or data processing matters, please contact our Data Protection Officer at hello@recoverai.tech or by mail at RecoverAI, Inc., 1209 Orange Street, Wilmington, DE 19801, United States.
         </p>
 
         <div className="mt-12 pt-6 border-t border-gray-200 dark:border-white/[0.06]">
@@ -163,6 +164,7 @@ const Dpa: React.FC = () => {
           </Link>
         </div>
       </div>
+      <PublicFooter />
     </div>
   );
 };

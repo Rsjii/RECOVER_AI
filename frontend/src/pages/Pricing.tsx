@@ -4,6 +4,7 @@ import { Button } from '../components/ui/Button';
 import { ThemeToggle } from '../components/ui/ThemeToggle';
 import { useSEO } from '../hooks/useSEO';
 import { getPageSEO } from '../lib/seoConfig';
+import { PublicFooter } from '../components/layout/PublicFooter';
 
 const Pricing: React.FC = () => {
   const navigate = useNavigate();
@@ -207,7 +208,7 @@ const Pricing: React.FC = () => {
             <Button size="lg" onClick={() => navigate('/signup')}>
               Start Free Trial
             </Button>
-            <a href="mailto:hello@recoverai.com">
+            <a href="mailto:hello@recoverai.tech">
               <Button variant="outline" size="lg">
                 Questions? Email Us
               </Button>
@@ -219,12 +220,7 @@ const Pricing: React.FC = () => {
         </section>
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-gray-200 dark:border-white/[0.06] bg-gray-50 dark:bg-white/[0.02] mt-20">
-        <div className="max-w-7xl mx-auto px-6 py-12 text-center text-sm text-gray-500 dark:text-gray-400">
-          <p>© 2026 RecoverAI. All rights reserved.</p>
-        </div>
-      </footer>
+      <PublicFooter />
     </div>
   );
 };

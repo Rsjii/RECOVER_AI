@@ -1,5 +1,6 @@
 import React from 'react';
 import { PublicHeader } from '../components/layout/PublicHeader';
+import { PublicFooter } from '../components/layout/PublicFooter';
 import { useSEO } from '../hooks/useSEO';
 import { getPageSEO } from '../lib/seoConfig';
 
@@ -194,16 +195,17 @@ const SecurityPage: React.FC = () => {
             We are happy to discuss our security practices, provide documentation, or schedule a review.
           </p>
           <a
-            href="mailto:security@recoverai.com"
+            href="mailto:hello@recoverai.tech"
             className="mt-6 inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-6 py-3 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 transition-colors"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
             </svg>
-            security@recoverai.com
+            hello@recoverai.tech
           </a>
         </div>
       </section>
+      <PublicFooter />
     </div>
   );
 };

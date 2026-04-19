@@ -1,5 +1,6 @@
 import React from 'react';
 import { PublicHeader } from '../components/layout/PublicHeader';
+import { PublicFooter } from '../components/layout/PublicFooter';
 import { useSEO } from '../hooks/useSEO';
 import { getPageSEO } from '../lib/seoConfig';
 
@@ -21,8 +22,8 @@ const Support: React.FC = () => {
             <div>
               <h3 className="font-medium text-gray-900 dark:text-white mb-1">Email</h3>
               <p className="text-sm text-gray-700 dark:text-gray-300">
-                <a href="mailto:support@recoverai.com" className="text-blue-600 dark:text-blue-400 hover:underline">
-                  support@recoverai.com
+                <a href="mailto:hello@recoverai.tech" className="text-blue-600 dark:text-blue-400 hover:underline">
+                  hello@recoverai.tech
                 </a>
               </p>
             </div>
@@ -69,7 +70,7 @@ const Support: React.FC = () => {
             <h3 className="font-medium text-gray-900 dark:text-white mb-1">I can't connect my Stripe account</h3>
             <p className="text-sm text-gray-700 dark:text-gray-300">
               Make sure you're using the correct API keys and that they have the necessary permissions.
-              Contact support@recoverai.com with your account email and we'll help troubleshoot.
+              Contact hello@recoverai.tech with your account email and we'll help troubleshoot.
             </p>
           </div>
 
@@ -99,13 +100,14 @@ const Support: React.FC = () => {
           For legal matters, compliance questions, or formal requests, please email:
         </p>
         <p className="text-sm text-gray-700 dark:text-gray-300 font-medium">
-          legal@recoverai.com
+          <a href="mailto:hello@recoverai.tech" className="text-blue-600 dark:text-blue-400 hover:underline">hello@recoverai.tech</a>
         </p>
 
         <p className="text-xs text-gray-500 dark:text-gray-400 mt-8 pt-8 border-t border-gray-200 dark:border-white/[0.06]">
           Last updated: March 17, 2026
         </p>
       </div>
+      <PublicFooter />
     </div>
   );
 };
