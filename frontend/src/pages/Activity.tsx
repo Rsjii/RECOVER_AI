@@ -67,6 +67,7 @@ const Activity: React.FC = () => {
   useEffect(() => { document.title = 'Activity — RecoverAI'; }, []);
 
   const { addToast } = useNotification();
+  const isDemo = typeof window !== 'undefined' && localStorage.getItem('isDemo') === 'true';
   const [activeTab, setActiveTab] = useState<Tab>('emails');
   const [emailLogs, setEmailLogs] = useState<any[]>([]);
   // const [smsActivity, setSmsActivity] = useState<any[]>([]);           // ❌ HIDDEN
@@ -187,12 +188,6 @@ const Activity: React.FC = () => {
     fetchSettings();
   }, []);
 
-  const handleEditEmail = (email: any) => {
-    setSelectedEmail(email);
-    setEditSubject(email.subject || '');
-    setEditBody(email.body || email.email_body || '');
-    setShowEditModal(true);
-  };
 
   const saveEmailChanges = async () => {
     if (!selectedEmail) return;
@@ -276,6 +271,7 @@ const Activity: React.FC = () => {
         message: `${itemType} approved and sent`,
       });
       fetchQueuedEmails();
+      fetchEmails();
     } catch (err: any) {
       addToast({
         type: 'error',
@@ -338,6 +334,7 @@ const Activity: React.FC = () => {
         message: `${res.sent_count} items sent${res.failed_count > 0 ? `, ${res.failed_count} failed` : ''}`,
       });
       fetchQueuedEmails();
+      fetchEmails();
     } catch (err: any) {
       addToast({
         type: 'error',
@@ -363,6 +360,7 @@ const Activity: React.FC = () => {
       });
       setSelectedPendingIds(new Set());
       fetchQueuedEmails();
+      fetchEmails();
     } catch (err: any) {
       addToast({
         type: 'error',
@@ -486,7 +484,7 @@ const Activity: React.FC = () => {
           {activeTab === 'emails' && (
             <div className="space-y-6">
               {/* SECTION 1: PENDING APPROVAL QUEUE */}
-              <Card>
+              <Card data-tour="pending-approval-section">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-base font-semibold text-gray-900 dark:text-white">📬 Pending Approval</h3>
                   <div className="bg-blue-100 dark:bg-blue-500/20 text-blue-900 dark:text-blue-200 px-3 py-1 rounded-full font-medium text-sm">
@@ -556,6 +554,7 @@ const Activity: React.FC = () => {
                         size="sm"
                         onClick={handleApproveAllQueued}
                         loading={approvingAllQueue}
+                        disabled={isDemo}
                       >
                         Approve All ({queuedEmails.length})
                       </Button>
@@ -566,6 +565,7 @@ const Activity: React.FC = () => {
                             size="sm"
                             onClick={handleBulkApproveSelected}
                             loading={bulkOperating}
+                            disabled={isDemo}
                           >
                             ✓ Approve Selected ({selectedPendingIds.size})
                           </Button>
@@ -574,7 +574,7 @@ const Activity: React.FC = () => {
                             size="sm"
                             onClick={handleBulkRejectSelected}
                             loading={bulkOperating}
-                            disabled={bulkOperating}
+                            disabled={isDemo || bulkOperating}
                           >
                             ✕ Reject Selected ({selectedPendingIds.size})
                           </Button>
@@ -704,7 +704,8 @@ const Activity: React.FC = () => {
                                       }
                                       setShowEditModal(true);
                                     }}
-                                    className="text-xs px-2.5 py-1 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900/50 transition-colors"
+                                    disabled={isDemo}
+                                    className="text-xs px-2.5 py-1 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                   >
                                     ✏️ Edit
                                   </button>
@@ -713,7 +714,7 @@ const Activity: React.FC = () => {
                                     size="sm"
                                     onClick={() => handleApproveQueuedEmail(email.id)}
                                     loading={approvingQueue === email.id}
-                                    disabled={approvingQueue !== null}
+                                    disabled={isDemo || approvingQueue !== null}
                                   >
                                     ✓ Approve
                                   </Button>
@@ -722,7 +723,7 @@ const Activity: React.FC = () => {
                                     size="sm"
                                     onClick={() => handleRejectQueuedEmail(email.id)}
                                     loading={approvingQueue === email.id}
-                                    disabled={approvingQueue !== null}
+                                    disabled={isDemo || approvingQueue !== null}
                                   >
                                     ✕ Reject
                                   </Button>
@@ -905,8 +906,8 @@ const Activity: React.FC = () => {
                                   </button>
                                   <button
                                     onClick={() => handleMoveToPending(email.id)}
-                                    className="text-xs px-2.5 py-1 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900/50 transition-colors"
-                                    disabled={approvingQueue !== null}
+                                    className="text-xs px-2.5 py-1 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    disabled={isDemo || approvingQueue !== null}
                                   >
                                     ↩️ Move to Pending
                                   </button>
@@ -915,7 +916,7 @@ const Activity: React.FC = () => {
                                     size="sm"
                                     onClick={() => handleApproveQueuedEmail(email.id)}
                                     loading={approvingQueue === email.id}
-                                    disabled={approvingQueue !== null}
+                                    disabled={isDemo || approvingQueue !== null}
                                   >
                                     ✓ Approve
                                   </Button>
@@ -931,7 +932,7 @@ const Activity: React.FC = () => {
               )}
 
               {/* SECTION 2: SENT & TRACKED EMAILS */}
-              <Card>
+              <Card data-tour="sent-emails-section">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-base font-semibold text-gray-900 dark:text-white">✅ Sent & Tracked</h3>
                 </div>
@@ -1020,32 +1021,12 @@ const Activity: React.FC = () => {
                                     >
                                       👁️ Preview
                                     </button>
-                                    {/* Edit: Show only for shadow/pending emails (not sent) */}
-                                    {log.status !== 'sent' && (
-                                      <button
-                                        onClick={() => handleEditEmail(log)}
-                                        className="text-xs px-2.5 py-1 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900/50 transition-colors"
-                                      >
-                                        ✏️ Edit
-                                      </button>
-                                    )}
                                     {['draft', 'failed'].includes(log.status) && (
                                       <button
                                         onClick={() => resendEmail(log)}
                                         className="text-xs px-2.5 py-1 rounded bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors"
                                       >
                                         🔄 Send
-                                      </button>
-                                    )}
-                                    {log.status !== 'sent' && (
-                                      <button
-                                        onClick={() => {
-                                          setSelectedEmail(log);
-                                          setShowDeleteConfirm(true);
-                                        }}
-                                        className="text-xs px-2.5 py-1 rounded bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors"
-                                      >
-                                        🗑️ Delete
                                       </button>
                                     )}
                                   </div>
@@ -1272,6 +1253,7 @@ const Activity: React.FC = () => {
                   variant="primary"
                   onClick={saveEmailChanges}
                   loading={updatingEmail}
+                  disabled={isDemo}
                   className="flex-1"
                 >
                   Save Changes
