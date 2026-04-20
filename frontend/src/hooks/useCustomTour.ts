@@ -35,8 +35,6 @@ export const useCustomTour = () => {
   }, [closeTour]);
 
   const markTourStarted = useCallback((tourId: string) => {
-    // Mark as "started" so auto-restart won't trigger again
-    // But don't mark as "completed" - user can restart from Settings
     localStorage.setItem(`tour_${tourId}_started`, 'true');
   }, []);
 

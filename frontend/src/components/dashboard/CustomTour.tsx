@@ -288,7 +288,9 @@ export const CustomTour: React.FC<CustomTourProps> = ({
     };
   }, [autoProgress, isOpen, currentStep, steps, onComplete]);
 
-  if (!isOpen) return null;
+  if (!isOpen) {
+    return null;
+  }
 
   const handleNext = () => {
     if (currentStep < steps.length - 1) {
