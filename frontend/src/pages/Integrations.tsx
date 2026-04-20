@@ -19,7 +19,7 @@ interface IntegrationStatus {
 export const Integrations: React.FC = () => {
   const navigate = useNavigate();
   const { addToast } = useNotification();
-  const { setAuthState, company, user } = useAuth();
+  const { setAuthState, logout, company, user } = useAuth();
 
   const [status, setStatus] = useState<IntegrationStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -157,6 +157,15 @@ export const Integrations: React.FC = () => {
         message: 'Invoice sync failed. Please try again.',
       });
       setProceeding(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate('/login', { replace: true });
+    } catch (err: any) {
+      addToast({ type: 'error', message: 'Logout failed' });
     }
   };
 
@@ -411,6 +420,16 @@ export const Integrations: React.FC = () => {
           <p className="text-xs text-center text-gray-500 dark:text-gray-400 mt-4">
             Read-only access. You can disconnect anytime from settings.
           </p>
+
+          {/* Logout Button */}
+          <div className="mt-3 text-center">
+            <button
+              onClick={handleLogout}
+              className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+            >
+              Sign out
+            </button>
+          </div>
 
           {/* CSV Upload Modal */}
           <CSVUploadModal

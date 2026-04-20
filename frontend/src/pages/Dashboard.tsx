@@ -511,16 +511,22 @@ const Dashboard: React.FC = () => {
   // Initialize custom tour (first-time only)
   const { startTour, closeTour, completeTour, markTourStarted, resetTour, isOpen, currentTour, isTourStarted } = useCustomTour();
   const { user } = useAuth();
+  const tourInitializedRef = React.useRef(false);
 
   useEffect(() => {
     // Demo users: tour handled by DemoAutoNavigation at Layout level
     if (user?.isDemo) return;
 
     // Real users: start main tour only on first dashboard visit (never again)
-    if (!isTourStarted('main_onboarding')) {
-      startTour(mainDashboardTour);
+    if (!tourInitializedRef.current && !isTourStarted('main_onboarding')) {
+      tourInitializedRef.current = true;
+      // Small delay to ensure dashboard is fully rendered before showing tour
+      const timer = setTimeout(() => {
+        startTour(mainDashboardTour);
+      }, 300);
+      return () => clearTimeout(timer);
     }
-  }, [startTour, isTourStarted, user?.isDemo]);
+  }, [user?.isDemo, startTour]);
 
   // Debug: Allow manual tour reset via ?tour=reset in URL
   useEffect(() => {
@@ -1129,6 +1135,7 @@ const Dashboard: React.FC = () => {
           steps={currentTour.steps}
           isOpen={isOpen}
           onClose={closeTour}
+          onSkip={() => completeTour(currentTour.id)}
           onComplete={() => completeTour(currentTour.id)}
           onBackdropClick={() => markTourStarted(currentTour.id)}
           autoProgress={currentTour.autoProgress}

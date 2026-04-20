@@ -113,6 +113,7 @@ interface CustomTourProps {
   isOpen: boolean;
   onClose: () => void;
   onComplete: () => void;
+  onSkip?: () => void;
   onBackdropClick?: () => void;
   autoProgress?: boolean;
 }
@@ -122,6 +123,7 @@ export const CustomTour: React.FC<CustomTourProps> = ({
   isOpen,
   onClose,
   onComplete,
+  onSkip,
   onBackdropClick,
   autoProgress = false,
 }) => {
@@ -302,9 +304,15 @@ export const CustomTour: React.FC<CustomTourProps> = ({
     }
   };
 
-  const handleClose = () => {
-    // Mark as completed even if skipped
-    onComplete();
+  const handleSkip = () => {
+    // Permanently skip the demo tour
+    if (onSkip) {
+      onSkip();
+    } else {
+      onComplete();
+    }
+    // Explicitly close the modal
+    onClose();
   };
 
   const handleBackdropClick = () => {
@@ -367,7 +375,7 @@ export const CustomTour: React.FC<CustomTourProps> = ({
         {/* Close Button - Premium - Hidden during auto-progress */}
         {!autoProgress && (
           <button
-            onClick={handleClose}
+            onClick={handleSkip}
             className={`absolute top-4 right-4 w-7 h-7 flex items-center justify-center rounded-md transition-all duration-200 hover:scale-110 ${
               isDark
                 ? 'bg-gray-800/60 text-gray-400 hover:bg-gray-700 hover:text-gray-200'
@@ -454,7 +462,7 @@ export const CustomTour: React.FC<CustomTourProps> = ({
 
             {/* Skip Link */}
             <button
-              onClick={handleClose}
+              onClick={handleSkip}
               className={`w-full text-xs font-medium py-1.5 rounded transition-all ${
                 isDark
                   ? 'text-gray-400 hover:text-gray-300 hover:bg-gray-800/30'

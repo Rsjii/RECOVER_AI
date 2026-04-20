@@ -7,7 +7,7 @@ import { Button } from '../components/ui/Button';
 
 const Profile: React.FC = () => {
   const navigate = useNavigate();
-  const { user, company, setAuthState } = useAuth();
+  const { user, company, logout, setAuthState } = useAuth();
   const { addToast } = useNotification();
 
   const [form, setForm] = useState({
@@ -85,6 +85,15 @@ const Profile: React.FC = () => {
       addToast({ type: 'error', message: err.message || 'Failed to save profile' });
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate('/login', { replace: true });
+    } catch (err: any) {
+      addToast({ type: 'error', message: 'Logout failed' });
     }
   };
 
@@ -197,6 +206,16 @@ const Profile: React.FC = () => {
               You can change these details anytime in settings
             </p>
           </form>
+
+          {/* Logout Button */}
+          <div className="mt-4 text-center">
+            <button
+              onClick={handleLogout}
+              className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+            >
+              Sign out
+            </button>
+          </div>
         </div>
       </div>
     </div>

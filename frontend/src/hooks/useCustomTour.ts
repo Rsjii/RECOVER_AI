@@ -30,6 +30,7 @@ export const useCustomTour = () => {
 
   const completeTour = useCallback((tourId: string) => {
     localStorage.setItem(`tour_${tourId}_completed`, 'true');
+    localStorage.setItem(`tour_${tourId}_started`, 'true');
     closeTour();
   }, [closeTour]);
 
