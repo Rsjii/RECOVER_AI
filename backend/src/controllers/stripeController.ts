@@ -123,7 +123,7 @@ export const stripeOAuthAuthorize = async (req: Request, res: Response) => {
     const params = new URLSearchParams({
       client_id: STRIPE_CLIENT_ID,
       response_type: 'code',
-      scope: 'read_invoices read_customers',  // Minimal required permissions
+      scope: 'read_write',  // Required for Stripe Connect Standard OAuth (grants full account access)
       redirect_uri: `${BACKEND_URL}/api/stripe/oauth/callback`,
       state: companyId,
     });
@@ -215,8 +215,8 @@ export const stripeOAuthCallback = async (req: Request, res: Response) => {
     const elapsed = Date.now() - startTime;
     logInfo(handler, `OAuth completed in ${elapsed}ms`, { companyId });
 
-    // Redirect to setup page (not dashboard) — setup page detects stripe=connected and goes to dashboard
-    return res.redirect(`${FRONTEND_URL}/setup?stripe=connected`);
+    // Redirect directly to dashboard (onboarding status now 'active')
+    return res.redirect(`${FRONTEND_URL}/dashboard`);
   } catch (err: any) {
     const elapsed = Date.now() - startTime;
     logError(handler, `OAuth callback failed after ${elapsed}ms`, err);

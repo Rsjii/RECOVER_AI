@@ -2,15 +2,18 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 import { PublicHeader } from '../components/layout/PublicHeader';
+import { Header } from '../components/layout/Header';
+import { useAuth } from '../hooks/useAuth';
 import { useSEO } from '../hooks/useSEO';
 import { getPageSEO } from '../lib/seoConfig';
 
 const NotFound: React.FC = () => {
   useSEO(getPageSEO('notFound'));
+  const { user } = useAuth();
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-[#09090b]">
-      <PublicHeader />
+      {user ? <Header /> : <PublicHeader />}
       <div className="flex items-center justify-center px-4 py-12">
       <div className="max-w-md w-full text-center">
         <div className="text-6xl font-bold text-blue-600 mb-3">404</div>
