@@ -17,12 +17,11 @@ const poolConfig: PoolConfig = {
   max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 10000,
+  // SSL required for Supabase (disable cert verification for self-signed certs)
+  ssl: {
+    rejectUnauthorized: false,
+  },
 };
-
-// SSL required for Supabase (both dev and prod)
-if (cleanDbUrl.includes('supabase') || config.nodeEnv === 'production') {
-  poolConfig.ssl = { rejectUnauthorized: false };
-}
 
 export const pool = new Pool(poolConfig);
 
