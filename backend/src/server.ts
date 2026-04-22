@@ -19,10 +19,21 @@ async function startServer() {
   const isWorkerOnly = process.argv.includes('--worker-only');
 
   try {
+    logInfo('server', 'startServer', 'Step 1: Initializing observability...');
     await initObservability();
+    logInfo('server', 'startServer', 'Step 1 OK: Observability initialized');
+
+    logInfo('server', 'startServer', 'Step 2: Testing DB connection...');
     await testDbConnection();
+    logInfo('server', 'startServer', 'Step 2 OK: DB connection successful');
+
+    logInfo('server', 'startServer', 'Step 3: Running migrations...');
     await runMigrations();
+    logInfo('server', 'startServer', 'Step 3 OK: Migrations complete');
+
+    logInfo('server', 'startServer', 'Step 4: Connecting to Redis...');
     await connectRedis();
+    logInfo('server', 'startServer', 'Step 4 OK: Redis connected');
 
     // ============================================================
     // ARCHITECTURE: Cron Scheduler + Event-Driven (Best Practice)
