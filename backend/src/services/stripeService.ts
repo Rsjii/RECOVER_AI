@@ -8,7 +8,7 @@ import * as PaymentDB from '../db/payments';
 import * as SecurityDB from '../db/security';
 import crypto from 'crypto';
 import { pool } from '../config/database';
-import { sendPaymentAlert } from './slackService';
+// import { sendPaymentAlert } from './slackService';  // TODO: Phase 2 (Slack integration)
 import { ConnectStripeInput, SyncInvoicesResult } from '../types/stripe';
 import { encryptField, decryptField } from '../lib/encryption';
 import { logError, logInfo, logWarn } from '../utils/logger';
@@ -346,7 +346,60 @@ class StripeService {
       let company = null;
       let event = null;
 
-      // Step 2a: If we have account ID, find company directly
+      // Step 2: Verify webhook signature using GLOBAL webhook secret (same for all customers)
+      const globalWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+      if (!globalWebhookSecret) {
+        logError('stripeService', method, 'STRIPE_WEBHOOK_SECRET not configured in environment', {
+          eventType: payload.type,
+        });
+        throw new Error('Webhook secret not configured - add STRIPE_WEBHOOK_SECRET to environment');
+      }
+
+      // Get any company to create Stripe client for signature verification
+      const allCompanies = await CompanyDB.listCompaniesWithStripe();
+      if (allCompanies.length === 0) {
+        logError('stripeService', method, 'No companies with Stripe configured', {
+          eventType: payload.type,
+        });
+        throw new Error('No Stripe integration found');
+      }
+
+      const anyCompany = allCompanies[0];
+      const apiKey = anyCompany.stripe_api_key_encrypted;
+      if (!apiKey) {
+        logError('stripeService', method, 'No company with API key available', {
+          eventType: payload.type,
+        });
+        throw new Error('Cannot verify webhook - no API key available');
+      }
+
+      try {
+        const stripe = new Stripe(decryptField(apiKey));
+        // Verify webhook signature using GLOBAL webhook secret
+        event = stripe.webhooks.constructEvent(rawBody, signature, globalWebhookSecret);
+        processedEventId = event.id;
+        logInfo('stripeService', method, 'Signature verified with global webhook secret', {
+          eventId: event.id,
+          eventType: event.type,
+        });
+      } catch (err) {
+        // For ngrok testing: skip signature verification in test mode
+        if (process.env.NODE_ENV === 'development' && process.env.SKIP_WEBHOOK_VERIFICATION === 'true') {
+          logWarn('stripeService', method, '⚠️ SKIPPING signature verification (test mode only)', {
+            eventType: payload.type,
+          });
+          event = payload;
+          processedEventId = event.id;
+        } else {
+          logError('stripeService', method, 'Webhook signature verification failed', err, {
+            eventType: payload.type,
+            error: String(err),
+          });
+          throw err;
+        }
+      }
+
+      // Step 2b: Find company by account ID from event
       if (stripeAccountId) {
         company = await CompanyDB.findCompanyByStripeAccountId(stripeAccountId);
         if (company) {
@@ -354,103 +407,11 @@ class StripeService {
             companyId: company.id,
             stripeAccountId,
           });
-
-          const webhookSecret = company.stripe_webhook_secret_encrypted ?
-            decryptField(company.stripe_webhook_secret_encrypted) :
-            null;
-
-          if (webhookSecret) {
-            logInfo('stripeService', method, 'Webhook secret found, verifying signature', {
-              companyId: company.id,
-            });
-
-            const apiKey = company.stripe_api_key_encrypted;
-            if (apiKey) {
-              const stripe = new Stripe(decryptField(apiKey));
-              try {
-                // Verify webhook signature (no timeout - Stripe handles expiration)
-                event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
-                processedEventId = event.id;
-                logInfo('stripeService', method, 'Signature verified with company secret', {
-                  companyId: company.id,
-                  eventId: event.id,
-                });
-              } catch (err) {
-                logWarn('stripeService', method, 'Signature verification failed for account', {
-                  stripeAccountId,
-                  error: String(err),
-                });
-                // Signature didn't match, try fallback
-                event = null;
-              }
-            }
-          } else {
-            logWarn('stripeService', method, 'Webhook secret is NULL for company', {
-              companyId: company.id,
-              stripeAccountId,
-            });
-          }
         } else {
-          logWarn('stripeService', method, 'Company not found for account ID', {
+          logWarn('stripeService', method, 'Account ID in webhook not found in DB', {
             stripeAccountId,
+            eventType: payload.type,
           });
-        }
-      }
-
-      // Step 2b: Fallback - try all companies' secrets until one matches (for events without account ID)
-      if (!event) {
-        logInfo('stripeService', method, 'No account ID or verification failed - trying all company secrets', {
-          totalCompanies: (await CompanyDB.listCompaniesWithStripe()).length,
-        });
-
-        const companies = await CompanyDB.listCompaniesWithStripe();
-
-        for (const tryCompany of companies) {
-          const webhookSecret = tryCompany.stripe_webhook_secret_encrypted ?
-            decryptField(tryCompany.stripe_webhook_secret_encrypted) :
-            null;
-
-          if (!webhookSecret) {
-            logWarn('stripeService', method, 'Company has no webhook secret, skipping', {
-              companyId: tryCompany.id,
-              companyName: tryCompany.name,
-            });
-            continue;
-          }
-
-          const apiKey = tryCompany.stripe_api_key_encrypted;
-          if (!apiKey) {
-            logWarn('stripeService', method, 'Company has no API key, skipping', {
-              companyId: tryCompany.id,
-              companyName: tryCompany.name,
-            });
-            continue;
-          }
-
-          logInfo('stripeService', method, 'Trying to verify webhook with company secret', {
-            companyId: tryCompany.id,
-            companyName: tryCompany.name,
-          });
-
-          try {
-            const stripe = new Stripe(decryptField(apiKey));
-            event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret, 300);
-            processedEventId = event.id;
-            company = tryCompany;
-            logInfo('stripeService', method, 'Webhook verified using company secret (fallback)', {
-              companyId: company.id,
-              companyName: company.name,
-              eventId: event.id,
-            });
-            break;  // Success!
-          } catch (err) {
-            logWarn('stripeService', method, 'Signature verification failed for company (fallback)', {
-              companyId: tryCompany.id,
-              error: String(err),
-            });
-            // This company's secret didn't match, try next
-            continue;
-          }
         }
       }
 
@@ -671,16 +632,47 @@ class StripeService {
       logError('stripeService', method, 'Attribution check failed (non-blocking)', attributionErr);
     }
 
-    // Slack alert
+    // TODO: Slack alert (Phase 2)
+    // try {
+    //   await sendPaymentAlert({
+    //     customerName: invoice.customer_name || 'Unknown',
+    //     amount: amountPaid,
+    //     currency: invoice.currency,
+    //     invoiceId: invoice.id,
+    //   });
+    // } catch (err) {
+    //   logError('stripeService', method, 'Failed to send Slack alert (non-blocking)', err);
+    // }
+
+    // Send payment confirmation email to customer
     try {
-      await sendPaymentAlert({
-        customerName: invoice.customer_name || 'Unknown',
-        amount: amountPaid,
-        currency: invoice.currency,
-        invoiceId: invoice.id,
-      });
-    } catch (err) {
-      logError('stripeService', method, 'Failed to send Slack alert (non-blocking)', err);
+      const customer = await CustomerDB.findCustomerById(invoice.customer_id, invoice.company_id);
+      if (customer && customer.email) {
+        const formattedAmount = amountPaid.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const bodyHtml = `
+          <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;">
+            <div style="background:#f0fdf4;border-radius:12px;padding:24px;border:1px solid #86efac;">
+              <h2 style="margin:0 0 16px 0;color:#15803d;font-size:20px;">Payment Received ✅</h2>
+              <p style="margin:0 0 12px 0;color:#374151;">Thank you for your payment!</p>
+              <div style="background:#fff;padding:16px;border-radius:8px;margin:16px 0;">
+                <p style="margin:0 0 8px 0;color:#6b7280;font-size:14px;">Invoice: ${invoice.id}</p>
+                <p style="margin:0;color:#15803d;font-size:24px;font-weight:bold;">$${formattedAmount}</p>
+              </div>
+              <p style="margin:16px 0 0 0;color:#6b7280;font-size:14px;">Your invoice has been marked as paid. Thank you for your business!</p>
+            </div>
+          </div>
+        `;
+        await resendService.sendEmail({
+          to: customer.email,
+          subject: `Payment Received ✅ - Invoice #${invoice.id}`,
+          bodyText: `Payment Received: $${formattedAmount}`,
+          bodyHtml,
+          companyId: invoice.company_id,
+        });
+        logInfo('stripeService', method, 'Payment confirmation email sent', { customerId: customer.id, amount: amountPaid });
+      }
+    } catch (emailErr) {
+      logError('stripeService', method, 'Failed to send payment confirmation email (non-blocking)', emailErr);
     }
 
     // Pilot celebration email — send "X just paid!" to company owner when in pilot mode
@@ -1053,16 +1045,13 @@ class StripeService {
         throw new Error(tokenResult.error);
       }
 
-      // Encrypt and save token + webhook secret
+      // Encrypt and save token (webhook secret is now GLOBAL, not per-company)
       const encrypted = encryptField(tokenResult.access_token);
-      const secretEncrypted = tokenResult.webhook_secret ?
-        encryptField(tokenResult.webhook_secret) :
-        null;
 
       await CompanyDB.updateCompany(companyId, {
         stripe_api_key_encrypted: encrypted,
         stripe_account_id: tokenResult.stripe_user_id,
-        stripe_webhook_secret_encrypted: secretEncrypted,
+        // webhook_secret is now managed globally via STRIPE_WEBHOOK_SECRET env var
       });
 
       await AuditDB.createAuditLog({
