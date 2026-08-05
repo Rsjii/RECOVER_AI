@@ -59,11 +59,11 @@ Momentum Labs,billing@momentum.com,33000.00,2026-01-08,USD,2025-12-08,+1-555-901
         headers: { 'Content-Type': 'text/plain' },
       });
 
-      const newJobId = res.data.jobId;
+      const newJobId = res.jobId;
       setImportJobId(newJobId); // Pass to parent component
       setFile(null);
       onClose(); // Close modal immediately
-      addToast({ type: 'info', message: `Importing ${res.data.total} invoices... You can access other tabs while this completes.` });
+      addToast({ type: 'info', message: `Importing ${res.total} invoices... You can access other tabs while this completes.` });
     } catch (err: any) {
       // Check if it's a CSV validation error
       const backendData = err.response?.data;

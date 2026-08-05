@@ -6,7 +6,6 @@ import { ConfirmationModal } from '../components/ui/ConfirmationModal';
 import { CustomerTable } from '../components/customers/CustomerTable';
 import { CustomerModal } from '../components/customers/CustomerModal';
 import { AddCustomerModal } from '../components/customers/AddCustomerModal';
-import { ImportCustomersModal } from '../components/customers/ImportCustomersModal';
 import { Button } from '../components/ui/Button';
 import { formatCurrency } from '../lib/utils';
 import type { Customer } from '../types';
@@ -56,7 +55,6 @@ const Customers: React.FC = () => {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [riskTier, setRiskTier] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
-  const [showImportModal, setShowImportModal] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [deletingIds, setDeletingIds] = useState<Set<string> | null>(null);
   const [selectAllPages, setSelectAllPages] = useState(false);
@@ -174,12 +172,6 @@ const Customers: React.FC = () => {
             </svg>
             Add Customer
           </Button>
-          <Button variant="secondary" size="sm" onClick={() => setShowImportModal(true)} disabled={isDemo}>
-            <svg className="w-4 h-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-            </svg>
-            Import CSV
-          </Button>
           <Button variant="secondary" size="sm" onClick={() => exportCustomersCSV(filtered)}>
             <svg className="w-4 h-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -252,11 +244,6 @@ const Customers: React.FC = () => {
         isOpen={showAddModal}
         onClose={() => setShowAddModal(false)}
         onCustomerAdded={handleCustomerAdded}
-      />
-      <ImportCustomersModal
-        isOpen={showImportModal}
-        onClose={() => setShowImportModal(false)}
-        onSuccess={handleCustomerAdded}
       />
       </div>
     </>

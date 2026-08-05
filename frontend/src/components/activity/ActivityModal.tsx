@@ -8,7 +8,6 @@ interface ActivityModalProps {
   item: any;
   onClose: () => void;
   onApprove?: (id: string) => Promise<void>;
-  onReject?: (id: string) => Promise<void>;
   onEdit?: (id: string) => void;
   onResend?: (id: string) => Promise<void>;
   onNavigateToInvoice?: (invoiceId: string) => void;
@@ -21,14 +20,12 @@ export const ActivityModal: React.FC<ActivityModalProps> = ({
   item,
   onClose,
   onApprove,
-  onReject,
   onEdit,
   onResend,
   onNavigateToInvoice,
   onResume,
 }) => {
   const [approving, setApproving] = useState(false);
-  const [rejecting, setRejecting] = useState(false);
   const [resending, setResending] = useState(false);
   const [showFullPreview, setShowFullPreview] = useState(false);
 
@@ -42,17 +39,6 @@ export const ActivityModal: React.FC<ActivityModalProps> = ({
       onClose();
     } finally {
       setApproving(false);
-    }
-  };
-
-  const handleReject = async () => {
-    if (!onReject) return;
-    setRejecting(true);
-    try {
-      await onReject(item.id);
-      onClose();
-    } finally {
-      setRejecting(false);
     }
   };
 
@@ -170,19 +156,11 @@ export const ActivityModal: React.FC<ActivityModalProps> = ({
                   </button>
                 )}
                 <div className="flex-1" />
-                <button
-                  onClick={handleReject}
-                  disabled={rejecting}
-                  className="text-xs px-3 py-2 rounded bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-900/50 disabled:opacity-50"
-                >
-                  ✕ Reject
-                </button>
                 <Button
                   variant="primary"
                   size="sm"
                   onClick={handleApprove}
                   loading={approving}
-                  disabled={rejecting}
                 >
                   ✓ Approve
                 </Button>

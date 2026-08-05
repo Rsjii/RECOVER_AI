@@ -150,11 +150,16 @@ export const InvoiceTable: React.FC<InvoiceTableProps> = ({
     {
       key: 'source_id',
       label: 'Invoice #',
-      render: (_, row) => (
-        <span className="font-mono text-xs text-gray-500 dark:text-gray-400">
-          {row.source_id ?? row.id.slice(0, 8)}
-        </span>
-      ),
+      width: '120px',
+      render: (_, row) => {
+        const displayId = row.source_id ?? row.id.slice(0, 8);
+        const truncated = displayId.length > 10 ? `${displayId.slice(0, 10)}...` : displayId;
+        return (
+          <span className="font-mono text-xs text-gray-500 dark:text-gray-400 truncate" title={displayId}>
+            {truncated}
+          </span>
+        );
+      },
     },
     {
       key: 'customer_name',
@@ -358,7 +363,12 @@ export const InvoiceTable: React.FC<InvoiceTableProps> = ({
                   <div className="flex justify-between items-start mb-2">
                     <div>
                       <div className="font-medium text-gray-900 dark:text-white">{inv.customer_name || 'Unknown'}</div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400 font-mono">{inv.source_id ?? inv.id.slice(0, 8)}</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400 font-mono" title={inv.source_id ?? inv.id}>
+                        {(inv.source_id ?? inv.id.slice(0, 8)).length > 10
+                          ? `${(inv.source_id ?? inv.id.slice(0, 8)).slice(0, 10)}...`
+                          : (inv.source_id ?? inv.id.slice(0, 8))
+                        }
+                      </div>
                     </div>
                     <span className="px-2.5 py-1 rounded-full text-xs font-medium capitalize"
                       style={{ backgroundColor: `${color}20`, color }}>{inv.status}</span>

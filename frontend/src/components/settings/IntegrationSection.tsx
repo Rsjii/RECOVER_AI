@@ -296,9 +296,16 @@ export const IntegrationSection: React.FC<IntegrationSectionProps> = ({ integrat
                         </div>
                       </div>
 
-                      {/* Status Badge + Details */}
+                      {/* Status Badge + Details — CSV never shows "Not Connected" */}
                       <div>
-                        {integration ? (
+                        {key === 'csv' ? (
+                          integration?.status === 'connected' ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">
+                              <span className="w-2 h-2 bg-green-600 dark:bg-green-400 rounded-full"></span>
+                              Invoices uploaded
+                            </span>
+                          ) : null
+                        ) : integration ? (
                           <>
                             <div className="mb-2">
                               {getStatusBadge(integration.status)}
@@ -319,7 +326,6 @@ export const IntegrationSection: React.FC<IntegrationSectionProps> = ({ integrat
                                     <p className="text-xs"><span className="font-medium">Last synced:</span> {new Date(integration.lastSynced).toLocaleDateString()}</p>
                                   )}
                                 </div>
-                                {/* Warning if Stripe is connected BUT webhook secret is NOT configured */}
                                 {key === 'stripe' && !integration.hasWebhookSecret && (
                                   <div className="mt-2 p-2 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20">
                                     <p className="text-xs text-amber-900 dark:text-amber-200">
@@ -340,11 +346,23 @@ export const IntegrationSection: React.FC<IntegrationSectionProps> = ({ integrat
                         )}
                       </div>
 
-                      {/* Actions - full width on mobile, right-aligned on desktop */}
+                      {/* Actions */}
                       <div className="flex flex-col sm:flex-row lg:justify-end gap-2 pt-2 border-t border-gray-100 dark:border-white/[0.03]">
-                        {integration && integration.status === 'connected' && (
+                        {/* CSV: always show Upload button (never Disconnect) */}
+                        {key === 'csv' && (
+                          <Button
+                            variant={integration?.status === 'connected' ? 'secondary' : 'primary'}
+                            size="sm"
+                            onClick={() => setShowCSVModal(true)}
+                            className="w-full sm:w-auto lg:flex-none text-xs sm:text-sm"
+                          >
+                            📤 {integration?.status === 'connected' ? 'Upload More' : 'Upload CSV'}
+                          </Button>
+                        )}
+
+                        {/* OAuth integrations: Sync + Disconnect when connected */}
+                        {key !== 'csv' && integration && integration.status === 'connected' && (
                           <>
-                            {/* Sync button for Stripe & QB */}
                             {(key === 'stripe' || key === 'quickbooks') && (
                               <Button
                                 variant="secondary"
@@ -365,74 +383,34 @@ export const IntegrationSection: React.FC<IntegrationSectionProps> = ({ integrat
                           </>
                         )}
 
-                        {!integration || integration.status === 'not_connected' ? (
+                        {/* OAuth integrations: Connect when not connected */}
+                        {key !== 'csv' && (!integration || integration.status === 'not_connected') && (
                           <>
-                            {/* Stripe: Manual Key + OAuth */}
                             {key === 'stripe' && (
                               <div className="flex flex-col sm:flex-row lg:flex-row gap-2 w-full sm:w-auto">
-                                <Button
-                                  variant="secondary"
-                                  size="sm"
-                                  onClick={() => setStripeKeyMode(!stripeKeyMode)}
-                                  className="flex-1 sm:flex-none text-xs sm:text-sm"
-                                >
+                                <Button variant="secondary" size="sm" onClick={() => setStripeKeyMode(!stripeKeyMode)} className="flex-1 sm:flex-none text-xs sm:text-sm">
                                   🔑 Key
                                 </Button>
-                                <Button
-                                  variant="primary"
-                                  size="sm"
-                                  onClick={() => handleOAuthConnect('/api/stripe/oauth/authorize')}
-                                  className="flex-1 sm:flex-none text-xs sm:text-sm"
-                                >
+                                <Button variant="primary" size="sm" onClick={() => handleOAuthConnect('/api/stripe/oauth/authorize')} className="flex-1 sm:flex-none text-xs sm:text-sm">
                                   Connect
                                 </Button>
                               </div>
                             )}
-
-                            {/* CSV: Upload modal */}
-                            {key === 'csv' && (
-                              <Button
-                                variant="primary"
-                                size="sm"
-                                onClick={() => setShowCSVModal(true)}
-                                className="w-full sm:w-auto lg:flex-none text-xs sm:text-sm"
-                              >
-                                📤 Upload CSV
-                              </Button>
-                            )}
-
-                            {/* Slack: OAuth */}
                             {key === 'slack' && (
-                              <Button
-                                variant="primary"
-                                size="sm"
-                                onClick={() => handleOAuthConnect('/api/slack/authorize')}
-                                className="w-full sm:w-auto lg:flex-none text-xs sm:text-sm"
-                              >
+                              <Button variant="primary" size="sm" onClick={() => handleOAuthConnect('/api/slack/authorize')} className="w-full sm:w-auto lg:flex-none text-xs sm:text-sm">
                                 Connect
                               </Button>
                             )}
-
-                            {/* QuickBooks: OAuth with correct URL */}
                             {key === 'quickbooks' && (
-                              <Button
-                                variant="primary"
-                                size="sm"
-                                onClick={() => handleOAuthConnect('/api/quickbooks/oauth/authorize')}
-                                className="w-full sm:w-auto lg:flex-none text-xs sm:text-sm"
-                              >
+                              <Button variant="primary" size="sm" onClick={() => handleOAuthConnect('/api/quickbooks/oauth/authorize')} className="w-full sm:w-auto lg:flex-none text-xs sm:text-sm">
                                 Connect
                               </Button>
                             )}
-
-                            {/* Xero & Plaid: Coming Soon */}
                             {(key === 'xero' || key === 'plaid') && (
-                              <span className="text-xs text-blue-600 dark:text-blue-400 py-2">
-                                Growth plan
-                              </span>
+                              <span className="text-xs text-blue-600 dark:text-blue-400 py-2">Growth plan</span>
                             )}
                           </>
-                        ) : null}
+                        )}
                       </div>
                     </div>
                   </div>

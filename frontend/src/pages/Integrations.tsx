@@ -137,11 +137,13 @@ export const Integrations: React.FC = () => {
       const response: any = await api.post(`/api/audit-stages/stage/2/proceed`);
 
       const syncSummary = response.syncSummary || { imported: 0, skipped: 0 };
-      const syncedIntegration = response.syncedIntegration || 'Stripe';
-      addToast({
-        type: 'success',
-        message: `✅ Synced ${syncSummary.imported} ${syncedIntegration} invoices${syncSummary.skipped > 0 ? ` | ⏭️ Skipped ${syncSummary.skipped}` : ''}`,
-      });
+      const syncedIntegration = response.syncedIntegration || '';
+      if (syncedIntegration) {
+        addToast({
+          type: 'success',
+          message: `✅ Synced ${syncSummary.imported} ${syncedIntegration} invoices${syncSummary.skipped > 0 ? ` | ⏭️ Skipped ${syncSummary.skipped}` : ''}`,
+        });
+      }
 
       await new Promise(resolve => setTimeout(resolve, 500));
 
@@ -435,13 +437,13 @@ export const Integrations: React.FC = () => {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                         </svg>
                       </div>
-                      <span className="text-sm font-medium text-green-700 dark:text-green-400">Imported</span>
+                      <span className="text-sm font-medium text-green-700 dark:text-green-400">Invoices uploaded</span>
                     </div>
                     <button
                       onClick={() => setShowCSVModal(true)}
                       className="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
                     >
-                      Import again
+                      Upload more
                     </button>
                   </div>
                 ) : (

@@ -329,26 +329,6 @@ const Activity: React.FC = () => {
     }
   };
 
-  const handleRejectQueuedEmail = async (id: string) => {
-    setApprovingQueue(id);
-    try {
-      const item = queuedEmails.find(e => e.id === id);
-      const itemType = item?.type === 'sms' ? 'SMS' : 'Email';
-      await api.post(`/api/pilot-queue/${id}/reject`);
-      addToast({
-        type: 'success',
-        message: `${itemType} rejected`,
-      });
-      fetchActivity();
-    } catch (err: any) {
-      addToast({
-        type: 'error',
-        message: err.message || 'Failed to reject item',
-      });
-    } finally {
-      setApprovingQueue(null);
-    }
-  };
 
   // Modal handlers
   const handleOpenModal = (item: any, state: 'pending' | 'sent' | 'paused' | 'stopped') => {
@@ -428,30 +408,6 @@ const Activity: React.FC = () => {
     }
   };
 
-  const handleBulkRejectSelected = async () => {
-    if (selectedPendingIds.size === 0) return;
-    setBulkOperating(true);
-    try {
-      const ids = Array.from(selectedPendingIds);
-      const res = await api.post<{ rejected_count: number; failed_count: number }>(
-        `/api/pilot-queue/bulk/reject-selected`,
-        { ids }
-      );
-      addToast({
-        type: 'success',
-        message: `${res.rejected_count} items rejected${res.failed_count > 0 ? `, ${res.failed_count} failed` : ''}`,
-      });
-      setSelectedPendingIds(new Set());
-      fetchActivity();
-    } catch (err: any) {
-      addToast({
-        type: 'error',
-        message: err.message || 'Failed to reject items',
-      });
-    } finally {
-      setBulkOperating(false);
-    }
-  };
 
   const handlePreviewQueuedEmail = async (email: any) => {
     setPreviewQueueEmail(email);
@@ -629,15 +585,6 @@ const Activity: React.FC = () => {
                           <Button
                             variant="secondary"
                             size="sm"
-                            onClick={handleBulkRejectSelected}
-                            loading={bulkOperating}
-                            disabled={isDemo || bulkOperating}
-                          >
-                            ✕ Reject Selected ({selectedPendingIds.size})
-                          </Button>
-                          <Button
-                            variant="secondary"
-                            size="sm"
                             onClick={() => setSelectedPendingIds(new Set())}
                             disabled={bulkOperating}
                           >
@@ -774,15 +721,6 @@ const Activity: React.FC = () => {
                                     disabled={isDemo || approvingQueue !== null}
                                   >
                                     ✓ Approve
-                                  </Button>
-                                  <Button
-                                    variant="secondary"
-                                    size="sm"
-                                    onClick={() => handleRejectQueuedEmail(email.id)}
-                                    loading={approvingQueue === email.id}
-                                    disabled={isDemo || approvingQueue !== null}
-                                  >
-                                    ✕ Reject
                                   </Button>
                                 </div>
                               </td>
@@ -1450,7 +1388,6 @@ const Activity: React.FC = () => {
         item={activityModal.item}
         onClose={handleCloseModal}
         onApprove={handleApproveQueuedEmail}
-        onReject={handleRejectQueuedEmail}
         onEdit={(id) => {
           const email = queuedEmails.find(e => e.id === id);
           if (email) {
