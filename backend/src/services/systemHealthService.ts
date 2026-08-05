@@ -1,6 +1,7 @@
 import { logInfo, logError } from '../utils/logger';
 import * as CompanyDB from '../db/companies';
 import { pool } from '../config/database';
+import { hasRecentUnreadSystemAlert } from '../db/notificationEvents';
 import {
   logStripeNotConnectedNotification,
   logEmailNotConfiguredNotification,
@@ -24,11 +25,15 @@ export async function checkAndNotifySystemHealth(companyId: string): Promise<voi
 
     // Check Stripe connection
     if (!company.stripe_account_id) {
-      logInfo('systemHealthService', method, 'Stripe not connected, logging notification', { companyId });
-      try {
-        await logStripeNotConnectedNotification(companyId);
-      } catch (err) {
-        logError('systemHealthService', method, 'Failed to log Stripe alert (non-blocking)', err);
+      // Only create notification if no recent unread alert exists
+      const hasRecentAlert = await hasRecentUnreadSystemAlert(companyId, 'stripe_not_connected');
+      if (!hasRecentAlert) {
+        logInfo('systemHealthService', method, 'Stripe not connected, logging notification', { companyId });
+        try {
+          await logStripeNotConnectedNotification(companyId);
+        } catch (err) {
+          logError('systemHealthService', method, 'Failed to log Stripe alert (non-blocking)', err);
+        }
       }
     }
 
@@ -40,11 +45,15 @@ export async function checkAndNotifySystemHealth(companyId: string): Promise<voi
     const emailConfigured = hasEmailConfig.rows[0]?.exists || false;
 
     if (!emailConfigured) {
-      logInfo('systemHealthService', method, 'Email not configured, logging notification', { companyId });
-      try {
-        await logEmailNotConfiguredNotification(companyId);
-      } catch (err) {
-        logError('systemHealthService', method, 'Failed to log email alert (non-blocking)', err);
+      // Only create notification if no recent unread alert exists
+      const hasRecentAlert = await hasRecentUnreadSystemAlert(companyId, 'email_not_configured');
+      if (!hasRecentAlert) {
+        logInfo('systemHealthService', method, 'Email not configured, logging notification', { companyId });
+        try {
+          await logEmailNotConfiguredNotification(companyId);
+        } catch (err) {
+          logError('systemHealthService', method, 'Failed to log email alert (non-blocking)', err);
+        }
       }
     }
 
@@ -52,11 +61,15 @@ export async function checkAndNotifySystemHealth(companyId: string): Promise<voi
     const isSmsEnabled = company.sms_enabled || false;
     const isTwilioConfigured = company.twilio_configured || false;
     if (isSmsEnabled && !isTwilioConfigured) {
-      logInfo('systemHealthService', method, 'Twilio not configured, logging notification', { companyId });
-      try {
-        await logTwilioNotConfiguredNotification(companyId);
-      } catch (err) {
-        logError('systemHealthService', method, 'Failed to log Twilio alert (non-blocking)', err);
+      // Only create notification if no recent unread alert exists
+      const hasRecentAlert = await hasRecentUnreadSystemAlert(companyId, 'sms_not_configured');
+      if (!hasRecentAlert) {
+        logInfo('systemHealthService', method, 'Twilio not configured, logging notification', { companyId });
+        try {
+          await logTwilioNotConfiguredNotification(companyId);
+        } catch (err) {
+          logError('systemHealthService', method, 'Failed to log Twilio alert (non-blocking)', err);
+        }
       }
     }
 

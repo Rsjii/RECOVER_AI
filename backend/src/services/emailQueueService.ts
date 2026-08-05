@@ -29,6 +29,11 @@ export async function sendQueuedEmails(): Promise<{ sent: number; failed: number
     let sent = 0;
     let failed = 0;
 
+    // Skip logging if no work to do (silently return)
+    if (emails.length === 0) {
+      return { sent: 0, failed: 0 };
+    }
+
     logInfo(LOG_MODULE, LOG_HANDLER, `Processing ${emails.length} pending emails for AUTO mode`);
 
     for (const email of emails) {
@@ -112,6 +117,11 @@ export async function retryFailedEmails(): Promise<{ retried: number }> {
     const emails = await getFailedForRetry();
 
     let retried = 0;
+
+    // Skip logging if no work to do (silently return)
+    if (emails.length === 0) {
+      return { retried: 0 };
+    }
 
     logInfo(LOG_MODULE, LOG_HANDLER, `Processing ${emails.length} failed emails for retry`);
 

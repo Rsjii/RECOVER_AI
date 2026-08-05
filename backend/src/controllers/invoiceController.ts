@@ -761,15 +761,13 @@ export const uploadCSVFile = async (req: Request, res: Response): Promise<void> 
       }
 
       res.status(200).json({
-        data: {
-          jobId,
-          status: result?.status || 'done',
-          created: result?.created || 0,
-          duplicates: result?.duplicates || 0,
-          skipped: result?.skipped || 0,
-          total: invoices.length,
-          message: `Successfully imported ${result?.created || 0} invoices`,
-        },
+        jobId,
+        status: result?.status || 'done',
+        created: result?.created || 0,
+        duplicates: result?.duplicates || 0,
+        skipped: result?.skipped || 0,
+        total: invoices.length,
+        message: `Successfully imported ${result?.created || 0} invoices`,
       });
     } catch (processingError: any) {
       logError(handler, `CSV processing failed after ${Date.now() - startTime}ms`, processingError);

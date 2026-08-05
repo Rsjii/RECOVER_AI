@@ -3,41 +3,46 @@ import { CustomerRow } from '../types/database';
 
 export interface CreateCustomerInput {
   companyId: string;
-  companyName: string;  // Company name (REQUIRED)
+  companyName: string;
   email: string;
-  name?: string;  // Contact person name (OPTIONAL)
+  name?: string;
   phone?: string;
 }
 
+/**
+ * Find or create a customer.
+ *
+ * EMAIL is the unique identifier per company (enforced by DB unique index).
+ * Company name is a display label only — never used for matching.
+ * Customer fields are never updated by invoice imports — first write wins.
+ */
 export async function findOrCreateCustomer(input: CreateCustomerInput): Promise<CustomerRow> {
   const { companyId, companyName, email, name, phone } = input;
 
-  // Look up by company_name (one customer per company per company_id)
-  const existing = await pool.query(
-    'SELECT * FROM customers WHERE company_id = $1 AND company_name = $2',
-    [companyId, companyName]
-  );
-
-  if (existing.rows.length > 0) {
-    // Customer exists - update email/phone if provided (merge contact info)
-    if (email || phone) {
-      await pool.query(
-        `UPDATE customers
-         SET email = COALESCE($1, email),
-             phone = COALESCE($2, phone),
-             updated_at = NOW()
-         WHERE id = $3 AND company_id = $4`,
-        [email || null, phone || null, existing.rows[0].id, companyId]
-      );
-    }
-    return existing.rows[0];
+  if (!companyName || typeof companyName !== 'string') {
+    throw new Error('companyName is required');
   }
 
+  const trimmedEmail = email ? email.trim().toLowerCase() : '';
+
+  // Round 1: Match by email — the only identifier we trust
+  if (trimmedEmail) {
+    const byEmail = await pool.query(
+      `SELECT * FROM customers WHERE company_id = $1 AND LOWER(email) = $2`,
+      [companyId, trimmedEmail]
+    );
+    if (byEmail.rows.length > 0) {
+      return byEmail.rows[0];
+    }
+  }
+
+  // Round 2: No match — create new customer record
+  // DB unique index on (company_id, LOWER(email)) prevents true duplicates
   const result = await pool.query(
     `INSERT INTO customers (company_id, company_name, name, email, phone)
      VALUES ($1, $2, $3, $4, $5)
      RETURNING *`,
-    [companyId, companyName, name || null, email || null, phone || null]
+    [companyId, companyName.trim(), name || null, trimmedEmail || null, phone || null]
   );
 
   return result.rows[0];

@@ -1,7 +1,6 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import crypto from 'crypto';
 import { logInfo, logError, logWarn } from '../utils/logger';
 import { config } from '../config/env';
 import { redisClient } from '../config/redis';
@@ -310,11 +309,11 @@ export const getStage4Status = async (req: Request, res: Response) => {
       await CompanyDB.updateCompany(companyId, { onboarding_stage: 'integrations' });
     }
 
-    // Check CSV: has any manually imported invoices
+    // Check CSV: has any CSV-imported invoices
     let csv_connected = false;
     try {
       const csvResult = await pool.query(
-        `SELECT COUNT(*) AS cnt FROM invoices WHERE company_id = $1 AND source = 'manual'`,
+        `SELECT COUNT(*) AS cnt FROM invoices WHERE company_id = $1 AND source = 'csv'`,
         [companyId]
       );
       csv_connected = parseInt(csvResult.rows[0]?.cnt || '0') > 0;
@@ -350,11 +349,11 @@ export const proceedFromStage4 = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Company not found' });
     }
 
-    // Check for at least one integration: Stripe OR CSV (manually imported invoices)
+    // Check for at least one integration: Stripe OR CSV (CSV-imported invoices)
     let csvConnected = false;
     try {
       const csvResult = await pool.query(
-        `SELECT COUNT(*) AS cnt FROM invoices WHERE company_id = $1 AND source = 'manual'`,
+        `SELECT COUNT(*) AS cnt FROM invoices WHERE company_id = $1 AND source = 'csv'`,
         [companyId]
       );
       csvConnected = parseInt(csvResult.rows[0]?.cnt || '0') > 0;
@@ -394,7 +393,7 @@ export const proceedFromStage4 = async (req: Request, res: Response) => {
       }
     }
     // AUTO-SYNC: Fetch invoices from Stripe if connected (and QB wasn't synced)
-    else if (isDev || company.stripe_api_key_encrypted) {
+    else if (stripeConnected) {
       try {
         logInfo(MODULE, handler, 'Starting Stripe sync', { isDev, has_key: !!company.stripe_api_key_encrypted });
 

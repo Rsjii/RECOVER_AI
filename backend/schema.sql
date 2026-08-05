@@ -183,7 +183,7 @@ CREATE TABLE IF NOT EXISTS customers (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   company_id      UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
   name            VARCHAR,  -- Contact person name (optional)
-  email           VARCHAR,  -- NULL allowed for customers without email (optional contact info)
+  email           VARCHAR,  -- For dunning (email + SMS). NULL allowed for QB invoices without email (they get skipped by sync logic). Unique per company.
   company_name    VARCHAR NOT NULL,  -- Company name (REQUIRED - who owes us money)
   phone           VARCHAR,
   phone_opt_in    BOOLEAN DEFAULT false,
@@ -200,8 +200,12 @@ CREATE TABLE IF NOT EXISTS customers (
   payment_insights    JSONB DEFAULT NULL,       -- per-client behavioral profile (reliability, DSO trend, avg emails before payment)
   created_at      TIMESTAMPTZ DEFAULT NOW(),
   updated_at      TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(company_id, company_name)  -- One customer record per company per company_id
+  UNIQUE(company_id, company_name)  -- One customer record per company per company_name
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_customers_company_email_unique
+  ON customers(company_id, LOWER(email))
+  WHERE email IS NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_customers_risk_score ON customers(company_id, customer_risk_score DESC);
 

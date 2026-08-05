@@ -52,7 +52,7 @@ export const getSettings = async (req: Request, res: Response): Promise<void> =>
           csv: await (async () => {
             try {
               const r = await pool.query(
-                `SELECT COUNT(*) AS cnt FROM invoices WHERE company_id = $1 AND source = 'manual'`,
+                `SELECT COUNT(*) AS cnt FROM invoices WHERE company_id = $1 AND source = 'csv'`,
                 [companyId]
               );
               return parseInt(r.rows[0]?.cnt || '0') > 0;
@@ -635,6 +635,41 @@ export const disconnectStripe = async (req: Request, res: Response): Promise<voi
     });
   } catch (error) {
     logError(LOG_MODULE, handler, 'Failed to disconnect Stripe', error);
+    const { statusCode, message } = parseError(error);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
+
+/**
+ * POST /api/settings/integrations/quickbooks/disconnect
+ * Disconnects QuickBooks integration (clears credentials)
+ */
+export const disconnectQuickBooks = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'disconnectQuickBooks';
+  const companyId = (req as any).companyId;
+
+  try {
+    const updated = await updateCompany(companyId, {
+      quickbooks_realm_id: null,
+      quickbooks_access_token_encrypted: null,
+      quickbooks_refresh_token_encrypted: null,
+      quickbooks_last_synced_at: null,
+    });
+
+    logInfo(LOG_MODULE, handler, 'QuickBooks disconnected', {
+      companyId,
+    });
+
+    res.status(200).json({
+      data: {
+        message: 'QuickBooks integration disconnected successfully',
+        integrations: {
+          quickbooks: false,
+        },
+      },
+    });
+  } catch (error) {
+    logError(LOG_MODULE, handler, 'Failed to disconnect QuickBooks', error);
     const { statusCode, message } = parseError(error);
     sendErrorResponse(res, statusCode, message);
   }

@@ -19,6 +19,7 @@ import {
   getDunningSenderName,
   updateDunningSenderName,
   disconnectStripe,
+  disconnectQuickBooks,
   getEmailMode,      // P0: Email queue mode
   switchEmailMode,   // P0: Email queue mode switching
   getSMSSettings,
@@ -95,6 +96,7 @@ router.post('/twilio/disconnect', requireRole('admin'), disconnectTwilio);
 
 // Integrations disconnect endpoints
 router.post('/integrations/stripe/disconnect', requireRole('admin'), disconnectStripe);
+router.post('/integrations/quickbooks/disconnect', requireRole('admin'), disconnectQuickBooks);
 
 // Notification Preferences
 router.get('/notifications', getNotificationPreferencesHandler);

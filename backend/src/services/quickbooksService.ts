@@ -3,7 +3,7 @@ import * as CustomerDB from '../db/customers';
 import * as InvoiceDB from '../db/invoices';
 import * as AuditDB from '../db/auditLogs';
 import { encryptField, decryptField } from '../lib/encryption';
-import { logError, logInfo } from '../utils/logger';
+import { logError, logInfo, logWarn } from '../utils/logger';
 import { config } from '../config/env';
 
 const QB_BASE_URL = {
@@ -12,6 +12,7 @@ const QB_BASE_URL = {
 };
 
 const QB_AUTH_URL = 'https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer';
+const LOG_MODULE = 'quickbooksService';
 
 function getBaseUrl(): string {
   const env = config.quickbooks?.environment || 'sandbox';
@@ -167,8 +168,18 @@ class QuickBooksService {
       const result = { created: 0, updated: 0, skipped: 0 };
 
       for (const qbInv of invoices) {
-        // Skip if no customer email
-        const email = qbInv.BillEmail?.Address || qbInv.CustomerRef?.name;
+        // Skip if no customer ref name — don't fall back to email prefix
+        if (!qbInv.CustomerRef?.name) {
+          logWarn(LOG_MODULE, 'syncInvoices', 'QB invoice missing customer reference', {
+            invoiceId: qbInv.Id,
+            email: qbInv.BillEmail?.Address,
+          });
+          result.skipped++;
+          continue;
+        }
+
+        // Get email from bill address
+        const email = qbInv.BillEmail?.Address;
         if (!email || !email.includes('@')) {
           result.skipped++;
           continue;
@@ -176,7 +187,7 @@ class QuickBooksService {
 
         const customer = await CustomerDB.findOrCreateCustomer({
           companyId,
-          companyName: qbInv.CustomerRef?.name || email.split('@')[0],
+          companyName: qbInv.CustomerRef.name,
           email,
         });
 

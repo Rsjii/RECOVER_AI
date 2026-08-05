@@ -1,6 +1,7 @@
 import { pool } from '../config/database';
 import { InvoiceRow } from '../types/database';
 import { updateCustomerPaymentHistory } from './customers';
+import crypto from 'crypto';
 
 export interface CreateInvoiceInput {
   companyId: string;
@@ -54,12 +55,18 @@ export async function upsertInvoice(input: CreateInvoiceInput): Promise<{ row: I
 export async function createManualInvoice(input: CreateInvoiceInput): Promise<InvoiceRow> {
   const { companyId, customerId, amount, currency, dueDate, issuedDate, notes } = input;
 
+  // Generate deterministic source_id for manual invoices (enables idempotence)
+  const manualInvoiceId = crypto.createHash('md5')
+    .update(`${customerId}|${amount}|${dueDate.toISOString()}|${issuedDate?.toISOString() || ''}`)
+    .digest('hex');
+
   const result = await pool.query(
     `INSERT INTO invoices
        (company_id, customer_id, amount, currency, due_date, issued_date, source, source_id, status, notes)
-     VALUES ($1, $2, $3, $4, $5, $6, 'manual', NULL, 'unpaid', $7)
+     VALUES ($1, $2, $3, $4, $5, $6, 'manual', $7, 'unpaid', $8)
+     ON CONFLICT (company_id, source, source_id) DO UPDATE SET updated_at = NOW()
      RETURNING *`,
-    [companyId, customerId, amount, currency, dueDate, issuedDate, notes || null]
+    [companyId, customerId, amount, currency, dueDate, issuedDate, manualInvoiceId, notes || null]
   );
 
   // Update customer payment history (event-driven)

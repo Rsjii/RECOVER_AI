@@ -1,10 +1,17 @@
 import { Queue, Worker } from 'bullmq';
 import { getRedisConnection } from './dunningQueue';
-import { logInfo, logError } from '../utils/logger';
+import { logInfo, logError, logWarn } from '../utils/logger';
 import { pool } from '../config/database';
 import { scoreCustomerRiskFromDaysOverdue, scoreCustomerRisk } from '../services/riskScoringService';
+import crypto from 'crypto';
 
 const LOG_MODULE = 'csvImportJob';
+
+// Generate deterministic source_id for CSV invoices
+function generateCSVInvoiceId(customerId: string, amount: number, dueDate: Date, issuedDate: Date): string {
+  const content = `${customerId}|${amount}|${dueDate.toISOString()}|${issuedDate.toISOString()}`;
+  return crypto.createHash('md5').update(content).digest('hex');
+}
 
 export interface CSVImportJobData {
   companyId: string;
@@ -84,13 +91,33 @@ export async function processCsvImportJob(companyId: string, invoices: CSVImport
     }> = [];
 
     for (const inv of invoices) {
+      // Validate amount
       if (!inv.amount || inv.amount <= 0) {
         skipped++;
         continue;
       }
 
-      // Keep email as-is (empty or with value) - don't auto-generate
-      let email = inv.customerEmail || '';
+      // Validate email (REQUIRED for dunning) - MVP: email is mandatory for RecoverAI
+      const email = (inv.customerEmail || '').trim().toLowerCase();
+      if (!email || !email.includes('@')) {
+        skipped++;
+        logWarn(LOG_MODULE, 'processCsvImportJob', 'CSV row skipped: missing or invalid email', {
+          customerName: inv.customerName,
+          email: inv.customerEmail,
+          reason: 'Email is required for dunning campaigns (email + SMS)',
+        });
+        continue;
+      }
+
+      // Validate customer name
+      if (!inv.customerName || typeof inv.customerName !== 'string' || inv.customerName.trim().length === 0) {
+        skipped++;
+        logWarn(LOG_MODULE, 'processCsvImportJob', 'CSV row skipped: missing customer name', {
+          email,
+          reason: 'Company name is required',
+        });
+        continue;
+      }
 
       let dueDate = parseFlexibleDate(inv.dueDate);
       if (!dueDate) {
@@ -103,84 +130,65 @@ export async function processCsvImportJob(companyId: string, invoices: CSVImport
         issuedDate = new Date();
       }
 
-      let phone = inv.phone || '';
+      const phone = (inv.phone || '').trim();
 
       normalized.push({
-        customerName: inv.customerName,
-        customerEmail: email,
+        customerName: inv.customerName.trim(),
+        customerEmail: email,  // Already validated: present, contains @, trimmed, lowercased
         amount: inv.amount,
-        currency: inv.currency || 'USD',
+        currency: (inv.currency || 'USD').toUpperCase(),
         dueDate,
         issuedDate,
         phone,
       });
     }
 
-    // STEP 2: Bulk find-or-create customers (2 SQL calls)
-    // FIX #1: Changed from email/name lookup to company_name (new identifier)
-    const uniqueCompanyNames = [...new Set(normalized.map(i => i.customerName).filter(n => n))];
-    const uniqueEmails = [...new Set(normalized.map(i => i.customerEmail).filter(e => e))];
+    // STEP 2: Bulk find-or-create customers — email is the unique identifier
+    // Each unique email = one customer record. Company name is a display label only.
 
-    const customerByCompanyNameMap = new Map<string, { id: string; email?: string }>(); // company_name -> {id, email}
-    const customerByEmailMap = new Map<string, string>(); // email -> id (for rows with email)
+    // email → customer_id map (built from DB lookups)
+    const customerByEmailMap = new Map<string, string>();
 
-    // Get existing customers by COMPANY_NAME (primary key after redesign)
-    if (uniqueCompanyNames.length > 0) {
-      const existing = await pool.query(
-        `SELECT id, company_name, email FROM customers WHERE company_id = $1 AND company_name = ANY($2)`,
-        [companyId, uniqueCompanyNames]
-      );
-      existing.rows.forEach((row: any) => {
-        customerByCompanyNameMap.set(row.company_name, { id: row.id, email: row.email });
-        if (row.email) {
-          customerByEmailMap.set(row.email, row.id);
-        }
-      });
-    }
-
-    // Build email → company_name and email → phone maps (validated 1:1 in invoiceController)
-    const emailToCompanyNameMap = new Map<string, string>();
-    const emailToPhoneMap = new Map<string, string>();
+    // email → first invoice data (for creating new customers)
+    const emailToFirstInvoice = new Map<string, typeof normalized[0]>();
     for (const inv of normalized) {
-      if (inv.customerEmail) {
-        emailToCompanyNameMap.set(inv.customerEmail, inv.customerName);
-        if (inv.phone) {
-          emailToPhoneMap.set(inv.customerEmail, inv.phone);
-        }
+      if (!emailToFirstInvoice.has(inv.customerEmail)) {
+        emailToFirstInvoice.set(inv.customerEmail, inv);
       }
     }
 
-    // Create missing customers in BULK
-    // Only create if company_name doesn't already exist (UNIQUE constraint)
-    const missingCompanyNames = uniqueCompanyNames.filter(name => !customerByCompanyNameMap.has(name));
-    const newCustomersToCreate: Array<{ company_name: string; email: string | null; phone: string | null }> = [];
+    const uniqueEmails = [...emailToFirstInvoice.keys()];
 
-    // Add missing company names (batch create with email/phone if available)
-    missingCompanyNames.forEach(companyName => {
-      // Find first email and phone associated with this company name in CSV
-      const firstInvoiceWithThisCompany = normalized.find(inv => inv.customerName === companyName);
-      newCustomersToCreate.push({
-        company_name: companyName,
-        email: firstInvoiceWithThisCompany?.customerEmail || null,
-        phone: firstInvoiceWithThisCompany?.phone || null
+    // Find existing customers by email (bulk — 1 SQL call)
+    if (uniqueEmails.length > 0) {
+      const existing = await pool.query(
+        `SELECT id, email FROM customers WHERE company_id = $1 AND LOWER(email) = ANY($2)`,
+        [companyId, uniqueEmails.map(e => e.toLowerCase())]
+      );
+      existing.rows.forEach((row: any) => {
+        customerByEmailMap.set(row.email.toLowerCase(), row.id);
       });
-    });
+    }
 
-    // Bulk insert all missing customers
-    if (newCustomersToCreate.length > 0) {
-      // 4 columns per row: company_id, company_name, email, phone
-      const vals = newCustomersToCreate.map((_, i) => `($1, $${i * 3 + 2}, $${i * 3 + 3}, $${i * 3 + 4})`).join(',');
-      const params = [companyId, ...newCustomersToCreate.flatMap(c => [c.company_name, c.email, c.phone])];
+    // Create new customers for emails not yet in DB (bulk — 1 SQL call)
+    const missingEmails = uniqueEmails.filter(e => !customerByEmailMap.has(e.toLowerCase()));
+    if (missingEmails.length > 0) {
+      // 4 cols per row: company_id, email, company_name, phone
+      const vals = missingEmails.map((_, i) => `($1, $${i * 3 + 2}, $${i * 3 + 3}, $${i * 3 + 4})`).join(',');
+      const params = [companyId, ...missingEmails.flatMap(email => {
+        const inv = emailToFirstInvoice.get(email)!;
+        return [email, inv.customerName, inv.phone || null];
+      })];
 
       const newCustomers = await pool.query(
-        `INSERT INTO customers (company_id, company_name, email, phone) VALUES ${vals} RETURNING id, company_name, email`,
+        `INSERT INTO customers (company_id, email, company_name, phone)
+         VALUES ${vals}
+         ON CONFLICT (company_id, (LOWER(email))) DO NOTHING
+         RETURNING id, email`,
         params
       );
       newCustomers.rows.forEach((row: any) => {
-        customerByCompanyNameMap.set(row.company_name, { id: row.id, email: row.email });
-        if (row.email) {
-          customerByEmailMap.set(row.email, row.id);
-        }
+        customerByEmailMap.set(row.email.toLowerCase(), row.id);
       });
     }
 
@@ -189,23 +197,7 @@ export async function processCsvImportJob(companyId: string, invoices: CSVImport
     let duplicates = 0;
 
     for (const inv of normalized) {
-      // FIX #2: Get customer ID by company_name (primary identifier after schema redesign)
-      // Fallback: if company_name is somehow not found, skip this invoice
-      let customerId = customerByCompanyNameMap.get(inv.customerName)?.id;
-
-      // For invoices with email, also try to update customer's email if it's missing
-      if (inv.customerEmail && customerId) {
-        const existingCustomer = customerByCompanyNameMap.get(inv.customerName);
-        if (existingCustomer && !existingCustomer.email) {
-          // This customer was created without email, update it
-          await pool.query(
-            `UPDATE customers SET email = $1, updated_at = NOW() WHERE id = $2 AND company_id = $3`,
-            [inv.customerEmail, customerId, companyId]
-          );
-          // Update in-memory map
-          customerByCompanyNameMap.set(inv.customerName, { ...existingCustomer, email: inv.customerEmail });
-        }
-      }
+      const customerId = customerByEmailMap.get(inv.customerEmail.toLowerCase());
 
       if (!customerId) {
         skipped++;
@@ -235,26 +227,30 @@ export async function processCsvImportJob(companyId: string, invoices: CSVImport
     // STEP 4: BULK INSERT all invoices at once (1 SQL call)
     let created = 0;
     if (toInsert.length > 0) {
-      // 8 columns per row: customer_id, amount, currency, due_date, issued_date, company_id, source, status
-      const vals = toInsert.map((_, i) => `($${i * 8 + 1}, $${i * 8 + 2}, $${i * 8 + 3}, $${i * 8 + 4}, $${i * 8 + 5}, $${i * 8 + 6}, $${i * 8 + 7}, $${i * 8 + 8})`).join(',');
+      // 9 columns per row: customer_id, amount, currency, due_date, issued_date, company_id, source, source_id, status
+      const vals = toInsert.map((_, i) => `($${i * 9 + 1}, $${i * 9 + 2}, $${i * 9 + 3}, $${i * 9 + 4}, $${i * 9 + 5}, $${i * 9 + 6}, $${i * 9 + 7}, $${i * 9 + 8}, $${i * 9 + 9})`).join(',');
       const params: any[] = [];
 
       toInsert.forEach(inv => {
+        const csvInvoiceId = generateCSVInvoiceId(inv.customerId, inv.amount, inv.dueDate, inv.issuedDate);
         params.push(
-          inv.customerId,      // $1, $9, $17...
-          inv.amount,          // $2, $10, $18...
-          inv.currency,        // $3, $11, $19...
-          inv.dueDate,         // $4, $12, $20...
-          inv.issuedDate,      // $5, $13, $21...
-          companyId,           // $6, $14, $22...
-          'manual',            // $7, $15, $23... (source)
-          'unpaid'             // $8, $16, $24... (status)
+          inv.customerId,      // $1, $10, $19...
+          inv.amount,          // $2, $11, $20...
+          inv.currency,        // $3, $12, $21...
+          inv.dueDate,         // $4, $13, $22...
+          inv.issuedDate,      // $5, $14, $23...
+          companyId,           // $6, $15, $24...
+          'csv',               // $7, $16, $25... (source) - changed from 'manual' to 'csv'
+          csvInvoiceId,        // $8, $17, $26... (source_id) - NEW!
+          'unpaid'             // $9, $18, $27... (status)
         );
       });
 
       const result = await pool.query(
-        `INSERT INTO invoices (customer_id, amount, currency, due_date, issued_date, company_id, source, status)
-         VALUES ${vals} RETURNING id, customer_id`,
+        `INSERT INTO invoices (customer_id, amount, currency, due_date, issued_date, company_id, source, source_id, status)
+         VALUES ${vals}
+         ON CONFLICT (company_id, source, source_id) DO UPDATE SET updated_at = NOW()
+         RETURNING id, customer_id`,
         params
       );
 
