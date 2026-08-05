@@ -10,6 +10,7 @@ import stripeRoutes from './routes/stripe';
 import twilioRoutes from './routes/twilio';
 import aiRoutes from './routes/ai';
 import emailRoutes from './routes/email';
+import smsRoutes from './routes/sms';
 // import paymentPlanRoutes from './routes/paymentPlan';  // ❌ DISABLED: PHASE 2 feature
 import dashboardRoutes from './routes/dashboard';
 import invoiceRoutes from './routes/invoices';
@@ -21,11 +22,12 @@ import teamRoutes from './routes/team';
 import policyRoutes from './routes/policy';
 import entitlementsRoutes from './routes/entitlements';
 import featureFlagsRoutes from './routes/featureFlags';
-// import quickbooksRoutes from './routes/quickbooks';  // ❌ DISABLED: QB integration Month 3+
+import quickbooksRoutes from './routes/quickbooks';
 // import chargebeeRoutes from './routes/chargebee';    // ❌ DISABLED: Not needed (Stripe covers MVP)
 import demoRoutes from './routes/demo';
 import adminRoutes from './routes/admin';
 import reportsRoutes from './routes/reports';
+import notificationsRoutes from './routes/notifications';
 import billingOptimizationRoutes from './routes/billingOptimization';
 import declineCodeRoutes from './routes/declineCodes';
 import retryRoutes from './routes/retry';
@@ -42,6 +44,7 @@ import pilotQueueRoutes from './routes/pilotQueue';
 // import slackRoutes from './routes/slack';  // ❌ DISABLED: see below
 import emailDashboardRoutes from './routes/emailDashboard';
 import logsRoutes from './routes/logs';
+import activityRoutes from './routes/activity';
 import { getRequestContext, logError, logInfo, logWarn, withRequestContext } from './utils/logger';
 import { apiLimiter, authLimiter, authSlowDown, syncLimiter, aiLimiter, webhookLimiter, emailLimiter, auditOtpLimiter, publicFormLimiter } from './middleware/rateLimiter';
 import { demoBlocker } from './middleware/demoBlocker';
@@ -176,6 +179,7 @@ app.use('/api/ai', aiLimiter);
 // Webhook limiters (no auth, need protection)
 app.use('/api/stripe/webhook', webhookLimiter);
 app.use('/api/email/webhook', webhookLimiter);
+app.use('/api/quickbooks/sync', syncLimiter);  // QB has 500 req/min rate limit
 app.use('/api/voice/twiml', webhookLimiter);
 app.use('/api/voice/handle-dtmf', webhookLimiter);
 app.use('/api/voice/status-callback', webhookLimiter);
@@ -206,6 +210,7 @@ app.use('/api/stripe', stripeRoutes);
 app.use('/api/twilio', twilioRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/email', emailRoutes);
+app.use('/api/sms', smsRoutes);
 // app.use('/api/payment-plans', paymentPlanRoutes);  // ❌ DISABLED: PHASE 2 feature
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/invoices', invoiceRoutes);
@@ -217,7 +222,7 @@ app.use('/api/team', teamRoutes);
 // app.use('/api/policy', policyRoutes);
 // app.use('/api/entitlements', entitlementsRoutes);
 // app.use('/api/feature-flags', featureFlagsRoutes);
-// app.use('/api/quickbooks', quickbooksRoutes);        // ❌ DISABLED: Month 3+
+app.use('/api/quickbooks', quickbooksRoutes);
 // app.use('/api/chargebee', chargebeeRoutes);          // ❌ DISABLED: Not needed
 app.use('/api/demo', demoRoutes);
 app.use('/api/admin', adminRoutes);
@@ -235,6 +240,8 @@ app.use('/api/segmentation', segmentationRoutes);
 // app.use('/api/audits', auditRoutes);  // ❌ DISABLED
 app.use('/api/audit-stages', auditStagesRoutes);  // ✅ SIGNUP FLOW: /signup → /verify-email → /integrations
 app.use('/api/pilot-queue', pilotQueueRoutes);  // ✅ EMAIL QUEUE: Sidebar > Operations > Email Queue
+app.use('/api/notifications', notificationsRoutes);  // ✅ NOTIFICATION EVENTS: Bell + activity stream
+app.use('/api/activity', activityRoutes);  // ✅ ACTIVITY LOGS: Combined email + SMS timeline
 // ❌ DISABLED: Slack bot not in use yet. Routes have no signature verification —
 // re-enable only after implementing Slack signing-secret HMAC middleware (audit C1).
 // app.use('/api/slack', slackRoutes);

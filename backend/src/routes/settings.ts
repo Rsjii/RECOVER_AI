@@ -40,6 +40,10 @@ import {
   testSmtpHandler,
   disableSmtpHandler,
 } from '../controllers/smtpController';
+import {
+  getNotificationPreferencesHandler,
+  updateNotificationPreferencesHandler,
+} from '../controllers/notificationPreferencesController';
 
 const router = Router();
 
@@ -91,5 +95,9 @@ router.post('/twilio/disconnect', requireRole('admin'), disconnectTwilio);
 
 // Integrations disconnect endpoints
 router.post('/integrations/stripe/disconnect', requireRole('admin'), disconnectStripe);
+
+// Notification Preferences
+router.get('/notifications', getNotificationPreferencesHandler);
+router.patch('/notifications', requireRole('admin'), updateNotificationPreferencesHandler);
 
 export default router;

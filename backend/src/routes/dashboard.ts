@@ -3,7 +3,7 @@ import { authMiddleware } from '../middleware/auth';
 import { requireActiveSubscription } from '../middleware/subscriptionGate';
 import { checkTrialStatus, requireNotTrial } from '../middleware/trialGating';
 import { demoBlocker } from '../middleware/demoBlocker';
-import { getStats, getPipeline, getRiskList, getRecoveryTimeline, getAtRisk, getCashPositionHandler, updateCashBalanceHandler, updateBurnRateHandler, getWhatIfHandler, getRunwayHandler, getCashLeakageHandler, getKpi, getAgingAnalysisHandler, getEmailAnalyticsHandler, getRiskDriversHandler, /*getPaymentPlansSummaryHandler,*/ getPaymentEvents, getSmsActivity, getWorkingCapitalFreedHandler, getDSOReductionHandler, getHoursSavedHandler, getCashForecastHandler, getVoiceStatsHandler, getRecoveryToday, getTrialAnalysis } from '../controllers/dashboardController';  // ❌ getPaymentPlansSummaryHandler disabled (PHASE 2)
+import { getStats, getPipeline, getCoreStats, getRiskList, getRecoveryTimeline, getAtRisk, getCashPositionHandler, updateCashBalanceHandler, updateBurnRateHandler, getWhatIfHandler, getRunwayHandler, getCashLeakageHandler, getKpi, getAgingAnalysisHandler, getEmailAnalyticsHandler, getRiskDriversHandler, /*getPaymentPlansSummaryHandler,*/ getPaymentEvents, getSmsActivity, getWorkingCapitalFreedHandler, getDSOReductionHandler, getHoursSavedHandler, getCashForecastHandler, getVoiceStatsHandler, getRecoveryToday, getTrialAnalysis } from '../controllers/dashboardController';  // ❌ getPaymentPlansSummaryHandler disabled (PHASE 2)
 import { runDecisionEngineNow, runDecisionEngineDryRun } from '../queue/agentLoop';
 import { findInvoiceById } from '../db/invoices';
 import { findCompanyById } from '../db/companies';
@@ -47,6 +47,7 @@ function recordRateLimit(limiter: Map<string, number>, key: string): void {
 
 router.get('/stats', getStats);
 router.get('/pipeline', getPipeline);
+router.get('/core-stats', getCoreStats);  // ✅ Batch endpoint: returns stats + pipeline + aging in one call
 router.get('/risk-list', getRiskList);
 router.get('/timeline', getRecoveryTimeline);
 router.get('/at-risk', getAtRisk);

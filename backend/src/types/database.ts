@@ -74,6 +74,21 @@ export interface CompanyRow {
   slack_notifications_enabled: boolean | null;
   // Dunning email customization
   dunning_sender_name: string | null;
+  // SMS Configuration
+  sms_enabled: boolean | null;
+  sms_tone: string | null;
+  sms_escalation_enabled: boolean | null;
+  sms_max_per_invoice: number | null;
+  // Twilio Configuration
+  twilio_account_sid_encrypted: string | null;
+  twilio_auth_token_encrypted: string | null;
+  twilio_phone_number: string | null;
+  twilio_configured: boolean | null;
+  // Notification Preferences (P1 - User Customizable Only)
+  notify_contact_invalid: boolean | null;          // email hard bounce or SMS hard fail
+  notify_payment_received: boolean | null;
+  notify_emails_pending: boolean | null;
+  // System alerts & trial ending are ALWAYS ON (not customizable)
 }
 
 // ============ Customers ============
@@ -181,6 +196,23 @@ export interface EmailLogRow {
   clicked_at: string | null;
   status: 'sent' | 'delivered' | 'opened' | 'clicked' | 'bounced' | 'failed';
   sendgrid_message_id: string | null;
+}
+
+// ============ SMS Logs ============
+export interface SMSLogRow {
+  id: string;
+  invoice_id: string;
+  company_id: string;
+  customer_id: string;
+  phone: string;
+  content: string;
+  twilio_message_sid: string | null;
+  sent_at: string;
+  delivered_at: string | null;
+  failed_at: string | null;
+  status: 'sent' | 'delivered' | 'failed' | 'undelivered';
+  failure_reason: string | null;
+  created_at: string;
 }
 
 // ============ Audit Logs ============

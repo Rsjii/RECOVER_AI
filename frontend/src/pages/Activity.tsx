@@ -8,6 +8,7 @@ import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { ActivitySkeleton } from '../components/ui/Skeleton';
 import { Spinner } from '../components/ui/Spinner';
+import { ActivityModal } from '../components/activity/ActivityModal';
 
 type Tab = 'emails'; // SMS, Payments, Events hidden (not in use yet)
 
@@ -17,6 +18,18 @@ const tabs: { id: Tab; label: string }[] = [
   // { id: 'payments', label: 'Payments' },    // ❌ HIDDEN: Payments not in use (re-enable in Month 3)
   // { id: 'events', label: 'Events' },        // ❌ REMOVED: Internal noise in pilot (re-add as "Agent Decisions" in Month 2+ if needed)
 ];
+
+// Module-level cache — persists across tab switches within the same session
+interface ActivityCache {
+  emailLogs: any[];
+  queueStats: any;
+  queuedEmails: any[];
+  pausedInvoices: any[];
+  stoppedInvoices: any[];
+  ts: number;
+}
+let activityCache: ActivityCache | null = null;
+const CACHE_TTL = 30_000; // 30 seconds
 
 const statusIcon = (status: string) => {
   switch (status) {
@@ -78,6 +91,7 @@ const Activity: React.FC = () => {
   // Filters for Sent & Tracked section
   const [statusFilter, setStatusFilter] = useState<string>('all'); // all | sent | opened | clicked | bounced | failed
   const [searchCustomer, setSearchCustomer] = useState<string>('');
+  const [timeRange, setTimeRange] = useState<'1d' | '7d' | 'all'>('7d'); // Time range for stats
 
   // Filters for Pending Approval section
   const [pendingChannelFilter, setPendingChannelFilter] = useState<string>('all'); // all | email | sms
@@ -86,12 +100,12 @@ const Activity: React.FC = () => {
 
   // Multi-select for bulk operations
   const [selectedPendingIds, setSelectedPendingIds] = useState<Set<string>>(new Set());
-  const [selectedRejectedIds, setSelectedRejectedIds] = useState<Set<string>>(new Set());
   const [bulkOperating, setBulkOperating] = useState(false);
 
-  // Queued emails (pending approval & rejected)
+  // Queued emails (pending approval) + Invoice statuses (paused/stopped)
   const [queuedEmails, setQueuedEmails] = useState<any[]>([]);
-  const [rejectedEmails, setRejectedEmails] = useState<any[]>([]);
+  const [pausedInvoices, setPausedInvoices] = useState<any[]>([]);
+  const [stoppedInvoices, setStoppedInvoices] = useState<any[]>([]);
   const [approvingQueue, setApprovingQueue] = useState<string | null>(null);
   const [approvingAllQueue, setApprovingAllQueue] = useState(false);
   const [previewQueueEmail, setPreviewQueueEmail] = useState<any>(null);
@@ -106,41 +120,64 @@ const Activity: React.FC = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [updatingEmail, setUpdatingEmail] = useState(false);
 
+  // Modal state
+  const [activityModal, setActivityModal] = useState<{ isOpen: boolean; state: 'pending' | 'sent' | 'paused' | 'stopped'; item: any }>({
+    isOpen: false,
+    state: 'pending',
+    item: null
+  });
+
   const fetchEmails = useCallback(async () => {
     setLoading(true);
     try {
       const [logsRes, statsRes] = await Promise.all([
-        api.get<{ data: any[] }>(API_ENDPOINTS.email.logs),
+        api.get<{ data: any[] }>('/api/activity/logs'),
         api.get<{ data: any }>(API_ENDPOINTS.email.stats).catch(() => ({ data: null })),
       ]);
-      setEmailLogs(logsRes.data || []);
-      setQueueStats(statsRes.data);
+      const emailLogs = logsRes.data || [];
+      const queueStats = statsRes.data;
+      setEmailLogs(emailLogs);
+      setQueueStats(queueStats);
+      // Update cache (for queued emails, merge with existing cache)
+      activityCache = { ...activityCache, emailLogs, queueStats, ts: Date.now() } as ActivityCache;
     } catch {}
     finally { setLoading(false); }
   }, []);
 
-  const fetchQueuedEmails = useCallback(async () => {
+  const fetchActivity = useCallback(async () => {
     try {
-      // Fetch pending emails (required)
-      const pendingRes = await api.get<{ data: any[] }>('/api/pilot-queue');
-      setQueuedEmails(pendingRes?.data || []);
+      // Fetch pending emails, paused invoices, and stopped invoices in parallel
+      const [pendingRes, pausedRes, stoppedRes] = await Promise.all([
+        api.get<{ data: any[] }>('/api/pilot-queue'),
+        api.get<{ data: any[] }>('/api/activity/paused'),
+        api.get<{ data: any[] }>('/api/activity/stopped'),
+      ]);
 
-      // Fetch rejected emails separately (optional - don't crash if fails)
-      try {
-        const rejectedRes = await api.get<{ data: any[] }>('/api/pilot-queue?status=rejected');
-        setRejectedEmails(rejectedRes?.data || []);
-      } catch {
-        // Rejected emails endpoint might not return data - silently continue
-        setRejectedEmails([]);
-      }
+      const queuedEmails = pendingRes?.data || [];
+      const pausedInvoices = pausedRes?.data || [];
+      const stoppedInvoices = stoppedRes?.data || [];
+
+      setQueuedEmails(queuedEmails);
+      setPausedInvoices(pausedInvoices);
+      setStoppedInvoices(stoppedInvoices);
+
+      // Update cache
+      activityCache = {
+        ...activityCache,
+        queuedEmails,
+        pausedInvoices,
+        stoppedInvoices,
+        ts: Date.now()
+      } as ActivityCache;
     } catch (err: any) {
       addToast({
         type: 'error',
-        message: err.message || 'Failed to load pending emails',
+        message: err.message || 'Failed to load activity',
       });
       // Still set empty arrays so component doesn't break
       setQueuedEmails([]);
-      setRejectedEmails([]);
+      setPausedInvoices([]);
+      setStoppedInvoices([]);
     }
   }, [addToast]);
 
@@ -166,13 +203,23 @@ const Activity: React.FC = () => {
 
   useEffect(() => {
     if (activeTab === 'emails') {
+      // ✅ Check cache first (30s TTL — instant on tab switch)
+      if (activityCache && Date.now() - activityCache.ts < CACHE_TTL) {
+        setEmailLogs(activityCache.emailLogs);
+        setQueueStats(activityCache.queueStats);
+        setQueuedEmails(activityCache.queuedEmails);
+        setPausedInvoices(activityCache.pausedInvoices);
+        setStoppedInvoices(activityCache.stoppedInvoices);
+        setLoading(false);
+        return;
+      }
       fetchEmails();
-      fetchQueuedEmails();
+      fetchActivity();
     } else {
       // SMS & Payments tabs are hidden
       setLoading(false);
     }
-  }, [activeTab]);
+  }, [activeTab, fetchEmails, fetchActivity]);
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -215,7 +262,7 @@ const Activity: React.FC = () => {
           addToast({ type: 'success', message: 'Email updated successfully' });
         }
         setShowEditModal(false);
-        fetchQueuedEmails();
+        fetchActivity();
       } else {
         // Update sent email via email-logs endpoint
         await api.put(`/api/email-logs/${selectedEmail.id}`, {
@@ -270,7 +317,7 @@ const Activity: React.FC = () => {
         type: 'success',
         message: `${itemType} approved and sent`,
       });
-      fetchQueuedEmails();
+      fetchActivity();
       fetchEmails();
     } catch (err: any) {
       addToast({
@@ -292,7 +339,7 @@ const Activity: React.FC = () => {
         type: 'success',
         message: `${itemType} rejected`,
       });
-      fetchQueuedEmails();
+      fetchActivity();
     } catch (err: any) {
       addToast({
         type: 'error',
@@ -303,24 +350,34 @@ const Activity: React.FC = () => {
     }
   };
 
-  // Move rejected email back to pending approval (SHADOW mode only)
-  const handleMoveToPending = async (id: string) => {
-    setApprovingQueue(id);
+  // Modal handlers
+  const handleOpenModal = (item: any, state: 'pending' | 'sent' | 'paused' | 'stopped') => {
+    setActivityModal({ isOpen: true, state, item });
+  };
+
+  const handleResumeInvoice = async (invoiceId: string) => {
     try {
-      await api.post(`/api/pilot-queue/${id}/move-to-pending`);
+      await api.post(`/api/invoices/${invoiceId}/dunning/resume`, {});
       addToast({
         type: 'success',
-        message: 'Email moved to Pending Approval. You can now edit and approve it.',
+        message: 'Dunning resumed for this invoice',
       });
-      fetchQueuedEmails();
+      setActivityModal({ isOpen: false, state: 'pending', item: null });
+      fetchActivity();
     } catch (err: any) {
       addToast({
         type: 'error',
-        message: err.message || 'Failed to move email to pending',
+        message: err.message || 'Failed to resume dunning',
       });
-    } finally {
-      setApprovingQueue(null);
     }
+  };
+
+  const handleCloseModal = () => {
+    setActivityModal({ isOpen: false, state: 'pending', item: null });
+  };
+
+  const handleNavigateToInvoice = (invoiceId: string) => {
+    window.location.href = `/invoices/${invoiceId}`;
   };
 
   const handleApproveAllQueued = async () => {
@@ -333,7 +390,7 @@ const Activity: React.FC = () => {
         type: 'success',
         message: `${res.sent_count} items sent${res.failed_count > 0 ? `, ${res.failed_count} failed` : ''}`,
       });
-      fetchQueuedEmails();
+      fetchActivity();
       fetchEmails();
     } catch (err: any) {
       addToast({
@@ -359,7 +416,7 @@ const Activity: React.FC = () => {
         message: `${res.sent_count} items approved${res.failed_count > 0 ? `, ${res.failed_count} failed` : ''}`,
       });
       setSelectedPendingIds(new Set());
-      fetchQueuedEmails();
+      fetchActivity();
       fetchEmails();
     } catch (err: any) {
       addToast({
@@ -385,7 +442,7 @@ const Activity: React.FC = () => {
         message: `${res.rejected_count} items rejected${res.failed_count > 0 ? `, ${res.failed_count} failed` : ''}`,
       });
       setSelectedPendingIds(new Set());
-      fetchQueuedEmails();
+      fetchActivity();
     } catch (err: any) {
       addToast({
         type: 'error',
@@ -636,7 +693,7 @@ const Activity: React.FC = () => {
                               return true;
                             })
                             .map((email: any) => (
-                            <tr key={email.id} className="hover:bg-gray-50 dark:hover:bg-white/[0.02] transition-colors">
+                            <tr key={email.id} onClick={() => handleOpenModal(email, 'pending')} className="hover:bg-gray-50 dark:hover:bg-white/[0.02] transition-colors cursor-pointer">
                               <td className="px-4 py-3">
                                 <input
                                   type="checkbox"
@@ -738,188 +795,107 @@ const Activity: React.FC = () => {
                 )}
               </Card>
 
-              {/* SECTION 1B: REJECTED EMAILS */}
-              {rejectedEmails.length > 0 && (
+              {/* SECTION 1B: PAUSED INVOICES */}
+              {pausedInvoices.length > 0 && (
                 <Card>
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-base font-semibold text-gray-900 dark:text-white">⚠️ Rejected Emails</h3>
-                    <div className="bg-red-100 dark:bg-red-500/20 text-red-900 dark:text-red-200 px-3 py-1 rounded-full font-medium text-sm">
-                      {rejectedEmails.length} rejected
+                    <h3 className="text-base font-semibold text-gray-900 dark:text-white">⏸️ Paused Invoices</h3>
+                    <div className="bg-blue-100 dark:bg-blue-500/20 text-blue-900 dark:text-blue-200 px-3 py-1 rounded-full font-medium text-sm">
+                      {pausedInvoices.length} paused
                     </div>
                   </div>
 
                   <div className="space-y-3">
-                    <p className="text-sm text-gray-600 dark:text-gray-400">These emails were rejected and won't be queued again for 7 days. You can approve them below to send immediately.</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">These invoices are paused and won't receive dunning communications until the pause date expires.</p>
 
-                    {/* Bulk Actions for Rejected */}
-                    {selectedRejectedIds.size > 0 && (
-                      <div className="flex flex-wrap gap-2 mb-4">
-                        <Button
-                          variant="primary"
-                          size="sm"
-                          onClick={async () => {
-                            setBulkOperating(true);
-                            try {
-                              const ids = Array.from(selectedRejectedIds);
-                              const res = await api.post<{ sent_count: number; failed_count: number }>(
-                                `/api/pilot-queue/bulk/approve-selected`,
-                                { ids }
-                              );
-                              addToast({
-                                type: 'success',
-                                message: `${res.sent_count} emails approved${res.failed_count > 0 ? `, ${res.failed_count} failed` : ''}`,
-                              });
-                              setSelectedRejectedIds(new Set());
-                              fetchQueuedEmails();
-                            } catch (err: any) {
-                              addToast({
-                                type: 'error',
-                                message: err.message || 'Failed to approve emails',
-                              });
-                            } finally {
-                              setBulkOperating(false);
-                            }
-                          }}
-                          loading={bulkOperating}
-                        >
-                          ✓ Approve Selected ({selectedRejectedIds.size})
-                        </Button>
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={async () => {
-                            setBulkOperating(true);
-                            try {
-                              const ids = Array.from(selectedRejectedIds);
-                              const res = await api.post<{ moved_count: number; failed_count: number }>(
-                                `/api/pilot-queue/bulk/move-to-pending-selected`,
-                                { ids }
-                              );
-                              addToast({
-                                type: 'success',
-                                message: `${res.moved_count} emails moved to Pending Approval${res.failed_count > 0 ? `, ${res.failed_count} failed` : ''}`,
-                              });
-                              setSelectedRejectedIds(new Set());
-                              fetchQueuedEmails();
-                            } catch (err: any) {
-                              addToast({
-                                type: 'error',
-                                message: err.message || 'Failed to move emails to pending',
-                              });
-                            } finally {
-                              setBulkOperating(false);
-                            }
-                          }}
-                          loading={bulkOperating}
-                          disabled={bulkOperating}
-                        >
-                          ↩️ Move to Pending ({selectedRejectedIds.size})
-                        </Button>
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => setSelectedRejectedIds(new Set())}
-                          disabled={bulkOperating}
-                        >
-                          Clear Selection
-                        </Button>
-                      </div>
-                    )}
-
-                    {/* Rejected Emails Table */}
+                    {/* Paused Invoices Table */}
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm">
                         <thead className="border-b border-gray-200 dark:border-white/[0.06] bg-gray-50 dark:bg-white/[0.02]">
                           <tr>
-                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300">
-                              <input
-                                type="checkbox"
-                                checked={selectedRejectedIds.size === rejectedEmails.length && rejectedEmails.length > 0}
-                                onChange={(e) => {
-                                  if (e.target.checked) {
-                                    setSelectedRejectedIds(new Set(rejectedEmails.map((email: any) => email.id)));
-                                  } else {
-                                    setSelectedRejectedIds(new Set());
-                                  }
-                                }}
-                                className="rounded"
-                              />
-                            </th>
                             <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300">Customer</th>
                             <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300">Amount</th>
-                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300">Days Overdue</th>
-                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300">Type</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300">Paused Until</th>
                             <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 dark:text-gray-300">Actions</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200 dark:divide-white/[0.06]">
-                          {rejectedEmails.map((email: any) => (
-                            <tr key={email.id} className="hover:bg-gray-50 dark:hover:bg-white/[0.02] transition-colors">
+                          {pausedInvoices.map((invoice: any) => (
+                            <tr key={invoice.id} onClick={() => handleOpenModal(invoice, 'paused')} className="hover:bg-gray-50 dark:hover:bg-white/[0.02] transition-colors cursor-pointer">
                               <td className="px-4 py-3">
-                                <input
-                                  type="checkbox"
-                                  checked={selectedRejectedIds.has(email.id)}
-                                  onChange={(e) => {
-                                    const newSelected = new Set(selectedRejectedIds);
-                                    if (e.target.checked) {
-                                      newSelected.add(email.id);
-                                    } else {
-                                      newSelected.delete(email.id);
-                                    }
-                                    setSelectedRejectedIds(newSelected);
-                                  }}
-                                  className="rounded"
-                                />
+                                <p className="font-medium text-gray-900 dark:text-white text-sm">{invoice.customer_name}</p>
                               </td>
                               <td className="px-4 py-3">
-                                <div>
-                                  <p className="font-medium text-gray-900 dark:text-white text-sm">{email.customer_name}</p>
-                                  {email.type === 'sms' ? (
-                                    <p className="text-xs text-gray-500 dark:text-gray-400">📱 {email.phone_number ? `${email.phone_number.slice(0, -4)}****` : 'N/A'}</p>
-                                  ) : (
-                                    <p className="text-xs text-gray-500 dark:text-gray-400">{email.recipient_email}</p>
-                                  )}
-                                </div>
+                                <p className="font-medium text-gray-900 dark:text-white text-sm">€{invoice.invoice_amount?.toLocaleString() || '0'}</p>
                               </td>
                               <td className="px-4 py-3">
-                                <p className="font-medium text-gray-900 dark:text-white text-sm">${email.invoice_amount.toLocaleString()}</p>
+                                <p className="text-gray-700 dark:text-gray-300 text-sm">{formatDate(invoice.paused_until)}</p>
                               </td>
                               <td className="px-4 py-3">
-                                <p className="text-gray-700 dark:text-gray-300 text-sm">{email.days_overdue}d</p>
-                              </td>
-                              <td className="px-4 py-3">
-                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                  email.type === 'sms'
-                                    ? 'bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-300'
-                                    : 'bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300'
-                                }`}>
-                                  {email.type === 'sms' ? '📱 SMS' : `📧 ${email.email_type.replace(/_/g, ' ')}`}
-                                </span>
-                              </td>
-                              <td className="px-4 py-3">
-                                <div className="flex items-center justify-end gap-2">
+                                <div className="flex items-center justify-end">
                                   <button
-                                    onClick={() => handlePreviewQueuedEmail(email)}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleNavigateToInvoice(invoice.id);
+                                    }}
                                     className="text-xs px-2.5 py-1 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors"
                                   >
-                                    👁 Preview
+                                    View Invoice
                                   </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </Card>
+              )}
+
+              {/* SECTION 1C: STOPPED INVOICES */}
+              {stoppedInvoices.length > 0 && (
+                <Card>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-base font-semibold text-gray-900 dark:text-white">🛑 Stopped Invoices</h3>
+                    <div className="bg-red-100 dark:bg-red-500/20 text-red-900 dark:text-red-200 px-3 py-1 rounded-full font-medium text-sm">
+                      {stoppedInvoices.length} stopped
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">These invoices will not receive any dunning communications.</p>
+
+                    {/* Stopped Invoices Table */}
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead className="border-b border-gray-200 dark:border-white/[0.06] bg-gray-50 dark:bg-white/[0.02]">
+                          <tr>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300">Customer</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300">Amount</th>
+                            <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 dark:text-gray-300">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200 dark:divide-white/[0.06]">
+                          {stoppedInvoices.map((invoice: any) => (
+                            <tr key={invoice.id} onClick={() => handleOpenModal(invoice, 'stopped')} className="hover:bg-gray-50 dark:hover:bg-white/[0.02] transition-colors cursor-pointer">
+                              <td className="px-4 py-3">
+                                <p className="font-medium text-gray-900 dark:text-white text-sm">{invoice.customer_name}</p>
+                              </td>
+                              <td className="px-4 py-3">
+                                <p className="font-medium text-gray-900 dark:text-white text-sm">€{invoice.invoice_amount?.toLocaleString() || '0'}</p>
+                              </td>
+                              <td className="px-4 py-3">
+                                <div className="flex items-center justify-end">
                                   <button
-                                    onClick={() => handleMoveToPending(email.id)}
-                                    className="text-xs px-2.5 py-1 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                    disabled={isDemo || approvingQueue !== null}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleNavigateToInvoice(invoice.id);
+                                    }}
+                                    className="text-xs px-2.5 py-1 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors"
                                   >
-                                    ↩️ Move to Pending
+                                    View Invoice
                                   </button>
-                                  <Button
-                                    variant="primary"
-                                    size="sm"
-                                    onClick={() => handleApproveQueuedEmail(email.id)}
-                                    loading={approvingQueue === email.id}
-                                    disabled={isDemo || approvingQueue !== null}
-                                  >
-                                    ✓ Approve
-                                  </Button>
                                 </div>
                               </td>
                             </tr>
@@ -938,31 +914,66 @@ const Activity: React.FC = () => {
                 </div>
 
                 {/* Filters for Sent & Tracked */}
-                <div className="mb-4 flex flex-col sm:flex-row gap-3">
-                  <div className="flex-1">
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
-                    <select
-                      value={statusFilter}
-                      onChange={(e) => setStatusFilter(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-sm text-gray-900 dark:text-white"
-                    >
-                      <option value="all">All Statuses</option>
-                      <option value="sent">Sent</option>
-                      <option value="opened">Opened</option>
-                      <option value="clicked">Clicked</option>
-                      <option value="bounced">Bounced</option>
-                      <option value="failed">Failed</option>
-                    </select>
+                <div className="mb-4 flex flex-col gap-3">
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <div className="flex-1">
+                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
+                      <select
+                        value={statusFilter}
+                        onChange={(e) => setStatusFilter(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-sm text-gray-900 dark:text-white"
+                      >
+                        <option value="all">All Statuses</option>
+                        <option value="sent">Sent</option>
+                        <option value="opened">Opened</option>
+                        <option value="clicked">Clicked</option>
+                        <option value="bounced">Bounced</option>
+                        <option value="failed">Failed</option>
+                      </select>
+                    </div>
+                    <div className="flex-1">
+                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Customer Email</label>
+                      <input
+                        type="text"
+                        placeholder="Search..."
+                        value={searchCustomer}
+                        onChange={(e) => setSearchCustomer(e.target.value.toLowerCase())}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-sm text-gray-900 dark:text-white placeholder-gray-400"
+                      />
+                    </div>
                   </div>
-                  <div className="flex-1">
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Customer Email</label>
-                    <input
-                      type="text"
-                      placeholder="Search..."
-                      value={searchCustomer}
-                      onChange={(e) => setSearchCustomer(e.target.value.toLowerCase())}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-white/10 rounded-lg bg-white dark:bg-white/5 text-sm text-gray-900 dark:text-white placeholder-gray-400"
-                    />
+                  <div className="flex gap-2">
+                    <label className="text-xs font-medium text-gray-700 dark:text-gray-300 py-2">Time Range:</label>
+                    <button
+                      onClick={() => setTimeRange('1d')}
+                      className={`px-3 py-2 text-xs rounded-lg font-medium transition-colors ${
+                        timeRange === '1d'
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-100 dark:bg-white/10 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/20'
+                      }`}
+                    >
+                      Last 24h
+                    </button>
+                    <button
+                      onClick={() => setTimeRange('7d')}
+                      className={`px-3 py-2 text-xs rounded-lg font-medium transition-colors ${
+                        timeRange === '7d'
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-100 dark:bg-white/10 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/20'
+                      }`}
+                    >
+                      Last 7 days
+                    </button>
+                    <button
+                      onClick={() => setTimeRange('all')}
+                      className={`px-3 py-2 text-xs rounded-lg font-medium transition-colors ${
+                        timeRange === 'all'
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-100 dark:bg-white/10 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/20'
+                      }`}
+                    >
+                      All Time
+                    </button>
                   </div>
                 </div>
 
@@ -980,8 +991,16 @@ const Activity: React.FC = () => {
                         if (log.status === 'skipped') return false;
                         // Filter by status
                         if (statusFilter !== 'all' && log.status !== statusFilter) return false;
-                        // Filter by customer email
-                        if (searchCustomer && !log.recipient_email.toLowerCase().includes(searchCustomer)) return false;
+                        // Filter by customer email/recipient
+                        const recipient = log.recipient_email || log.recipient || '';
+                        if (searchCustomer && !recipient.toLowerCase().includes(searchCustomer)) return false;
+                        // Filter by time range
+                        if (timeRange !== 'all') {
+                          const logDate = new Date(log.sent_at).getTime();
+                          const now = Date.now();
+                          const cutoff = timeRange === '1d' ? now - 24 * 60 * 60 * 1000 : now - 7 * 24 * 60 * 60 * 1000;
+                          if (logDate < cutoff) return false;
+                        }
                         return true;
                       }),
                       'sent_at'
@@ -992,18 +1011,37 @@ const Activity: React.FC = () => {
                         </div>
                         <div className="space-y-2">
                           {items.map((log: any) => (
-                            <div key={log.id} className="p-4 bg-gray-50 dark:bg-white/[0.04] rounded-lg border border-gray-200 dark:border-white/[0.06]">
+                            <div key={log.id} onClick={() => handleOpenModal(log, 'sent')} className="p-4 bg-gray-50 dark:bg-white/[0.04] rounded-lg border border-gray-200 dark:border-white/[0.06] cursor-pointer hover:border-gray-300 dark:hover:border-white/[0.1] transition-colors">
                               <div className="flex items-start gap-3">
-                                <span className="text-lg mt-0.5">{statusIcon(log.status)}</span>
+                                <span className="text-lg mt-0.5">{log.type === 'sms' ? '💬' : statusIcon(log.status)}</span>
                                 <div className="flex-1 min-w-0">
                                   <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
                                     <div className="flex-1 min-w-0">
-                                      <p className="text-sm font-medium text-gray-900 dark:text-white break-words">{log.subject}</p>
-                                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                        To: <span className="font-mono">{log.recipient_email}</span> · {log.email_type} · {formatDate(log.sent_at)}
-                                      </p>
-                                      {log.opened_at && (
-                                        <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">Opened {formatDate(log.opened_at)}</p>
+                                      {log.type === 'sms' ? (
+                                        <>
+                                          <p className="text-sm font-medium text-gray-900 dark:text-white break-words">
+                                            {log.channel_type || 'SMS'} - {log.customer_name}
+                                          </p>
+                                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                            To: <span className="font-mono">{log.recipient ? `${log.recipient.slice(0, -4)}****` : 'N/A'}</span> · {formatDate(log.sent_at)}
+                                          </p>
+                                          {log.message_preview && (
+                                            <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">{log.message_preview.substring(0, 100)}...</p>
+                                          )}
+                                          {log.delivery_timestamp && (
+                                            <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">Delivered {formatDate(log.delivery_timestamp)}</p>
+                                          )}
+                                        </>
+                                      ) : (
+                                        <>
+                                          <p className="text-sm font-medium text-gray-900 dark:text-white break-words">{log.message_preview}</p>
+                                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                            To: <span className="font-mono">{log.recipient}</span> · {log.channel_type} · {formatDate(log.sent_at)}
+                                          </p>
+                                          {log.delivery_timestamp && (
+                                            <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">Opened {formatDate(log.delivery_timestamp)}</p>
+                                          )}
+                                        </>
                                       )}
                                     </div>
                                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${statusBadge(log.status)}`}>{log.status}</span>
@@ -1011,7 +1049,7 @@ const Activity: React.FC = () => {
 
                                   {/* Action Buttons */}
                                   <div className="flex gap-2 mt-3 flex-wrap">
-                                    {/* Preview: Show for all emails */}
+                                    {/* Preview: Show for all */}
                                     <button
                                       onClick={() => {
                                         setSelectedEmail(log);
@@ -1026,7 +1064,7 @@ const Activity: React.FC = () => {
                                         onClick={() => resendEmail(log)}
                                         className="text-xs px-2.5 py-1 rounded bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors"
                                       >
-                                        🔄 Send
+                                        🔄 {log.type === 'sms' ? 'Resend' : 'Send'}
                                       </button>
                                     )}
                                   </div>
@@ -1037,6 +1075,44 @@ const Activity: React.FC = () => {
                         </div>
                       </div>
                     ))}
+                  </div>
+                  {/* Stats Footer */}
+                  <div className="mt-4 pt-4 border-t border-gray-200 dark:border-white/[0.06]">
+                    {(() => {
+                      const filteredLogs = emailLogs.filter((log: any) => {
+                        if (log.status === 'skipped') return false;
+                        if (statusFilter !== 'all' && log.status !== statusFilter) return false;
+                        const recipient = log.recipient_email || log.recipient || '';
+                        if (searchCustomer && !recipient.toLowerCase().includes(searchCustomer)) return false;
+                        if (timeRange !== 'all') {
+                          const logDate = new Date(log.sent_at).getTime();
+                          const now = Date.now();
+                          const cutoff = timeRange === '1d' ? now - 24 * 60 * 60 * 1000 : now - 7 * 24 * 60 * 60 * 1000;
+                          if (logDate < cutoff) return false;
+                        }
+                        return true;
+                      });
+                      const emails = filteredLogs.filter((log: any) => log.type === 'email');
+                      const sms = filteredLogs.filter((log: any) => log.type === 'sms');
+                      const opened = emails.filter((log: any) => ['opened', 'clicked'].includes(log.status)).length;
+                      const bounced = filteredLogs.filter((log: any) => ['bounced', 'failed'].includes(log.status)).length;
+                      const openRate = emails.length > 0 ? Math.round((opened / emails.length) * 100) : 0;
+
+                      return (
+                        <div className="text-xs text-gray-600 dark:text-gray-400 space-y-2">
+                          <p>
+                            📬 <strong>Pending:</strong> {queuedEmails.length} items
+                          </p>
+                          <p>
+                            📊 <strong>Sent ({timeRange === '1d' ? '24h' : timeRange === '7d' ? '7d' : 'All'}):</strong> {filteredLogs.length}
+                            {emails.length > 0 && <> | 📧 {emails.length} emails</>}
+                            {sms.length > 0 && <> | 📱 {sms.length} SMS</>}
+                            {opened > 0 && <> | ✅ {opened} opened ({openRate}%)</>}
+                            {bounced > 0 && <> | ❌ {bounced} failed</>}
+                          </p>
+                        </div>
+                      );
+                    })()}
                   </div>
                   </>
                 )}
@@ -1365,6 +1441,34 @@ const Activity: React.FC = () => {
           setShowDeleteConfirm(false);
           setSelectedEmail(null);
         }}
+      />
+
+      {/* Activity Modal */}
+      <ActivityModal
+        isOpen={activityModal.isOpen}
+        state={activityModal.state}
+        item={activityModal.item}
+        onClose={handleCloseModal}
+        onApprove={handleApproveQueuedEmail}
+        onReject={handleRejectQueuedEmail}
+        onEdit={(id) => {
+          const email = queuedEmails.find(e => e.id === id);
+          if (email) {
+            setSelectedEmail(email);
+            if (email.type === 'sms') {
+              setEditSubject('SMS Message');
+              setEditBody(email.message_full || email.message_preview || '');
+            } else {
+              setEditSubject(email.subject || '');
+              setEditBody(email.body || '');
+            }
+            setShowEditModal(true);
+            handleCloseModal();
+          }
+        }}
+        onResend={resendEmail}
+        onNavigateToInvoice={handleNavigateToInvoice}
+        onResume={handleResumeInvoice}
       />
     </div>
   );

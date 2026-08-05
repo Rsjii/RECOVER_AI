@@ -79,7 +79,7 @@ const Invoices: React.FC = () => {
       } catch (err: any) {
         logError('Component', 'handler', 'Failed to poll import status:', err);
       }
-    }, 1000);
+    }, 2000);  // ✅ Performance: Reduced from 1s to 2s (50% fewer API calls)
 
     return () => clearInterval(pollInterval);
   }, [importJobId, addToast]);
@@ -113,7 +113,7 @@ const Invoices: React.FC = () => {
       } catch (err: any) {
         logError('Component', 'handler', 'Failed to poll delete status:', err);
       }
-    }, 1000);
+    }, 2000);  // ✅ Performance: Reduced from 1s to 2s (50% fewer API calls)
 
     return () => clearInterval(pollInterval);
   }, [deleteJobId, addToast]);

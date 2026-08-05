@@ -361,20 +361,40 @@ export const proceedFromStage4 = async (req: Request, res: Response) => {
     } catch { /* non-blocking */ }
 
     const stripeConnected = !!company.stripe_api_key_encrypted || !!company.stripe_account_id;
+    const qbConnected = !!company.quickbooks_realm_id && !!company.quickbooks_access_token_encrypted;
 
     // Require at least one integration (dev mode allows either)
-    if (!isDev && !stripeConnected && !csvConnected) {
-      return res.status(400).json({ error: 'Connect Stripe or import invoices via CSV to proceed' });
+    if (!isDev && !stripeConnected && !csvConnected && !qbConnected) {
+      return res.status(400).json({ error: 'Connect a billing source (Stripe, CSV, or QuickBooks) to proceed' });
     }
 
     logInfo(MODULE, handler, 'Company data before sync', {
       stripe_account_id: !!company.stripe_account_id,
       stripe_api_key_encrypted: !!company.stripe_api_key_encrypted,
+      qb_realm_id: !!company.quickbooks_realm_id,
+      qb_token: !!company.quickbooks_access_token_encrypted,
       isDev,
     });
 
-    // AUTO-SYNC: Fetch invoices from Stripe immediately after connection
-    if (isDev || company.stripe_api_key_encrypted) {
+    let syncedIntegration = '';
+    var syncSummary = { imported: 0, skipped: 0 };
+
+    // AUTO-SYNC: Fetch invoices from QB if connected
+    if (qbConnected) {
+      try {
+        logInfo(MODULE, handler, 'Starting QuickBooks sync', { realm_id: company.quickbooks_realm_id });
+        const { quickbooksService } = await import('../services/quickbooksService');
+        const qbResult = await quickbooksService.syncInvoices(companyId);
+        syncedIntegration = 'QuickBooks';
+        syncSummary = { imported: qbResult.created + qbResult.updated, skipped: qbResult.skipped };
+        logInfo(MODULE, handler, 'QuickBooks sync complete', { result: qbResult });
+      } catch (qbErr: any) {
+        logError(MODULE, handler, 'QB sync failed (non-blocking)', { error: qbErr.message });
+        syncSummary = { imported: 0, skipped: 0 };
+      }
+    }
+    // AUTO-SYNC: Fetch invoices from Stripe if connected (and QB wasn't synced)
+    else if (isDev || company.stripe_api_key_encrypted) {
       try {
         logInfo(MODULE, handler, 'Starting Stripe sync', { isDev, has_key: !!company.stripe_api_key_encrypted });
 
@@ -474,22 +494,24 @@ export const proceedFromStage4 = async (req: Request, res: Response) => {
         });
 
         // Return summary for frontend toasts
-        var syncSummary = { imported: syncedCount, skipped: skippedCount };
+        syncedIntegration = 'Stripe';
+        syncSummary = { imported: syncedCount, skipped: skippedCount };
       } catch (syncErr: any) {
         logError(MODULE, handler, 'Invoice sync failed (non-blocking)', {
           error: syncErr.message,
           details: syncErr.detail || syncErr.code
         });
         // Continue anyway - user can still proceed to dashboard
-        var syncSummary = { imported: 0, skipped: 0 };
+        syncedIntegration = 'Stripe';
+        syncSummary = { imported: 0, skipped: 0 };
       }
     } else {
-      logInfo(MODULE, handler, 'Skipping sync - conditions not met', {
-        isDev,
-        has_account_id: !!company.stripe_account_id,
-        has_key: !!company.stripe_api_key_encrypted,
+      logInfo(MODULE, handler, 'Skipping sync - no billing integration connected', {
+        stripe: stripeConnected,
+        qb: qbConnected,
+        csv: csvConnected,
       });
-      var syncSummary = { imported: 0, skipped: 0 };
+      syncedIntegration = csvConnected ? 'CSV' : '';
     }
 
     // ✅ CRITICAL: Pipeline complete
@@ -536,7 +558,7 @@ export const proceedFromStage4 = async (req: Request, res: Response) => {
       // Don't throw — onboarding is already complete
     }
 
-    return res.json({ success: true, next_stage: 'dashboard', syncSummary });
+    return res.json({ success: true, next_stage: 'dashboard', syncSummary, syncedIntegration });
   } catch (err) {
     logError(MODULE, handler, 'Error proceeding to stage 5', err);
     return res.status(500).json({ error: 'Failed to proceed' });

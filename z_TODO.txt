@@ -1,0 +1,801 @@
+🔥 HYPER-DEPTH ANALYSIS: 3 INTERCONNECTED FLOWS (Complete Strategy)
+Date: 2026-04-21
+
+Status: Final comprehensive architecture + execution plan
+
+Scope: AgentLoop + Notifications + Detail Pages (all interconnected)
+
+EXECUTIVE SUMMARY
+You have 3 interconnected systems that work together to create an autonomous AR recovery agent:
+
+AgentLoop/Dunning — The decision engine (4-gate pipeline with intelligent timing)
+Notification System — User alerts + Activity tab (keeps user informed)
+Detail Pages — Invoice & Customer dashboards (transparency into agent decisions)
+Current State: 24 files staged (2,303 insertions). All 3 systems partially implemented.
+Missing: Full integration + event wiring + detail page redesigns
+
+PART 1: AGENTLOOP/DUNNING FLOW
+What's Currently Staged
+File: backend/src/queue/agentLoop.ts (482 lines, completely rewritten)
+
+The 4-Gate Pipeline (NEW Architecture)
+Gate 1: Prevent Multiple Items Per Invoice
+
+
+Before ANYTHING gets queued:
+  └─ Check: Does this invoice already have pending_approval item?
+  └─ If YES → SKIP (one item at a time)
+Gate 2: Unified Pipeline Timing (Not separate email/SMS logic)
+
+
+Get last sent item (any type) + timestamp
+Calculate gap days based on tier:
+  ├─ Tier 1 (gentle): 7-day gap
+  ├─ Tier 2 (medium): 6-day gap
+  ├─ Tier 3 (urgent): 5-day gap
+  └─ Tier 4 (aggressive): 4-day gap
+
+Is NOW >= (lastSentTime + tierGapDays)?
+  └─ YES → Time for next item
+  └─ NO → Wait longer
+Gate 3: Intelligent SMS Timing (Using Customer History)
+
+
+avgEmailsNeeded = customer.payment_insights.avg_emails_before_payment
+
+Examples:
+  ├─ Fast payer (avg 1.8 emails) → Queue SMS after 2 emails
+  ├─ Normal payer (avg 2.5) → Queue SMS after 3 emails
+  └─ Slow payer (avg 4.2) → Queue SMS after 5 emails
+
+Also: Apply tier adjustments based on customer history
+  ├─ If slowpayer (>2.5 emails avg): Bump tier up (escalate faster)
+  └─ If selfpayer (≤1.2 emails avg): Reduce tier (stay gentle)
+Gate 4: Priority Queue (What to Queue Next)
+
+
+Priority 1: Email (if < 5 sent + time gap met)
+  ├─ Check recent rejection block (7-day block if user rejected)
+  └─ Type: dunning_1, dunning_2, dunning_3, dunning_4, dunning_5
+
+Priority 2: SMS (INTELLIGENT based on history)
+  ├─ Condition: emailsSent >= Math.ceil(avgEmailsNeeded)
+  ├─ Check: Email hard bounced? (escalate immediately)
+  ├─ If SMS available → Queue SMS
+  └─ If NO SMS → Mark as "unreachable" (human action needed)
+
+Priority 3: Voice (Tier 4 + 90+ days) — Commented out, Phase 2
+What's Missing (Critical)
+1. Decision Logging Not Wired to Notifications
+✅ Agent logs decision to agent_decisions table (for learning)
+❌ NOT wired to create notification events (user doesn't see what agent decided)
+Fix Needed: When agent queues email/SMS, call logDailyActionsAvailableNotification() if ≥3 items queued
+2. Hard Bounce Path Not Complete
+✅ Detects hard bounce
+✅ Has logic to queue SMS if available
+✅ Marks as "unreachable" if NO SMS
+❌ Doesn't create notification event when marked unreachable
+Fix Needed: When marking unreachable, create notification: "Customer unreachable - manual follow-up needed"
+3. Payment Insights Not Always Populated
+✅ Data exists in customers.payment_insights (JSONB)
+✅ Calculated on CSV import + Stripe sync
+❌ May be NULL for new customers
+Fix Needed: Check if null → use SMS_MIN_EMAILS_SENT default (which is 2)
+4. Risk Score Tier Adjustment Not Visible
+✅ Tier adjusts based on payment_insights
+✅ Logged to agent_decisions
+❌ User doesn't see WHY tier changed (not in invoice detail)
+Fix Needed: Store tier change reason in metadata for transparency
+What Should Actually Happen (Final Flow)
+The Complete AgentLoop Journey
+
+Every 6 hours (cron job):
+    ↓
+Get unpaid invoices (status != 'paid')
+    ├─ Skip demo company
+    ├─ Skip paused accounts
+    └─ Skip if company is deactivated
+    ↓
+For each invoice:
+    ├─ GATE 1: Already has pending item?
+    │  └─ YES → Skip (next cron)
+    │
+    ├─ GATE 2: Time for next item?
+    │  ├─ Get last sent (any type) + timestamp
+    │  ├─ Calculate tier (risk_score * 0.6 + daysOverdue/90 * 100 * 0.4)
+    │  ├─ Apply dunning tone override (gentle/aggressive)
+    │  ├─ Apply payment_insights adjustment (slow/self-payer)
+    │  └─ Is NOW >= nextEligible? Continue...
+    │
+    ├─ GATE 3: Queue EMAIL or SMS or Voice?
+    │  ├─ Priority 1: Email
+    │  │  ├─ If emailsSent < 5 AND not recently rejected
+    │  │  ├─ Check hard bounce first (if bounced → skip to SMS)
+    │  │  ├─ Generate email (AI-generated via Claude API)
+    │  │  ├─ Queue to pilotQueuedEmails (SHADOW mode)
+    │  │  ├─ Log to agent_decisions
+    │  │  └─ If ≥3 queued → CREATE notification: "Daily actions ready"
+    │  │
+    │  ├─ Priority 2: SMS (INTELLIGENT)
+    │  │  ├─ Only if emailsSent >= Math.ceil(avgEmailsNeeded)
+    │  │  ├─ Only if sms_count = 0 (first SMS)
+    │  │  ├─ Only if phone opted in
+    │  │  ├─ If hard bounce → queue SMS (escalate immediately)
+    │  │  ├─ If NO hard bounce but not opened → queue SMS
+    │  │  ├─ If SMS available → queue SMS (looks smart to user)
+    │  │  ├─ If NO SMS → mark unreachable + CREATE notification
+    │  │  └─ Log to agent_decisions
+    │  │
+    │  └─ Priority 3: Voice (TIER 4 + 90+ days)
+    │     ├─ Check customer phone + opted in
+    │     ├─ Check no recent voice call (24h block)
+    │     ├─ Queue Twilio IVR (Phase 2)
+    │     └─ Log to agent_decisions
+    │
+    ├─ High-Risk Alert (if risk_score ≥75 + ≥30 days overdue)
+    │  └─ Send Slack notification to user
+    │
+    └─ Log decision for learning system (fire-and-forget)
+       └─ Metadata: tier, gap, reason, avgEmailsNeeded, etc
+Key Differences from Current
+Aspect	Was (Before)	Is (Now)	Why
+Email Rules	Separate dunning tree per tier	Unified gap-based pipeline	Simpler, more predictable
+SMS Timing	Hardcoded "5 emails"	Dynamic per customer	Uses real behavior, not guesses
+Hard Bounces	Ignored, email stuck	Two paths: SMS or unreachable	Doesn't leave customer stuck
+Tier Adjustment	Risk score only	Risk + payment_insights	Adapts to customer history
+User Visibility	No transparency	Notifications + agent_decisions	User understands decisions
+Rejection Handling	No block	7-day block	Respects user intent
+PART 2: NOTIFICATION FLOW (Bell + Activity)
+What's Currently Staged
+8 Notification Types (in bell icon):
+
+🔴 STRIPE_NOT_CONNECTED (critical)
+📧 EMAIL_NOT_CONFIGURED (critical)
+⏰ TRIAL_ENDING (critical)
+❌ TRIAL_EXPIRED (critical)
+⏸ AGENT_PAUSED (critical)
+💰 PAYMENT_RECEIVED (warning)
+🚨 EMAIL_BOUNCED (warning)
+✅ DAILY_ACTIONS_READY (warning)
+Files:
+
+notificationEvents.ts — DB layer (CRUD)
+notificationLogger.ts — Event logging helpers
+notificationsController.ts — API endpoints (7 endpoints)
+NotificationCenter.tsx — Bell UI component
+systemHealthService.ts — System health check
+Wiring Locations:
+
+systemHealthService.ts — Stripe/Email checks
+stripeService.ts webhook — Payment received
+emailController.ts webhook — Email bounced
+scheduler.ts cron — Trial ending/expired
+agentLoop.ts — Daily actions ready
+What's Missing (Critical)
+1. Activity Tab Not Connected to Notifications
+✅ Activity.tsx shows pending + sent emails
+❌ Doesn't show SMS, payments, risk changes, agent runs
+❌ No integration with notification_events table
+Fix Needed: Activity should show activity_events table (separate from notifications, but related)
+2. No Activity Events Table
+❌ No activity_events table created yet
+❌ No way to log "SMS sent", "Payment detected", "Risk changed", etc
+Fix Needed: Create activity_events table + wiring
+3. Notification Preferences Not Used
+✅ NotificationPreferences table exists
+✅ UI allows user to set preferences
+❌ System doesn't CHECK preferences before sending
+Fix Needed: Phase 3 (email digests need this)
+4. Activity Tab Section 3 (Sent & Tracked) Missing SMS
+✅ Shows email logs
+❌ Doesn't show SMS logs
+Fix Needed: Merge email_logs + sms_logs in Activity
+5. No Event Metadata for Context
+✅ Notifications created with metadata field
+❌ Metadata not always filled (customer_id, amount, etc)
+Fix Needed: Always populate metadata for filtering + linking
+What Should Actually Happen (Final Flow)
+The Complete Notification Architecture
+
+┌─────────────────────────────────────────────────────────────┐
+│                    NOTIFICATION SYSTEM                       │
+└─────────────────────────────────────────────────────────────┘
+
+NOTIFICATIONS BELL (actionable alerts, unread count)
+    ├─ 8 critical events only (stop-the-show items)
+    ├─ User sees unread count (0 = no badge)
+    ├─ Click bell → popover with last 7 days
+    ├─ Click event → auto-navigate + mark as read
+    ├─ Hover → dismiss button (soft delete)
+    └─ Footer: "View All Activity" + "Preferences"
+
+ACTIVITY TAB (operational history, permanent record)
+    ├─ Section 1: PENDING APPROVAL (pilotQueuedEmails)
+    │  ├─ Emails waiting for user approval
+    │  ├─ Bulk actions: approve all/selected, reject
+    │  ├─ Edit subject/body before approval
+    │  └─ Preview email
+    │
+    ├─ Section 2: REJECTED (7-day block)
+    │  ├─ Rejected emails
+    │  ├─ Move back to pending
+    │  └─ Force approve now
+    │
+    ├─ Section 3: SENT & TRACKED (email_logs)
+    │  ├─ Subject, recipient, status, date
+    │  ├─ Status: sent, delivered, opened, clicked, bounced, failed
+    │  ├─ Filters: by status, customer email, days overdue
+    │  └─ Actions: Preview, resend (if failed)
+    │
+    ├─ Section 4: SMS ACTIVITY (sms_logs) — NEW
+    │  ├─ SMS sent, delivery status, date
+    │  ├─ Status: queued, sent, delivered, failed
+    │  └─ Actions: Preview, resend
+    │
+    ├─ Section 5: PAYMENTS (payment_logs) — NEW
+    │  ├─ Payment date, amount, invoice
+    │  └─ Actions: View invoice
+    │
+    ├─ Section 6: AGENT RUNS (agent_decisions) — NEW
+    │  ├─ When agent ran, what it decided
+    │  ├─ How many emails queued, SMSs sent, etc
+    │  └─ Decisions: email_queued, sms_queued, unreachable, etc
+    │
+    └─ GLOBAL FILTERS (across all sections)
+       ├─ By type (emails, SMS, payments, agent runs)
+       ├─ By customer
+       ├─ By date range
+       └─ Search
+
+SETTINGS → NOTIFICATION PREFERENCES (Phase 3)
+    ├─ Daily actions: on/off + time
+    ├─ Payment alerts: on/off + email
+    ├─ Weekly digest: on/off + day/time
+    ├─ Monthly report: on/off
+    └─ Quiet hours: on/off + start/end
+Event Routing Rules (What Goes Where)
+Event	Notification Bell	Activity Tab	Why
+Email sent	❌	✅ Email section	Historical reference, not urgent
+Email delivered	❌	✅ Email section	FYI, already sent
+Email opened	❌	✅ Email section	Engagement metric, not actionable
+Email bounced	✅	✅ Email section	PROBLEM: needs fix + historical
+SMS queued	❌	✅ SMS section	Historical, already decided
+SMS sent	❌	✅ SMS section	FYI, already sent
+SMS delivered	❌	✅ SMS section	FYI, already sent
+SMS failed	✅	✅ SMS section	PROBLEM: needs retry
+Payment detected	✅	✅ Payments section	GOOD NEWS + historical
+Payment partial	❌	✅ Payments section	Informational only
+Invoice marked paid	❌	✅ Payments section	Success, but already paid
+Agent run started	❌	✅ Agent Runs section	FYI, not urgent
+Agent run completed	❌	✅ Agent Runs section	FYI, not urgent
+Daily actions ready	✅	❌	USER ACTION NEEDED (approval)
+Stripe disconnected	✅	❌	CRITICAL: agent paused
+Email not configured	✅	❌	CRITICAL: agent paused
+Trial ending (3d)	✅	❌	CRITICAL: payment needed
+Trial expired	✅	❌	CRITICAL: payment required
+Agent paused	✅	❌	CRITICAL: needs investigation
+Risk score spiked	✅	✅	WARNING: dangerous situation
+Backend Changes Needed
+New Tables:
+
+activity_events (similar to notification_events, but permanent)
+id, company_id, event_type, title, message, icon, metadata, created_at
+No read_at field (always visible)
+No dismiss (permanent record)
+Indexes: company_id, event_type, created_at
+New Event Loggers (in notificationLogger.ts):
+
+
+logEmailSentNotification()      // Activity only
+logSmsSentNotification()        // Activity only
+logPaymentDetectedNotification()// Bell + Activity
+logAgentRunCompletedNotification() // Activity only
+logRiskScoreChangedNotification() // Activity only
+logUnreachableNotification()     // Bell (critical)
+Activity Events to Wire (12+ locations):
+
+Email sent → emailService.ts
+Email delivered → webhook handler
+Email opened → webhook handler
+Email clicked → webhook handler
+Email bounced → emailController.ts webhook (also notification)
+SMS sent → smsService.ts
+SMS delivered → Twilio webhook
+SMS failed → Twilio webhook
+Payment detected → stripeService.ts
+Payment partial → stripeService.ts
+Invoice marked paid → invoiceService.ts
+Agent run completed → agentLoop.ts
+Risk score changed → riskScoringService.ts
+Dunning stage changed → invoiceService.ts
+Customer marked unreachable → agentLoop.ts (also notification)
+Frontend Changes:
+
+Activity.tsx: Add 4 new sections (SMS, Payments, Agent Runs, Risk Changes)
+Implement section tabs or collapsed sections
+Add global filters (type, customer, date, search)
+Show metadata context (customer name, amount, reason, etc)
+PART 3: DETAIL PAGES (Invoice + Customer)
+What's Currently Missing (Nothing Staged Yet)
+Invoice Detail Page (CURRENT - Tab Based)
+File: frontend/src/pages/InvoiceDetail.tsx (still 4 tabs)
+
+
+Tab Navigation (Details | Payments | Emails | Dunning)
+├─ Details: KPI cards + basic fields
+├─ Payments: Payment history
+├─ Emails: Email log
+└─ Dunning: Status controls
+Problems:
+
+❌ No timeline (events scattered as table rows)
+❌ No "next step" prominence
+❌ No agent decision transparency
+❌ User must click 4+ times to understand status
+❌ No SMS logs shown
+❌ No context about why decisions were made
+Customer Detail Page (CURRENT - Tab Based)
+File: frontend/src/pages/CustomerDetail.tsx (still 3 tabs)
+
+
+Tab Navigation (Overview | Invoices | Emails)
+├─ Overview: KPI cards + profile
+├─ Invoices: List of customer invoices
+└─ Emails: Email log
+Problems:
+
+❌ No risk breakdown (why is customer risky?)
+❌ No payment patterns (are they paying late?)
+❌ No communication health (can we reach them?)
+❌ No trend analysis (getting better/worse?)
+❌ Profile-first design (should be AR-first)
+❌ No agent activity visible
+What Should Actually Happen (Final Design)
+Invoice Detail — Single-Page Dashboard (NEW)
+
+InvoiceDetail.tsx (single scroll, no tabs)
+    ↓
+[STICKY HEADER] — Always visible while scrolling
+    ├─ Amount | Status | Days Overdue | Risk Score (color-coded)
+    ├─ Quick actions: [Send Email] [Send SMS] [Pause] [Mark Paid]
+    └─ Invoice ID + Customer name
+    ↓
+[TIMELINE SECTION] — Hero section showing recovery journey
+    ├─ Visual timeline (vertical, left-aligned)
+    │  ├─ Event 1: Email #1 sent (2026-04-10, 10:30am) — sent icon
+    │  ├─ Event 2: Email #1 opened (2026-04-10, 2:15pm) — eye icon
+    │  ├─ Event 3: Email #2 sent (2026-04-17, 9:00am) — sent icon
+    │  ├─ Event 4: Email #2 bounced (2026-04-17, 10:30am) — red X icon
+    │  ├─ Event 5: SMS queued (2026-04-20, 6:00am) — SMS icon (pending approval)
+    │  └─ Event 6: NEXT → SMS eligible (2026-04-23) — next arrow icon (scheduled)
+    └─ Colors: Green (success), Orange (pending), Red (failed/bounced)
+    ↓
+[NEXT STEP SECTION] — Prominent "what happens next"
+    ├─ Current status: "Waiting for SMS approval"
+    ├─ Last action: "Email #2 bounced (hard failure) on 2026-04-17"
+    ├─ Next action: "SMS will be sent 2026-04-23 (in 2 days)"
+    ├─ Reason: "Email hard bounced, escalating to SMS (customer avg 2.3 emails before pays)"
+    └─ Agent decision transparency (why SMS? why not voice? etc)
+    ↓
+[INVOICE DETAILS GRID] — Compact key info
+    ├─ Due Date | Customer | Dunning Stage | Tier | Risk Score
+    ├─ 2x2 or 2x3 grid layout
+    └─ Click any → navigate to detail (e.g., click Customer → Customer detail page)
+    ↓
+[AGENT ACTIONS SECTION] — Controls + history
+    ├─ Last 3 decisions logged:
+    │  ├─ 2026-04-20 06:00 → SMS queued (avg_emails_before_payment: 2.3)
+    │  ├─ 2026-04-17 10:30 → Email bounced (hard), escalating path
+    │  └─ 2026-04-10 10:30 → Email #1 sent (Tier 1, 7-day gap)
+    └─ Override controls:
+       ├─ [Pause dunning] — Stop all escalations (user reason required)
+       ├─ [Force SMS now] — Don't wait, send immediately
+       ├─ [Mark paid] — Mark invoice as paid
+       └─ [Delete] — Remove from system
+    ↓
+[COMMUNICATION LOG] — Collapsed by default, expandable
+    ├─ Tab 1: EMAIL LOG (merged from email_logs)
+    │  ├─ Subject, recipient, status, sent date, opened date
+    │  ├─ Click → preview email content
+    │  └─ Filter by status (sent/opened/bounced/failed)
+    │
+    ├─ Tab 2: SMS LOG (merged from sms_logs)
+    │  ├─ Message, phone, status, sent date, delivery date
+    │  ├─ Click → preview SMS
+    │  └─ Filter by status
+    │
+    └─ Tab 3: PAYMENTS (merged from payment_logs)
+       ├─ Date, amount, reference
+       └─ Links to full payment details
+    ↓
+[PAYMENT TRACKING SECTION]
+    ├─ Last payment: 2026-03-15, €5,000
+    ├─ Days to pay historically: 18 days (customer avg)
+    └─ Reliability: 90% (paid on time 9/10 times)
+    ↓
+[CUSTOMER CONTEXT CARD] — Mini customer snapshot
+    ├─ Company name | Total AR | Overall risk | Invoices
+    ├─ Payment velocity | Communication status
+    └─ [View full customer →] (link to Customer detail page)
+Frontend Components to Create:
+
+InvoiceHeader.tsx (sticky, 4 KPIs)
+InvoiceTimeline.tsx (visual timeline)
+TimelineEvent.tsx (single event)
+InvoiceDetailsGrid.tsx (2x3 grid)
+AgentActionsSection.tsx (decisions + controls)
+CommunicationLog.tsx (email + SMS + payments merged, tabbed)
+PaymentTrackingSection.tsx (insights)
+CustomerContextCard.tsx (mini snapshot)
+Backend Changes Needed:
+
+
+GET /api/invoices/:id/detail returns:
+{
+  invoice: Invoice
+  payments: Payment[]
+  emailLogs: EmailLog[]
+  smsLogs: SMSLog[]              // NEW
+  dunningStatus: DunningStatus
+  riskFactors: RiskFactor[]      // NEW (breakdown of why risky)
+  timelineEvents: TimelineEvent[] // NEW (merged email + SMS + payments)
+  customerInsights: {            // NEW
+    avg_days_to_pay: number
+    reliability_pct: number
+    dso_trend: number
+  }
+  lastDecisions: AgentDecision[] // NEW (last 3 decisions logged)
+}
+Customer Detail — Single-Page Dashboard (NEW)
+
+CustomerDetail.tsx (single scroll, no tabs)
+    ↓
+[STICKY HEADER] — Always visible
+    ├─ Company name | Total AR | Risk score (big number, color-coded)
+    ├─ Quick actions: [Export] [Notes] [Pause dunning] [Delete]
+    └─ Secondary info: Contact person, email, phone
+    ↓
+[AR OVERVIEW GRID] — 6-card grid showing financial health
+    ├─ Card 1: Total AR (€45,230) — total unpaid
+    ├─ Card 2: Overdue AR (€12,500) — over 30 days
+    ├─ Card 3: Payment rate (85%) — % paid on time
+    ├─ Card 4: Days to pay (18 days) — historical average
+    ├─ Card 5: Invoice count (12 total) — active + closed
+    └─ Card 6: Risk trend (↗️ Getting worse) — current vs 30 days ago
+    ↓
+[RISK ASSESSMENT SECTION] — Breakdown of WHY risky
+    ├─ Risk score: 52/100 (MEDIUM) — color-coded badge
+    ├─ Risk factors (array with icons):
+    │  ├─ 🔴 Invoice #5 overdue 35 days (high severity)
+    │  ├─ 🟡 Payment velocity declining (-10 days vs last period)
+    │  ├─ 🟡 Email delivery issues (2 hard bounces)
+    │  └─ 🟢 Overall reliability: 85% (paying eventually)
+    │
+    ├─ Trend indicator:
+    │  └─ Was 45/100 (30d ago) → Now 52/100 (↗️ up 7 points, getting worse)
+    │
+    └─ Summary: "Customer at medium risk. Payment velocity declining + communication issues detected."
+    ↓
+[COMMUNICATION HEALTH] — Can we reach them?
+    ├─ Email status: ✅ Working (delivers, no bounces)
+    ├─ SMS status: ✅ Opted in (phone on file: +1-555-9012)
+    ├─ Phone: +1-555-9012 [Edit]
+    ├─ Last contact: 2026-04-15 (via email)
+    └─ Recommendation: "Customer responsive, try SMS for faster response"
+    ↓
+[CONTACT INFORMATION] — Compact, editable
+    ├─ Company: ACME Corp [Edit]
+    ├─ Contact person: John Smith
+    ├─ Email: john@acme.com [Edit]
+    ├─ Phone: +1-555-9012 [Edit]
+    └─ [Manage contact]
+    ↓
+[ACTIVE INVOICES TABLE] — Current unpaid invoices
+    ├─ Columns: Invoice # | Amount | Due date | Days overdue | Status
+    ├─ Row 1: INV-2026-001 | €5,230 | 2026-04-01 | 20d | Dunning #2 sent
+    ├─ Row 2: INV-2026-002 | €3,100 | 2026-04-15 | 6d | Dunning #1 sent
+    ├─ Row 3: INV-2026-003 | €4,400 | 2026-05-01 | -10d | Not yet due
+    ├─ Sorting: by days_overdue DESC
+    ├─ Click row → go to Invoice detail page
+    └─ [View all invoices] (link to Invoices page with filter)
+    ↓
+[PAYMENT TIMELINE] — Last 6 months payment history
+    ├─ Visual timeline (horizontal bars or monthly summary)
+    │  ├─ March 2026: 2 payments, avg 14 days late
+    │  ├─ February 2026: 3 payments, avg 8 days late
+    │  └─ January 2026: 2 payments, avg 3 days late
+    │
+    ├─ Trend analysis:
+    │  └─ "Payment velocity DECLINING: 3d → 8d → 14d (getting slower)"
+    │
+    └─ Prediction: "Next invoice expected around 2026-04-28 (based on cycle)"
+    ↓
+[AGENT ACTIVITY SUMMARY] — What has the agent done?
+    ├─ Last 30 days:
+    │  ├─ Emails sent: 5 (open rate: 60%)
+    │  ├─ SMS sent: 1 (delivery: success)
+    │  ├─ Emails opened: 3
+    │  └─ Last action: Email #2 sent 2026-04-17
+    │
+    └─ [View full activity →] (link to Activity tab filtered by customer)
+    ↓
+[PAYMENT HISTORY TABLE] — Detailed past payments
+    ├─ Columns: Date | Invoice # | Amount | Days after due | Status
+    ├─ Sortable, filterable
+    └─ [Export CSV]
+Frontend Components to Create:
+
+CustomerHeader.tsx (sticky, company + AR + risk)
+AROverviewGrid.tsx (6-card grid)
+RiskAssessment.tsx (score + factors + trend)
+RiskFactor.tsx (single factor item)
+CommunicationHealth.tsx (email/SMS status)
+ContactInformation.tsx (compact card)
+ActiveInvoicesTable.tsx (unpaid invoices list)
+PaymentTimeline.tsx (last 6 months)
+AgentActivitySummary.tsx (activity metrics)
+PaymentHistoryTable.tsx (detailed payments)
+Backend Changes Needed:
+
+
+GET /api/customers/:id returns:
+{
+  customer: Customer
+  stats: {
+    total_invoices: number
+    paid_count: number
+    unpaid_count: number
+    total_ar: number
+    overdue_ar: number        // NEW
+    payment_rate: number      // NEW (%)
+  }
+  paymentInsights: {          // NEW
+    avg_days_to_pay: number
+    dso_trend: number (prev vs current)
+    reliability_pct: number
+    avg_emails_before_payment: number
+  }
+  riskFactors: RiskFactor[]   // NEW (breakdown)
+  riskTrend: {               // NEW
+    current: number
+    previous: number
+    direction: 'up' | 'down' | 'stable'
+  }
+  communicationHealth: {      // NEW
+    email_status: 'working' | 'bouncing'
+    sms_opted_in: boolean
+    phone: string | null
+    last_contact_date: string
+  }
+  paymentHistory: {           // NEW (last 6 months)
+    date: string
+    amount: number
+    days_after_invoice: number
+  }[]
+  agentActivity: {            // NEW
+    emails_sent_30d: number
+    sms_sent_30d: number
+    emails_opened: number
+    last_action_date: string
+  }
+  activeInvoices: Invoice[]   // Enhanced (instead of all)
+}
+PART 4: INTERCONNECTION ARCHITECTURE
+How All 3 Systems Connect
+
+┌──────────────────────────────────────────────────────────────────┐
+│                    AUTONOMOUS AR AGENT                           │
+├──────────────────────────────────────────────────────────────────┤
+
+AGENTLOOP (Every 6 hours)
+    ├─ Runs decision engine (4-gate pipeline)
+    ├─ Queues emails/SMS to pilotQueuedEmails
+    ├─ Logs decisions to agent_decisions (learning)
+    ├─ IF ≥3 emails queued → CREATE notification: "Daily actions ready"
+    ├─ IF unreachable → CREATE notification: "Manual follow-up needed"
+    ├─ IF hard bounce detected → Log activity event: "Email bounced"
+    └─ Populated: payment_insights, risk_score, dunning_stage → for detail pages
+
+STRIPE WEBHOOK (When payment detected)
+    ├─ Update invoice.status = 'paid'
+    ├─ CREATE notification: "💰 Payment received from ACME"
+    ├─ Log activity event: "Payment detected (€5K)"
+    ├─ Update customer.payment_insights (reliability %, DSO)
+    └─ Trigger: detail pages show updated status immediately
+
+RESEND WEBHOOK (When email bounces)
+    ├─ Update email_logs.status = 'bounced'
+    ├─ CREATE notification: "🚨 Email bounced to john@acme.com"
+    ├─ Log activity event: "Email bounced (hard failure)"
+    ├─ Trigger: agentLoop next run → SMS escalation OR unreachable
+    └─ Update: detail pages show bounced badge
+
+ACTIVITY TAB (User reviews)
+    ├─ See all events: emails, SMS, payments, agent decisions
+    ├─ Approve/reject emails (SHADOW mode)
+    ├─ When approved → Email sent via Resend
+    ├─ When rejected → 7-day block, log to agent_decisions
+    └─ Resend webhook → notification created
+
+INVOICE DETAIL PAGE (User clicks)
+    ├─ Shows sticky header with current status
+    ├─ Timeline shows: email sent → opened/bounced → SMS queued
+    ├─ Next step shows: what happens next (with reason)
+    ├─ Agent actions show: last 3 decisions + why
+    ├─ Communication log shows: merged email + SMS + payments
+    ├─ Customer context card links to → Customer detail page
+    └─ All data from: agentLoop decisions + email_logs + sms_logs + agent_decisions
+
+CUSTOMER DETAIL PAGE (User clicks)
+    ├─ AR overview shows: total AR, overdue AR, payment rate
+    ├─ Risk assessment shows: WHY is customer risky (breakdown)
+    ├─ Communication health shows: can we reach them?
+    ├─ Active invoices table links to → Invoice detail pages
+    ├─ Payment timeline shows: 6-month history (getting faster/slower?)
+    ├─ Agent activity shows: what agent did last 30 days
+    └─ All data from: customers table + payment_insights + agent_decisions + email_logs
+
+NOTIFICATIONS BELL (Always visible)
+    ├─ Shows unread count (0 = no badge)
+    ├─ Click bell → popover with last 7 days
+    ├─ 8 critical events only (actionable, not FYI)
+    ├─ Color-coded: 🔴 critical, 🟠 warning, 🔵 info
+    ├─ Click event → auto-navigate to detail page + mark as read
+    └─ Example: Click "Daily actions ready" → Go to Activity tab
+
+DATA FLOW SUMMARY:
+    Stripe → Invoice paid
+        ↓
+    Notification: "💰 Payment received"
+        ↓
+    Activity event: "Payment detected"
+        ↓
+    Detail page: Shows green badge "Paid"
+        ↓
+    Customer page: AR goes down, payment rate updates
+
+    AgentLoop queues email
+        ↓
+    Activity event: "Email #1 queued"
+        ↓
+    Notification: "Daily actions ready" (if ≥3)
+        ↓
+    User approves in Activity tab
+        ↓
+    Email sent via Resend
+        ↓
+    Resend webhook: "Email sent"
+        ↓
+    Activity event: "Email sent"
+        ↓
+    Detail page: Timeline updates
+        ↓
+    If bounced: Notification "Email bounced" + SMS escalation
+PART 5: MISSING PIECES (CRITICAL)
+What's NOT Staged Yet (Do These)
+1. Activity Events Table + Wiring (12-15 hours)
+
+Files to create/modify:
+- backend/schema.sql: Add activity_events table
+- backend/src/db/activityEvents.ts: NEW (CRUD functions)
+- backend/src/utils/activityLogger.ts: NEW (event loggers)
+- Modify: emailService.ts, smsService.ts, stripeService.ts, agentLoop.ts
+  (to log activity events at each point)
+
+Time: 3-4 hours DB + 2-3 hours wiring = 5-7 hours
+2. Invoice Detail Redesign (6-8 hours)
+
+Files to create/modify:
+- frontend/src/pages/InvoiceDetail.tsx: REWRITE (remove tabs, flatten)
+- frontend/src/components/invoice/*: CREATE 8 new components
+- backend/src/controllers/invoiceController.ts: Enhance getInvoiceDetail()
+  (add smsLogs, timelineEvents, riskFactors, customerInsights, lastDecisions)
+
+Time: 2-3 hours backend + 3-4 hours frontend = 5-7 hours
+3. Customer Detail Redesign (8-10 hours)
+
+Files to create/modify:
+- frontend/src/pages/CustomerDetail.tsx: REWRITE (remove tabs, flatten)
+- frontend/src/components/customer/*: CREATE 10 new components
+- backend/src/controllers/customerController.ts: Enhance getCustomerDetail()
+  (add payment_insights, riskFactors, riskTrend, communicationHealth,
+   paymentHistory, agentActivity, activeInvoices)
+
+Time: 3-4 hours backend + 4-5 hours frontend = 7-9 hours
+4. Event Wiring in AgentLoop (2-3 hours)
+
+In agentLoop.ts, add calls:
+- When email queued: logActivityEvent('email_queued', ...)
+- When SMS queued: logActivityEvent('sms_queued', ...)
+- When marked unreachable: 
+  logActivityEvent('customer_unreachable', ...)
+  logUnreachableNotification(...)
+- When ≥3 emails queued:
+  logDailyActionsAvailableNotification(...)
+
+Time: 1-2 hours
+5. Event Wiring in Webhooks (2-3 hours)
+
+In stripeService.ts webhook:
+- logPaymentReceivedNotification()
+- logActivityEvent('payment_detected', ...)
+- Update customer.payment_insights
+
+In emailController.ts webhook:
+- logEmailBouncedNotification()
+- logActivityEvent('email_bounced', ...)
+
+In smsService.ts:
+- logActivityEvent('sms_sent', ...)
+
+Time: 1-2 hours
+PART 6: FINAL EXECUTION ROADMAP
+Phase 1: Core Wiring (This Week - 8-10 hours)
+Create activity_events table (1 hour)
+Implement activityLogger.ts (1.5 hours)
+Wire 12+ activity events (3-4 hours)
+Wire 2 unreachable paths in agentLoop (1-2 hours)
+Test end-to-end (1-2 hours)
+Deliverable: Full event logging system active, Activity tab shows SMS/payments/agent runs
+
+Phase 2: Invoice Detail Redesign (Week 1-2 - 6-8 hours)
+Enhance backend getInvoiceDetail() (1.5 hours)
+Create 8 Invoice components (2.5 hours)
+Rewrite InvoiceDetail.tsx (1.5 hours)
+Test + polish (1.5 hours)
+Deliverable: Invoice detail shows timeline, next step, agent decisions transparently
+
+Phase 3: Customer Detail Redesign (Week 2-3 - 8-10 hours)
+Enhance backend getCustomerDetail() (2 hours)
+Create 10 Customer components (3 hours)
+Rewrite CustomerDetail.tsx (2 hours)
+Test + polish (1.5 hours)
+Deliverable: Customer detail shows AR health, risk breakdown, payment patterns, agent activity
+
+Phase 4: Polish + Testing (Week 3-4 - 2-3 hours)
+Verify all 3 systems interconnected
+Test notification → detail page flow
+Test detail page → Activity tab flow
+Performance optimization (if needed)
+Deliverable: Production-ready, all systems working together
+
+PART 7: SUMMARY TABLE
+System	Current	Should Be	Files	Hours	Priority
+AgentLoop	✅ 4-gate pipeline staged	✅ Done	agentLoop.ts	0	✅ Deploy
+Notifications Bell	✅ 8 events staged	✅ Done	5 files	0	✅ Deploy
+Activity Events	❌ Not started	⚠️ Critical	3 new files	5-7	🔴 Do First
+Activity Tab	⚠️ Emails only	✅ Full history	Activity.tsx	3-4	🔴 Do First
+Invoice Detail	❌ Still tabbed	✅ Timeline + next step	8 new files	5-7	🟡 Do Second
+Customer Detail	❌ Still tabbed	✅ AR health + risk	10 new files	7-9	🟡 Do Second
+Event Wiring	⚠️ Partial	✅ Complete	5 modified files	3-4	🔴 Do First
+PART 8: DESIGN PRINCIPLES
+Throughout All 3 Systems
+Transparency: User always knows WHY agent made a decision
+
+Show decision reason in notifications
+Show decision log in detail pages
+Show agent metadata (tier, gap, avgEmailsNeeded, etc)
+Single Source of Truth: All events logged to activity_events or notification_events
+
+Activity shows operational history
+Notifications show actionable alerts
+Detail pages show context from both
+User Action First: Notifications only for things user must DO or DECIDE
+
+Approve emails (SHADOW mode)
+Upgrade trial (payment needed)
+Fix Stripe/Email (system broken)
+Review payments (good news!)
+Fix unreachable (customer action needed)
+Exploration Enabled: Detail pages let user drill down
+
+Invoice → click customer → Customer detail
+Customer → click invoice → Invoice detail
+Activity → click event → navigate to relevant detail page
+Real Data Always: All insights use actual historical data
+
+SMS timing from avg_emails_before_payment
+Risk from 7 signals
+Payment velocity from 6-month history
+Communication health from recent email/SMS status
+Ready to build?

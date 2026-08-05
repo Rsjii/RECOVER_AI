@@ -7,6 +7,8 @@ import { sendErrorResponse, parseError } from '../utils/errorHandler';
 import { getAtRiskCustomers } from '../services/riskScoringService';
 import { getVoiceCallStats, getRecentVoiceCalls } from '../services/twilioService';
 import { getCashPosition, updateCashBalance, calculateWhatIf, calculateRunway, getCashLeakage, getEnhancedCashForecast } from '../services/cashPositionService';
+import { checkAndNotifySystemHealth } from '../services/systemHealthService';
+import { clearOldNotifications } from '../db/notificationEvents';
 import type { WhatIfScenario } from '../services/cashPositionService';
 
 const LOG_MODULE = 'dashboardController';
@@ -21,6 +23,17 @@ export const getStats = async (req: Request, res: Response): Promise<void> => {
 
   try {
     const startedAt = Date.now();
+
+    // Check system health and log alerts if needed (non-blocking, run in background)
+    checkAndNotifySystemHealth(companyId).catch((err) => {
+      logError(LOG_MODULE, handler, 'System health check failed (non-blocking)', err);
+    });
+
+    // Clean up old notifications (non-blocking, run in background)
+    clearOldNotifications(companyId).catch((err) => {
+      logError(LOG_MODULE, handler, 'Notification cleanup failed (non-blocking)', err);
+    });
+
     const stats = await getRecoveryStats(companyId);
     logInfo(LOG_MODULE, handler, 'Stats fetched', { elapsedMs: Date.now() - startedAt });
     res.status(200).json({ data: stats });
@@ -44,6 +57,34 @@ export const getPipeline = async (req: Request, res: Response): Promise<void> =>
     res.status(200).json({ data: pipeline });
   } catch (error) {
     logError(LOG_MODULE, handler, 'Failed to get pipeline', error);
+    const { statusCode, message } = parseError(error);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
+
+/**
+ * GET /api/dashboard/core-stats
+ * Batches stats, pipeline, and aging into single endpoint (performance optimization)
+ * Returns: { stats, pipeline, aging }
+ */
+export const getCoreStats = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'getCoreStats';
+  const companyId = (req as any).companyId;
+
+  try {
+    const startedAt = Date.now();
+
+    // Fetch all 3 in parallel
+    const [stats, pipeline, aging] = await Promise.all([
+      getRecoveryStats(companyId),
+      getInvoicePipeline(companyId),
+      getAgingAnalysis(companyId),
+    ]);
+
+    logInfo(LOG_MODULE, handler, 'Core stats fetched', { elapsedMs: Date.now() - startedAt });
+    res.status(200).json({ data: { stats, pipeline, aging } });
+  } catch (error) {
+    logError(LOG_MODULE, handler, 'Failed to get core stats', error);
     const { statusCode, message } = parseError(error);
     sendErrorResponse(res, statusCode, message);
   }

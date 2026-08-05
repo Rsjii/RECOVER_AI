@@ -1,142 +1,176 @@
 import React, { useState, useEffect } from 'react';
-import { Button } from '../ui/Button';
 import { useNotification } from '../../hooks/useNotification';
+import { api } from '../../lib/api';
 
-interface NotificationPreferences {
-  email_payment_received?: boolean;
-  email_invoice_overdue?: boolean;
-  email_agent_action?: boolean;
-  email_weekly_summary?: boolean;
-  slack_payment_received?: boolean;
-  slack_invoice_overdue?: boolean;
-  slack_agent_action?: boolean;
+interface NotificationPrefs {
+  // P1 User-Customizable Notification Preferences
+  notify_contact_invalid: boolean;       // Email hard bounce or SMS hard fail
+  notify_payment_received: boolean;
+  notify_emails_pending: boolean;
+  // System alerts & trial ending are ALWAYS ON (not customizable)
 }
 
-interface NotificationsSectionProps {
-  slackConnected?: boolean;
-  onUpdated?: () => void;
-}
-
-export const NotificationsSection: React.FC<NotificationsSectionProps> = ({ slackConnected = false, onUpdated }) => {
+export const NotificationsSection: React.FC = () => {
   const { addToast } = useNotification();
-  const [loading, setLoading] = useState(false);
-  const [prefs, setPrefs] = useState<NotificationPreferences>({
-    email_payment_received: true,
-    email_invoice_overdue: true,
-    email_agent_action: true,
-    email_weekly_summary: false,
-    slack_payment_received: false,
-    slack_invoice_overdue: false,
-    slack_agent_action: false,
-  });
+  const [prefs, setPrefs] = useState<NotificationPrefs | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [testingNotification, setTestingNotification] = useState(false);
 
+  // Load preferences on mount
   useEffect(() => {
-    // Load from localStorage or API in future
-    const stored = localStorage.getItem('notificationPrefs');
-    if (stored) {
+    const loadPreferences = async () => {
       try {
-        setPrefs(JSON.parse(stored));
-      } catch {}
-    }
-  }, []);
+        setLoading(true);
+        const response = await api.get('/api/settings/notifications');
+        setPrefs(response.data);
+      } catch (err: any) {
+        console.error('Failed to load preferences:', err);
+        addToast({ type: 'error', message: 'Failed to load preferences' });
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const handleToggle = (key: keyof NotificationPreferences) => {
-    setPrefs(prev => ({ ...prev, [key]: !prev[key] }));
-  };
+    loadPreferences();
+  }, [addToast]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
+  const handleSave = async () => {
+    if (!prefs) return;
+
+    setSaving(true);
     try {
-      // Save to API endpoint (will be added to backend)
-      localStorage.setItem('notificationPrefs', JSON.stringify(prefs));
-      addToast({ type: 'success', message: 'Notification preferences saved' });
-      onUpdated?.();
+      const response = await api.patch('/api/settings/notifications', prefs);
+      setPrefs(response.data);
+      addToast({ type: 'success', message: 'Notification preferences saved!' });
     } catch (err: any) {
+      console.error('Failed to save preferences:', err);
       addToast({ type: 'error', message: 'Failed to save preferences' });
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
+  const handleToggle = (key: keyof NotificationPrefs) => {
+    if (!prefs) return;
+    setPrefs(prev => prev ? { ...prev, [key]: !prev[key] } : null);
+  };
+
+  const handleTestNotification = async () => {
+    setTestingNotification(true);
+    try {
+      await api.post('/api/notifications/test');
+      addToast({ type: 'success', message: 'Test notification sent! Check the bell icon.' });
+    } catch (err: any) {
+      console.error('Failed to send test notification:', err);
+      addToast({ type: 'error', message: 'Failed to send test notification' });
+    } finally {
+      setTestingNotification(false);
+    }
+  };
+
+  if (loading || !prefs) {
+    return (
+      <div className="space-y-8 animate-pulse">
+        <div className="h-8 bg-gray-200 dark:bg-white/[0.08] rounded w-1/3" />
+        <div className="space-y-4">
+          {[...Array(5)].map((_, i) => (
+            <div key={i} className="h-16 bg-gray-200 dark:bg-white/[0.08] rounded" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="bg-white dark:bg-[#111113] rounded-xl border border-gray-200 dark:border-white/[0.06] p-6">
-      <div className="mb-6">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Notifications</h2>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Choose how you want to receive updates</p>
+    <div className="space-y-8">
+      <div>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+          Notification Preferences
+        </h3>
+        <p className="text-sm text-gray-600 dark:text-gray-400">
+          Control what notifications you receive and how often
+        </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Email Notifications */}
-        <div>
-          <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">Email notifications</h3>
-          <div className="space-y-3">
-            {[
-              { key: 'email_payment_received', label: 'Payment received', desc: 'When a customer pays an invoice' },
-              { key: 'email_invoice_overdue', label: 'Invoice overdue alert', desc: 'When invoices reach overdue thresholds' },
-              { key: 'email_agent_action', label: 'Agent actions', desc: 'When RecoverAI sends emails' },  // ❌ DISABLED: PHASE 2 - "or offers payment plans"
-              { key: 'email_weekly_summary', label: 'Weekly summary', desc: 'Every Monday at 9am with recovery stats' },
-            ].map(({ key, label, desc }) => (
-              <label key={key} className="flex items-start gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={prefs[key as keyof NotificationPreferences] || false}
-                  onChange={() => handleToggle(key as keyof NotificationPreferences)}
-                  className="w-5 h-5 mt-0.5 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
-                />
-                <div>
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">{label}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{desc}</p>
-                </div>
-              </label>
-            ))}
+      {/* Contact Info Issues (Email + SMS) */}
+      <div className="border border-gray-200 dark:border-white/[0.08] rounded-xl p-6">
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <h4 className="font-semibold text-gray-900 dark:text-white">📧📱 Invalid Contact Info</h4>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+              Notify when email bounces or SMS fails due to invalid address/phone number (requires contact update)
+            </p>
           </div>
+          <label className="flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              checked={prefs.notify_contact_invalid}
+              onChange={() => handleToggle('notify_contact_invalid')}
+              className="w-5 h-5 rounded border-gray-300 text-blue-600 cursor-pointer"
+            />
+          </label>
         </div>
+      </div>
 
-        {/* Slack Notifications */}
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-medium text-gray-900 dark:text-white">Slack notifications</h3>
-            {!slackConnected && (
-              <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-white/[0.06] px-2 py-1 rounded">
-                Configure Slack integration first
-              </span>
-            )}
+      {/* Payment Received */}
+      <div className="border border-gray-200 dark:border-white/[0.08] rounded-xl p-6">
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <h4 className="font-semibold text-gray-900 dark:text-white">💰 Payment Received</h4>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+              Notify when a customer payment is detected (good news!)
+            </p>
           </div>
-          <div className="space-y-3 opacity-50 pointer-events-none" style={{ opacity: slackConnected ? 1 : 0.5, pointerEvents: slackConnected ? 'auto' : 'none' }}>
-            {[
-              { key: 'slack_payment_received', label: 'Payment received', desc: 'Slack notification when a customer pays' },
-              { key: 'slack_invoice_overdue', label: 'Invoice overdue alert', desc: 'Slack notification for overdue invoices' },
-              { key: 'slack_agent_action', label: 'Agent actions', desc: 'Slack notification when RecoverAI takes action' },
-            ].map(({ key, label, desc }) => (
-              <label key={key} className="flex items-start gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={prefs[key as keyof NotificationPreferences] || false}
-                  onChange={() => handleToggle(key as keyof NotificationPreferences)}
-                  disabled={!slackConnected}
-                  className="w-5 h-5 mt-0.5 rounded border-gray-300 text-brand-600 focus:ring-brand-500 disabled:opacity-50"
-                />
-                <div>
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">{label}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{desc}</p>
-                </div>
-              </label>
-            ))}
-          </div>
+          <label className="flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              checked={prefs.notify_payment_received}
+              onChange={() => handleToggle('notify_payment_received')}
+              className="w-5 h-5 rounded border-gray-300 text-blue-600 cursor-pointer"
+            />
+          </label>
         </div>
+      </div>
 
-        <div className="pt-4">
-          <Button
-            type="submit"
-            variant="primary"
-            disabled={loading}
-            loading={loading}
-          >
-            Save preferences
-          </Button>
+      {/* Emails Pending Approval */}
+      <div className="border border-gray-200 dark:border-white/[0.08] rounded-xl p-6">
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <h4 className="font-semibold text-gray-900 dark:text-white">✉️ Emails Waiting for Approval</h4>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+              Notify when emails are queued for your approval (Shadow mode)
+            </p>
+          </div>
+          <label className="flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              checked={prefs.notify_emails_pending}
+              onChange={() => handleToggle('notify_emails_pending')}
+              className="w-5 h-5 rounded border-gray-300 text-blue-600 cursor-pointer"
+            />
+          </label>
         </div>
-      </form>
+      </div>
+
+
+      {/* Save Button */}
+      <div className="flex justify-between items-center">
+        <button
+          onClick={handleTestNotification}
+          disabled={testingNotification}
+          className="px-4 py-2.5 bg-gray-200 dark:bg-white/[0.08] hover:bg-gray-300 dark:hover:bg-white/[0.12] text-gray-900 dark:text-gray-300 font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {testingNotification ? 'Sending...' : '📬 Send Test Notification'}
+        </button>
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {saving ? 'Saving...' : 'Save Preferences'}
+        </button>
+      </div>
     </div>
   );
 };

@@ -190,7 +190,7 @@ class QuickBooksService {
           companyId,
           customerId: customer.id,
           amount,
-          currency: 'USD',
+          currency: (qbInv.CurrencyRef?.value || 'USD').toUpperCase(),
           dueDate,
           issuedDate,
           source: 'quickbooks',
@@ -199,6 +199,11 @@ class QuickBooksService {
 
         isNew ? result.created++ : result.updated++;
       }
+
+      // Update last synced timestamp
+      await CompanyDB.updateCompany(companyId, {
+        quickbooks_last_synced_at: new Date(),
+      });
 
       logInfo('quickbooksService', method, 'QB sync completed', {
         companyId,

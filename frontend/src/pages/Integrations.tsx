@@ -122,8 +122,8 @@ export const Integrations: React.FC = () => {
   };
 
   const handleNext = async () => {
-    if (!status?.stripe_connected && !status?.csv_connected && !import.meta.env.DEV) {
-      setError('Connect Stripe or import a CSV to continue');
+    if (!status?.stripe_connected && !status?.csv_connected && !status?.qb_connected && !import.meta.env.DEV) {
+      setError('Connect a billing source (Stripe, CSV, or QuickBooks) to continue');
       return;
     }
 
@@ -131,15 +131,16 @@ export const Integrations: React.FC = () => {
     try {
       addToast({
         type: 'info',
-        message: '⏳ Processing invoices from Stripe...',
+        message: '⏳ Processing invoices...',
       });
 
       const response: any = await api.post(`/api/audit-stages/stage/2/proceed`);
 
       const syncSummary = response.syncSummary || { imported: 0, skipped: 0 };
+      const syncedIntegration = response.syncedIntegration || 'Stripe';
       addToast({
         type: 'success',
-        message: `✅ Synced ${syncSummary.imported} invoices${syncSummary.skipped > 0 ? ` | ⏭️ Skipped ${syncSummary.skipped} (missing customer email)` : ''}`,
+        message: `✅ Synced ${syncSummary.imported} ${syncedIntegration} invoices${syncSummary.skipped > 0 ? ` | ⏭️ Skipped ${syncSummary.skipped}` : ''}`,
       });
 
       await new Promise(resolve => setTimeout(resolve, 500));
@@ -180,7 +181,7 @@ export const Integrations: React.FC = () => {
     );
   }
 
-  const canProceed = !!(status?.stripe_connected || status?.csv_connected);
+  const canProceed = !!(status?.stripe_connected || status?.csv_connected || status?.qb_connected);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-[#09090b] flex items-center justify-center px-4 py-8">
@@ -336,6 +337,56 @@ export const Integrations: React.FC = () => {
                       Use API key instead (advanced)
                     </button>
                   </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* QuickBooks Card */}
+          <div className={`mb-4 p-5 rounded-lg border transition-colors ${
+            status?.qb_connected
+              ? 'border-green-300 dark:border-green-800/60 bg-green-50/50 dark:bg-green-900/10'
+              : 'border-gray-200 dark:border-white/[0.08] bg-gray-50/50 dark:bg-white/[0.02]'
+          }`}>
+            <div className="flex items-start gap-4">
+              <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
+                <span className="text-xl">📊</span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-semibold text-gray-900 dark:text-white mb-1">QuickBooks Online</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                  Connect your QB account to sync invoices automatically.
+                </p>
+
+                {status?.qb_connected ? (
+                  <div className="flex items-center justify-between gap-3 p-3 bg-white dark:bg-[#0a0a0c] border border-green-200 dark:border-green-800/60 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0">
+                        <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                      <span className="text-sm font-medium text-green-700 dark:text-green-400">Connected</span>
+                    </div>
+                    <button
+                      onClick={() => setConnecting(null)}
+                      className="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+                    >
+                      Change
+                    </button>
+                  </div>
+                ) : (
+                  <Button
+                    onClick={() => {
+                      setConnecting('qb');
+                      window.location.replace(`${API_BASE}/api/quickbooks/oauth/authorize`);
+                    }}
+                    variant="outline"
+                    disabled={connecting === 'qb'}
+                    className="w-full"
+                  >
+                    {connecting === 'qb' ? 'Redirecting...' : 'Connect QuickBooks'}
+                  </Button>
                 )}
               </div>
             </div>

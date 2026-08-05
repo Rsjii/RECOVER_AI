@@ -6,6 +6,8 @@ import { generateSMSMessage } from '../services/smsGenerationService';
 import { checkTCPACompliance, getUSEasternHour } from '../utils/tcpaCompliance';
 import { pool } from '../config/database';
 import { logError, logInfo, logWarn } from '../utils/logger';
+import { logContactInvalidNotification } from '../utils/notificationLogger';
+import { findCustomerById } from '../db/customers';
 
 const LOG_MODULE = 'smsQueue';
 const QUEUE_NAME = 'sms-messages';
@@ -227,6 +229,33 @@ export function startSMSWorker(): void {
 
   smsWorker.on('failed', async (job, err) => {
     logError(LOG_MODULE, 'worker', 'SMS job failed', err, { jobId: job?.id });
+
+    // Check if this is a hard failure (invalid phone number)
+    if (job && err) {
+      const errorMsg = err.message.toLowerCase();
+      const isHardFailure = errorMsg.includes('invalid') ||
+                           errorMsg.includes('not a valid') ||
+                           errorMsg.includes('unsubscribed') ||
+                           errorMsg.includes('blacklisted');
+
+      if (isHardFailure) {
+        try {
+          const data = job.data as SMSJob;
+          const customer = await findCustomerById(data.customerId, data.companyId);
+          const customerName = customer?.name || customer?.company_name || 'Unknown Customer';
+          await logContactInvalidNotification(
+            data.companyId,
+            customerName,
+            data.phoneNumber,
+            'sms',
+            err.message
+          );
+        } catch (notifyErr) {
+          logError(LOG_MODULE, 'worker', 'Failed to log SMS hard failure notification (non-blocking)', notifyErr);
+        }
+      }
+    }
+
     scheduleSMSWorkerCleanup();
   });
 

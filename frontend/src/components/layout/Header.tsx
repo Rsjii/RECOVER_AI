@@ -1,9 +1,11 @@
 import React, { useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { Menu } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useNotification } from '../../hooks/useNotification';
 import { getInitials } from '../../lib/utils';
 import { ThemeToggle } from '../ui/ThemeToggle';
+import { NotificationCenter } from './NotificationCenter';
 
 interface HeaderProps {
   onMenuClick?: () => void;
@@ -38,25 +40,24 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
   };
 
   return (
-    <header className="bg-white dark:bg-[#111113] border-b border-gray-200 dark:border-white/[0.06]">
+    <header className="bg-white dark:bg-slate-950 border-b border-gray-200 dark:border-slate-800 shadow-sm">
       <div className="px-6 h-16 flex items-center justify-between">
         {/* Left: Company name */}
         <div className="flex items-center gap-3">
           {onMenuClick && (
             <button onClick={onMenuClick}
-              className="p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-white/[0.06] rounded-lg lg:hidden">
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
+              className="p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-lg transition lg:hidden">
+              <Menu size={20} />
             </button>
           )}
-          <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400">
+          <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
             {company?.name || 'My Company'}
           </h2>
         </div>
 
-        {/* Right: Theme toggle + User */}
-        <div className="flex items-center gap-2">
+        {/* Right: Notifications + Theme toggle + User */}
+        <div className="flex items-center gap-1">
+          <NotificationCenter />
           <ThemeToggle />
 
           {/* User Menu */}

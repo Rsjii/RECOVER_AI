@@ -46,6 +46,7 @@ export const getSettings = async (req: Request, res: Response): Promise<void> =>
           stripeHasWebhookSecret: !!company.stripe_webhook_secret_encrypted,
           slack: !!company.slack_webhook_url_encrypted,
           quickbooks: !!(company.quickbooks_realm_id && (company as any).quickbooks_access_token_encrypted),
+          quickbooksLastSyncedAt: (company as any).quickbooks_last_synced_at || null,
           chargebee: !!(company.chargebee_site && (company as any).chargebee_api_key_encrypted),
           twilioConfigured: !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_PHONE_NUMBER),
           csv: await (async () => {
@@ -1308,6 +1309,92 @@ export const reOptInSMS = async (req: Request, res: Response): Promise<void> => 
     });
   } catch (error) {
     logError(LOG_MODULE, handler, 'Failed to re-opt customer', error);
+    const { statusCode, message } = parseError(error);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
+
+/**
+ * GET /api/settings/notification-preferences
+ * Get notification preference settings
+ */
+export const getNotificationPreferences = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'getNotificationPreferences';
+  const companyId = (req as any).companyId;
+
+  try {
+    const company = await findCompanyById(companyId);
+    if (!company) {
+      sendErrorResponse(res, 404, 'Company not found');
+      return;
+    }
+
+    res.status(200).json({
+      data: {
+        notify_email_hard_bounce: (company as any).notify_email_hard_bounce ?? true,
+        notify_sms_hard_failure: (company as any).notify_sms_hard_failure ?? true,
+        notify_payment_received: (company as any).notify_payment_received ?? true,
+        notify_trial_ending: (company as any).notify_trial_ending ?? true,
+        notify_emails_pending: (company as any).notify_emails_pending ?? true,
+        notify_system_alerts: (company as any).notify_system_alerts ?? true,
+      },
+    });
+  } catch (error) {
+    logError(LOG_MODULE, handler, 'Failed to get notification preferences', error);
+    const { statusCode, message } = parseError(error);
+    sendErrorResponse(res, statusCode, message);
+  }
+};
+
+/**
+ * PUT /api/settings/notification-preferences
+ * Update notification preferences
+ */
+export const updateNotificationPreferences = async (req: Request, res: Response): Promise<void> => {
+  const handler = 'updateNotificationPreferences';
+  const companyId = (req as any).companyId;
+
+  try {
+    const {
+      notify_email_hard_bounce,
+      notify_sms_hard_failure,
+      notify_payment_received,
+      notify_trial_ending,
+      notify_emails_pending,
+      notify_system_alerts,
+    } = req.body;
+
+    const updates: any = {};
+
+    if (notify_email_hard_bounce !== undefined) updates.notify_email_hard_bounce = Boolean(notify_email_hard_bounce);
+    if (notify_sms_hard_failure !== undefined) updates.notify_sms_hard_failure = Boolean(notify_sms_hard_failure);
+    if (notify_payment_received !== undefined) updates.notify_payment_received = Boolean(notify_payment_received);
+    if (notify_trial_ending !== undefined) updates.notify_trial_ending = Boolean(notify_trial_ending);
+    if (notify_emails_pending !== undefined) updates.notify_emails_pending = Boolean(notify_emails_pending);
+    if (notify_system_alerts !== undefined) updates.notify_system_alerts = Boolean(notify_system_alerts);
+
+    if (Object.keys(updates).length === 0) {
+      sendErrorResponse(res, 400, 'No valid preferences to update');
+      return;
+    }
+
+    const updated = await updateCompany(companyId, updates);
+
+    logInfo(LOG_MODULE, handler, 'Notification preferences updated', { companyId, updates });
+
+    res.status(200).json({
+      data: {
+        notify_email_hard_bounce: (updated as any).notify_email_hard_bounce ?? true,
+        notify_sms_hard_failure: (updated as any).notify_sms_hard_failure ?? true,
+        notify_payment_received: (updated as any).notify_payment_received ?? true,
+        notify_trial_ending: (updated as any).notify_trial_ending ?? true,
+        notify_emails_pending: (updated as any).notify_emails_pending ?? true,
+        notify_system_alerts: (updated as any).notify_system_alerts ?? true,
+        message: 'Notification preferences updated successfully',
+      },
+    });
+  } catch (error) {
+    logError(LOG_MODULE, handler, 'Failed to update notification preferences', error);
     const { statusCode, message } = parseError(error);
     sendErrorResponse(res, statusCode, message);
   }

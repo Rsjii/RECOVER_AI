@@ -135,10 +135,19 @@ export const getCustomer = async (req: Request, res: Response): Promise<void> =>
       return;
     }
 
-    // Get their invoices + email logs in parallel
-    // ❌ DISABLED payment plans query (PHASE 2 feature)
-    const [invoiceResult, emailLogsResult] = await Promise.all([
+    // 5 parallel queries for customer health dashboard
+    const [
+      invoiceResult,
+      emailLogsResult,
+      arHealthResult,
+      riskFactorsResult,
+      agentActivityResult,
+      paymentTimelineResult,
+      activeInvoicesResult,
+    ] = await Promise.all([
+      // 1. All invoices (for backwards compat)
       InvoiceDB.listInvoices(companyId, { customerId: id as string }, 100, 0),
+      // 2. Email logs
       pool.query(
         `SELECT el.*, i.due_date, i.amount, i.currency
          FROM email_logs el
@@ -148,23 +157,73 @@ export const getCustomer = async (req: Request, res: Response): Promise<void> =>
          LIMIT 100`,
         [companyId, id]
       ),
-      // ❌ DISABLED: PHASE 2 feature
-      // pool.query(
-      //   `SELECT pp.*, i.amount, i.currency, i.status as invoice_status
-      //    FROM payment_plans pp
-      //    JOIN invoices i ON pp.invoice_id = i.id
-      //    WHERE pp.company_id = $1 AND i.customer_id = $2
-      //    ORDER BY pp.created_at DESC`,
-      //   [companyId, id]
-      // ),
+      // 3. AR Health: total, overdue, breakdown
+      pool.query(
+        `SELECT
+          COALESCE(SUM(CASE WHEN status = 'unpaid' THEN amount::numeric ELSE 0 END), 0) as total_ar,
+          COALESCE(SUM(CASE WHEN status = 'unpaid' AND EXTRACT(DAY FROM NOW() - due_date) >= 30 THEN amount::numeric ELSE 0 END), 0) as overdue_ar,
+          COALESCE(SUM(CASE WHEN status = 'unpaid' AND EXTRACT(DAY FROM NOW() - due_date) >= 30 AND EXTRACT(DAY FROM NOW() - due_date) < 60 THEN amount::numeric ELSE 0 END), 0) as days_30,
+          COALESCE(SUM(CASE WHEN status = 'unpaid' AND EXTRACT(DAY FROM NOW() - due_date) >= 60 AND EXTRACT(DAY FROM NOW() - due_date) < 90 THEN amount::numeric ELSE 0 END), 0) as days_60,
+          COALESCE(SUM(CASE WHEN status = 'unpaid' AND EXTRACT(DAY FROM NOW() - due_date) >= 90 THEN amount::numeric ELSE 0 END), 0) as days_90,
+          COUNT(CASE WHEN status = 'unpaid' THEN 1 END) as unpaid_count,
+          COUNT(CASE WHEN status = 'paid' THEN 1 END) as paid_count,
+          COUNT(*) as total_count
+         FROM invoices
+         WHERE customer_id = $1 AND company_id = $2`,
+        [id, companyId]
+      ),
+      // 4. Risk factors: bounce count, overdue count
+      pool.query(
+        `SELECT
+          COUNT(CASE WHEN i.status = 'unpaid' AND EXTRACT(DAY FROM NOW() - i.due_date) >= 30 THEN 1 END) as overdue_30_count,
+          COUNT(CASE WHEN el.status = 'bounced' THEN 1 END) as bounce_count
+         FROM invoices i
+         LEFT JOIN email_logs el ON i.id = el.invoice_id AND el.company_id = $2
+         WHERE i.customer_id = $1 AND i.company_id = $2`,
+        [id, companyId]
+      ),
+      // 5. Agent activity: emails/SMS sent in last 30 days
+      pool.query(
+        `SELECT
+          COUNT(CASE WHEN source = 'email' THEN 1 END) as emails_sent_30d,
+          COUNT(CASE WHEN source = 'email' AND opened_at IS NOT NULL THEN 1 END) as emails_opened,
+          COUNT(CASE WHEN source = 'email' AND status = 'bounced' THEN 1 END) as emails_bounced,
+          COUNT(CASE WHEN source = 'sms' THEN 1 END) as sms_sent_30d,
+          COUNT(CASE WHEN source = 'sms' AND status = 'delivered' THEN 1 END) as sms_delivered,
+          MAX(last_action_at) as last_action_at,
+          (ARRAY_AGG(DISTINCT source ORDER BY source) FILTER (WHERE source IS NOT NULL))[1] as last_action_type
+         FROM (
+          SELECT 'email' as source, sent_at as last_action_at, opened_at, status FROM email_logs WHERE company_id = $1 AND invoice_id IN (SELECT id FROM invoices WHERE customer_id = $2) AND sent_at >= NOW() - INTERVAL '30 days'
+          UNION ALL
+          SELECT 'sms', sent_at, delivered_at, status FROM sms_logs WHERE company_id = $1 AND customer_id = $2 AND sent_at >= NOW() - INTERVAL '30 days'
+         ) all_activity`,
+        [companyId, id]
+      ),
+      // 6. Payment timeline: last 6 months
+      pool.query(
+        `SELECT
+          DATE(p.paid_at) as payment_date,
+          SUM(p.amount::numeric) as amount,
+          ROUND(AVG(EXTRACT(DAY FROM (p.paid_at - i.due_date)))::numeric, 0) as avg_days_late
+         FROM payments p
+         JOIN invoices i ON p.invoice_id = i.id
+         WHERE i.customer_id = $1 AND i.company_id = $2 AND p.paid_at >= NOW() - INTERVAL '6 months'
+         GROUP BY DATE(p.paid_at)
+         ORDER BY DATE(p.paid_at) DESC`,
+        [id, companyId]
+      ),
+      // 7. Active invoices: unpaid only
+      pool.query(
+        `SELECT * FROM invoices
+         WHERE customer_id = $1 AND company_id = $2 AND status = 'unpaid'
+         ORDER BY EXTRACT(DAY FROM NOW() - due_date) DESC`,
+        [id, companyId]
+      ),
     ]);
-    const paymentPlansResult = { rows: [] };  // ❌ DISABLED: PHASE 2 feature
 
-    // Calculate stats from actual fetched data (not from customer.payment_history which may be null)
+    // Calculate stats from actual fetched data
     const unpaidInvoices = invoiceResult.data.filter(inv => inv.status === 'unpaid');
     const totalUnpaidAR = unpaidInvoices.reduce((sum, inv) => sum + parseFloat(inv.amount), 0);
-
-    // Calculate on-time payment rate from payment history
     const onTimeRate = customer.payment_history?.on_time_rate || 0;
     const avgDaysLate = customer.payment_history?.avg_days_late || 0;
 
@@ -176,11 +235,121 @@ export const getCustomer = async (req: Request, res: Response): Promise<void> =>
       riskScore: customer.customer_risk_score || 0,
     };
 
-    logInfo(LOG_MODULE, handler, 'Customer detail fetched', {
+    // Build AR Health object
+    const arHealthRow = arHealthResult.rows[0];
+    const totalPaymentCount = arHealthRow.paid_count + arHealthRow.unpaid_count;
+    const arHealth = {
+      totalAR: parseFloat(arHealthRow.total_ar) || 0,
+      overdueAR: parseFloat(arHealthRow.overdue_ar) || 0,
+      overdueBreakdown: {
+        days_30: parseFloat(arHealthRow.days_30) || 0,
+        days_60: parseFloat(arHealthRow.days_60) || 0,
+        days_90: parseFloat(arHealthRow.days_90) || 0,
+      },
+      invoiceCount: arHealthRow.unpaid_count || 0,
+      paymentRate: totalPaymentCount > 0 ? Math.round((arHealthRow.paid_count / totalPaymentCount) * 100) : 0,
+    };
+
+    // Build payment insights
+    const paymentInsights = {
+      avgDaysToPay: Math.round(avgDaysLate) || 0,
+      dsoCurrent: Math.round(avgDaysLate) || 0,
+      dsoPrevious: Math.round(avgDaysLate) || 0, // Will be enhanced with historical comparison
+      dsoTrend: 'stable' as const,
+      reliabilityPct: customer.payment_history?.reliability_pct || 85,
+    };
+
+    // Build risk factors array
+    const riskFactorsRow = riskFactorsResult.rows[0];
+    const riskFactorsArray: Array<{ icon: string; reason: string; severity: 'high' | 'medium' | 'low' }> = [];
+
+    if (riskFactorsRow.overdue_30_count > 0) {
+      riskFactorsArray.push({
+        icon: '🔴',
+        reason: `${riskFactorsRow.overdue_30_count} invoice(s) overdue 30+ days`,
+        severity: 'high',
+      });
+    }
+    if (riskFactorsRow.bounce_count > 0) {
+      riskFactorsArray.push({
+        icon: '🟡',
+        reason: `Email bounce rate: ${riskFactorsRow.bounce_count} bounced`,
+        severity: 'medium',
+      });
+    }
+    if (riskFactorsRow.current_dso > 25) {
+      riskFactorsArray.push({
+        icon: '🟡',
+        reason: `Slow payment: ${Math.round(riskFactorsRow.current_dso)} days average`,
+        severity: 'medium',
+      });
+    }
+    if (riskFactorsArray.length === 0) {
+      riskFactorsArray.push({
+        icon: '🟢',
+        reason: 'No recent risk factors',
+        severity: 'low',
+      });
+    }
+
+    // Build risk trend
+    const riskTrend = {
+      current: customer.customer_risk_score || 0,
+      previous: customer.customer_risk_score || 0,
+      direction: 'stable' as const,
+      points: 0,
+    };
+
+    // Build communication health
+    const emailBounceRate = emailLogsResult.rows.length > 0
+      ? Math.round(
+          (emailLogsResult.rows.filter((el: any) => el.status === 'bounced').length /
+            emailLogsResult.rows.length) *
+            100
+        )
+      : 0;
+
+    const lastEmailRow = emailLogsResult.rows[0];
+    const lastSmsRow = emailLogsResult.rows[0]; // Placeholder, would be from SMS logs
+
+    const communicationHealth = {
+      emailStatus: emailBounceRate > 20 ? 'bouncing' : emailLogsResult.rows.length > 0 ? 'working' : 'unknown',
+      emailBounceRate,
+      smsOptedIn: customer.phone ? true : false,
+      phone: customer.phone || null,
+      lastEmailDate: lastEmailRow?.sent_at || null,
+      lastSmsDate: null, // Would be populated from SMS logs
+      canReach: emailBounceRate <= 20 || !!customer.phone,
+    };
+
+    // Build payment timeline
+    const paymentTimeline = paymentTimelineResult.rows.map((row: any) => ({
+      date: row.payment_date,
+      amount: parseFloat(row.amount) || 0,
+      daysLate: parseInt(row.avg_days_late) || 0,
+    }));
+
+    // Build agent activity
+    const agentActivityRow = agentActivityResult.rows[0];
+    const agentActivity = {
+      emailsSent30d: agentActivityRow.emails_sent_30d || 0,
+      emailsOpened: agentActivityRow.emails_opened || 0,
+      emailsBounced: agentActivityRow.emails_bounced || 0,
+      smsSent30d: agentActivityRow.sms_sent_30d || 0,
+      smsDelivered: agentActivityRow.sms_delivered || 0,
+      lastActionDate: agentActivityRow.last_action_at || null,
+      lastActionType: agentActivityRow.last_action_type || null,
+    };
+
+    // Filter active invoices (unpaid only)
+    const activeInvoices = activeInvoicesResult.rows;
+
+    logInfo(LOG_MODULE, handler, 'Customer detail fetched with enhanced dashboard data', {
       customerId: id,
       invoices: invoiceResult.data.length,
+      activeInvoices: activeInvoices.length,
       emailLogs: emailLogsResult.rows.length,
-      paymentPlans: paymentPlansResult.rows.length,
+      riskScore: customer.customer_risk_score,
     });
 
     res.status(200).json({
@@ -188,8 +357,16 @@ export const getCustomer = async (req: Request, res: Response): Promise<void> =>
         customer,
         invoices: invoiceResult.data,
         emailLogs: emailLogsResult.rows,
-        paymentPlans: paymentPlansResult.rows,
         stats,
+        // NEW: Customer health dashboard fields
+        arHealth,
+        paymentInsights,
+        riskFactors: riskFactorsArray,
+        riskTrend,
+        communicationHealth,
+        paymentTimeline,
+        agentActivity,
+        activeInvoices,
       },
     });
   } catch (error) {

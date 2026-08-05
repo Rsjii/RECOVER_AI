@@ -4,13 +4,14 @@ import { api } from '../../lib/api';
 import { useNotification } from '../../hooks/useNotification';
 import { logError } from '../../utils/logger';
 
-interface SMSOptOut {
-  id: string;
-  customer_id: string;
-  phone_number: string;
-  opted_out_at: string;
-  reason: string;
-}
+// SMSOptOut interface -- COMMENTED OUT FOR PHASE 1 (Phase 3 feature)
+// interface SMSOptOut {
+//   id: string;
+//   customer_id: string;
+//   phone_number: string;
+//   opted_out_at: string;
+//   reason: string;
+// }
 
 export const SMSSettingsSection: React.FC = () => {
   const { addToast } = useNotification();
@@ -22,33 +23,33 @@ export const SMSSettingsSection: React.FC = () => {
     sms_day_threshold: 7,
   });
 
-  // Phase 3: Escalation, Retry, Compliance settings
-  const [escalationSettings, setEscalationSettings] = useState({
-    sms_escalation_enabled: true,
-    sms_escalate_after_emails: 2,
-    sms_max_per_invoice: 2,
-  });
+  // Phase 3: Escalation, Retry, Compliance settings -- COMMENTED OUT FOR PHASE 1
+  // const [escalationSettings, setEscalationSettings] = useState({
+  //   sms_escalation_enabled: true,
+  //   sms_escalate_after_emails: 2,
+  //   sms_max_per_invoice: 2,
+  // });
 
-  const [retrySettings, setRetrySettings] = useState({
-    sms_retry_enabled: true,
-    sms_retry_hours: 24,
-    sms_max_retries: 2,
-  });
+  // const [retrySettings, setRetrySettings] = useState({
+  //   sms_retry_enabled: true,
+  //   sms_retry_hours: 24,
+  //   sms_max_retries: 2,
+  // });
 
-  const [complianceSettings, setComplianceSettings] = useState({
-    sms_tcpa_enabled: false,
-    sms_weekend_blackout: false,
-    sms_require_opt_in: false,
-  });
+  // const [complianceSettings, setComplianceSettings] = useState({
+  //   sms_tcpa_enabled: false,
+  //   sms_weekend_blackout: false,
+  //   sms_require_opt_in: false,
+  // });
 
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Opt-outs management
-  const [showOptOuts, setShowOptOuts] = useState(false);
-  const [optOuts, setOptOuts] = useState<SMSOptOut[]>([]);
-  const [optOutsLoading, setOptOutsLoading] = useState(false);
-  const [reOptInning, setReOptInning] = useState<string | null>(null);
+  // Opt-outs management -- COMMENTED OUT FOR PHASE 1
+  // const [showOptOuts, setShowOptOuts] = useState(false);
+  // const [optOuts, setOptOuts] = useState<SMSOptOut[]>([]);
+  // const [optOutsLoading, setOptOutsLoading] = useState(false);
+  // const [reOptInning, setReOptInning] = useState<string | null>(null);
 
   // Twilio config state
   const [useTwilioMode, setUseTwilioMode] = useState<'recoverai' | 'custom'>('recoverai');
@@ -82,26 +83,24 @@ export const SMSSettingsSection: React.FC = () => {
             sms_day_threshold: smsRes.data.sms_day_threshold ?? 7,
           });
 
-          // Phase 3 escalation settings
-          setEscalationSettings({
-            sms_escalation_enabled: smsRes.data.sms_escalation_enabled ?? true,
-            sms_escalate_after_emails: smsRes.data.sms_escalate_after_emails ?? 2,
-            sms_max_per_invoice: smsRes.data.sms_max_per_invoice ?? 2,
-          });
+          // Phase 3 settings -- COMMENTED OUT FOR PHASE 1
+          // setEscalationSettings({
+          //   sms_escalation_enabled: smsRes.data.sms_escalation_enabled ?? true,
+          //   sms_escalate_after_emails: smsRes.data.sms_escalate_after_emails ?? 2,
+          //   sms_max_per_invoice: smsRes.data.sms_max_per_invoice ?? 2,
+          // });
 
-          // Phase 3 retry settings
-          setRetrySettings({
-            sms_retry_enabled: smsRes.data.sms_retry_enabled ?? true,
-            sms_retry_hours: smsRes.data.sms_retry_hours ?? 24,
-            sms_max_retries: smsRes.data.sms_max_retries ?? 2,
-          });
+          // setRetrySettings({
+          //   sms_retry_enabled: smsRes.data.sms_retry_enabled ?? true,
+          //   sms_retry_hours: smsRes.data.sms_retry_hours ?? 24,
+          //   sms_max_retries: smsRes.data.sms_max_retries ?? 2,
+          // });
 
-          // Phase 3 compliance settings
-          setComplianceSettings({
-            sms_tcpa_enabled: smsRes.data.sms_tcpa_enabled ?? false,
-            sms_weekend_blackout: smsRes.data.sms_weekend_blackout ?? false,
-            sms_require_opt_in: smsRes.data.sms_require_opt_in ?? false,
-          });
+          // setComplianceSettings({
+          //   sms_tcpa_enabled: smsRes.data.sms_tcpa_enabled ?? false,
+          //   sms_weekend_blackout: smsRes.data.sms_weekend_blackout ?? false,
+          //   sms_require_opt_in: smsRes.data.sms_require_opt_in ?? false,
+          // });
         }
 
         if (twilioRes.data) {
@@ -170,103 +169,103 @@ export const SMSSettingsSection: React.FC = () => {
     }
   };
 
-  // Phase 3: Escalation settings
-  const handleSaveEscalation = async () => {
-    setIsSaving(true);
-    try {
-      await api.patch('/api/settings/sms/escalation', escalationSettings);
-      addToast({
-        type: 'success',
-        message: 'SMS escalation settings saved!',
-      });
-    } catch (error: any) {
-      logError('SMSSettingsSection', 'handleSaveEscalation', 'Failed to save escalation settings', error);
-      addToast({
-        type: 'error',
-        message: error.message || 'Failed to save escalation settings',
-      });
-    } finally {
-      setIsSaving(false);
-    }
-  };
+  // Phase 3: Escalation settings -- COMMENTED OUT FOR PHASE 1
+  // const handleSaveEscalation = async () => {
+  //   setIsSaving(true);
+  //   try {
+  //     await api.patch('/api/settings/sms/escalation', escalationSettings);
+  //     addToast({
+  //       type: 'success',
+  //       message: 'SMS escalation settings saved!',
+  //     });
+  //   } catch (error: any) {
+  //     logError('SMSSettingsSection', 'handleSaveEscalation', 'Failed to save escalation settings', error);
+  //     addToast({
+  //       type: 'error',
+  //       message: error.message || 'Failed to save escalation settings',
+  //     });
+  //   } finally {
+  //     setIsSaving(false);
+  //   }
+  // };
 
-  // Phase 3: Retry settings
-  const handleSaveRetry = async () => {
-    setIsSaving(true);
-    try {
-      await api.patch('/api/settings/sms/retry', retrySettings);
-      addToast({
-        type: 'success',
-        message: 'SMS retry settings saved!',
-      });
-    } catch (error: any) {
-      logError('SMSSettingsSection', 'handleSaveRetry', 'Failed to save retry settings', error);
-      addToast({
-        type: 'error',
-        message: error.message || 'Failed to save retry settings',
-      });
-    } finally {
-      setIsSaving(false);
-    }
-  };
+  // Phase 3: Retry settings -- COMMENTED OUT FOR PHASE 1
+  // const handleSaveRetry = async () => {
+  //   setIsSaving(true);
+  //   try {
+  //     await api.patch('/api/settings/sms/retry', retrySettings);
+  //     addToast({
+  //       type: 'success',
+  //       message: 'SMS retry settings saved!',
+  //     });
+  //   } catch (error: any) {
+  //     logError('SMSSettingsSection', 'handleSaveRetry', 'Failed to save retry settings', error);
+  //     addToast({
+  //       type: 'error',
+  //       message: error.message || 'Failed to save retry settings',
+  //     });
+  //   } finally {
+  //     setIsSaving(false);
+  //   }
+  // };
 
-  // Phase 3: Compliance settings
-  const handleSaveCompliance = async () => {
-    setIsSaving(true);
-    try {
-      await api.patch('/api/settings/sms/compliance', complianceSettings);
-      addToast({
-        type: 'success',
-        message: 'SMS compliance settings saved!',
-      });
-    } catch (error: any) {
-      logError('SMSSettingsSection', 'handleSaveCompliance', 'Failed to save compliance settings', error);
-      addToast({
-        type: 'error',
-        message: error.message || 'Failed to save compliance settings',
-      });
-    } finally {
-      setIsSaving(false);
-    }
-  };
+  // Phase 3: Compliance settings -- COMMENTED OUT FOR PHASE 1
+  // const handleSaveCompliance = async () => {
+  //   setIsSaving(true);
+  //   try {
+  //     await api.patch('/api/settings/sms/compliance', complianceSettings);
+  //     addToast({
+  //       type: 'success',
+  //       message: 'SMS compliance settings saved!',
+  //     });
+  //   } catch (error: any) {
+  //     logError('SMSSettingsSection', 'handleSaveCompliance', 'Failed to save compliance settings', error);
+  //     addToast({
+  //       type: 'error',
+  //       message: error.message || 'Failed to save compliance settings',
+  //     });
+  //   } finally {
+  //     setIsSaving(false);
+  //   }
+  // };
 
-  // Phase 3: Load opt-outs
-  const fetchOptOuts = async () => {
-    setOptOutsLoading(true);
-    try {
-      const res = await api.get('/api/settings/sms/opt-outs');
-      setOptOuts(res.data || []);
-    } catch (error) {
-      logError('SMSSettingsSection', 'fetchOptOuts', 'Failed to load opt-outs', error);
-      addToast({
-        type: 'error',
-        message: 'Failed to load opt-outs',
-      });
-    } finally {
-      setOptOutsLoading(false);
-    }
-  };
+  // Phase 3: Load opt-outs -- COMMENTED OUT FOR PHASE 1
+  // const fetchOptOuts = async () => {
+  //   setOptOutsLoading(true);
+  //   try {
+  //     const res = await api.get('/api/settings/sms/opt-outs');
+  //     setOptOuts(res.data || []);
+  //   } catch (error) {
+  //     logError('SMSSettingsSection', 'fetchOptOuts', 'Failed to load opt-outs', error);
+  //     addToast({
+  //       type: 'error',
+  //       message: 'Failed to load opt-outs',
+  //     });
+  //   } finally {
+  //     setOptOutsLoading(false);
+  //   }
+  // };
 
-  // Phase 3: Re-opt customer
-  const handleReOptIn = async (customerId: string) => {
-    setReOptInning(customerId);
-    try {
-      await api.post(`/api/settings/sms/opt-outs/${customerId}/re-enable`);
-      addToast({
-        type: 'success',
-        message: 'Customer re-opted into SMS',
-      });
-      await fetchOptOuts();
-    } catch (error: any) {
-      logError('SMSSettingsSection', 'handleReOptIn', 'Failed to re-opt customer', error);
-      addToast({
-        type: 'error',
-        message: error.message || 'Failed to re-opt customer',
-      });
-    } finally {
-      setReOptInning(null);
-    }
-  };
+  // Phase 3: Re-opt customer -- COMMENTED OUT FOR PHASE 1
+  // const handleReOptIn = async (customerId: string) => {
+  //   setReOptInning(customerId);
+  //   try {
+  //     await api.post(`/api/settings/sms/opt-outs/${customerId}/re-enable`);
+  //     addToast({
+  //       type: 'success',
+  //       message: 'Customer re-opted into SMS',
+  //     });
+  //     await fetchOptOuts();
+  //   } catch (error: any) {
+  //     logError('SMSSettingsSection', 'handleReOptIn', 'Failed to re-opt customer', error);
+  //     addToast({
+  //       type: 'error',
+  //       message: error.message || 'Failed to re-opt customer',
+  //     });
+  //   } finally {
+  //     setReOptInning(null);
+  //   }
+  // };
 
   const handleTwilioFormChange = (field: string, value: string) => {
     setTwilioForm(prev => ({
@@ -496,7 +495,8 @@ export const SMSSettingsSection: React.FC = () => {
         </div>
       )}
 
-      {/* PHASE 3: Escalation Settings */}
+      {/* PHASE 3: Escalation Settings -- COMMENTED OUT FOR PHASE 1 */}
+      {/*
       <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-white/[0.08] p-6">
         <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">🔄 SMS Escalation Logic</h3>
         <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
@@ -505,6 +505,7 @@ export const SMSSettingsSection: React.FC = () => {
 
         <div className="space-y-6">
           {/* Enable escalation */}
+      {/*
           <div>
             <label className="flex items-center cursor-pointer gap-3">
               <div className="relative inline-flex h-6 w-11 items-center rounded-full bg-gray-200 dark:bg-gray-700 transition-colors" style={{ backgroundColor: escalationSettings.sms_escalation_enabled ? '#2563eb' : undefined }}>
@@ -534,6 +535,7 @@ export const SMSSettingsSection: React.FC = () => {
           </div>
 
           {/* Escalate after N emails */}
+      {/*
           <div>
             <label htmlFor="escalate_after" className="block text-sm font-bold text-gray-900 dark:text-white mb-3 uppercase tracking-wide">
               Escalate After Email Count
@@ -558,6 +560,7 @@ export const SMSSettingsSection: React.FC = () => {
           </div>
 
           {/* Max SMS per invoice */}
+      {/*
           <div>
             <label htmlFor="max_sms" className="block text-sm font-bold text-gray-900 dark:text-white mb-3 uppercase tracking-wide">
               Max SMS Per Invoice
@@ -583,6 +586,7 @@ export const SMSSettingsSection: React.FC = () => {
           </div>
 
           {/* Save button */}
+      {/*
           <div className="flex justify-end pt-4">
             <button
               onClick={handleSaveEscalation}
@@ -594,8 +598,10 @@ export const SMSSettingsSection: React.FC = () => {
           </div>
         </div>
       </div>
+      */}
 
-      {/* PHASE 3: Retry Settings */}
+      {/* PHASE 3: Retry Settings -- COMMENTED OUT FOR PHASE 1 */}
+      {/*
       <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-white/[0.08] p-6">
         <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">🔁 SMS Retry Configuration</h3>
         <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
@@ -604,6 +610,7 @@ export const SMSSettingsSection: React.FC = () => {
 
         <div className="space-y-6">
           {/* Enable retry */}
+      {/*
           <div>
             <label className="flex items-center cursor-pointer gap-3">
               <div className="relative inline-flex h-6 w-11 items-center rounded-full bg-gray-200 dark:bg-gray-700 transition-colors" style={{ backgroundColor: retrySettings.sms_retry_enabled ? '#2563eb' : undefined }}>
@@ -633,6 +640,7 @@ export const SMSSettingsSection: React.FC = () => {
           </div>
 
           {/* Retry after N hours */}
+      {/*
           <div>
             <label htmlFor="retry_hours" className="block text-sm font-bold text-gray-900 dark:text-white mb-3 uppercase tracking-wide">
               Retry After (Hours)
@@ -660,6 +668,7 @@ export const SMSSettingsSection: React.FC = () => {
           </div>
 
           {/* Max retries */}
+      {/*
           <div>
             <label htmlFor="max_retries" className="block text-sm font-bold text-gray-900 dark:text-white mb-3 uppercase tracking-wide">
               Max Retry Attempts
@@ -685,6 +694,7 @@ export const SMSSettingsSection: React.FC = () => {
           </div>
 
           {/* Save button */}
+      {/*
           <div className="flex justify-end pt-4">
             <button
               onClick={handleSaveRetry}
@@ -696,8 +706,10 @@ export const SMSSettingsSection: React.FC = () => {
           </div>
         </div>
       </div>
+      */}
 
-      {/* PHASE 3: Compliance Settings */}
+      {/* PHASE 3: Compliance Settings -- COMMENTED OUT FOR PHASE 1 */}
+      {/*
       <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-white/[0.08] p-6">
         <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">📋 SMS Compliance</h3>
         <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
@@ -706,6 +718,7 @@ export const SMSSettingsSection: React.FC = () => {
 
         <div className="space-y-6">
           {/* TCPA Compliance */}
+      {/*
           <div>
             <label className="flex items-center cursor-pointer gap-3">
               <div className="relative inline-flex h-6 w-11 items-center rounded-full bg-gray-200 dark:bg-gray-700 transition-colors" style={{ backgroundColor: complianceSettings.sms_tcpa_enabled ? '#2563eb' : undefined }}>
@@ -737,6 +750,7 @@ export const SMSSettingsSection: React.FC = () => {
           </div>
 
           {/* Weekend Blackout */}
+      {/*
           <div>
             <label className="flex items-center cursor-pointer gap-3">
               <div className="relative inline-flex h-6 w-11 items-center rounded-full bg-gray-200 dark:bg-gray-700 transition-colors" style={{ backgroundColor: complianceSettings.sms_weekend_blackout ? '#2563eb' : undefined }}>
@@ -768,6 +782,7 @@ export const SMSSettingsSection: React.FC = () => {
           </div>
 
           {/* Require opt-in */}
+      {/*
           <div>
             <label className="flex items-center cursor-pointer gap-3">
               <div className="relative inline-flex h-6 w-11 items-center rounded-full bg-gray-200 dark:bg-gray-700 transition-colors" style={{ backgroundColor: complianceSettings.sms_require_opt_in ? '#2563eb' : undefined }}>
@@ -799,6 +814,7 @@ export const SMSSettingsSection: React.FC = () => {
           </div>
 
           {/* Save button */}
+      {/*
           <div className="flex justify-end pt-4">
             <button
               onClick={handleSaveCompliance}
@@ -810,8 +826,10 @@ export const SMSSettingsSection: React.FC = () => {
           </div>
         </div>
       </div>
+      */}
 
-      {/* PHASE 3: Opt-out Management */}
+      {/* PHASE 3: Opt-out Management -- COMMENTED OUT FOR PHASE 1 */}
+      {/*
       <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-white/[0.08] p-6">
         <div className="flex items-center justify-between mb-4">
           <div>
@@ -874,6 +892,7 @@ export const SMSSettingsSection: React.FC = () => {
           </div>
         )}
       </div>
+      */}
 
       {/* Twilio Configuration Card */}
       <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-white/[0.08] p-6">

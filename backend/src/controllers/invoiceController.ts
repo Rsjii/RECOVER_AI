@@ -3,6 +3,9 @@ import * as InvoiceDB from '../db/invoices';
 import * as CustomerDB from '../db/customers';
 import * as PaymentDB from '../db/payments';
 import { listEmailLogs } from '../db/emailLogs';
+import { listSMSLogs } from '../db/smsLogs';
+import { listAgentDecisionsByInvoice } from '../db/agentDecisions';
+import { mergeTimelineEvents } from '../utils/timelineHelper';
 // import { findPaymentPlanByInvoice } from '../db/paymentPlans';  // ❌ DISABLED: PHASE 2 feature
 import { logError as baseLogError, logInfo as baseLogInfo } from '../utils/logger';
 import { sendErrorResponse, parseError } from '../utils/errorHandler';
@@ -232,11 +235,13 @@ export const getInvoiceDetail = async (req: Request, res: Response) => {
     const invoice = await InvoiceDB.findInvoiceById(id, companyId);
     if (!invoice) return sendErrorResponse(res, 404, 'Invoice not found');
 
-    // const paymentPlan = await findPaymentPlanByInvoice(id, companyId);  // ❌ DISABLED: PHASE 2 feature
-    const [payments, emailLogs] = await Promise.all([
+    // Enhanced Promise.all with new data sources
+    const [payments, emailLogs, smsLogs, agentDecisions, customer] = await Promise.all([
       PaymentDB.listPaymentsByInvoice(id, companyId),
       listEmailLogs(companyId, id),
-      // findPaymentPlanByInvoice(id, companyId),  // ❌ DISABLED: PHASE 2 feature
+      listSMSLogs(companyId, id),
+      listAgentDecisionsByInvoice(id, companyId, 3),
+      CustomerDB.findCustomerById(invoice.customer_id, companyId),
     ]);
     const paymentPlan = null;  // ❌ DISABLED: PHASE 2 feature
 
@@ -275,6 +280,17 @@ export const getInvoiceDetail = async (req: Request, res: Response) => {
       history: emailLogs,
     };
 
+    // Extract customer insights from payment_insights JSONB
+    const customerInsights = {
+      reliability_pct: customer?.payment_insights?.reliability_pct ?? null,
+      avg_days_to_pay: customer?.payment_insights?.avg_days_to_pay ?? null,
+      dso_trend: customer?.payment_insights?.dso_trend ?? null,
+      avg_emails_before_payment: customer?.payment_insights?.avg_emails_before_payment ?? null,
+    };
+
+    // Compute merged timeline events
+    const timelineEvents = mergeTimelineEvents(emailLogs, smsLogs, payments, dunningStatus);
+
     logInfo(handler, `Completed in ${Date.now() - startTime}ms`, { invoiceId: id, nextEmailType });
 
     return res.status(200).json({
@@ -282,8 +298,13 @@ export const getInvoiceDetail = async (req: Request, res: Response) => {
         invoice,
         payments,
         emailLogs,
+        smsLogs,
+        agentDecisions,
         paymentPlan: paymentPlan || null,
         dunningStatus,
+        customerInsights,
+        riskScore: customer?.customer_risk_score ?? null,
+        timelineEvents,
       },
     });
   } catch (err: any) {

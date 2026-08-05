@@ -7,7 +7,7 @@ export interface AgentDecisionLog {
   companyId: string;
   invoiceId?: string;
   customerId?: string;
-  decisionType: 'email_queued' | 'email_sent' | 'skipped' | 'paused' | 'plan_created' | 'sms_queued';
+  decisionType: 'email_queued' | 'email_sent' | 'skipped' | 'paused' | 'plan_created' | 'sms_queued' | 'unreachable';
   emailType?: string;
   pilotMode?: string;
   daysOverdue?: number;
@@ -50,4 +50,15 @@ export async function logAgentDecision(input: AgentDecisionLog): Promise<void> {
     // Non-critical: log error but don't throw
     logError(LOG_MODULE, 'logAgentDecision', 'Failed to log agent decision (non-blocking)', error);
   }
+}
+
+export async function listAgentDecisionsByInvoice(invoiceId: string, companyId: string, limit = 10): Promise<any[]> {
+  const result = await pool.query(
+    `SELECT * FROM agent_decisions
+     WHERE company_id = $1 AND invoice_id = $2
+     ORDER BY decided_at DESC
+     LIMIT $3`,
+    [companyId, invoiceId, limit]
+  );
+  return result.rows;
 }

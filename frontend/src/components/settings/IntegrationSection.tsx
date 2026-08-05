@@ -38,11 +38,9 @@ const INTEGRATION_CONFIG: Record<string, { label: string; icon: string; descript
   quickbooks: {
     label: 'QuickBooks',
     icon: '📊',
-    description: 'AR aging and AP data',
+    description: 'Pull invoices from QuickBooks Online',
     group: 'BILLING_SYSTEMS',
-    availableIn: 'GROWTH_TIER',
-    tier: 'GROWTH',
-    hidden: true,
+    tier: 'STARTER',
   },
   xero: {
     label: 'Xero',

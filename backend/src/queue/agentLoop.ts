@@ -10,6 +10,7 @@ import { scoreCustomerRisk } from '../services/riskScoringService';
 // import { createPlanForInvoice } from '../services/paymentPlanService';  // ❌ DISABLED: PHASE 2 feature
 import { logAgentDecision } from '../db/agentDecisions';
 import { isRecentlyRejected } from '../db/rejectionTracking';
+import { logDailyActionsAvailableNotification } from '../utils/notificationLogger';
 import type { DunningEmailType } from '../types/email';
 
 // SMS thresholds: send SMS when email alone isn't working
@@ -54,7 +55,7 @@ async function getOverdueInvoicesForProcessing(): Promise<Array<{
   dunning_paused_until: string | null;
   dunning_stopped: boolean;
   sms_count: number;
-  company_pilot_mode: 'shadow' | 'auto' | 'paused' | null;  // P0: Pilot mode
+  company_pilot_mode: 'shadow' | 'auto' | 'paused' | null;
   dunning_tone: 'gentle' | 'standard' | 'aggressive' | null;
   pause_dunning_until: string | null;
   paused_customers: string[] | null;
@@ -91,16 +92,15 @@ async function getOverdueInvoicesForProcessing(): Promise<Array<{
         ARRAY_AGG(DISTINCT el.email_type) FILTER (WHERE el.email_type IS NOT NULL AND el.status NOT IN ('failed', 'skipped')),
         '{}'::text[]
       ) AS email_types_sent,
-      false AS has_active_plan,  -- ❌ DISABLED: PHASE 2 feature (was: COUNT(DISTINCT pp.id) FILTER (WHERE pp.status = 'active') > 0)
+      false AS has_active_plan,  -- ❌ DISABLED: PHASE 2 feature
       (COUNT(DISTINCT el2.id) FILTER (WHERE el2.email_type = 'payment_plan_offer' AND el2.status NOT IN ('failed', 'skipped')) > 0) AS plan_offer_sent
     FROM invoices i
     JOIN customers c  ON i.customer_id = c.id
     JOIN companies co ON i.company_id  = co.id
     LEFT JOIN email_logs el  ON el.invoice_id = i.id
     LEFT JOIN email_logs el2 ON el2.invoice_id = i.id
-    -- LEFT JOIN payment_plans pp ON pp.invoice_id = i.id  -- ❌ DISABLED: PHASE 2 feature
     WHERE i.status NOT IN ('paid', 'uncollectable')
-      AND i.due_date < NOW() + INTERVAL '7 days'  -- include invoices due soon for proactive risk emails
+      AND i.due_date < NOW() + INTERVAL '7 days'
       AND c.email IS NOT NULL
       AND c.email != ''
       AND COALESCE(c.do_not_email, false) = false
@@ -143,14 +143,12 @@ async function runDecisionEngine(): Promise<{
   const demoCompId = demoCompanyId.rows[0]?.id;
 
   const invoices = allInvoices.filter(inv => {
-    if (demoCompId && inv.company_id === demoCompId) return false; // Skip demo
-    // NOTE: Don't skip shadow mode here — dunningQueue worker will route to pilot_queued_emails
-    // Only skip paused mode (checked inside the loop)
+    if (demoCompId && inv.company_id === demoCompId) return false;
     return true;
   });
 
   let skippedCount = 0;
-  logInfo(LOG_MODULE, method, `Processing ${invoices.length} unpaid overdue invoices (skipped ${skippedCount} demo/paused)`);
+  logInfo(LOG_MODULE, method, `Processing ${invoices.length} unpaid overdue invoices`);
 
   let emailsQueued = 0;
   let planOffersQueued = 0;
@@ -166,7 +164,7 @@ async function runDecisionEngine(): Promise<{
         continue;
       }
 
-      // P0: Skip paused pilot accounts (shadow mode will be routed by dunningQueue worker)
+      // P0: Skip paused pilot accounts
       if (invoice.company_pilot_mode === 'paused') {
         logInfo(LOG_MODULE, method, 'Company pilot paused — skipping invoice', {
           invoiceId: invoice.id,
@@ -219,19 +217,29 @@ async function runDecisionEngine(): Promise<{
 
       const emailTypesSent = new Set<string>(invoice.email_types_sent || []);
 
-      // ── Find next dunning step to send ──
-      // Use tier-specific cadence (Phase 3): Tier 1=7d gaps, 2=6d, 3=5d, 4=4d
-      // Fall back to default DUNNING_DECISION_TREE for unknown tiers.
+      // ── Tier Calculation ──
       let tier = Math.min(4, Math.max(1, invoice.risk_tier || 2)) as 1 | 2 | 3 | 4;
 
       // ── Phase 2: Apply dunning tone overrides ──
       if (invoice.dunning_tone === 'gentle') {
-        tier = 1; // Force gentle (Tier 1) regardless of risk
+        tier = 1;
       } else if (invoice.dunning_tone === 'aggressive' || invoice.aggressive_enabled) {
-        tier = Math.max(tier, 3) as 1 | 2 | 3 | 4; // Force minimum Tier 3 (aggressive)
+        tier = Math.max(tier, 3) as 1 | 2 | 3 | 4;
       }
 
-      // ── Send high-risk alert if risk score is high ──
+      // ── Apply payment_insights tier adjustment ──
+      const avgEmailsNeeded = invoice.payment_insights?.avg_emails_before_payment ?? null;
+      if (avgEmailsNeeded !== null) {
+        if (avgEmailsNeeded > 2.5 && tier < 3) {
+          tier = Math.min(tier + 1, 4) as 1 | 2 | 3 | 4;
+          logInfo(LOG_MODULE, method, 'Tier bumped (slow payer)', { invoiceId: invoice.id });
+        } else if (avgEmailsNeeded <= 1.2 && tier > 1 && invoice.dunning_emails_sent === 0) {
+          tier = Math.max(tier - 1, 1) as 1 | 2 | 3 | 4;
+          logInfo(LOG_MODULE, method, 'Tier reduced (self-payer)', { invoiceId: invoice.id });
+        }
+      }
+
+      // ── Send high-risk alert ──
       if (invoice.customer_risk_score >= 75 && daysOverdue >= 30) {
         try {
           const { slackNotificationService } = await import('../services/slackNotificationService');
@@ -244,49 +252,73 @@ async function runDecisionEngine(): Promise<{
             invoiceId: invoice.id,
           });
         } catch (err) {
-          logWarn(LOG_MODULE, method, 'Failed to send high-risk notification (non-blocking)', {
-            error: String(err),
-          });
+          logWarn(LOG_MODULE, method, 'High-risk notification failed (non-blocking)', { error: String(err) });
         }
       }
 
-      const activeDunningTree = TIER_DUNNING_TREES[tier] ?? DUNNING_DECISION_TREE;
+      // ┌─────────────────────────────────────────────────────────────┐
+      // │ UNIFIED PIPELINE: Email → Email → SMS → Voice (One at a time) │
+      // └─────────────────────────────────────────────────────────────┘
 
-      // ── Historical insights: smarter email sequencing ──
-      // If customer historically needs 2.5+ emails before paying, bump tier aggression
-      // If customer historically self-corrects with ≤1 email, stay gentle
-      const avgEmailsNeeded = invoice.payment_insights?.avg_emails_before_payment ?? null;
-      if (avgEmailsNeeded !== null) {
-        if (avgEmailsNeeded > 2.5 && tier < 3) {
-          // Customer historically needs pushing — escalate faster
-          tier = Math.min(tier + 1, 4) as 1 | 2 | 3 | 4;
-          logInfo(LOG_MODULE, method, 'Tier bumped by payment_insights (slow historical payer)', {
-            invoiceId: invoice.id, avgEmailsNeeded, newTier: tier,
-          });
-        } else if (avgEmailsNeeded <= 1.2 && tier > 1 && invoice.dunning_emails_sent === 0) {
-          // Self-payer — start gentle even if risk score says otherwise
-          tier = Math.max(tier - 1, 1) as 1 | 2 | 3 | 4;
-          logInfo(LOG_MODULE, method, 'Tier reduced by payment_insights (historical self-payer)', {
-            invoiceId: invoice.id, avgEmailsNeeded, newTier: tier,
-          });
-        }
+      // ─── GATE 1: Check if anything is already pending for this invoice ───
+      const hasPendingItem = await pool.query(
+        `SELECT id, type FROM pilot_queued_emails
+         WHERE invoice_id = $1 AND status = 'pending_approval'
+         LIMIT 1`,
+        [invoice.id]
+      );
+
+      if (hasPendingItem.rows.length > 0) {
+        const pendingType = hasPendingItem.rows[0].type;
+        logInfo(LOG_MODULE, method, 'Item already pending — skipping invoice (pipeline)', {
+          invoiceId: invoice.id,
+          pendingType,
+        });
+        skippedCount++;
+        continue;
       }
 
-      let nextStep: { dayOffset: number; emailType: DunningEmailType } | null = null;
-      for (const step of activeDunningTree) {
-        if (daysOverdue >= step.dayOffset && !emailTypesSent.has(step.emailType)) {
-          nextStep = step;
-          break;
-        }
+      // ─── GATE 2: Get last SENT item (any type) from pipeline ───
+      const lastSentResult = await pool.query(
+        `SELECT sent_at, type FROM pilot_queued_emails
+         WHERE invoice_id = $1 AND status = 'sent'
+         ORDER BY sent_at DESC
+         LIMIT 1`,
+        [invoice.id]
+      );
+
+      const lastSentItem = lastSentResult.rows[0];
+      const lastSentAtMs = lastSentItem ? new Date(lastSentItem.sent_at).getTime() : null;
+
+      // ─── GATE 3: Calculate next eligible time (unified pipeline rule) ───
+      const tierGapDays = [0, 7, 6, 5, 4][tier];
+      let nextEligibleAtMs: number;
+
+      if (!lastSentAtMs) {
+        nextEligibleAtMs = now;
+      } else {
+        nextEligibleAtMs = lastSentAtMs + (tierGapDays * 24 * 60 * 60 * 1000);
       }
 
-      if (nextStep && invoice.dunning_emails_sent < MAX_DUNNING_EMAILS) {
-        // Check if this email type was recently rejected (7-day block)
-        const recentRejection = await isRecentlyRejected(invoice.id, nextStep.emailType);
+      const isTimeForNextItem = now >= nextEligibleAtMs;
+
+      // ─── GATE 4: Determine what to queue next (Priority 1, 2, 3) ───
+      const emailsSent = invoice.dunning_emails_sent;
+      const smsSent = invoice.sms_count;
+
+      let itemQueued = false;
+
+      // Priority 1: Queue next EMAIL (if not all sent)
+      if (isTimeForNextItem && emailsSent < MAX_DUNNING_EMAILS) {
+        const emailSequence: DunningEmailType[] = ['dunning_1', 'dunning_2', 'dunning_3', 'dunning_4', 'dunning_5'];
+        const nextEmailType = emailSequence[emailsSent];
+
+        // Check rejection block
+        const recentRejection = await isRecentlyRejected(invoice.id, nextEmailType);
         if (recentRejection) {
-          logInfo(LOG_MODULE, method, 'Skipping recently rejected email (7-day block)', {
+          logInfo(LOG_MODULE, method, 'Email rejected (7-day block) — skipping', {
             invoiceId: invoice.id,
-            emailType: nextStep.emailType,
+            emailType: nextEmailType,
             expiresAt: recentRejection.expires_at,
           });
           skippedCount++;
@@ -300,46 +332,198 @@ async function runDecisionEngine(): Promise<{
             invoiceAmount: invoice.amount,
             dueDate: invoice.due_date,
             daysOverdue,
-            emailType: nextStep.emailType,
-            attemptNumber: invoice.dunning_emails_sent + 1,
+            emailType: nextEmailType,
+            attemptNumber: emailsSent + 1,
             riskScore: invoice.customer_risk_score || undefined,
-            pilotMode: invoice.company_pilot_mode as any,  // Pass config to avoid DB lookup
+            pilotMode: invoice.company_pilot_mode as any,
           });
           emailsQueued++;
-          logInfo(LOG_MODULE, method, 'Dunning email queued', {
+          itemQueued = true;
+          logInfo(LOG_MODULE, method, 'Email queued (pipeline)', {
             invoiceId: invoice.id,
-            daysOverdue,
-            emailType: nextStep.emailType,
-            attemptNumber: invoice.dunning_emails_sent + 1,
+            emailType: nextEmailType,
+            emailNumber: emailsSent + 1,
+            lastSentAt: lastSentItem?.sent_at ? new Date(lastSentItem.sent_at).toISOString() : 'first',
+            nextEligibleAtMs,
+            tierGapDays,
           });
+          // Log decision
+          try {
+            await logAgentDecision({
+              companyId: invoice.company_id,
+              invoiceId: invoice.id,
+              customerId: invoice.customer_id,
+              decisionType: 'email_queued',
+              emailType: nextEmailType,
+              pilotMode: invoice.company_pilot_mode || undefined,
+              daysOverdue,
+              riskScore: invoice.customer_risk_score || undefined,
+              reason: `Dunning ${emailsSent + 1} (${tierGapDays}d gap from last sent)`,
+            });
+          } catch (_err) {
+            // Swallow
+          }
         }
-        // Log decision for learning system (fire-and-forget)
-        try {
-          await logAgentDecision({
-            companyId: invoice.company_id,
-            invoiceId: invoice.id,
-            customerId: invoice.customer_id,
-            decisionType: 'email_queued',
-            emailType: nextStep.emailType,
-            pilotMode: invoice.company_pilot_mode || undefined,
-            daysOverdue,
-            riskScore: invoice.customer_risk_score || undefined,
-            reason: `Dunning attempt ${invoice.dunning_emails_sent + 1}`,
-          });
-        } catch (_err) {
-          // Swallow errors - non-critical
+      }
+      // Priority 2: Queue SMS (INTELLIGENT based on customer payment history)
+      else if (isTimeForNextItem && smsSent === 0) {
+        // Get customer's historical email requirement (intelligence: use real data)
+        const avgEmailsNeededForSMS = invoice.payment_insights?.avg_emails_before_payment ?? SMS_MIN_EMAILS_SENT;
+
+        // Queue SMS only if we've sent enough emails for THIS customer's behavior
+        const shouldQueueSMS = emailsSent >= Math.max(SMS_MIN_EMAILS_SENT, Math.ceil(avgEmailsNeededForSMS));
+
+        if (shouldQueueSMS && emailsSent < MAX_DUNNING_EMAILS + 1) {
+          // Check for hard bounces (indicates email channel is broken)
+          let hasHardBounce = false;
+          if (emailsSent > 0) {
+            const bounceCheck = await pool.query(
+              `SELECT COUNT(*) as bounce_count FROM email_logs
+               WHERE invoice_id = $1 AND status = 'bounced'`,
+              [invoice.id]
+            );
+            hasHardBounce = parseInt(bounceCheck.rows[0].bounce_count) > 0;
+          }
+
+          // SMS conditions: phone opted in, have number, time threshold met, engagement issue
+          if (
+            invoice.customer_phone_opt_in &&
+            invoice.customer_phone &&
+            (daysOverdue >= SMS_MIN_DAYS_OVERDUE || hasHardBounce)
+          ) {
+            const normalizedPhone = normalizePhone(invoice.customer_phone);
+            if (normalizedPhone) {
+              const recentRejection = await isRecentlyRejected(invoice.id, 'sms');
+              if (recentRejection) {
+                logInfo(LOG_MODULE, method, 'SMS rejected (7-day block)', {
+                  invoiceId: invoice.id,
+                  expiresAt: recentRejection.expires_at,
+                });
+              } else {
+                await queueSMSNow({
+                  companyId: invoice.company_id,
+                  customerId: invoice.customer_id,
+                  invoiceId: invoice.id,
+                  phoneNumber: normalizedPhone,
+                  customerName: invoice.customer_name,
+                  companyName: invoice.company_name,
+                  invoiceAmount: invoice.amount,
+                  daysOverdue,
+                });
+                itemQueued = true;
+                logInfo(LOG_MODULE, method, 'SMS queued (intelligent timing)', {
+                  invoiceId: invoice.id,
+                  emailsSent,
+                  avgEmailsNeeded: Math.round(avgEmailsNeededForSMS * 100) / 100,
+                  lastSentAt: lastSentItem?.sent_at ? new Date(lastSentItem.sent_at).toISOString() : 'none',
+                  nextEligibleAtMs,
+                  reason: hasHardBounce ? 'hard bounce detected' : `customer avg ${Math.round(avgEmailsNeededForSMS * 100) / 100} emails before payment`,
+                });
+                try {
+                  await logAgentDecision({
+                    companyId: invoice.company_id,
+                    invoiceId: invoice.id,
+                    customerId: invoice.customer_id,
+                    decisionType: 'sms_queued',
+                    pilotMode: invoice.company_pilot_mode || undefined,
+                    daysOverdue,
+                    riskScore: invoice.customer_risk_score || undefined,
+                    reason: hasHardBounce ? 'Hard bounce → SMS escalation' : `SMS after ${emailsSent} emails (customer historically: ${Math.round(avgEmailsNeededForSMS * 100) / 100})`,
+                  });
+                } catch (_err) {
+                  // Swallow
+                }
+              }
+            }
+          } else if (hasHardBounce && (!invoice.customer_phone || !invoice.customer_phone_opt_in)) {
+            // ⚠️ HARD BOUNCE BUT NO SMS AVAILABLE → Mark as Unreachable
+            logInfo(LOG_MODULE, method, 'Hard bounce + unreachable (no SMS)', {
+              invoiceId: invoice.id,
+              hasPhone: !!invoice.customer_phone,
+              phoneOptIn: invoice.customer_phone_opt_in,
+              reason: 'Email bounced, no SMS channel available',
+            });
+            try {
+              await logAgentDecision({
+                companyId: invoice.company_id,
+                invoiceId: invoice.id,
+                customerId: invoice.customer_id,
+                decisionType: 'unreachable',
+                pilotMode: invoice.company_pilot_mode || undefined,
+                daysOverdue,
+                riskScore: invoice.customer_risk_score || undefined,
+                reason: 'Hard bounce (email invalid). No SMS phone number on file. Manual follow-up required.',
+              });
+            } catch (_err) {
+              // Swallow
+            }
+            skippedCount++;
+          }
         }
-      } else if (!nextStep) {
-        logInfo(LOG_MODULE, method, 'No pending dunning step', {
+      }
+      // Priority 3: Queue VOICE (if SMS done AND conditions met)
+      else if (isTimeForNextItem && emailsSent >= MAX_DUNNING_EMAILS && smsSent > 0 && tier === 4 && daysOverdue >= 90) {
+        const normalizedPhone = invoice.customer_phone ? normalizePhone(invoice.customer_phone) : null;
+        if (normalizedPhone && !await hasRecentVoiceCall(invoice.id, 24)) {
+          const recentRejection = await isRecentlyRejected(invoice.id, 'voice');
+          if (recentRejection) {
+            logInfo(LOG_MODULE, method, 'Voice rejected (7-day block)', {
+              invoiceId: invoice.id,
+              expiresAt: recentRejection.expires_at,
+            });
+          } else {
+            try {
+              const invResult = await pool.query('SELECT invoice_number FROM invoices WHERE id = $1', [invoice.id]);
+              const invoiceNumber = invResult.rows[0]?.invoice_number || 'Unknown';
+
+              await queueVoiceCall({
+                invoiceId: invoice.id,
+                companyId: invoice.company_id,
+                customerId: invoice.customer_id,
+                phone: normalizedPhone,
+                amount: invoice.amount,
+                invoiceNumber,
+              });
+              itemQueued = true;
+              logInfo(LOG_MODULE, method, 'Voice queued (pipeline)', {
+                invoiceId: invoice.id,
+                daysOverdue,
+                lastSentAt: lastSentItem?.sent_at ? new Date(lastSentItem.sent_at).toISOString() : 'none',
+                nextEligibleAtMs,
+              });
+            } catch (err) {
+              logWarn(LOG_MODULE, method, 'Voice queue failed (non-blocking)', {
+                invoiceId: invoice.id,
+                error: String(err),
+              });
+            }
+          }
+        }
+      }
+      // No item queued
+      else if (!isTimeForNextItem) {
+        const daysUntilEligible = Math.ceil((nextEligibleAtMs - now) / (24 * 60 * 60 * 1000));
+        logInfo(LOG_MODULE, method, 'Item not yet eligible (waiting for gap)', {
           invoiceId: invoice.id,
+          daysUntilEligible,
+          lastSentAt: lastSentItem?.sent_at || 'none',
+          nextEligibleAtMs,
+        });
+        skippedCount++;
+      } else if (!itemQueued && emailsSent >= MAX_DUNNING_EMAILS && smsSent === 0) {
+        logInfo(LOG_MODULE, method, 'SMS not eligible (conditions not met)', {
+          invoiceId: invoice.id,
+          emailsSent,
           daysOverdue,
-          emailTypesSent: [...emailTypesSent],
+          lastSentAt: lastSentItem?.sent_at ? new Date(lastSentItem.sent_at).toISOString() : 'none',
         });
         skippedCount++;
       } else {
-        logInfo(LOG_MODULE, method, 'Max dunning emails reached', {
+        logInfo(LOG_MODULE, method, 'Pipeline complete (all items sent)', {
           invoiceId: invoice.id,
-          dunningEmailsSent: invoice.dunning_emails_sent,
+          emailsSent,
+          smsSent,
+          lastSentAt: lastSentItem?.sent_at ? new Date(lastSentItem.sent_at).toISOString() : 'none',
         });
         skippedCount++;
       }
@@ -350,147 +534,9 @@ async function runDecisionEngine(): Promise<{
       //   daysOverdue >= PAYMENT_PLAN_DAY_THRESHOLD &&
       //   !invoice.has_active_plan &&
       //   !invoice.plan_offer_sent
-      // ) {
-      //   // Check if payment plan offer was recently rejected (7-day block)
-      //   const recentRejection = await isRecentlyRejected(invoice.id, 'payment_plan_offer');
+      // ) { ... }
 
-      //   if (!recentRejection) {
-      //     // Create the DB record first so paymentPlanChargeJob can pick it up
-      //     try {
-      //       await createPlanForInvoice(invoice.id, invoice.company_id, 3);
-      //       logInfo(LOG_MODULE, method, 'Payment plan created', {
-      //         invoiceId: invoice.id,
-      //         numInstallments: 3,
-      //       });
-      //     } catch (planErr) {
-      //       logWarn(LOG_MODULE, method, 'Could not create payment plan (may already exist)', {
-      //         invoiceId: invoice.id,
-      //         error: String(planErr),
-      //       });
-      //     }
-      //     await queueEmailNow({
-      //       companyId: invoice.company_id,
-      //       customerId: invoice.customer_id,
-      //       invoiceId: invoice.id,
-      //       recipientEmail: invoice.customer_email,
-      //       customerName: invoice.customer_name,
-      //       invoiceAmount: invoice.amount,
-      //       dueDate: invoice.due_date,
-      //       daysOverdue,
-      //       emailType: 'payment_plan_offer',
-      //       attemptNumber: 1,
-      //       riskScore: invoice.customer_risk_score || undefined,
-      //       pilotMode: invoice.company_pilot_mode as any,  // Pass config to avoid DB lookup
-      //     });
-      //     planOffersQueued++;
-      //     logInfo(LOG_MODULE, method, 'Payment plan offer queued', {
-      //       invoiceId: invoice.id,
-      //       daysOverdue,
-      //     });
-      //   } else {
-      //     logInfo(LOG_MODULE, method, 'Skipping recently rejected payment plan offer (7-day block)', {
-      //       invoiceId: invoice.id,
-      //       expiresAt: recentRejection.expires_at,
-      //     });
-      //   }
-      //   // Log decision for learning system (fire-and-forget)
-      //   try {
-      //     await logAgentDecision({
-      //       companyId: invoice.company_id,
-      //       invoiceId: invoice.id,
-      //       customerId: invoice.customer_id,
-      //       decisionType: 'email_queued',
-      //       emailType: 'payment_plan_offer',
-      //       pilotMode: invoice.company_pilot_mode || undefined,
-      //       daysOverdue,
-      //       riskScore: invoice.customer_risk_score || undefined,
-      //       reason: 'Payment plan offer at day 15+',
-      //     });
-      //   } catch (_err) {
-      //     // Swallow errors - non-critical
-      //   }
-      // }
-
-      // ── SMS escalation: trigger when email isn't working ──
-      if (
-        invoice.customer_phone_opt_in &&
-        invoice.customer_phone &&
-        invoice.dunning_emails_sent >= SMS_MIN_EMAILS_SENT &&
-        daysOverdue >= SMS_MIN_DAYS_OVERDUE &&
-        invoice.sms_count === 0   // only queue first SMS here; subsequent handled by smsQueue retries
-      ) {
-        const normalizedPhone = normalizePhone(invoice.customer_phone);
-        if (normalizedPhone) {
-          await queueSMSNow({
-            companyId: invoice.company_id,
-            customerId: invoice.customer_id,
-            invoiceId: invoice.id,
-            phoneNumber: normalizedPhone,
-            customerName: invoice.customer_name,
-            companyName: invoice.company_name,
-            invoiceAmount: invoice.amount,
-            daysOverdue,
-          });
-          logInfo(LOG_MODULE, method, 'SMS queued', {
-            invoiceId: invoice.id,
-            daysOverdue,
-            dunningEmailsSent: invoice.dunning_emails_sent,
-          });
-          // Log decision for learning system (fire-and-forget)
-          try {
-            await logAgentDecision({
-              companyId: invoice.company_id,
-              invoiceId: invoice.id,
-              customerId: invoice.customer_id,
-              decisionType: 'sms_queued',
-              pilotMode: invoice.company_pilot_mode || undefined,
-              daysOverdue,
-              riskScore: invoice.customer_risk_score || undefined,
-              reason: `SMS triggered at day ${daysOverdue} (after ${invoice.dunning_emails_sent} emails)`,
-            });
-          } catch (_err) {
-            // Swallow errors - non-critical
-          }
-        }
-      }
-
-      // ── Tier 4: queue voice call (Phase 5) ──
-      if (
-        tier === 4 &&
-        invoice.customer_phone &&
-        invoice.customer_phone_opt_in &&
-        daysOverdue >= 90
-      ) {
-        const normalizedPhone = normalizePhone(invoice.customer_phone);
-        if (normalizedPhone && !await hasRecentVoiceCall(invoice.id, 24)) {
-          try {
-            // Fetch invoice number for TwiML
-            const invResult = await pool.query(
-              'SELECT invoice_number FROM invoices WHERE id = $1',
-              [invoice.id]
-            );
-            const invoiceNumber = invResult.rows[0]?.invoice_number || 'Unknown';
-
-            await queueVoiceCall({
-              invoiceId: invoice.id,
-              companyId: invoice.company_id,
-              customerId: invoice.customer_id,
-              phone: normalizedPhone,
-              amount: invoice.amount,
-              invoiceNumber,
-            });
-            logInfo(LOG_MODULE, method, 'Voice call queued', {
-              invoiceId: invoice.id,
-              daysOverdue,
-            });
-          } catch (err) {
-            logWarn(LOG_MODULE, method, 'Voice call queue failed (non-blocking)', {
-              invoiceId: invoice.id,
-              error: String(err),
-            });
-          }
-        }
-      }
+      // ✅ SMS and Voice now handled in unified pipeline above
 
       // ── Proactive risk email: send BEFORE invoice fails ──
       // Triggered when: score >= 60 AND invoice due within 7 days AND not yet overdue
@@ -549,6 +595,31 @@ async function runDecisionEngine(): Promise<{
 
   const result = { total: invoices.length, emailsQueued, planOffersQueued, skipped: skippedCount };
   logInfo(LOG_MODULE, method, 'Agent run complete', result);
+
+  // Wire notification: if ≥3 emails pending approval, notify user
+  if (invoices.length > 0) {
+    try {
+      const companyId = invoices[0].company_id;
+
+      // Count pending approvals from database (not just queued this run)
+      const pendingApprovalsResult = await pool.query(
+        `SELECT COUNT(*) as count
+         FROM pilot_queued_emails
+         WHERE company_id = $1
+           AND status = 'pending_approval'`,
+        [companyId]
+      );
+
+      const pendingCount = parseInt(pendingApprovalsResult.rows[0]?.count || '0');
+
+      if (pendingCount >= 3) {
+        await logDailyActionsAvailableNotification(companyId, pendingCount);
+      }
+    } catch (notifyErr: unknown) {
+      logWarn(LOG_MODULE, method, 'Failed to log pending approval notification (non-blocking)', { error: String(notifyErr) });
+    }
+  }
+
   return result;
 }
 
@@ -676,16 +747,7 @@ export async function runDecisionEngineDryRun(companyId?: string): Promise<{
     //   !invoice.plan_offer_sent
     // ) {
     //   plansWouldOffer++;
-    //   previews.push({
-    //     invoiceId: invoice.id,
-    //     customerId: invoice.customer_id,
-    //     customerName: invoice.customer_name,
-    //     recipientEmail: invoice.customer_email,
-    //     amount: invoice.amount,
-    //     daysOverdue,
-    //     emailType: 'payment_plan_offer',
-    //     riskScore: invoice.customer_risk_score || 0,
-    //   });
+    //   previews.push({...});
     // }
   }
 

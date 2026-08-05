@@ -77,6 +77,26 @@ export interface PaymentPlansSummary {
   recentPlans: PaymentPlanSummaryItem[];
 }
 
+export interface RecommendedAction {
+  invoiceId: string;
+  customerId: string;
+  customerName: string;
+  customerEmail: string | null;
+  amount: number;
+  daysOverdue: number;
+  riskScore: number;
+  paymentProbability: number;
+  recommendedAction: 'sms' | 'email' | 'call' | 'wait';
+  priority: 'critical' | 'high' | 'medium';
+  aiReasoning: string;
+  previousAttempts: number;
+  paymentInsights: {
+    reliability_pct?: number;
+    avg_days_to_pay?: number;
+    avg_emails_before_payment?: number;
+  } | null;
+}
+
 // ─── Existing Types ────────────────────────────────────────────────────────
 
 export interface RecoveryStats {
@@ -729,4 +749,115 @@ export async function getBillingAnomalies(
     invoiceAmount: r.invoice_amount != null ? parseFloat(r.invoice_amount) : null,
     detectedAt: r.detected_at,
   }));
+}
+
+/**
+ * GET /api/dashboard/recommended-actions
+ * Returns top 3 high-risk unpaid invoices with AI-recommended actions
+ * Used for "Your Turn" section on dashboard
+ */
+export async function getRecommendedActions(companyId: string, limit: number = 3): Promise<RecommendedAction[]> {
+  const { rows } = await pool.query(
+    `SELECT
+       i.id as invoice_id,
+       i.customer_id,
+       c.name as customer_name,
+       c.email as customer_email,
+       i.amount,
+       CEIL(EXTRACT(EPOCH FROM (NOW() - i.due_date)) / 86400)::INT as days_overdue,
+       c.customer_risk_score as risk_score,
+       i.sms_count as previous_attempts,
+       c.payment_insights,
+       CASE
+         WHEN c.customer_risk_score >= 70 THEN 'critical'
+         WHEN c.customer_risk_score >= 50 THEN 'high'
+         ELSE 'medium'
+       END as priority
+     FROM invoices i
+     JOIN customers c ON i.customer_id = c.id
+     WHERE i.company_id = $1
+       AND i.status = 'unpaid'
+       AND i.dunning_stopped = false
+       AND i.dunning_paused_until IS NULL
+       AND c.customer_risk_score > 0
+     ORDER BY
+       c.customer_risk_score DESC,
+       EXTRACT(EPOCH FROM (NOW() - i.due_date)) DESC
+     LIMIT $2`,
+    [companyId, limit]
+  );
+
+  // Calculate payment probability and recommended action based on risk score, payment insights, and previous attempts
+  return rows.map((row) => {
+    const riskScore = parseInt(row.risk_score);
+    const daysOverdue = parseInt(row.days_overdue);
+    const previousAttempts = parseInt(row.previous_attempts);
+    const paymentInsights = row.payment_insights || {};
+
+    // Calculate payment probability (higher reliability = higher probability)
+    const reliability = paymentInsights.reliability_pct || 50;
+    const paymentProbability = Math.min(95, Math.max(5, reliability + (100 - riskScore) / 2));
+
+    // Determine recommended action
+    let recommendedAction: 'sms' | 'email' | 'call' | 'wait' = 'email';
+    let aiReasoning = '';
+
+    if (riskScore >= 80) {
+      // Critical risk: immediate action needed
+      if (previousAttempts <= 1) {
+        recommendedAction = 'sms';
+        aiReasoning = `Send SMS immediately (${Math.floor((paymentInsights.avg_days_to_pay || 14) / 2)} hour response time typical for this customer)`;
+      } else if (previousAttempts <= 3) {
+        recommendedAction = 'email';
+        aiReasoning = `Personal email with payment link (${Math.round(paymentProbability)}% payment probability, needs authority attention)`;
+      } else {
+        recommendedAction = 'call';
+        aiReasoning = `Phone call recommended (${previousAttempts} previous attempts, escalation needed)`;
+      }
+    } else if (riskScore >= 50) {
+      // High risk
+      if (previousAttempts <= 1) {
+        recommendedAction = 'email';
+        aiReasoning = `Personal email with payment link (higher conversion than generic reminders)`;
+      } else if (daysOverdue > 60) {
+        recommendedAction = 'sms';
+        aiReasoning = `SMS reminder (${daysOverdue} days overdue, customer typically responds to SMS)`;
+      } else {
+        recommendedAction = 'wait';
+        aiReasoning = `Monitor (payment expected within ${Math.floor(paymentInsights.avg_days_to_pay || 7)} days based on history)`;
+      }
+    } else {
+      // Medium or lower risk
+      if (daysOverdue > 90) {
+        recommendedAction = 'email';
+        aiReasoning = `Send final notice (90+ days overdue, time-sensitive action needed)`;
+      } else if (daysOverdue > 30) {
+        recommendedAction = 'email';
+        aiReasoning = `Friendly reminder email (${daysOverdue} days overdue)`;
+      } else {
+        recommendedAction = 'wait';
+        aiReasoning = `Wait until tomorrow (historically pays same-day, no action needed yet)`;
+      }
+    }
+
+    return {
+      invoiceId: row.invoice_id,
+      customerId: row.customer_id,
+      customerName: row.customer_name,
+      customerEmail: row.customer_email || null,
+      amount: parseFloat(row.amount),
+      daysOverdue,
+      riskScore,
+      paymentProbability: Math.round(paymentProbability),
+      recommendedAction,
+      priority: row.priority,
+      aiReasoning,
+      previousAttempts,
+      paymentInsights: {
+        reliability_pct: paymentInsights.reliability_pct,
+        avg_days_to_pay: paymentInsights.avg_days_to_pay,
+        avg_emails_before_payment: paymentInsights.avg_emails_before_payment,
+      },
+    };
+  });
 }

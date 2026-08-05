@@ -3,10 +3,12 @@ import { scheduleDunningEmails, queueEmailNow, getDunningQueue } from '../queue/
 import { listEmailLogs, updateEmailStatus, markEmailOpened, markEmailClicked } from '../db/emailLogs';
 import { findInvoiceById } from '../db/invoices';
 import { findCompanyById } from '../db/companies';
+import { findCustomerById } from '../db/customers';
 import * as SecurityDB from '../db/security';
 import { SendGridWebhookEvent, DunningEmailType } from '../types/email';
 import { logError, logInfo, logWarn } from '../utils/logger';
 import { sendErrorResponse, parseError } from '../utils/errorHandler';
+import { logEmailBouncedNotification, logContactInvalidNotification } from '../utils/notificationLogger';
 import crypto from 'crypto';
 import { redisClient } from '../config/redis';
 
@@ -121,6 +123,18 @@ export const sendEmailNow = async (req: Request, res: Response): Promise<void> =
     const invoice = await findInvoiceById(invoiceId, companyId);
     if (!invoice) {
       sendErrorResponse(res, 404, 'Invoice not found');
+      return;
+    }
+
+    // Check if dunning is paused
+    if (invoice.dunning_paused_until && new Date(invoice.dunning_paused_until) > new Date()) {
+      sendErrorResponse(res, 400, `Dunning paused until ${invoice.dunning_paused_until}`);
+      return;
+    }
+
+    // Check if dunning is stopped
+    if (invoice.dunning_stopped) {
+      sendErrorResponse(res, 400, 'Dunning stopped permanently for this invoice');
       return;
     }
 
@@ -251,6 +265,40 @@ export const resendWebhook = async (req: Request, res: Response): Promise<void> 
       case 'email.bounced':
       case 'email.complained':
         await updateEmailStatus(emailId, 'bounced');
+        // Log notification for bounced emails (non-blocking)
+        try {
+          const emailLog = await listEmailLogs(emailId, '');
+          if (emailLog && emailLog.length > 0) {
+            const log = emailLog[0];
+            const invoice = await findInvoiceById(log.invoice_id, log.company_id);
+            const customer = invoice ? await findCustomerById(invoice.customer_id, log.company_id) : null;
+            const customerName = customer?.name || customer?.company_name || 'Unknown Customer';
+
+            // Check if this is a hard bounce (permanent failure)
+            const isBounce = eventType === 'email.bounced';
+            const bounceType = event.data?.bounce_type; // 'permanent' or 'temporary'
+            const isHardBounce = isBounce && bounceType === 'permanent';
+
+            if (isHardBounce) {
+              await logContactInvalidNotification(
+                log.company_id,
+                customerName,
+                log.recipient_email,
+                'email',
+                event.data?.bounce_reason || 'Hard bounce'
+              );
+            } else {
+              await logEmailBouncedNotification(
+                log.company_id,
+                customerName,
+                log.recipient_email,
+                eventType === 'email.complained' ? 'Complaint' : (bounceType === 'temporary' ? 'Temporary bounce' : 'Bounce')
+              );
+            }
+          }
+        } catch (err) {
+          logError(LOG_MODULE, handler, 'Failed to log email bounce notification (non-blocking)', err);
+        }
         break;
       case 'email.sent':
         // Resend also sends 'sent' event, but we already know email was sent when queued

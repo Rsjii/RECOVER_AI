@@ -201,7 +201,6 @@ const Dashboard: React.FC = () => {
   const [cashForecast, setCashForecast] = useState<EnhancedCashForecast | null>(null);
   // Pilot controls
   const [pilotMode, setPilotMode] = useState<string | null>(null);
-  const [dismissEmailWarning, setDismissEmailWarning] = useState(false);
   const [recoveryToday, setRecoveryToday] = useState<{ amount: number; count: number } | null>(null);
   const [pausingAgent, setPausingAgent] = useState(false);
   // Trial mode
@@ -277,41 +276,39 @@ const Dashboard: React.FC = () => {
         }
 
         // NORMAL DASHBOARD MODE
-        const [statsRes, pipelineRes, riskRes, atRiskRes, cashRes, runwayRes, leakageRes,
-               kpiRes, agingRes, emailAnalyticsRes, riskDriversRes, plansSummaryRes,
-               workingCapitalRes, dsoReductionRes, hoursSavedRes, billingAnomaliesRes, cashForecastRes] = await Promise.all([
-          api.get<{ data: DashboardStats }>(API_ENDPOINTS.dashboard.stats),
-          api.get<{ data: InvoicePipeline }>(API_ENDPOINTS.dashboard.pipeline),
+        // ✅ Performance: Batch core stats (stats+pipeline+aging) into one endpoint
+        const [coreStatsRes, riskRes, atRiskRes, cashRes, runwayRes, leakageRes,
+               kpiRes, emailAnalyticsRes, riskDriversRes, hoursSavedRes, billingAnomaliesRes, cashForecastRes] = await Promise.all([
+          api.get<{ data: { stats: DashboardStats; pipeline: InvoicePipeline; aging: AgingAnalysis } }>('/api/dashboard/core-stats'),
           api.get<{ data: CustomerRisk[]; total: number }>(API_ENDPOINTS.dashboard.riskList + '?limit=10'),
           api.get<{ data: AtRiskCustomer[] }>('/api/dashboard/at-risk').catch(() => ({ data: [] as AtRiskCustomer[] })),
           api.get<{ data: CashPosition }>('/api/dashboard/cash-position').catch(() => ({ data: null as CashPosition | null })),
           api.get<{ data: RunwayData }>('/api/dashboard/runway').catch(() => ({ data: null as RunwayData | null })),
           api.get<{ data: CashLeakageData }>('/api/dashboard/cash-leakage').catch(() => ({ data: null as CashLeakageData | null })),
           api.get<{ data: DashboardKpi }>('/api/dashboard/kpi').catch(() => ({ data: null as DashboardKpi | null })),
-          api.get<{ data: AgingAnalysis }>('/api/dashboard/aging-analysis').catch(() => ({ data: null as AgingAnalysis | null })),
           api.get<{ data: EmailAnalytics }>('/api/dashboard/email-analytics').catch(() => ({ data: null as EmailAnalytics | null })),
           api.get<{ data: RiskDrivers }>('/api/dashboard/risk-drivers').catch(() => ({ data: null as RiskDrivers | null })),
-          api.get<{ data: PaymentPlansSummaryData }>('/api/dashboard/payment-plans-summary').catch(() => ({ data: null as PaymentPlansSummaryData | null })),
-          api.get<{ data: WorkingCapitalFreed }>('/api/dashboard/working-capital-freed').catch(() => ({ data: null as WorkingCapitalFreed | null })),
-          api.get<{ data: DSOReduction }>('/api/dashboard/dso-reduction').catch(() => ({ data: null as DSOReduction | null })),
+          // ❌ DISABLED — Phase 2 features (payment-plans-summary, working-capital-freed, dso-reduction)
           api.get<{ data: { hoursSaved: number; emailsSent: number; paymentPlansOffered: number; period: string } }>('/api/dashboard/hours-saved').catch(() => ({ data: null })),
           api.get<{ data: BillingAnomaly[] }>('/api/billing-optimization').catch(() => ({ data: [] as BillingAnomaly[] })),
           api.get<{ data: EnhancedCashForecast }>('/api/dashboard/cash-forecast').catch(() => ({ data: null as EnhancedCashForecast | null })),
         ]);
-        const stats = statsRes.data;
-        const pipeline = pipelineRes.data;
+        // Extract data from batched core-stats
+        const stats = coreStatsRes.data.stats;
+        const pipeline = coreStatsRes.data.pipeline;
+        const agingData = coreStatsRes.data.aging;
         const riskList = riskRes.data;
         const atRisk = atRiskRes.data || [];
         const cashPosition = cashRes.data;
         const runway = runwayRes.data;
         const leakage = leakageRes.data;
         const kpiData = kpiRes.data;
-        const agingData = agingRes.data;
         const emailAnalyticsData = emailAnalyticsRes.data;
         const riskDriversData = riskDriversRes.data;
-        const plansSummaryData = plansSummaryRes.data;
-        const workingCapitalData = workingCapitalRes.data;
-        const dsoReductionData = dsoReductionRes.data;
+        // ❌ DISABLED — Phase 2 features
+        // const plansSummaryData = null; // plansSummaryRes.data;
+        // const workingCapitalData = null; // workingCapitalRes.data;
+        // const dsoReductionData = null; // dsoReductionRes.data;
         const hoursSavedData = hoursSavedRes.data;
         const billingAnomaliesData = billingAnomaliesRes.data || [];
         const cashForecastData = cashForecastRes.data;
@@ -341,8 +338,8 @@ const Dashboard: React.FC = () => {
         dashCache = {
           stats, pipeline, riskList, atRisk, cashPosition, runway, leakage,
           kpi: kpiData, aging: agingData, emailAnalytics: emailAnalyticsData,
-          riskDrivers: riskDriversData, plansSummary: plansSummaryData, timeline: [],
-          workingCapital: workingCapitalData, dsoReduction: dsoReductionData,
+          riskDrivers: riskDriversData, plansSummary: null, timeline: [],  // ❌ DISABLED: Phase 2
+          workingCapital: null, dsoReduction: null,  // ❌ DISABLED: Phase 2
           hoursSaved: hoursSavedData,
           billingAnomalies: billingAnomaliesData, cashForecast: cashForecastData,
           ts: Date.now(),
@@ -616,61 +613,6 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className="bg-white dark:bg-[#09090b] min-h-full">
-      {/* STRIPE NOT CONNECTED WARNING */}
-      {!company?.stripe_account_id && !isDemo && (
-        <div className="max-w-7xl mx-auto px-6 sm:px-8 mt-6 mb-6">
-          <div className="p-4 bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 rounded-lg">
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex-1">
-                <h3 className="font-semibold text-red-900 dark:text-red-400">
-                  ⚠️ Stripe Not Connected
-                </h3>
-                <p className="text-sm text-red-800 dark:text-red-300 mt-1">
-                  Your autonomous agent is paused. Connect Stripe or import CSV to start recovering invoices.
-                </p>
-              </div>
-              <Button
-                size="sm"
-                className="bg-red-600 hover:bg-red-700 text-white flex-shrink-0"
-                onClick={() => navigate('/settings?tab=integrations')}
-              >
-                Connect Now
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* EMAIL SETUP INFO CARD */}
-      {!dismissEmailWarning && !company?.smtp_verified && !isDemo && (
-        <div className="max-w-7xl mx-auto px-6 sm:px-8 mb-6">
-          <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500 rounded-lg">
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex-1">
-                <h3 className="font-semibold text-blue-900 dark:text-blue-400">
-                  ℹ️ Email Configuration
-                </h3>
-                <p className="text-sm text-blue-800 dark:text-blue-300 mt-1">
-                  Emails currently sent via RecoverAI domain.
-                  <button
-                    type="button"
-                    onClick={() => navigate('/settings?tab=email')}
-                    className="text-blue-600 dark:text-blue-400 hover:underline font-medium inline ml-1"
-                  >
-                    Setup custom email →
-                  </button>
-                </p>
-              </div>
-              <button
-                onClick={() => setDismissEmailWarning(true)}
-                className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 flex-shrink-0"
-              >
-                ✕
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* TRIAL BANNER */}
       {isTrialMode && trialDaysRemaining >= 0 && (

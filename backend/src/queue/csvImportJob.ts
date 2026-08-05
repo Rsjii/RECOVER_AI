@@ -2,7 +2,7 @@ import { Queue, Worker } from 'bullmq';
 import { getRedisConnection } from './dunningQueue';
 import { logInfo, logError } from '../utils/logger';
 import { pool } from '../config/database';
-import { scoreCustomerRiskFromDaysOverdue } from '../services/riskScoringService';
+import { scoreCustomerRiskFromDaysOverdue, scoreCustomerRisk } from '../services/riskScoringService';
 
 const LOG_MODULE = 'csvImportJob';
 
@@ -289,6 +289,18 @@ export async function processCsvImportJob(companyId: string, invoices: CSVImport
             maxDaysOverdue,
             score,
           });
+
+          // ✅ FIX: Call full scoreCustomerRisk() to populate payment_insights JSONB
+          try {
+            const { score: fullScore } = await scoreCustomerRisk(companyId, customerId);
+            logInfo(LOG_MODULE, 'processCsvImportJob', 'Full risk assessment + payment_insights populated', {
+              customerId,
+              riskScore: fullScore,
+            });
+          } catch (richErr) {
+            logError(LOG_MODULE, 'processCsvImportJob', 'Full risk scoring failed (non-blocking)', richErr, { customerId });
+            // Non-blocking — payment_insights will be populated on next Stripe sync
+          }
         } catch (err) {
           logError(LOG_MODULE, 'processCsvImportJob', 'Failed to calculate customer risk score', err, {
             customerId,

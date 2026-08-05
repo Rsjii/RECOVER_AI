@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { pool } from '../config/database';
 import { logInfo, logError, logWarn } from '../utils/logger';
+import { logSmsFailedNotification } from '../utils/notificationLogger';
 
 const MODULE = 'twilioController';
 
@@ -64,6 +65,22 @@ export async function handleSMSStatusWebhook(req: Request, res: Response) {
          WHERE twilio_message_sid = $2`,
         [failureReason, MessageSid]
       );
+
+      // Wire notification: SMS delivery failed
+      try {
+        const customerResult = await pool.query(
+          `SELECT c.company_name FROM sms_logs sl
+           JOIN customers c ON sl.customer_id = c.id
+           WHERE sl.twilio_message_sid = $1`,
+          [MessageSid]
+        );
+        if (customerResult.rows.length > 0) {
+          const customerName = customerResult.rows[0].company_name;
+          await logSmsFailedNotification(smsLog.company_id, customerName, To, failureReason);
+        }
+      } catch (notifyErr: unknown) {
+        logWarn(MODULE, method, 'Failed to log SMS failure notification (non-blocking)', { error: String(notifyErr) });
+      }
 
       logWarn(MODULE, method, 'SMS marked as failed', {
         MessageSid,
