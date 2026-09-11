@@ -13,47 +13,36 @@ export const redisClient = createClient({
   socket: {
     reconnectStrategy: (retries: number) => {
       if (retries > 5) {
-        if (config.nodeEnv !== 'development') {
-          logError('redis', 'reconnectStrategy', 'Max reconnection attempts (5) reached - giving up');
-        }
+        logWarn('redis', 'reconnectStrategy', 'Max reconnection attempts (5) reached - giving up');
         return new Error('Max Redis reconnections exceeded');
       }
-      if (config.nodeEnv !== 'development') {
-        const delay = Math.min(retries * 500, 3000);
-        logWarn('redis', 'reconnectStrategy', 'Reconnection scheduled', {
-          attempt: retries + 1,
-          delayMs: delay,
-        });
-      }
-      return Math.min(retries * 500, 3000);
+      const delay = Math.min(retries * 500, 3000);
+      logWarn('redis', 'reconnectStrategy', 'Reconnection scheduled', {
+        attempt: retries + 1,
+        delayMs: delay,
+      });
+      return delay;
     },
   },
 });
 
-// Connection lifecycle logging - only in non-dev or after successful connection
+// Connection lifecycle logging
 redisClient.on('connect', () => {
-  if (config.nodeEnv !== 'development' || redisClient.isOpen) {
-    logInfo('redis', 'event:connect', 'Connected');
-  }
+  logInfo('redis', 'event:connect', 'Connected');
 });
 
 redisClient.on('ready', () => {
-  if (config.nodeEnv !== 'development' || redisClient.isOpen) {
-    logInfo('redis', 'event:ready', 'Ready');
-  }
+  logInfo('redis', 'event:ready', 'Ready');
 });
 
-// Suppress error logging during dev mode - connectRedis will handle it
+// Errors are expected when Redis is unreachable (demo mode) - warn, don't crash.
+// connectRedis() below decides whether to fail startup.
 redisClient.on('error', (err: Error) => {
-  if (config.nodeEnv !== 'development') {
-    logError('redis', 'event:error', 'Redis client error', err);
-  }
+  logWarn('redis', 'event:error', 'Redis client error (non-fatal)', { errorMessage: err.message });
 });
 
 redisClient.on('reconnecting', () => {
-  if (config.nodeEnv !== 'development') {
-    logWarn('redis', 'event:reconnecting', 'Reconnecting...');
-  }
+  logWarn('redis', 'event:reconnecting', 'Reconnecting...');
 });
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
@@ -77,29 +66,22 @@ export async function connectRedis(): Promise<void> {
     logInfo('redis', 'connectRedis', 'Starting connection...');
 
     if (!redisClient.isOpen) {
-      logInfo('redis', 'connectRedis', 'Connecting to Upstash', { timeoutMs: 8000 });
-      try {
-        await withTimeout(redisClient.connect(), 8000);
-        logInfo('redis', 'connectRedis', 'Connected, sending ping...');
-      } catch (connectErr: any) {
-        throw new Error(`Redis connect failed: ${connectErr.message}`);
-      }
+      logInfo('redis', 'connectRedis', 'Connecting to Redis', { timeoutMs: 8000 });
+      await withTimeout(redisClient.connect(), 8000);
+      logInfo('redis', 'connectRedis', 'Connected, sending ping...');
     }
 
     const pong = await withTimeout(redisClient.ping(), 5000);
-    logInfo('redis', 'connectRedis', 'Connected to Upstash', { ping: pong });
+    logInfo('redis', 'connectRedis', 'Connected to Redis', { ping: pong });
     redisConnected = true;
   } catch (err: any) {
-    if (config.nodeEnv === 'development') {
-      logWarn('redis', 'connectRedis', 'Connection failed (continuing in dev mode without Redis)');
-      logWarn('redis', 'connectRedis', 'Connection error', { error: err.message });
-      logWarn('redis', 'connectRedis', 'Verify REDIS_URL in .env and Upstash availability');
-      redisConnected = false;
-      // Don't throw - let server continue without Redis in dev mode
-    } else {
-      logError('redis', 'connectRedis', 'Connection failed', err);
-      throw err;
-    }
+    // Demo mode: Redis is optional. Log and continue instead of crashing the server.
+    // Password login and Supabase-backed reads work without Redis; only OTP
+    // signup, email-preview cache, and risk-score cache degrade.
+    logWarn('redis', 'connectRedis', 'Connection failed - continuing without Redis (cache/OTP/queues disabled)', {
+      error: err.message,
+    });
+    redisConnected = false;
   }
 }
 

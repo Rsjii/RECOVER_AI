@@ -1,7 +1,7 @@
 import app from './app';
 import { config } from './config/env';
 import { testDbConnection } from './config/database';
-import { connectRedis } from './config/redis';
+import { connectRedis, isRedisConnected } from './config/redis';
 import { runMigrations } from './lib/migrate';
 import { initScheduler, stopScheduler } from './jobs/scheduler';
 import { registerEventListeners } from './jobs/eventListeners';
@@ -33,7 +33,13 @@ async function startServer() {
 
     logInfo('server', 'startServer', 'Step 4: Connecting to Redis...');
     await connectRedis();
-    logInfo('server', 'startServer', 'Step 4 OK: Redis connected');
+    logInfo(
+      'server',
+      'startServer',
+      isRedisConnected()
+        ? 'Step 4 OK: Redis connected'
+        : 'Step 4: Redis unavailable - continuing without cache/OTP/queues (demo mode)'
+    );
 
     // ============================================================
     // ARCHITECTURE: Cron Scheduler + Event-Driven (Best Practice)
