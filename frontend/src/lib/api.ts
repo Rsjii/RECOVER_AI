@@ -7,7 +7,9 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
 const instance: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 30000,
+  // Render free tier spins down after idle and can take ~50-60s to cold-start.
+  // 60s gives real requests room to survive a cold start instead of erroring out.
+  timeout: 60000,
   withCredentials: true,
 });
 
