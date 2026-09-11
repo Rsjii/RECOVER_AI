@@ -356,10 +356,8 @@ export const proceedFromStage4 = async (req: Request, res: Response) => {
     const stripeConnected = !!company.stripe_api_key_encrypted || !!company.stripe_account_id;
     const qbConnected = !!company.quickbooks_realm_id && !!company.quickbooks_access_token_encrypted;
 
-    // Require at least one integration (dev mode allows either)
-    if (!isDev && !stripeConnected && !csvConnected && !qbConnected) {
-      return res.status(400).json({ error: 'Connect a billing source (Stripe, CSV, or QuickBooks) to proceed' });
-    }
+    // Connecting a billing source is recommended but not required — user can
+    // skip straight to the dashboard and connect later from Settings.
 
     logInfo(MODULE, handler, 'Company data before sync', {
       stripe_account_id: !!company.stripe_account_id,

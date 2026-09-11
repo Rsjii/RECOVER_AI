@@ -122,11 +122,8 @@ export const Integrations: React.FC = () => {
   };
 
   const handleNext = async () => {
-    if (!status?.stripe_connected && !status?.csv_connected && !status?.qb_connected && !import.meta.env.DEV) {
-      setError('Connect a billing source (Stripe, CSV, or QuickBooks) to continue');
-      return;
-    }
-
+    // Connecting a billing source is recommended but not required — user can
+    // skip straight to the dashboard and connect later from Settings.
     setProceeding(true);
     try {
       addToast({
@@ -459,15 +456,15 @@ export const Integrations: React.FC = () => {
             </div>
           </div>
 
-          {/* Continue Button */}
+          {/* Continue Button — connecting a billing source is recommended but optional */}
           <Button
             onClick={handleNext}
-            disabled={proceeding || !canProceed}
+            disabled={proceeding}
             loading={proceeding}
             size="lg"
             className="w-full"
           >
-            {proceeding ? 'Setting up your dashboard...' : 'Continue to dashboard'}
+            {proceeding ? 'Setting up your dashboard...' : canProceed ? 'Continue to dashboard' : 'Skip for now'}
           </Button>
 
           <p className="text-xs text-center text-gray-500 dark:text-gray-400 mt-4">
