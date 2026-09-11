@@ -4,7 +4,7 @@ import { authService } from '../services/authService';
 import { SignupInput, LoginInput } from '../types/auth';
 import { config } from '../config/env';
 import { pool } from '../config/database';
-import { redisClient } from '../config/redis';
+import * as SignupOtpDB from '../db/signupOtps';
 import * as SecurityDB from '../db/security';
 import * as UserDB from '../db/users';
 import * as CompanyDB from '../db/companies';
@@ -96,14 +96,9 @@ export const signupWithOTP = async (req: Request, res: Response) => {
     const isDev = config.nodeEnv !== 'production';
     const otp = isDev ? '123456' : String(Math.floor(100000 + Math.random() * 900000));
 
-    // Store only email + password hash in Redis (15 min expiry)
+    // Store email + password hash + OTP in DB (15 min expiry)
     // Profile details (firstName, lastName, companyName) will be collected after OTP verify
-    await redisClient.set(
-      `signup_pending:${email}`,
-      JSON.stringify({ email, passwordHash }),
-      { EX: 15 * 60 }
-    );
-    await redisClient.set(`signup_otp:${email}`, otp, { EX: 15 * 60 });
+    await SignupOtpDB.setSignupOtp(email, otp, passwordHash, 15 * 60);
 
     // Send OTP email
     if (!isDev) {
@@ -151,19 +146,16 @@ export const signupVerifyOTP = async (req: Request, res: Response) => {
       return sendErrorResponse(res, 400, 'Email and OTP required');
     }
 
-    // Verify OTP
-    const storedOtp = await redisClient.get(`signup_otp:${email}`);
-    if (!storedOtp || storedOtp !== otp) {
+    // Verify OTP + fetch pending signup data (single DB row, checks expiry)
+    const pending = await SignupOtpDB.getSignupOtp(email);
+    if (!pending) {
+      return sendErrorResponse(res, 400, 'Session expired, please start again');
+    }
+    if (pending.otp !== otp) {
       return sendErrorResponse(res, 400, 'Invalid or expired OTP');
     }
 
-    // Get pending data
-    const pendingStr = await redisClient.get(`signup_pending:${email}`);
-    if (!pendingStr) {
-      return sendErrorResponse(res, 400, 'Session expired, please start again');
-    }
-
-    const { passwordHash } = JSON.parse(pendingStr);
+    const { passwordHash } = pending;
 
     // Create TEMPORARY company (will be updated in /profile page)
     const company = await CompanyDB.createCompany({
@@ -216,9 +208,8 @@ export const signupVerifyOTP = async (req: Request, res: Response) => {
     // Set cookies (user is now authenticated)
     setCookies(res, tokens.accessToken, tokens.refreshToken);
 
-    // Clean Redis
-    await redisClient.del(`signup_otp:${email}`);
-    await redisClient.del(`signup_pending:${email}`);
+    // Clean up pending signup row
+    await SignupOtpDB.deleteSignupOtp(email);
 
     // Send welcome email (non-blocking)
     try {
@@ -307,14 +298,9 @@ export const signup = async (req: Request, res: Response) => {
       // Hash password
       const passwordHash = await bcrypt.hash(password, 12);
 
-      // Store ONLY email + passwordHash in Redis (15 min expiry)
+      // Store email + passwordHash + OTP in DB (15 min expiry)
       // Profile details will be collected AFTER OTP verification in /profile page
-      await redisClient.set(
-        `signup_pending:${email}`,
-        JSON.stringify({ email, passwordHash }),
-        { EX: 15 * 60 }
-      );
-      await redisClient.set(`signup_otp:${email}`, otp, { EX: 15 * 60 });
+      await SignupOtpDB.setSignupOtp(email, otp, passwordHash, 15 * 60);
 
       // Send OTP email
       if (!isDev) {
@@ -661,19 +647,16 @@ export const verifyEmail = async (req: Request, res: Response) => {
     if (!userId && email) {
       logInfo(handler, 'Signup flow: verifying OTP for signup', { email });
 
-      // Verify OTP from Redis
-      const storedOtp = await redisClient.get(`signup_otp:${email}`);
-      if (!storedOtp || storedOtp !== otp) {
+      // Verify OTP + fetch pending signup data (single DB row, checks expiry)
+      const pending = await SignupOtpDB.getSignupOtp(email);
+      if (!pending) {
+        return sendErrorResponse(res, 400, 'Session expired, please start again');
+      }
+      if (pending.otp !== otp) {
         return sendErrorResponse(res, 400, 'Invalid or expired OTP');
       }
 
-      // Get pending signup data from Redis
-      const pendingStr = await redisClient.get(`signup_pending:${email}`);
-      if (!pendingStr) {
-        return sendErrorResponse(res, 400, 'Session expired, please start again');
-      }
-
-      const { passwordHash } = JSON.parse(pendingStr);
+      const { passwordHash } = pending;
 
       // Create company + user (minimal data, details filled on /profile page)
       const company = await CompanyDB.createCompany({
@@ -718,9 +701,8 @@ export const verifyEmail = async (req: Request, res: Response) => {
       // Set cookies
       setCookies(res, tokens.accessToken, tokens.refreshToken);
 
-      // Clean Redis
-      await redisClient.del(`signup_otp:${email}`);
-      await redisClient.del(`signup_pending:${email}`);
+      // Clean up pending signup row
+      await SignupOtpDB.deleteSignupOtp(email);
 
       logInfo(handler, 'Signup complete - account created and verified', { userId: user.id });
 
@@ -773,18 +755,15 @@ export const resendOtp = async (req: Request, res: Response) => {
       return sendErrorResponse(res, 400, 'Email is required');
     }
 
-    // Check if pending signup exists in Redis
-    const pendingStr = await redisClient.get(`signup_pending:${email}`);
-    if (!pendingStr) {
-      return sendErrorResponse(res, 400, 'No pending signup found. Please start signup again.');
-    }
-
     // Generate new OTP
     const isDev = config.nodeEnv !== 'production';
     const otpCode = isDev ? '123456' : String(Math.floor(100000 + Math.random() * 900000));
 
-    // Store OTP in Redis with 15 min TTL (matches signupWithOTP)
-    await redisClient.set(`signup_otp:${email}`, otpCode, { EX: 15 * 60 });
+    // Update OTP for the pending signup (15 min TTL, matches signupWithOTP)
+    const updated = await SignupOtpDB.updateSignupOtpCode(email, otpCode, 15 * 60);
+    if (!updated) {
+      return sendErrorResponse(res, 400, 'No pending signup found. Please start signup again.');
+    }
 
     // Send OTP email
     if (!isDev) {

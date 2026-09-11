@@ -177,6 +177,19 @@ EXCEPTION WHEN OTHERS THEN
 END $$;
 
 -- ============================================================
+-- SIGNUP OTPS (email+password signup verification, DB-backed — no Redis dependency)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS signup_otps (
+  email               VARCHAR PRIMARY KEY,
+  otp                 VARCHAR(6) NOT NULL,
+  password_hash       VARCHAR NOT NULL,
+  invite_token        VARCHAR(255),         -- set when signup started from an invite link
+  invite_company_name VARCHAR,              -- company name carried from the invite (audit-stages flow)
+  expires_at          TIMESTAMPTZ NOT NULL,
+  created_at          TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================================================
 -- CUSTOMERS (their customers who owe money)
 -- ============================================================
 CREATE TABLE IF NOT EXISTS customers (

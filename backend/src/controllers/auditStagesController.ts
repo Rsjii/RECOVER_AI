@@ -3,7 +3,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { logInfo, logError, logWarn } from '../utils/logger';
 import { config } from '../config/env';
-import { redisClient } from '../config/redis';
+import * as SignupOtpDB from '../db/signupOtps';
 import resendService from '../services/resendService';
 import * as CompanyDB from '../db/companies';
 import * as UserDB from '../db/users';
@@ -143,12 +143,10 @@ export const submitStage1Auth = async (req: Request, res: Response) => {
     const otp = isDev ? '123456' : String(Math.floor(100000 + Math.random() * 900000));
 
     // Store pending data — include company_name (from invite or email domain)
-    await redisClient.set(
-      `stage1_pending:${email}`,
-      JSON.stringify({ email, passwordHash, token: token || null, invite_company_name: companyName }),
-      { EX: 15 * 60 }
-    );
-    await redisClient.set(`otp:${email}`, otp, { EX: 15 * 60 });
+    await SignupOtpDB.setSignupOtp(email, otp, passwordHash, 15 * 60, {
+      inviteToken: token || null,
+      inviteCompanyName: companyName,
+    });
 
     if (!isDev) {
       try {
@@ -189,18 +187,15 @@ export const verifyStage1OTP = async (req: Request, res: Response) => {
   try {
     logInfo(MODULE, handler, 'OTP verification', { email });
 
-    // 1. Verify OTP
-    const storedOtp = await redisClient.get(`otp:${email}`);
-    if (!storedOtp || storedOtp !== otp) {
-      return res.status(400).json({ error: 'Invalid or expired code' });
-    }
-
-    // 2. Get pending account data
-    const pendingDataStr = await redisClient.get(`stage1_pending:${email}`);
-    if (!pendingDataStr) {
+    // 1. Verify OTP + fetch pending account data (single DB row, checks expiry)
+    const pending = await SignupOtpDB.getSignupOtp(email);
+    if (!pending) {
       return res.status(400).json({ error: 'Session expired, please start again' });
     }
-    const { passwordHash, invite_company_name } = JSON.parse(pendingDataStr);
+    if (pending.otp !== otp) {
+      return res.status(400).json({ error: 'Invalid or expired code' });
+    }
+    const { passwordHash, inviteCompanyName: invite_company_name } = pending;
 
     // 3. Create company
     let company = await CompanyDB.findCompanyByEmail(email);
@@ -237,9 +232,8 @@ export const verifyStage1OTP = async (req: Request, res: Response) => {
     // 7. Update onboarding stage
     await CompanyDB.updateCompany(company.id, { onboarding_stage: 'create_account' });
 
-    // 8. Clean Redis
-    await redisClient.del(`otp:${email}`);
-    await redisClient.del(`stage1_pending:${email}`);
+    // 8. Clean up pending signup row
+    await SignupOtpDB.deleteSignupOtp(email);
 
     logInfo(MODULE, handler, 'Account created after OTP', { userId: user.id });
 
