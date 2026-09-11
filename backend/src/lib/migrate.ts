@@ -98,28 +98,19 @@ async function applySchemaAlterations(): Promise<void> {
     // Required for the ON CONFLICT (company_id, source, source_id) clause used by CSV/Stripe/QB import.
     // Tables created before this constraint existed in schema.sql never got it (CREATE TABLE IF NOT EXISTS
     // skips the whole statement on an existing table), so it must be backfilled here.
-    const uniqueConstraint = await client.query(`
-      SELECT 1
-      FROM pg_constraint c
-      JOIN pg_class t ON t.oid = c.conrelid
-      WHERE t.relname = 'invoices' AND c.contype = 'u'
-        AND c.conkey = (
-          SELECT array_agg(a.attnum ORDER BY a.attnum)
-          FROM pg_attribute a
-          WHERE a.attrelid = t.oid AND a.attname = ANY(ARRAY['company_id', 'source', 'source_id'])
-        )
-    `);
-    if (uniqueConstraint.rows.length === 0) {
-      logInfo('migrate', 'applySchemaAlterations', 'Applying: invoices UNIQUE(company_id, source, source_id)');
-      try {
-        await client.query(`ALTER TABLE invoices ADD CONSTRAINT invoices_company_id_source_source_id_key UNIQUE (company_id, source, source_id)`);
-        logInfo('migrate', 'applySchemaAlterations', 'Applied: invoices UNIQUE(company_id, source, source_id)');
-      } catch (constraintErr: any) {
-        // Existing duplicate (company_id, source, source_id) rows would block this — needs manual cleanup.
+    // Just attempt the ALTER directly — Postgres error code 42710 (duplicate_object) means it already
+    // exists, which is the expected no-op case. Any other error (e.g. 23505 from pre-existing duplicate
+    // rows) is a real problem and gets logged without crashing the server.
+    try {
+      await client.query(`ALTER TABLE invoices ADD CONSTRAINT invoices_company_id_source_source_id_key UNIQUE (company_id, source, source_id)`);
+      logInfo('migrate', 'applySchemaAlterations', 'Applied: invoices UNIQUE(company_id, source, source_id)');
+    } catch (constraintErr: any) {
+      if (constraintErr.code === '42710') {
+        logInfo('migrate', 'applySchemaAlterations', 'Already applied: invoices UNIQUE(company_id, source, source_id)');
+      } else {
+        // Most likely 23505 — existing duplicate (company_id, source, source_id) rows block this and need manual cleanup.
         logError('migrate', 'applySchemaAlterations', 'Failed to add invoices unique constraint (likely duplicate rows exist) — CSV/Stripe/QB dedup will keep failing until this is resolved', constraintErr);
       }
-    } else {
-      logInfo('migrate', 'applySchemaAlterations', 'Already applied: invoices UNIQUE(company_id, source, source_id)');
     }
   } catch (err: any) {
     logError('migrate', 'applySchemaAlterations', 'Schema alteration failed', err);
