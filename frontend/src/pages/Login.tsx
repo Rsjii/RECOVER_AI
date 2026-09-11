@@ -33,27 +33,6 @@ const Login: React.FC = () => {
     if (errors[field]) setErrors(prev => ({ ...prev, [field]: undefined }));
   };
 
-  const handleGoogleLogin = () => {
-    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-    const backendUrl = import.meta.env.VITE_API_BASE_URL || '';
-    const redirectUri = `${backendUrl}/api/auth/oauth/google/callback`;
-    const scope = 'openid email profile';
-    const responseType = 'code';
-    const state = Math.random().toString(36).substring(7);
-
-    sessionStorage.setItem('oauth_state', state);
-
-    const params = new URLSearchParams({
-      client_id: clientId,
-      redirect_uri: redirectUri,
-      scope,
-      response_type: responseType,
-      state,
-    });
-
-    window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
-  };
-
   const validate = () => {
     const newErrors: typeof errors = {};
     if (!form.email) newErrors.email = 'Email is required';

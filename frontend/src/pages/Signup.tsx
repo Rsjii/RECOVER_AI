@@ -54,29 +54,6 @@ const Signup: React.FC = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleGoogleSignup = () => {
-    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-    const backendUrl = import.meta.env.VITE_API_BASE_URL || '';
-    const redirectUri = `${backendUrl}/api/auth/oauth/google/callback`;
-    const scope = 'openid email profile';
-    const responseType = 'code';
-    const state = Math.random().toString(36).substring(7);
-
-    sessionStorage.setItem('oauth_state', state);
-
-    const params = new URLSearchParams({
-      client_id: clientId,
-      redirect_uri: redirectUri,
-      scope,
-      response_type: responseType,
-      state,
-      prompt: 'select_account consent',  // Show account selector + consent screen
-      access_type: 'offline',  // Get refresh token for offline access
-    });
-
-    window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
