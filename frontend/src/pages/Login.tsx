@@ -226,23 +226,9 @@ const Login: React.FC = () => {
               Sign in
             </Button>
 
-            <div className="relative py-1">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-200 dark:border-white/[0.06]" />
-              </div>
-              <div className="relative flex justify-center">
-                <span className="px-2 text-xs text-gray-500 dark:text-gray-400 bg-white dark:bg-[#111113]">OR</span>
-              </div>
-            </div>
-
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full"
-              onClick={handleGoogleLogin}
-            >
-              Continue with Google
-            </Button>
+            {/* Google login temporarily disabled — onrender.com OAuth callback
+                is getting flagged by Google Safe Browsing. Re-enable once the
+                backend is on a custom domain. */}
           </form>
 
           {/* Signup Link */}

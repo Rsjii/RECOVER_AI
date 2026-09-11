@@ -75,6 +75,17 @@ const RootRedirect: React.FC = () => {
 const App: React.FC = () => {
   const { toasts, removeToast } = useNotification();
 
+  // Free-tier backend (Render) spins down after idle. Fire a one-time,
+  // fire-and-forget wake-up call as soon as the page loads so the cold
+  // start happens in the background while the user is still reading —
+  // by the time they hit a real API call, the backend has a head start.
+  React.useEffect(() => {
+    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '';
+    fetch(`${apiBaseUrl}/health`).catch(() => {
+      // Ignore failures — this is only a best-effort wake-up ping.
+    });
+  }, []);
+
   return (
     <>
       <BrowserRouter>

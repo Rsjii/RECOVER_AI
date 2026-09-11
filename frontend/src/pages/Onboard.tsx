@@ -4,7 +4,6 @@ import api from '../lib/api';
 import { logError } from '../utils/logger';
 import { Button } from '../components/ui/Button';
 import { useNotification } from '../hooks/useNotification';
-import GoogleAuthButton from '../components/GoogleAuthButton';
 
 type OnboardStep = 'email' | 'company' | 'stripe' | 'success';
 
@@ -278,16 +277,9 @@ export default function Onboard() {
               {loading ? 'Creating Account...' : 'Continue'}
             </Button>
 
-            <div className="relative my-6">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-slate-600"></div>
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-slate-800 text-gray-400">or</span>
-              </div>
-            </div>
-
-            <GoogleAuthButton />
+            {/* Google signup temporarily disabled — onrender.com OAuth callback
+                is getting flagged by Google Safe Browsing. Re-enable once the
+                backend is on a custom domain. */}
           </form>
         )}
 
